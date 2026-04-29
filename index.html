@@ -1439,7 +1439,7 @@
 <!-- EVENT BUSES -->
 <section id="buses">
   <div class="section-label">Event buses</div>
-  <div class="bus-grid" style="margin-bottom:80px;">
+  <div class="bus-grid" style="margin-bottom:40px;">
 
     <div class="bus-card redis">
       <div class="bus-name">Redis</div>
@@ -1475,7 +1475,182 @@
     </div>
 
   </div>
+
+  <!-- SETUP DIRECTIONS -->
+  <div class="section-label" style="margin-top:24px;">Getting started — setup directions</div>
+
+  <div class="banner" style="margin-bottom: 32px;">
+    <span class="banner-text"># INSTANCE_ID</span><br>
+    <span class="banner-em">Every cache instance needs a unique, stable INSTANCE_ID.</span><br>
+    <span style="color:#5a7a3a">Used as <code>source</code> for event deduplication and as part of durable queue / consumer names.</span><br>
+    <span style="color:#7a5a3a">Kubernetes: <code>$HOSTNAME</code> · Docker Compose: <code>web-1</code> · PM2: <code>api-0</code> · Dev: <code>dev-local</code></span>
+  </div>
+
+  <div class="api-grid" style="margin-bottom: 40px;">
+
+    <!-- Redis Setup -->
+    <div class="code-block">
+      <div class="code-header">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="code-filename">Redis — setup</span>
+      </div>
+      <div class="code-body" style="white-space: pre;"><span class="cm"># Docker</span>
+docker run -d --name redis \
+  -p <span class="num">6379</span>:<span class="num">6379</span> redis:<span class="num">7</span>-alpine
+
+<span class="cm"># macOS</span>
+brew install redis
+brew services start redis
+
+<span class="cm"># Connection URL</span>
+REDIS_URL=<span class="str">"redis://localhost:6379"</span>
+
+<span class="cm"># Managed: Redis Cloud, Upstash, AWS ElastiCache</span></div>
+    </div>
+
+    <!-- Redis Code -->
+    <div class="code-block">
+      <div class="code-header">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="code-filename">Redis — connect</span>
+      </div>
+      <div class="code-body" style="white-space: pre;"><span class="kw">import</span> Redis <span class="kw">from</span> <span class="str">"ioredis"</span>;
+<span class="kw">import</span> { RedisEventBus } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
+
+<span class="kw">const</span> redis = <span class="kw">new</span> <span class="fn">Redis</span>(process.env.REDIS_URL);
+
+<span class="kw">const</span> eventBus = <span class="kw">new</span> <span class="type">RedisEventBus</span>(redis,
+  <span class="str">"cache:invalidations"</span>, {
+  retryQueue: {
+    enabled: <span class="kw">true</span>,
+    maxSize: <span class="num">1_000</span>,
+  },
+  logging: { env: <span class="str">"production"</span> },
+});</div>
+    </div>
+
+  </div>
+
+  <div class="api-grid" style="margin-bottom: 40px;">
+
+    <!-- RabbitMQ Setup -->
+    <div class="code-block">
+      <div class="code-header">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="code-filename">RabbitMQ — setup</span>
+      </div>
+      <div class="code-body" style="white-space: pre;"><span class="cm"># Docker (with management UI)</span>
+docker run -d --name rabbitmq \
+  -p <span class="num">5672</span>:<span class="num">5672</span> \
+  -p <span class="num">15672</span>:<span class="num">15672</span> \
+  rabbitmq:<span class="num">3</span>-management
+
+<span class="cm"># Management UI: http://localhost:15672</span>
+<span class="cm"># Default login: guest / guest</span>
+
+<span class="cm"># Connection URL</span>
+RABBITMQ_URL=<span class="str">"amqp://guest:guest@localhost:5672"</span>
+
+<span class="cm"># Managed: CloudAMQP (free), AWS Amazon MQ</span></div>
+    </div>
+
+    <!-- RabbitMQ Code -->
+    <div class="code-block">
+      <div class="code-header">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="code-filename">RabbitMQ — connect</span>
+      </div>
+      <div class="code-body" style="white-space: pre;"><span class="kw">import</span> { RabbitMQEventBus } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
+
+<span class="kw">const</span> eventBus = <span class="kw">new</span> <span class="type">RabbitMQEventBus</span>(
+  <span class="str">"cache.invalidations"</span>, {
+  url: process.env.RABBITMQ_URL,
+  exchangeType: <span class="str">"fanout"</span>,
+  durableInvalidationMode: <span class="kw">true</span>,
+  queueName: <span class="str">`${</span>process.env.INSTANCE_ID<span class="str">}-cache`</span>,
+  exclusiveQueue: <span class="kw">false</span>,
+  autoDeleteQueue: <span class="kw">false</span>,
+  prefetch: <span class="num">100</span>,
+  retryQueue: { enabled: <span class="kw">true</span> },
+  logging: { env: <span class="str">"production"</span> },
+});</div>
+    </div>
+
+  </div>
+
+  <div class="api-grid" style="margin-bottom: 40px;">
+
+    <!-- NATS Setup -->
+    <div class="code-block">
+      <div class="code-header">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="code-filename">NATS — setup</span>
+      </div>
+      <div class="code-body" style="white-space: pre;"><span class="cm"># Docker (core mode)</span>
+docker run -d --name nats \
+  -p <span class="num">4222</span>:<span class="num">4222</span> nats:latest
+
+<span class="cm"># Docker (JetStream enabled)</span>
+docker run -d --name nats \
+  -p <span class="num">4222</span>:<span class="num">4222</span> nats:latest -js
+
+<span class="cm"># Local binary</span>
+<span class="cm"># Download: github.com/nats-io/nats-server/releases</span>
+nats-server        <span class="cm"># core</span>
+nats-server -js    <span class="cm"># JetStream</span>
+
+<span class="cm"># Connection URL</span>
+NATS_URL=<span class="str">"nats://localhost:4222"</span>
+
+<span class="cm"># Demo server (testing only, public!):</span>
+<span class="cm"># nats://demo.nats.io</span>
+
+<span class="cm"># Managed: Synadia Cloud (by NATS creators)</span></div>
+    </div>
+
+    <!-- NATS Code -->
+    <div class="code-block">
+      <div class="code-header">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="code-filename">NATS JetStream — connect</span>
+      </div>
+      <div class="code-body" style="white-space: pre;"><span class="kw">import</span> { NatsEventBus } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
+
+<span class="kw">const</span> eventBus = <span class="kw">new</span> <span class="type">NatsEventBus</span>({
+  mode: <span class="str">"jetstream"</span>,
+  connectionOptions: {
+    servers: process.env.NATS_URL,
+    name: process.env.INSTANCE_ID,
+  },
+  subject: <span class="str">"cache.invalidations"</span>,
+  jetstream: {
+    stream: <span class="str">"CACHE_INVALIDATIONS"</span>,
+    durableName: <span class="str">`${</span>process.env.INSTANCE_ID
+      <span class="str">}-cache`</span>,
+    storage: <span class="str">"file"</span>,
+    maxAgeMs: <span class="num">86_400_000</span>, <span class="cm">// 24h</span>
+    ensureStream: <span class="kw">true</span>,
+    ensureConsumer: <span class="kw">true</span>,
+    ackWaitMs: <span class="num">30_000</span>,
+    maxDeliver: <span class="num">10</span>,
+  },
+  logging: { env: <span class="str">"production"</span> },
+});</div>
+    </div>
+
+  </div>
+
+  <!-- INSTANCE_ID TABLE -->
+  <div class="banner" style="margin-bottom: 32px;">
+    <span class="banner-text"># Health check before server start</span><br>
+    <span class="banner-em">Always run <code>await eventBus.healthCheck()</code> before starting your HTTP server.</span><br>
+    <span style="color:#5a7a3a">This validates connectivity, creates streams/consumers if needed, and catches config errors early.</span><br>
+    <span style="color:#7a5a3a">If <code>health.ok</code> is <code>false</code>, abort startup rather than running with a broken event bus.</span>
+  </div>
+
+  <div style="margin-bottom:80px;"></div>
 </section>
+
 
 <!-- RESILIENCE -->
 <section id="resilience">
@@ -1751,7 +1926,8 @@
     <div class="code-body checklist-grid">
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Short L1 TTLs, longer L2 TTLs</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Run eventBus.healthCheck() before server start</span></span>
-<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Unique source per cache instance</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Unique INSTANCE_ID per deployment (via env var)</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Set INSTANCE_ID as source for event deduplication</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Durable queues: own queue per instance</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">NATS JetStream: own durableName per instance</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Prefer negative caching over Bloom filters</span></span>
@@ -1759,6 +1935,7 @@
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">logging.env: "production" in prod</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Idempotent, timeout-aware loader functions</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">deleteStrategy: "unlink" for large values</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">NATS server: start with -js for JetStream mode</span></span>
     </div>
   </div>
 </section>

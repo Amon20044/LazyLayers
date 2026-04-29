@@ -1,6 +1,5 @@
 import {
   AckPolicy,
-  consumerOpts,
   connect as connectNats,
   DeliverPolicy,
   nanos,
@@ -8,9 +7,10 @@ import {
   RetentionPolicy,
   StorageType,
   type ConnectionOptions,
+  type Consumer,
+  type ConsumerMessages,
   type JetStreamClient,
   type JetStreamManager,
-  type JetStreamSubscription,
   type NatsConnection,
   type Subscription,
 } from 'nats';
@@ -61,8 +61,10 @@ export class NatsEventBus implements EventBus {
   private connection: NatsConnection | null = null;
   private readonly ownsConnection: boolean;
   private readonly retryQueue: EventBusRetryQueue;
-  private subscription: Subscription | JetStreamSubscription | null = null;
+  private subscription: Subscription | null = null;
+  private consumerMessages: ConsumerMessages | null = null;
   private subscribing = false;
+  private abortController: AbortController | null = null;
 
   constructor(private readonly options: NatsEventBusOptions = {}) {
     configureCacheLogger(options.logging);
@@ -132,7 +134,7 @@ export class NatsEventBus implements EventBus {
   }
 
   async subscribe(handler: (event: InvalidationEvent) => void | Promise<void>): Promise<void> {
-    if (this.subscription || this.subscribing) {
+    if (this.subscription || this.consumerMessages || this.subscribing) {
       return;
     }
 
@@ -150,6 +152,16 @@ export class NatsEventBus implements EventBus {
   }
 
   async disconnect(): Promise<void> {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+
+    if (this.consumerMessages) {
+      await this.consumerMessages.close();
+      this.consumerMessages = null;
+    }
+
     if (this.subscription) {
       await this.subscription.drain();
       this.subscription = null;
@@ -214,19 +226,27 @@ export class NatsEventBus implements EventBus {
 
     await this.ensureJetStreamResources(manager);
 
-    const jetstream = manager.jetstream();
-    const subscription = await this.createJetStreamSubscription(jetstream, stream, durableName);
+    const jetstream = connection.jetstream();
+    const consumer = await jetstream.consumers.get(stream, durableName);
+    const messages = await consumer.consume();
 
-    this.subscription = subscription;
+    this.consumerMessages = messages;
+    this.abortController = new AbortController();
     debugLog('nats event bus subscribed', { subject, stream, durableName, mode: 'jetstream' });
 
+    const abortSignal = this.abortController.signal;
+
     void (async () => {
-      for await (const message of subscription) {
+      for await (const message of messages) {
+        if (abortSignal.aborted) {
+          break;
+        }
+
         const event = decodeInvalidationEvent(message.data);
 
         if (!event) {
           warnLog('nats event bus ignored invalid message', { subject, stream });
-          message.term('invalid invalidation payload');
+          message.term();
           continue;
         }
 
@@ -239,20 +259,10 @@ export class NatsEventBus implements EventBus {
         }
       }
     })().catch((error) => {
-      errorLog('nats event bus subscription failed', { subject, stream, error });
+      if (!abortSignal.aborted) {
+        errorLog('nats event bus subscription failed', { subject, stream, error });
+      }
     });
-  }
-
-  private async createJetStreamSubscription(
-    jetstream: JetStreamClient,
-    stream: string,
-    durableName: string,
-  ): Promise<JetStreamSubscription> {
-    const opts = consumerOpts()
-      .bind(stream, durableName)
-      .manualAck();
-
-    return jetstream.subscribe(this.getSubject(), opts);
   }
 
   private async ensureJetStreamResources(manager: JetStreamManager): Promise<void> {
