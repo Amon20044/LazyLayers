@@ -843,7 +843,19 @@
     font-weight: 300;
   }
 
-  /* ---- HAMBURGER ---- */
+  .api-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 80px;
+  }
+
+  .checklist-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 40px;
+    line-height: 2;
+  }
   .hamburger {
     display: none;
     flex-direction: column;
@@ -951,8 +963,8 @@
     .arch-diagram { padding: 24px; }
     .opts-grid { grid-template-columns: 1fr; }
 
-    .api-grid { grid-template-columns: 1fr !important; }
-    .checklist-grid { grid-template-columns: 1fr !important; gap: 0 !important; }
+    .api-grid { grid-template-columns: 1fr; }
+    .checklist-grid { grid-template-columns: 1fr; gap: 0; }
 
     .compare-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
     .compare-wrapper .compare-table { min-width: 560px; }
@@ -1031,7 +1043,7 @@
 </nav>
 
 <!-- MOBILE NAV DRAWER -->
-<div class="nav-drawer" id="navDrawer" role="dialog" aria-modal="true" aria-label="Navigation">
+<div class="nav-drawer" id="navDrawer" role="navigation" aria-label="Mobile navigation" aria-hidden="true">
   <ul>
     <li><a href="#features" class="drawer-link">Features</a></li>
     <li><a href="#architecture" class="drawer-link">How it works</a></li>
@@ -1414,7 +1426,7 @@
 <section>
   <div class="section-label">API reference</div>
 
-  <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:80px;" class="api-grid">
+  <div class="api-grid">
     <div class="code-block">
       <div class="code-header">
         <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
@@ -1475,7 +1487,7 @@
       <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
       <span class="code-filename">checklist.md</span>
     </div>
-    <div class="code-body checklist-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:0 40px; line-height:2;">
+    <div class="code-body checklist-grid">
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Short L1 TTLs, longer L2 TTLs</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Run eventBus.healthCheck() before server start</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Unique source per cache instance</span></span>
@@ -1514,19 +1526,26 @@
   // Hamburger / mobile nav
   const hamburger = document.getElementById('hamburger');
   const navDrawer = document.getElementById('navDrawer');
+  const focusableSelectors = 'a[href], button:not([disabled])';
 
   function openDrawer() {
     hamburger.classList.add('active');
     navDrawer.classList.add('open');
     hamburger.setAttribute('aria-expanded', 'true');
+    navDrawer.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
+    // Move focus to first focusable element in drawer
+    const firstFocusable = navDrawer.querySelector(focusableSelectors);
+    if (firstFocusable) firstFocusable.focus();
   }
 
   function closeDrawer() {
     hamburger.classList.remove('active');
     navDrawer.classList.remove('open');
     hamburger.setAttribute('aria-expanded', 'false');
+    navDrawer.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
+    hamburger.focus();
   }
 
   hamburger.addEventListener('click', () => {
@@ -1538,9 +1557,21 @@
     link.addEventListener('click', closeDrawer);
   });
 
-  // Close on Escape key
+  // Close on Escape key; trap focus inside drawer when open
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && navDrawer.classList.contains('open')) closeDrawer();
+    if (!navDrawer.classList.contains('open')) return;
+    if (e.key === 'Escape') { closeDrawer(); return; }
+    if (e.key === 'Tab') {
+      const focusable = Array.from(navDrawer.querySelectorAll(focusableSelectors));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
   });
 
   // Scroll-triggered fade-in
