@@ -42,8 +42,8 @@ Invalidation is global across connected cache instances.
 
 | Area | Included |
 | --- | --- |
-| L1 cache | In-memory LRU cache via `lru-cache` |
-| L2 cache | Optional Redis store via `ioredis` |
+| L1 cache | Default in-memory LRU via `lru-cache`; disable with `l1: false` |
+| L2 cache | Optional Redis store via `ioredis`; disable explicitly with `l2: false` |
 | Lazy loading | `getOrSet(key, loader)` |
 | Local stampede protection | In-process inflight promise dedupe |
 | Distributed stampede protection | Optional Redis-backed lock through `RedisStore` |
@@ -82,26 +82,26 @@ This package publishes both ESM and CommonJS JavaScript builds, plus TypeScript 
 ### TypeScript
 
 ```ts
-import { createCache, type CacheOptions } from "lazy-layers-cache";
+import { LazyLayersCache, type LazyLayersCacheOptions } from "lazy-layers-cache";
 
 interface User {
   id: string;
   name: string;
 }
 
-const options: CacheOptions = {
+const options: LazyLayersCacheOptions<string, User> = {
   ttlMs: 60_000,
 };
 
-const cache = createCache<string, User>(options);
+const cache = new LazyLayersCache<string, User>(options);
 ```
 
 ### JavaScript ESM
 
 ```js
-import { createCache } from "lazy-layers-cache";
+import { LazyLayersCache } from "lazy-layers-cache";
 
-const cache = createCache({
+const cache = new LazyLayersCache({
   ttlMs: 60_000,
 });
 ```
@@ -109,9 +109,9 @@ const cache = createCache({
 ### JavaScript CommonJS
 
 ```js
-const { createCache } = require("lazy-layers-cache");
+const { LazyLayersCache } = require("lazy-layers-cache");
 
-const cache = createCache({
+const cache = new LazyLayersCache({
   ttlMs: 60_000,
 });
 ```
@@ -131,14 +131,17 @@ const { RedisStore } = require("lazy-layers-cache/cache");
 ## Quick Start
 
 ```ts
-import { createCache } from "lazy-layers-cache";
+import { LazyLayersCache } from "lazy-layers-cache";
 
 interface User {
   id: string;
   name: string;
 }
 
-const cache = createCache<string, User>({
+const cache = new LazyLayersCache<string, User>({
+  // L1 is created by default. This makes Redis/L2 intentionally off.
+  l2: false,
+
   // Controls package logs. Production is quiet by default.
   logging: {
     env: "development",
@@ -171,11 +174,13 @@ const user = await cache.getOrSet("user:1", async () => {
 });
 ```
 
-`createCache<string, User>()` is optional TypeScript safety, not a runtime requirement.
+`new LazyLayersCache<string, User>()` is optional TypeScript safety, not a runtime requirement.
+
+Passing `User` is a good pattern when the cache instance is domain-specific, for example `userCache`. Do not force `User` onto a shared cache that stores multiple shapes; use a union, `JsonValue`, or create separate cache instances per domain.
 
 ```ts
 // string keys, User values. Best when one cache stores one value shape.
-const users = createCache<string, User>();
+const users = new LazyLayersCache<string, User>();
 
 // string keys, any JSON-like value. Better for mixed value shapes.
 type JsonValue =
@@ -186,15 +191,15 @@ type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-const jsonCache = createCache<string, JsonValue>();
+const jsonCache = new LazyLayersCache<string, JsonValue>();
 ```
 
 In plain JavaScript, there are no generic types:
 
 ```js
-import { createCache } from "lazy-layers-cache";
+import { LazyLayersCache } from "lazy-layers-cache";
 
-const cache = createCache({ ttlMs: 60_000 });
+const cache = new LazyLayersCache({ ttlMs: 60_000 });
 
 await cache.set("user:1", { id: "1", name: "Amonk" });
 await cache.set("count", 42);
@@ -202,7 +207,9 @@ await cache.set("count", 42);
 
 ## Which API Should I Use?
 
-`createCache()` is the simple convenience function. `HybridCache` is the full class used when you want to wire L2 stores and event buses explicitly.
+`LazyLayersCache` is the primary production class. It creates L1 memory by default, accepts `l1: false` when you want no LRU allocation, and accepts `l2: false` or a real L2 store when Redis is optional.
+
+`HybridCache` remains available as a compatibility name, and `createCache()` remains a convenience shortcut.
 
 Under the hood, this:
 
@@ -213,28 +220,29 @@ const cache = createCache(options);
 is just a shortcut for:
 
 ```ts
-const cache = new HybridCache(options);
+const cache = new LazyLayersCache(options);
 ```
 
 Use this rule:
 
 | You want | Use |
 | --- | --- |
-| Simple L1 memory cache | `createCache()` |
-| L1 memory cache with lazy loading | `createCache()` |
-| L1 memory + custom config | `createCache()` |
-| L1 memory + Redis L2 | `HybridCache` |
-| L1 + L2 + Redis/RabbitMQ/NATS event bus | `HybridCache` |
-| NATS JetStream invalidation | `HybridCache` |
-| Custom L1 or L2 store | `HybridCache` |
-| Production distributed cache setup | `HybridCache` |
+| Simple L1 memory cache | `new LazyLayersCache()` |
+| L1 memory cache with lazy loading | `new LazyLayersCache()` |
+| L1 memory + custom config | `new LazyLayersCache()` |
+| L1 memory + Redis L2 | `new LazyLayersCache()` |
+| L2 only, no in-process LRU | `new LazyLayersCache({ l1: false, l2 })` |
+| L1 + L2 + Redis/RabbitMQ/NATS event bus | `new LazyLayersCache()` |
+| Backward-compatible class name | `new HybridCache()` |
+| Legacy convenience helper | `createCache()` |
 
 ### Simple L1 Only
 
 ```ts
-import { createCache } from "lazy-layers-cache";
+import { LazyLayersCache } from "lazy-layers-cache";
 
-export const cache = createCache({
+export const cache = new LazyLayersCache({
+  l2: false,
   ttlMs: 60_000,
 });
 ```
@@ -252,7 +260,7 @@ durable NATS JetStream invalidation
 ```ts
 import Redis from "ioredis";
 import {
-  HybridCache,
+  LazyLayersCache,
   NatsEventBus,
   RedisStore,
 } from "lazy-layers-cache";
@@ -262,7 +270,9 @@ interface User {
   name: string;
 }
 
-const redis = new Redis(process.env.REDIS_URL);
+const redis = process.env.REDIS_URL
+  ? new Redis(process.env.REDIS_URL)
+  : undefined;
 
 const eventBus = new NatsEventBus({
   mode: "jetstream",
@@ -289,7 +299,10 @@ if (!health.ok) {
   throw health.error;
 }
 
-export const userCache = new HybridCache<string, User>({
+export const userCache = new LazyLayersCache<string, User>({
+  // L1 memory cache is created by default.
+  // Set l1: false if this process should not keep local LRU memory.
+
   // L2 shared cache.
   l2: new RedisStore<User>(redis, {
     prefix: "users:",
@@ -339,7 +352,7 @@ export const userCache = new HybridCache<string, User>({
 Create cache configuration once, then reuse it when creating domain-specific caches.
 
 ```ts
-import { createCache, type CacheOptions } from "lazy-layers-cache";
+import { LazyLayersCache, type LazyLayersCacheOptions } from "lazy-layers-cache";
 
 interface User {
   id: string;
@@ -351,7 +364,7 @@ interface Tournament {
   title: string;
 }
 
-const sharedCacheConfig: CacheOptions = {
+const sharedCacheConfig = {
   ttlMs: 60_000,
   logging: {
     env: process.env.NODE_ENV === "production" ? "production" : "development",
@@ -367,10 +380,10 @@ const sharedCacheConfig: CacheOptions = {
     ttlMs: 5_000,
     maxEntries: 1_000,
   },
-};
+} satisfies LazyLayersCacheOptions;
 
-export const userCache = createCache<string, User>(sharedCacheConfig);
-export const tournamentCache = createCache<string, Tournament>(sharedCacheConfig);
+export const userCache = new LazyLayersCache<string, User>(sharedCacheConfig);
+export const tournamentCache = new LazyLayersCache<string, Tournament>(sharedCacheConfig);
 ```
 
 Use those cache instances everywhere. Do not recreate them per request.
@@ -388,18 +401,18 @@ With Redis L2, reuse the same base config but give each domain its own Redis pre
 
 ```ts
 import Redis from "ioredis";
-import { HybridCache, RedisStore } from "lazy-layers-cache";
+import { LazyLayersCache, RedisStore } from "lazy-layers-cache";
 
 const redis = new Redis(process.env.REDIS_URL);
 
-export const userCache = new HybridCache<string, User>({
+export const userCache = new LazyLayersCache<string, User>({
   ...sharedCacheConfig,
   l2: new RedisStore<User>(redis, {
     prefix: "users:",
   }),
 });
 
-export const tournamentCache = new HybridCache<string, Tournament>({
+export const tournamentCache = new LazyLayersCache<string, Tournament>({
   ...sharedCacheConfig,
   l2: new RedisStore<Tournament>(redis, {
     prefix: "tournaments:",
@@ -414,7 +427,7 @@ In production, initialize external dependencies before starting your HTTP server
 ```ts
 import Redis from "ioredis";
 import {
-  HybridCache,
+  LazyLayersCache,
   NatsEventBus,
   RedisStore,
 } from "lazy-layers-cache";
@@ -445,11 +458,14 @@ if (!eventBusHealth.ok) {
   throw eventBusHealth.error;
 }
 
-const cache = new HybridCache<string, User>({
-  l2: new RedisStore<User>(redis, {
-    prefix: "users:",
-    useIndex: true,
-  }),
+const cache = new LazyLayersCache<string, User>({
+  l1: process.env.CACHE_L1 === "false" ? false : undefined,
+  l2: process.env.CACHE_L2 === "false" || !redis
+    ? false
+    : new RedisStore<User>(redis, {
+        prefix: "users:",
+        useIndex: true,
+      }),
   eventBus,
   source: process.env.INSTANCE_ID,
   logging: {
@@ -466,7 +482,7 @@ server.listen(3000);
 Logs are controlled with `logging`.
 
 ```ts
-const cache = createCache({
+const cache = new LazyLayersCache({
   logging: {
     // "production" disables logs unless enabled is true.
     // "development" and "test" enable logs unless enabled is false.
@@ -499,7 +515,15 @@ new NatsEventBus({
 ## Cache Options
 
 ```ts
-const cache = createCache<string, User>({
+const cache = new LazyLayersCache<string, User>({
+  // Default: create in-process MemoryStore/LRU.
+  // Use false to disable local memory allocation for this process.
+  l1: undefined,
+
+  // Default: no remote cache.
+  // Use false to make that explicit, or pass RedisStore/custom CacheStore.
+  l2: false,
+
   logging: {
     // Controls package logs.
     env: "development",
@@ -571,18 +595,36 @@ const cache = createCache<string, User>({
       cooldownMs: 30_000,
     },
   },
+
+  eventBus,
+  source: process.env.INSTANCE_ID,
+  subscribeToEvents: true,
+  eventDedupeMaxEntries: 10_000,
+  eventDedupeTtlMs: 5 * 60_000,
+  events: [
+    (event) => {
+      metrics.increment(`cache.${event.type}`);
+    },
+  ],
 });
 ```
+
+Layer rules:
+
+- Omit `l1` to create the default in-process LRU.
+- Pass `l1: false` when this server process should not allocate L1 memory. On a real server restart, any old LRU data is already gone with the old process; the new cache instance will not recreate it.
+- Omit `l2` or pass `l2: false` when Redis/L2 is intentionally off.
+- Pass `l2: new RedisStore(redis, options)` for shared Redis L2. Runtime L2 errors fail open, so local cache and loaders can continue.
 
 ## Redis L2 Store
 
 ```ts
 import Redis from "ioredis";
-import { HybridCache, RedisStore } from "lazy-layers-cache";
+import { LazyLayersCache, RedisStore } from "lazy-layers-cache";
 
 const redis = new Redis(process.env.REDIS_URL);
 
-const cache = new HybridCache<string, User>({
+const cache = new LazyLayersCache<string, User>({
   l2: new RedisStore<User>(redis, {
     // Prefix all Redis keys owned by this cache.
     prefix: "users:",
@@ -655,7 +697,7 @@ await eventBus.connect?.();
 const health = await eventBus.healthCheck?.();
 
 await eventBus.subscribe(async (event) => {
-  // cache handles this for you when passed to HybridCache
+  // cache handles this for you when passed to LazyLayersCache
 });
 
 await eventBus.disconnect?.();
@@ -882,7 +924,7 @@ Recommended production choices:
 ## Observability Events
 
 ```ts
-const cache = createCache({
+const cache = new LazyLayersCache({
   events: [
     (event) => {
       metrics.increment(`cache.${event.type}`);
@@ -968,6 +1010,7 @@ Package exports:
 import {
   createCache,
   HybridCache,
+  LazyLayersCache,
   MemoryStore,
   RedisStore,
   RedisEventBus,
@@ -978,6 +1021,7 @@ import {
 import type {
   CacheOptions,
   CacheStore,
+  LazyLayersCacheOptions,
   InvalidationEvent,
   EventBusHealth,
 } from "lazy-layers-cache";

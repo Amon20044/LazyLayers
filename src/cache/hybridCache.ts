@@ -1,6 +1,7 @@
 import type { EventBus } from '../event-bus/index.js';
 import type {
   CacheKey,
+  CacheLevel,
   CacheLoader,
   CacheOptions,
   CacheStore,
@@ -32,9 +33,11 @@ export interface HybridCacheResilienceOptions {
   eventBusCircuitBreaker?: CircuitBreakerOptions;
 }
 
-export interface HybridCacheOptions<K extends CacheKey, V> extends CacheOptions {
-  l1?: CacheStore<K, V>;
-  l2?: CacheStore<K, V>;
+export type CacheLayer<K extends CacheKey = string, V = unknown> = CacheStore<K, V> | false;
+
+export interface HybridCacheOptions<K extends CacheKey = string, V = unknown> extends CacheOptions {
+  l1?: CacheLayer<K, V>;
+  l2?: CacheLayer<K, V>;
   eventBus?: EventBus;
   source?: string;
   subscribeToEvents?: boolean;
@@ -46,8 +49,8 @@ export interface HybridCacheOptions<K extends CacheKey, V> extends CacheOptions 
   logging?: CacheLoggerOptions;
 }
 
-export class HybridCache<K extends CacheKey, V> implements CacheStore<K, V> {
-  private readonly l1: CacheStore<K, V>;
+export class HybridCache<K extends CacheKey = string, V = unknown> implements CacheStore<K, V> {
+  private readonly l1?: CacheStore<K, V>;
   private readonly l2?: CacheStore<K, V>;
   private readonly inflight: InflightStore<K, V> = new Map();
   private readonly source: string;
@@ -61,8 +64,8 @@ export class HybridCache<K extends CacheKey, V> implements CacheStore<K, V> {
 
   constructor(private readonly options: HybridCacheOptions<K, V> = {}) {
     configureCacheLogger(options.logging);
-    this.l1 = options.l1 ?? new MemoryStore<K, V>(options);
-    this.l2 = options.l2;
+    this.l1 = options.l1 === false ? undefined : options.l1 ?? new MemoryStore<K, V>(options);
+    this.l2 = options.l2 === false ? undefined : options.l2;
     this.source = options.source ?? createSourceId();
     this.l2CircuitBreaker = new CircuitBreaker(options.resilience?.l2CircuitBreaker);
     this.eventBusCircuitBreaker = new CircuitBreaker(options.resilience?.eventBusCircuitBreaker);
@@ -103,13 +106,13 @@ export class HybridCache<K extends CacheKey, V> implements CacheStore<K, V> {
   async set(key: K, value: V, options: CacheOptions = {}): Promise<void> {
     const storageKey = this.toStorageKey(key);
 
-    await this.l1.set(storageKey, value, options);
+    await this.l1?.set(storageKey, value, options);
     await this.runL2('set', storageKey, () => this.l2?.set(storageKey, value, options) ?? Promise.resolve());
     this.rememberStale(key, value, options);
     this.negative.delete(key);
 
-    this.emit({ type: 'set', key, levels: this.l2 ? ['L1', 'L2'] : ['L1'] });
-    debugLog('cache set', { key, levels: this.l2 ? ['L1', 'L2'] : ['L1'] });
+    this.emit({ type: 'set', key, levels: this.getActiveLevels() });
+    debugLog('cache set', { key, levels: this.getActiveLevels() });
   }
 
   async get(key: K): Promise<V | undefined> {
@@ -119,17 +122,20 @@ export class HybridCache<K extends CacheKey, V> implements CacheStore<K, V> {
     }
 
     const storageKey = this.toStorageKey(key);
-    const l1Value = await this.l1.get(storageKey);
 
-    if (l1Value !== undefined) {
-      this.rememberStale(key, l1Value, this.options);
-      this.emit({ type: 'hit', key, level: 'L1' });
-      debugLog('cache hit', { key, level: 'L1' });
-      return l1Value;
+    if (this.l1) {
+      const l1Value = await this.l1.get(storageKey);
+
+      if (l1Value !== undefined) {
+        this.rememberStale(key, l1Value, this.options);
+        this.emit({ type: 'hit', key, level: 'L1' });
+        debugLog('cache hit', { key, level: 'L1' });
+        return l1Value;
+      }
+
+      this.emit({ type: 'miss', key, level: 'L1' });
+      debugLog('cache miss', { key, level: 'L1' });
     }
-
-    this.emit({ type: 'miss', key, level: 'L1' });
-    debugLog('cache miss', { key, level: 'L1' });
 
     const l2Value = await this.runL2(
       'get',
@@ -139,15 +145,17 @@ export class HybridCache<K extends CacheKey, V> implements CacheStore<K, V> {
     );
 
     if (l2Value !== undefined) {
-      await this.l1.set(storageKey, l2Value, this.options);
+      await this.l1?.set(storageKey, l2Value, this.options);
       this.rememberStale(key, l2Value, this.options);
       this.emit({ type: 'hit', key, level: 'L2' });
-      debugLog('cache hit', { key, level: 'L2', promotedTo: 'L1' });
+      debugLog('cache hit', { key, level: 'L2', promotedTo: this.l1 ? 'L1' : undefined });
       return l2Value;
     }
 
-    this.emit({ type: 'miss', key, level: 'L2' });
-    debugLog('cache miss', { key, level: 'L2' });
+    if (this.l2) {
+      this.emit({ type: 'miss', key, level: 'L2' });
+      debugLog('cache miss', { key, level: 'L2' });
+    }
 
     return undefined;
   }
@@ -208,7 +216,7 @@ export class HybridCache<K extends CacheKey, V> implements CacheStore<K, V> {
 
     const storageKey = this.toStorageKey(key);
 
-    if (await this.l1.has(storageKey)) {
+    if (this.l1 && await this.l1.has(storageKey)) {
       return true;
     }
 
@@ -247,7 +255,11 @@ export class HybridCache<K extends CacheKey, V> implements CacheStore<K, V> {
   }
 
   async size(): Promise<number> {
-    return this.l1.size();
+    if (this.l1) {
+      return this.l1.size();
+    }
+
+    return this.runL2('size', '*', () => this.l2?.size() ?? Promise.resolve(0), 0);
   }
 
   on(handler: CacheEventHandler): () => void {
@@ -353,7 +365,7 @@ export class HybridCache<K extends CacheKey, V> implements CacheStore<K, V> {
     const storageKey = this.toStorageKey(key);
     this.bumpGeneration(String(key));
 
-    await this.l1.delete(storageKey);
+    await this.l1?.delete(storageKey);
     await this.runL2('delete', storageKey, () => this.l2?.delete(storageKey) ?? Promise.resolve());
     this.emit({ type: 'delete', key });
   }
@@ -377,7 +389,7 @@ export class HybridCache<K extends CacheKey, V> implements CacheStore<K, V> {
       }
     }
 
-    await this.l1.deleteByPattern(pattern);
+    await this.l1?.deleteByPattern(pattern);
     await this.runL2('deleteByPattern', pattern, () => this.l2?.deleteByPattern(pattern) ?? Promise.resolve());
     this.emit({ type: 'delete-pattern', pattern });
   }
@@ -674,10 +686,31 @@ export class HybridCache<K extends CacheKey, V> implements CacheStore<K, V> {
     return this.options.eventDedupeTtlMs ?? 5 * 60_000;
   }
 
+  private getActiveLevels(): CacheLevel[] {
+    const levels: CacheLevel[] = [];
+
+    if (this.l1) {
+      levels.push('L1');
+    }
+
+    if (this.l2) {
+      levels.push('L2');
+    }
+
+    return levels;
+  }
+
   private getLegacyEventId(event: Parameters<EventBus['publish']>[0]): string {
     return `${event.source}:${event.ts}:${event.type}:${event.type === 'del' ? event.keys.join(',') : event.pattern}`;
   }
+}
 
+export type LazyLayersCacheOptions<K extends CacheKey = string, V = unknown> = HybridCacheOptions<K, V>;
+
+export class LazyLayersCache<K extends CacheKey = string, V = unknown> extends HybridCache<K, V> {
+  constructor(options: LazyLayersCacheOptions<K, V> = {}) {
+    super(options);
+  }
 }
 
 function createSourceId(): string {

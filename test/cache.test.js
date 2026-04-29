@@ -5,6 +5,7 @@ process.env.NODE_ENV = "production";
 
 const {
   HybridCache,
+  LazyLayersCache,
   MemoryStore,
   NatsEventBus,
   RabbitMQEventBus,
@@ -661,4 +662,77 @@ test("development logging option enables cache logs", async () => {
   }
 
   assert.equal(calls > 0, true);
+});
+
+test("createCache returns a LazyLayersCache compatibility instance", () => {
+  const cache = createCache();
+
+  assert.equal(cache instanceof LazyLayersCache, true);
+  assert.equal(cache instanceof HybridCache, true);
+});
+
+test("LazyLayersCache defaults to L1 only when L2 is not provided", async () => {
+  const events = [];
+  const cache = new LazyLayersCache({
+    logging: {
+      env: "production",
+    },
+    events: [(event) => events.push(event)],
+  });
+
+  await cache.set("local", "value");
+
+  assert.equal(await cache.get("local"), "value");
+  assert.equal(await cache.size(), 1);
+  assert.deepEqual(events.find((event) => event.type === "set")?.levels, ["L1"]);
+});
+
+test("LazyLayersCache can explicitly disable L2 with l2 false", async () => {
+  const cache = new LazyLayersCache({
+    l2: false,
+    logging: {
+      env: "production",
+    },
+  });
+
+  await cache.set("local-only", "value");
+
+  assert.equal(await cache.get("local-only"), "value");
+  assert.equal(await cache.size(), 1);
+});
+
+test("LazyLayersCache can explicitly disable L1 and use only L2", async () => {
+  const l2 = new MemoryStore();
+  const events = [];
+  const cache = new LazyLayersCache({
+    l1: false,
+    l2,
+    logging: {
+      env: "production",
+    },
+    events: [(event) => events.push(event)],
+  });
+
+  await cache.set("remote-only", "value");
+
+  assert.equal(await cache.get("remote-only"), "value");
+  assert.equal(await cache.has("remote-only"), true);
+  assert.equal(await cache.size(), 1);
+  assert.deepEqual(events.find((event) => event.type === "set")?.levels, ["L2"]);
+});
+
+test("LazyLayersCache with both layers disabled does not retain values", async () => {
+  const cache = new LazyLayersCache({
+    l1: false,
+    l2: false,
+    logging: {
+      env: "production",
+    },
+  });
+
+  await cache.set("disabled", "value");
+
+  assert.equal(await cache.get("disabled"), undefined);
+  assert.equal(await cache.has("disabled"), false);
+  assert.equal(await cache.size(), 0);
 });
