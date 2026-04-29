@@ -1,6 +1,6 @@
 {
   "name": "lazy-layers-cache",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A TypeScript hybrid cache with L1/L2 storage, lazy loading, inflight dedupe, and event-bus invalidation.",
   "type": "module",
   "sideEffects": false,
@@ -35,7 +35,9 @@
   },
   "files": [
     "dist",
-    "dist-cjs"
+    "dist-cjs",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/build-cjs.cjs",
