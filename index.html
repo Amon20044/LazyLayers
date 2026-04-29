@@ -1848,8 +1848,13 @@
       e.preventDefault();
       var delta = e.deltaY < 0 ? 0.15 : -0.15;
       scale = Math.max(1, Math.min(5, scale + delta));
-      if (scale === 1) { translate = { x: 0, y: 0 }; lbImg.style.transformOrigin = 'center center'; hint.style.display = ''; }
-      else { hint.style.display = 'none'; }
+      if (scale === 1) {
+        translate = { x: 0, y: 0 };
+        lbImg.style.transformOrigin = 'center center';
+        hint.style.display = '';
+      } else {
+        hint.style.display = 'none';
+      }
       applyTransform(false);
       updateCursor();
     }, { passive: false });
@@ -1889,8 +1894,12 @@
         e.preventDefault();
         var dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
         scale = Math.max(1, Math.min(5, touchStartScale * (dist / touchStartDist)));
-        if (scale === 1) { translate = { x: 0, y: 0 }; hint.style.display = ''; }
-        else { hint.style.display = 'none'; }
+        if (scale === 1) {
+          translate = { x: 0, y: 0 };
+          hint.style.display = '';
+        } else {
+          hint.style.display = 'none';
+        }
         applyTransform(false);
         updateCursor();
       }
@@ -1907,8 +1916,17 @@
         var focusable = Array.from(overlay.querySelectorAll('button, [tabindex="0"]'));
         if (!focusable.length) return;
         var first = focusable[0], last = focusable[focusable.length - 1];
-        if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
-        else            { if (document.activeElement === last)  { e.preventDefault(); first.focus(); } }
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
       }
     });
 
