@@ -20,6 +20,7 @@ Invalidation is global across connected cache instances.
 - [Install](#install)
 - [JavaScript And TypeScript Usage](#javascript-and-typescript-usage)
 - [Quick Start](#quick-start)
+- [Which API Should I Use?](#which-api-should-i-use)
 - [Shared Config And Multiple Caches](#shared-config-and-multiple-caches)
 - [Production Startup Flow](#production-startup-flow)
 - [Logging And Environments](#logging-and-environments)
@@ -197,6 +198,140 @@ const cache = createCache({ ttlMs: 60_000 });
 
 await cache.set("user:1", { id: "1", name: "Amonk" });
 await cache.set("count", 42);
+```
+
+## Which API Should I Use?
+
+`createCache()` is the simple convenience function. `HybridCache` is the full class used when you want to wire L2 stores and event buses explicitly.
+
+Under the hood, this:
+
+```ts
+const cache = createCache(options);
+```
+
+is just a shortcut for:
+
+```ts
+const cache = new HybridCache(options);
+```
+
+Use this rule:
+
+| You want | Use |
+| --- | --- |
+| Simple L1 memory cache | `createCache()` |
+| L1 memory cache with lazy loading | `createCache()` |
+| L1 memory + custom config | `createCache()` |
+| L1 memory + Redis L2 | `HybridCache` |
+| L1 + L2 + Redis/RabbitMQ/NATS event bus | `HybridCache` |
+| NATS JetStream invalidation | `HybridCache` |
+| Custom L1 or L2 store | `HybridCache` |
+| Production distributed cache setup | `HybridCache` |
+
+### Simple L1 Only
+
+```ts
+import { createCache } from "lazy-layers-cache";
+
+export const cache = createCache({
+  ttlMs: 60_000,
+});
+```
+
+### L1 + Redis L2 + NATS JetStream
+
+Use this when you want:
+
+```txt
+L1 memory per instance
+shared Redis L2
+durable NATS JetStream invalidation
+```
+
+```ts
+import Redis from "ioredis";
+import {
+  HybridCache,
+  NatsEventBus,
+  RedisStore,
+} from "lazy-layers-cache";
+
+interface User {
+  id: string;
+  name: string;
+}
+
+const redis = new Redis(process.env.REDIS_URL);
+
+const eventBus = new NatsEventBus({
+  mode: "jetstream",
+  connectionOptions: {
+    servers: process.env.NATS_URL,
+    name: process.env.INSTANCE_ID,
+  },
+  subject: "cache.invalidations",
+  jetstream: {
+    stream: "CACHE_INVALIDATIONS",
+    durableName: `${process.env.INSTANCE_ID}-cache-invalidations`,
+    ensureStream: true,
+    ensureConsumer: true,
+    storage: "file",
+  },
+  logging: {
+    env: "production",
+  },
+});
+
+const health = await eventBus.healthCheck();
+
+if (!health.ok) {
+  throw health.error;
+}
+
+export const userCache = new HybridCache<string, User>({
+  // L2 shared cache.
+  l2: new RedisStore<User>(redis, {
+    prefix: "users:",
+    useIndex: true,
+  }),
+
+  // Global invalidation bus.
+  eventBus,
+
+  // Unique instance identity. Used to ignore invalidation messages from itself.
+  source: process.env.INSTANCE_ID,
+
+  ttlMs: 60_000,
+
+  levels: {
+    L1: {
+      maxEntries: 1_000,
+      ttlMs: 10_000,
+    },
+    L2: {
+      ttlMs: 60_000,
+    },
+  },
+
+  inflight: {
+    enabled: true,
+    ttlMs: 5_000,
+    maxEntries: 1_000,
+  },
+
+  // Cross-instance stampede protection using RedisStore lock support.
+  distributedLock: {
+    enabled: true,
+    ttlMs: 10_000,
+    waitTimeoutMs: 2_000,
+    pollMs: 50,
+  },
+
+  logging: {
+    env: "production",
+  },
+});
 ```
 
 ## Shared Config And Multiple Caches
