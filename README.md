@@ -703,9 +703,53 @@ await eventBus.subscribe(async (event) => {
 await eventBus.disconnect?.();
 ```
 
+### Environment Variables
+
+All event buses use these environment variables. Set them before starting your application.
+
+| Variable | Purpose | Example |
+| --- | --- | --- |
+| `INSTANCE_ID` | Unique stable identity per cache instance. Used as `source` in invalidation messages to ignore self-originated events, and as part of durable queue/consumer names. | `web-1`, `api-pod-abc123`, `$HOSTNAME` |
+| `REDIS_URL` | Redis connection string for L2 store and/or Redis Pub/Sub event bus. | `redis://localhost:6379`, `redis://:password@redis.internal:6379/0` |
+| `RABBITMQ_URL` | RabbitMQ AMQP connection string. | `amqp://guest:guest@localhost:5672` |
+| `NATS_URL` | NATS server connection URL. | `nats://localhost:4222`, `nats://nats.internal:4222` |
+
+#### Where Does INSTANCE_ID Come From?
+
+`INSTANCE_ID` must be **stable across restarts** for durable event buses (RabbitMQ durable queues, NATS JetStream durable consumers). If the ID changes, a new queue/consumer is created and old ones become orphans.
+
+| Environment | Good INSTANCE_ID value |
+| --- | --- |
+| Kubernetes | Pod name via `metadata.name` or `HOSTNAME` env var |
+| Docker Compose | Service name + replica index, e.g. `web-1` |
+| AWS ECS | Task ID or container instance ID |
+| PM2 | `pm2_env.name + pm2_env.pm_id`, e.g. `api-0` |
+| Single server | Hostname via `os.hostname()` or a static string |
+| Local development | Any fixed string, e.g. `dev-local` |
+
+```ts
+// In your app startup
+const INSTANCE_ID = process.env.INSTANCE_ID ?? os.hostname();
+```
+
+---
+
 ## Redis Event Bus
 
 Redis Pub/Sub is fast and simple, but not durable.
+
+### Getting a Redis Instance
+
+| Method | Command / URL |
+| --- | --- |
+| **Docker** | `docker run -d --name redis -p 6379:6379 redis:7-alpine` |
+| **Local binary** | Download from [redis.io](https://redis.io/download) and run `redis-server` |
+| **macOS Homebrew** | `brew install redis && brew services start redis` |
+| **Managed cloud** | [Redis Cloud](https://redis.com/try-free/), [AWS ElastiCache](https://aws.amazon.com/elasticache/), [Upstash](https://upstash.com/) |
+
+Default URL: `redis://localhost:6379`
+
+### Constructor
 
 ```ts
 import Redis from "ioredis";
@@ -715,7 +759,6 @@ const redis = new Redis(process.env.REDIS_URL);
 
 const eventBus = new RedisEventBus(redis, "cache:invalidations", {
   retryQueue: {
-    // In-memory retry for transient publish failures.
     enabled: true,
     maxSize: 1_000,
   },
@@ -723,51 +766,65 @@ const eventBus = new RedisEventBus(redis, "cache:invalidations", {
     env: "production",
   },
 });
+```
 
-const health = await eventBus.healthCheck();
+### All Parameters
 
-if (!health.ok) {
-  throw health.error;
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `redis` (constructor arg 1) | `Redis` (ioredis) | **required** | An ioredis client instance. The event bus creates a `duplicate()` internally for subscribing. |
+| `channel` (constructor arg 2) | `string` | **required** | Redis Pub/Sub channel name for invalidation messages. Use a namespace like `cache:invalidations`. |
+| `retryQueue.enabled` | `boolean` | `true` | When `true`, failed publishes are kept in an in-memory queue and retried on the next publish. |
+| `retryQueue.maxSize` | `number` | unlimited | Maximum number of events in the retry queue. Oldest events are dropped when full. |
+| `logging.env` | `"production"` \| `"development"` \| `"test"` | auto-detected | Controls log verbosity. `"production"` suppresses all logs. |
+| `logging.enabled` | `boolean` | auto | Hard override for log output regardless of `env`. |
+
+### Health Check Response
+
+```ts
+interface RedisEventBusHealth {
+  ok: boolean;
+  transport: "redis";
+  channel: string;
+  publisherStatus?: string;   // ioredis connection status
+  subscriberStatus?: string;  // ioredis connection status
+  error?: unknown;
 }
 ```
 
-Options:
-
-| Option | Why it matters |
-| --- | --- |
-| `channel` constructor arg | Redis Pub/Sub channel for invalidation messages |
-| `retryQueue.enabled` | Keeps failed publishes in memory for later flush |
-| `retryQueue.maxSize` | Prevents unbounded retry memory growth |
-| `logging.env` | Keeps production quiet |
-
 Use Redis Pub/Sub when you want low latency and can tolerate missed invalidations during disconnects because TTLs recover stale data.
+
+---
 
 ## RabbitMQ Event Bus
 
 RabbitMQ is a good fit for reliable invalidation fanout.
 
+### Getting a RabbitMQ Instance
+
+| Method | Command / URL |
+| --- | --- |
+| **Docker** | `docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management` |
+| **Local binary** | Download from [rabbitmq.com/download](https://www.rabbitmq.com/download.html) |
+| **macOS Homebrew** | `brew install rabbitmq && brew services start rabbitmq` |
+| **Managed cloud** | [CloudAMQP](https://www.cloudamqp.com/) (free tier), [AWS Amazon MQ](https://aws.amazon.com/amazon-mq/), [RabbitMQ Cloud](https://www.rabbitmq.com/cloud.html) |
+
+Default URL: `amqp://guest:guest@localhost:5672`
+
+Management UI (Docker): `http://localhost:15672` (guest/guest)
+
+### Constructor
+
 ```ts
 import { RabbitMQEventBus } from "lazy-layers-cache";
 
 const eventBus = new RabbitMQEventBus("cache.invalidations", {
-  // Lets connect() and healthCheck() initialize RabbitMQ.
   url: process.env.RABBITMQ_URL,
-
-  // Fanout sends each invalidation to every bound queue.
   exchangeType: "fanout",
-
-  // Durable exchange and persistent messages.
   durableInvalidationMode: true,
-
-  // Stable unique queue per cache instance.
-  // Do not share this queue between instances if every instance needs every invalidation.
   queueName: `${process.env.INSTANCE_ID}-cache-invalidations`,
-
-  // Durable subscriber identity.
   exclusiveQueue: false,
   autoDeleteQueue: false,
-
-  // Limits unacked messages per consumer.
   prefetch: 100,
 
   retryQueue: {
@@ -787,24 +844,43 @@ if (!health.ok) {
 }
 ```
 
-Options:
+### All Parameters
 
-| Option | Why it matters |
-| --- | --- |
-| `url` | Enables `connect()` and `healthCheck()` before server startup |
-| `exchangeType` | `fanout` is easiest for invalidating all instances |
-| `durableInvalidationMode` | Defaults exchange/messages/queues toward durability |
-| `durable` | Explicit exchange/queue durability override |
-| `persistent` | Persistent message publish override |
-| `queueName` | Stable per-instance queue identity |
-| `exclusiveQueue` | Use `false` for durable named queues |
-| `autoDeleteQueue` | Use `false` for durable named queues |
-| `prefetch` | Backpressure for message handlers |
-| `routingKey` | Needed for topic/direct exchanges |
-| `retryQueue` | In-memory retry for publish failures |
-| `logging` | Environment-aware logs |
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `exchange` (constructor arg 1) | `string` | **required** | AMQP exchange name. Use a dotted name like `cache.invalidations`. |
+| `url` | `string` | `undefined` | AMQP connection URL. Required for `connect()` and `healthCheck()`. Can also be passed to `init(url)`. |
+| `exchangeType` | `"fanout"` \| `"topic"` \| `"direct"` | `"fanout"` | AMQP exchange type. `"fanout"` sends every message to every bound queue — best for cache invalidation. |
+| `durableInvalidationMode` | `boolean` | `false` | When `true`, defaults `durable`, `persistent`, `exclusiveQueue: false`, and `autoDeleteQueue: false` toward durability. |
+| `durable` | `boolean` | `durableInvalidationMode` | Explicit override: make exchange and queue durable (survive broker restart). |
+| `persistent` | `boolean` | `durable` | Explicit override: publish messages with `persistent: true` (written to disk by broker). |
+| `queueName` | `string` | `""` (auto-generated) | Stable per-instance queue name. Must be unique per cache instance if every instance needs every invalidation. |
+| `exclusiveQueue` | `boolean` | `!durableInvalidationMode` | When `true`, queue is deleted when the connection closes. Use `false` for durable queues. |
+| `autoDeleteQueue` | `boolean` | `!durableInvalidationMode` | When `true`, queue is deleted when the last consumer disconnects. Use `false` for durable queues. |
+| `prefetch` | `number` | unlimited | Maximum number of unacknowledged messages per consumer. Provides backpressure. |
+| `routingKey` | `string` | `""` | Routing key for `topic` or `direct` exchanges. Not needed for `fanout`. |
+| `retryQueue.enabled` | `boolean` | `true` | Keep failed publishes in memory for later retry. |
+| `retryQueue.maxSize` | `number` | unlimited | Maximum retry queue size. Oldest events are dropped when full. |
+| `logging.env` | `"production"` \| `"development"` \| `"test"` | auto-detected | Controls log verbosity. |
+| `logging.enabled` | `boolean` | auto | Hard override for log output. |
+
+### Health Check Response
+
+```ts
+interface RabbitMQEventBusHealth {
+  ok: boolean;
+  transport: "rabbitmq";
+  exchange: string;
+  queueName?: string | null;
+  durable: boolean;
+  initialized: boolean;
+  error?: unknown;
+}
+```
 
 Use RabbitMQ when invalidation reliability matters and you already operate RabbitMQ.
+
+---
 
 ## NATS Event Bus
 
@@ -814,6 +890,48 @@ NATS has two useful modes:
 | --- | --- |
 | `core` | Very fast live Pub/Sub, not durable |
 | `jetstream` | Durable stream, replay/resume, explicit ack/nak |
+
+### Getting a NATS Instance
+
+| Method | Command / URL |
+| --- | --- |
+| **Docker** | `docker run -d --name nats -p 4222:4222 nats:latest` |
+| **Docker with JetStream** | `docker run -d --name nats -p 4222:4222 nats:latest -js` |
+| **Local binary** | Download from [github.com/nats-io/nats-server/releases](https://github.com/nats-io/nats-server/releases), then run `nats-server` or `nats-server -js` |
+| **macOS Homebrew** | `brew install nats-server && nats-server -js` |
+| **Demo server** | `nats://demo.nats.io` — public, do not use for production or sensitive data |
+| **Managed cloud** | [Synadia Cloud](https://www.synadia.com/cloud) (by the NATS creators), [Elestio](https://elest.io/) |
+
+Default URL: `nats://localhost:4222`
+
+> **Important:** For JetStream mode, the NATS server must be started with the `-js` flag or have JetStream enabled in its configuration file. Without this, JetStream operations will fail.
+
+### NATS CLI (Optional, Recommended for Debugging)
+
+Install the NATS CLI for monitoring and testing:
+
+```bash
+# macOS
+brew install nats-io/nats-tools/nats
+
+# Or download from: https://github.com/nats-io/natscli/releases
+```
+
+Useful commands:
+
+```bash
+# Check server status
+nats server info
+
+# List JetStream streams
+nats stream list
+
+# List consumers on a stream
+nats consumer list CACHE_INVALIDATIONS
+
+# Subscribe to invalidations for debugging
+nats sub "cache.invalidations"
+```
 
 ### NATS Core
 
@@ -884,25 +1002,50 @@ if (!health.ok) {
 }
 ```
 
-Options:
+### All Parameters
 
-| Option | Why it matters |
-| --- | --- |
-| `mode` | `core` for speed, `jetstream` for durable invalidation |
-| `connection` | Inject an existing NATS connection |
-| `connectionOptions` | Create a NATS connection internally |
-| `subject` | NATS subject for invalidation messages |
-| `jetstream.stream` | Stream that stores invalidations |
-| `jetstream.durableName` | Required for JetStream persistent per-instance delivery |
-| `jetstream.storage` | `file` for durability, `memory` for speed |
-| `jetstream.maxAgeMs` | Retention window for invalidation replay |
-| `jetstream.maxMsgs` | Optional stream size cap |
-| `jetstream.ackWaitMs` | Redelivery wait if handler does not ack |
-| `jetstream.maxDeliver` | Redelivery limit |
-| `jetstream.ensureStream` | Auto-create stream |
-| `jetstream.ensureConsumer` | Auto-create durable consumer |
-| `retryQueue` | In-memory retry for publish failures |
-| `logging` | Environment-aware logs |
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `mode` | `"core"` \| `"jetstream"` | `"core"` | `"core"` for fast fire-and-forget Pub/Sub. `"jetstream"` for durable delivery with replay. |
+| `connection` | `NatsConnection` | `undefined` | Inject an existing NATS connection (from `nats.connect()`). Mutually exclusive with `connectionOptions`. |
+| `connectionOptions` | `ConnectionOptions` | `undefined` | Options passed to `nats.connect()` to create a connection internally. |
+| `connectionOptions.servers` | `string \| string[]` | `"localhost:4222"` | NATS server URL(s). Supports multiple for clustering: `["nats://a:4222", "nats://b:4222"]`. |
+| `connectionOptions.name` | `string` | `undefined` | Client name shown in NATS server monitoring. Use `INSTANCE_ID` for easy debugging. |
+| `connectionOptions.user` | `string` | `undefined` | Username for NATS authentication. |
+| `connectionOptions.pass` | `string` | `undefined` | Password for NATS authentication. |
+| `connectionOptions.token` | `string` | `undefined` | Token for NATS token authentication. |
+| `connectionOptions.tls` | `TlsOptions` | `undefined` | TLS configuration for encrypted connections. |
+| `connectionOptions.maxReconnectAttempts` | `number` | `10` | Maximum reconnection attempts before giving up. Use `-1` for unlimited. |
+| `connectionOptions.reconnectTimeWait` | `number` | `2000` | Milliseconds to wait between reconnection attempts. |
+| `subject` | `string` | `"cache.invalidations"` | NATS subject for invalidation messages. Use dotted notation. |
+| `jetstream.stream` | `string` | `"CACHE_INVALIDATIONS"` | JetStream stream name that stores invalidation messages. |
+| `jetstream.durableName` | `string` | **required** (JetStream) | Stable unique durable consumer name per cache instance. If shared between instances, they split delivery instead of each getting every message. |
+| `jetstream.storage` | `"file"` \| `"memory"` | `"file"` | `"file"` persists messages to disk (survives server restart). `"memory"` is faster but volatile. |
+| `jetstream.maxAgeMs` | `number` | unlimited | Maximum age for messages in the stream. Older messages are discarded. `24 * 60 * 60 * 1000` = 24 hours. |
+| `jetstream.maxMsgs` | `number` | `-1` (unlimited) | Maximum number of messages in the stream. `-1` for no limit. |
+| `jetstream.ackWaitMs` | `number` | `30_000` | How long the server waits for an acknowledgment before redelivering the message. |
+| `jetstream.maxDeliver` | `number` | `10` | Maximum number of delivery attempts per message. After this, the message is dropped. |
+| `jetstream.ensureStream` | `boolean` | `true` | Auto-create the JetStream stream if it does not exist. Set to `false` if the stream is managed externally. |
+| `jetstream.ensureConsumer` | `boolean` | `true` | Auto-create the durable consumer if it does not exist. Set to `false` if the consumer is managed externally. |
+| `retryQueue.enabled` | `boolean` | `true` | Keep failed publishes in memory for later retry. |
+| `retryQueue.maxSize` | `number` | unlimited | Maximum retry queue size. Oldest events are dropped when full. |
+| `logging.env` | `"production"` \| `"development"` \| `"test"` | auto-detected | Controls log verbosity. |
+| `logging.enabled` | `boolean` | auto | Hard override for log output. |
+
+### Health Check Response
+
+```ts
+interface NatsEventBusHealth {
+  ok: boolean;
+  transport: "nats";
+  mode: "core" | "jetstream";
+  subject: string;
+  server?: string;          // Connected server URL
+  stream?: string;          // JetStream stream name (jetstream mode only)
+  durableName?: string;     // Durable consumer name (jetstream mode only)
+  error?: unknown;
+}
+```
 
 Important: every cache instance that owns an L1 needs its own stable `durableName`. Shared durable names share one cursor and will not deliver every invalidation to every instance.
 
@@ -1068,3 +1211,4 @@ Further reading:
 - `npm run build` compiles TypeScript into `dist/`.
 - `npm run typecheck` checks TypeScript without emitting.
 - `npm test` runs the test suite.
+

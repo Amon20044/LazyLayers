@@ -18,6 +18,7 @@ import {
 } from './distributedLock.js';
 import type { CacheEvent, CacheEventHandler } from './events.js';
 import { MemoryStore } from './memoryStore.js';
+import { matchesPattern } from './pattern.js';
 
 interface StaleEntry<V> {
   value: V;
@@ -372,19 +373,19 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
   private async deleteByPatternLocal(pattern: string): Promise<void> {
     for (const key of this.inflight.keys()) {
-      if (matchesCacheKeyPattern(key, pattern)) {
+      if (matchesPattern(String(key), pattern)) {
         this.inflight.delete(key);
       }
     }
 
     for (const key of this.negative.keys()) {
-      if (matchesCacheKeyPattern(key, pattern)) {
+      if (matchesPattern(String(key), pattern)) {
         this.negative.delete(key);
       }
     }
 
     for (const key of this.stale.keys()) {
-      if (matchesCacheKeyPattern(key, pattern)) {
+      if (matchesPattern(String(key), pattern)) {
         this.stale.delete(key);
       }
     }
@@ -754,13 +755,4 @@ class LoaderTimeoutError extends Error {
   }
 }
 
-function matchesCacheKeyPattern(key: CacheKey, pattern: string): boolean {
-  if (pattern === '*') {
-    return true;
-  }
 
-  const escaped = pattern.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
-  const source = escaped.replace(/\*/g, '.*');
-
-  return new RegExp(`^${source}$`).test(String(key));
-}
