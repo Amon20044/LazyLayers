@@ -17,13 +17,13 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="lazy-layers-cache — Hybrid Cache for Node.js">
 <meta property="og:description" content="A focused TypeScript hybrid L1/L2 cache for Node.js. Built-in stampede protection, stale fallback, and global invalidation over Redis PubSub, RabbitMQ, or NATS.">
-<meta property="og:image" content="LazyLayers.webp">
+<meta property="og:image" content="https://raw.githubusercontent.com/Amon20044/LazyLayers/main/LazyLayers.webp">
 
 <!-- Twitter -->
 <meta property="twitter:card" content="summary_large_image">
 <meta property="twitter:title" content="lazy-layers-cache — Hybrid Cache for Node.js">
 <meta property="twitter:description" content="A focused TypeScript hybrid L1/L2 cache for Node.js. Built-in stampede protection, stale fallback, and global invalidation.">
-<meta property="twitter:image" content="LazyLayers.webp">
+<meta property="twitter:image" content="https://raw.githubusercontent.com/Amon20044/LazyLayers/main/LazyLayers.webp">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -1184,6 +1184,7 @@
     <li><a href="#architecture">How it works</a></li>
     <li><a href="#buses">Event buses</a></li>
     <li><a href="#resilience">Resilience</a></li>
+    <li><a href="#options">Options</a></li>
     <li><a href="#api">API</a></li>
   </ul>
   <a href="https://npmjs.com/package/lazy-layers-cache" class="nav-badge">npm ↗</a>
@@ -1199,6 +1200,7 @@
     <li><a href="#architecture" class="drawer-link">How it works</a></li>
     <li><a href="#buses" class="drawer-link">Event buses</a></li>
     <li><a href="#resilience" class="drawer-link">Resilience</a></li>
+    <li><a href="#options" class="drawer-link">Options</a></li>
     <li><a href="#api" class="drawer-link">API</a></li>
   </ul>
   <a href="https://npmjs.com/package/lazy-layers-cache" class="drawer-badge">npm ↗</a>
@@ -1235,19 +1237,20 @@
           <span class="dot dot-r"></span>
           <span class="dot dot-y"></span>
           <span class="dot dot-g"></span>
-          <span class="code-filename">Without Redis (L1 Only)</span>
+          <span class="code-filename">L1 only (Redis off)</span>
         </div>
-        <div class="code-body" style="white-space: pre;"><span class="kw">import</span> { createCache } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
+        <div class="code-body" style="white-space: pre;"><span class="kw">import</span> { LazyLayersCache } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
 
-<span class="kw">const</span> cache = <span class="fn">createCache</span>&lt;<span class="type">string</span>, <span class="type">User</span>&gt;({
+<span class="kw">const</span> cache = <span class="kw">new</span> <span class="type">LazyLayersCache</span>&lt;<span class="type">string</span>, <span class="type">User</span>&gt;({
+  l2: <span class="kw">false</span>, <span class="cm">// explicit: no Redis/L2</span>
   ttlMs: <span class="num">60_000</span>,
   levels: {
-    L1: { maxEntries: <span class="num">1_000</span>, ttlMs: <span class="num">10_000</span> }
+    L1: { maxEntries: <span class="num">1_000</span>, ttlMs: <span class="num">10_000</span> },
   },
-  inflight: { enabled: <span class="kw">true</span>, ttlMs: <span class="num">5_000</span> }
+  inflight: { enabled: <span class="kw">true</span>, ttlMs: <span class="num">5_000</span> },
 });
 
-<span class="cm">// Lazy load with automatic stampede protection</span>
+<span class="cm">// L1 is created by default and stays process-local.</span>
 <span class="kw">const</span> user = <span class="kw">await</span> cache.<span class="fn">getOrSet</span>(<span class="str">`user:<span class="op">${</span>id<span class="op">}</span>`</span>, <span class="kw">async</span> () <span class="op">=&gt;</span> {
   <span class="kw">return</span> db.users.<span class="fn">findById</span>(id);
 });</div>
@@ -1259,20 +1262,26 @@
           <span class="dot dot-r"></span>
           <span class="dot dot-y"></span>
           <span class="dot dot-g"></span>
-          <span class="code-filename">With Redis (Hybrid L1/L2)</span>
+          <span class="code-filename">L1 + Redis L2</span>
         </div>
         <div class="code-body" style="white-space: pre;"><span class="kw">import</span> Redis <span class="kw">from</span> <span class="str">"ioredis"</span>;
-<span class="kw">import</span> { HybridCache, RedisStore } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
+<span class="kw">import</span> { LazyLayersCache, RedisStore } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
 
-<span class="kw">const</span> redis = <span class="kw">new</span> <span class="fn">Redis</span>(process.env.REDIS_URL);
+<span class="kw">const</span> useL1 = process.env.CACHE_L1 <span class="op">!==</span> <span class="str">"false"</span>;
+<span class="kw">const</span> redis = process.env.REDIS_URL
+  <span class="op">?</span> <span class="kw">new</span> <span class="fn">Redis</span>(process.env.REDIS_URL)
+  <span class="op">:</span> <span class="kw">undefined</span>;
 
-<span class="kw">const</span> cache = <span class="kw">new</span> <span class="type">HybridCache</span>&lt;<span class="type">string</span>, <span class="type">User</span>&gt;({
-  l2: <span class="kw">new</span> <span class="type">RedisStore</span>&lt;<span class="type">User</span>&gt;(redis, { prefix: <span class="str">"users:"</span> }),
+<span class="kw">const</span> cache = <span class="kw">new</span> <span class="type">LazyLayersCache</span>&lt;<span class="type">string</span>, <span class="type">User</span>&gt;({
+  l1: useL1 <span class="op">?</span> <span class="kw">undefined</span> <span class="op">:</span> <span class="kw">false</span>,
+  l2: redis
+    <span class="op">?</span> <span class="kw">new</span> <span class="type">RedisStore</span>&lt;<span class="type">User</span>&gt;(redis, { prefix: <span class="str">"users:"</span> })
+    <span class="op">:</span> <span class="kw">false</span>,
   ttlMs: <span class="num">60_000</span>,
-  failSafe: { enabled: <span class="kw">true</span>, staleTtlMs: <span class="num">300_000</span> }
+  failSafe: { enabled: <span class="kw">true</span>, staleTtlMs: <span class="num">300_000</span> },
 });
 
-<span class="cm">// Fetches from L1 -> L2 -> Database</span>
+<span class="cm">// Fetch order: L1 -> L2 -> loader. L2 failures fail open.</span>
 <span class="kw">const</span> user = <span class="kw">await</span> cache.<span class="fn">getOrSet</span>(<span class="str">`user:<span class="op">${</span>id<span class="op">}</span>`</span>, <span class="kw">async</span> () <span class="op">=&gt;</span> {
   <span class="kw">return</span> db.users.<span class="fn">findById</span>(id);
 });</div>
@@ -1532,6 +1541,103 @@
   </div>
 </section>
 
+<!-- INITIALIZATION OPTIONS -->
+<section id="options">
+  <div class="section-label">Initialization options</div>
+  <div class="api-grid">
+    <div class="code-block">
+      <div class="code-header">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="code-filename">lazy-layers-cache.ts</span>
+      </div>
+      <div class="code-body"><span class="kw">import</span> {
+  LazyLayersCache,
+  RedisStore,
+  RedisEventBus,
+} <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
+
+<span class="kw">const</span> cache = <span class="kw">new</span> <span class="type">LazyLayersCache</span>&lt;<span class="type">string</span>, <span class="type">User</span>&gt;({
+  <span class="cm">// Layers</span>
+  l1: <span class="kw">undefined</span>, <span class="cm">// default MemoryStore; false disables LRU memory</span>
+  l2: redis
+    <span class="op">?</span> <span class="kw">new</span> <span class="type">RedisStore</span>&lt;<span class="type">User</span>&gt;(redis, {
+        prefix: <span class="str">"users:"</span>,
+        useIndex: <span class="kw">true</span>,
+        scanCount: <span class="num">1_000</span>,
+        batchSize: <span class="num">500</span>,
+        deleteStrategy: <span class="str">"unlink"</span>,
+      })
+    <span class="op">:</span> <span class="kw">false</span>,
+
+  <span class="cm">// Cache policy</span>
+  ttlMs: <span class="num">60_000</span>,
+  levels: {
+    L1: { maxEntries: <span class="num">1_000</span>, ttlMs: <span class="num">10_000</span> },
+    L2: { maxEntries: <span class="num">100_000</span>, ttlMs: <span class="num">60_000</span> },
+  },
+  inflight: { enabled: <span class="kw">true</span>, ttlMs: <span class="num">5_000</span>, maxEntries: <span class="num">1_000</span> },
+  distributedLock: { enabled: <span class="kw">true</span>, ttlMs: <span class="num">10_000</span>, waitTimeoutMs: <span class="num">2_000</span>, pollMs: <span class="num">50</span> },
+  negativeCache: { enabled: <span class="kw">true</span>, ttlMs: <span class="num">5_000</span>, maxEntries: <span class="num">10_000</span> },
+  failSafe: { enabled: <span class="kw">true</span>, staleTtlMs: <span class="num">300_000</span> },
+  timeouts: { softMs: <span class="num">100</span>, hardMs: <span class="num">2_000</span> },
+  versioning: { enabled: <span class="kw">true</span> },
+
+  <span class="cm">// Distributed invalidation</span>
+  eventBus: redis
+    <span class="op">?</span> <span class="kw">new</span> <span class="type">RedisEventBus</span>(redis, <span class="str">"cache:invalidations"</span>)
+    <span class="op">:</span> <span class="kw">undefined</span>,
+  source: process.env.INSTANCE_ID,
+  subscribeToEvents: <span class="kw">true</span>,
+  eventDedupeMaxEntries: <span class="num">10_000</span>,
+  eventDedupeTtlMs: <span class="num">300_000</span>,
+
+  <span class="cm">// Resilience and hooks</span>
+  resilience: {
+    l2CircuitBreaker: { failureThreshold: <span class="num">3</span>, cooldownMs: <span class="num">30_000</span> },
+    eventBusCircuitBreaker: { failureThreshold: <span class="num">3</span>, cooldownMs: <span class="num">30_000</span> },
+  },
+  logging: { env: <span class="str">"production"</span> },
+  events: [(event) <span class="op">=&gt;</span> metrics.<span class="fn">increment</span>(event.type)],
+});</div>
+    </div>
+
+    <div class="opts-grid">
+      <div class="opt-row">
+        <div class="opt-key">l1<span class="opt-type">CacheStore | false | undefined</span></div>
+        <div class="opt-val">Undefined creates the default in-process LRU. Pass false to avoid L1 allocation; on server restart, no LRU is recreated.</div>
+      </div>
+      <div class="opt-row">
+        <div class="opt-key">l2<span class="opt-type">CacheStore | false | undefined</span></div>
+        <div class="opt-val">Pass RedisStore for shared Redis L2. Pass false when Redis is intentionally off. Runtime L2 errors fail open.</div>
+      </div>
+      <div class="opt-row">
+        <div class="opt-key">ttlMs / levels<span class="opt-type">number / L1 + L2 policy</span></div>
+        <div class="opt-val">Global TTL plus per-level TTL and maxEntries. L1 is usually shorter; L2 is usually longer.</div>
+      </div>
+      <div class="opt-row">
+        <div class="opt-key">inflight<span class="opt-type">enabled, ttlMs, maxEntries</span></div>
+        <div class="opt-val">Same-process request coalescing for concurrent getOrSet calls on the same key.</div>
+      </div>
+      <div class="opt-row">
+        <div class="opt-key">distributedLock<span class="opt-type">enabled, ttlMs, waitTimeoutMs, pollMs</span></div>
+        <div class="opt-val">Cross-instance stampede control when the L2 store supports locks, such as RedisStore.</div>
+      </div>
+      <div class="opt-row">
+        <div class="opt-key">failSafe / timeouts<span class="opt-type">stale fallback</span></div>
+        <div class="opt-val">Keep last-known-good values and return stale data on loader errors or timeout paths.</div>
+      </div>
+      <div class="opt-row">
+        <div class="opt-key">eventBus / source<span class="opt-type">distributed invalidation</span></div>
+        <div class="opt-val">Redis Pub/Sub, RabbitMQ, or NATS invalidation with a unique source per cache instance.</div>
+      </div>
+      <div class="opt-row">
+        <div class="opt-key">types<span class="opt-type">&lt;K, V&gt; generics</span></div>
+        <div class="opt-val">Use &lt;string, User&gt; for one domain cache. For mixed values, use a union or JsonValue. JavaScript users omit generics.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- COMPARISON -->
 <section id="api" style="margin-bottom:80px;">
   <div class="section-label">vs. other libraries</div>
@@ -1610,6 +1716,7 @@
       <div class="code-body"><span class="kw">import</span> {
   createCache,
   HybridCache,
+  LazyLayersCache,
   MemoryStore,
   RedisStore,
   RedisEventBus,
@@ -1620,6 +1727,7 @@
 <span class="kw">import type</span> {
   CacheOptions,
   CacheStore,
+  LazyLayersCacheOptions,
   InvalidationEvent,
   EventBusHealth,
 } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;

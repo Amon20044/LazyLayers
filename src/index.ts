@@ -1,8 +1,10 @@
-import { HybridCache, type HybridCacheOptions } from './cache/index.js';
+import { LazyLayersCache, type LazyLayersCacheOptions } from './cache/index.js';
 import type { CacheKey } from './types/index.js';
 
-export function createCache<K extends CacheKey, V>(options?: HybridCacheOptions<K, V>): HybridCache<K, V> {
-  return new HybridCache<K, V>(options);
+export function createCache<K extends CacheKey = string, V = unknown>(
+  options?: LazyLayersCacheOptions<K, V>,
+): LazyLayersCache<K, V> {
+  return new LazyLayersCache<K, V>(options);
 }
 
 export type {
@@ -23,6 +25,7 @@ export type {
   PatternEvent,
 } from './types/index.js';
 export type {
+  CacheLayer,
   CircuitBreakerOptions,
   CircuitBreakerState,
   CacheEvent,
@@ -31,6 +34,7 @@ export type {
   DistributedLockOptions,
   HybridCacheOptions,
   HybridCacheResilienceOptions,
+  LazyLayersCacheOptions,
   RedisStoreOptions,
 } from './cache/index.js';
 export {
@@ -39,6 +43,7 @@ export {
   DEFAULT_INFLIGHT_TTL_MS,
   DEFAULT_L1_MAX_ENTRIES,
   HybridCache,
+  LazyLayersCache,
   MemoryStore,
   RedisStore,
 } from './cache/index.js';
