@@ -312,10 +312,11 @@
   .code-body {
     padding: 24px;
     font-family: 'DM Mono', monospace;
-    font-size: 12.5px;
-    line-height: 1.75;
+    font-size: 13px;
+    line-height: 1.7;
     color: var(--code-text);
     overflow-x: auto;
+    white-space: pre;
   }
 
   .kw { color: #c792ea; }
@@ -897,31 +898,55 @@
         <button class="copy-btn" onclick="copyInstall(this)">copy</button>
       </div>
 
+      <!-- Without Redis -->
+      <div class="code-block" style="margin-bottom: 20px;">
+        <div class="code-header">
+          <span class="dot dot-r"></span>
+          <span class="dot dot-y"></span>
+          <span class="dot dot-g"></span>
+          <span class="code-filename">Without Redis (L1 Only)</span>
+        </div>
+        <div class="code-body" style="white-space: pre;"><span class="kw">import</span> { createCache } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
+
+<span class="kw">const</span> cache = <span class="fn">createCache</span>&lt;<span class="type">string</span>, <span class="type">User</span>&gt;({
+  ttlMs: <span class="num">60_000</span>,
+  levels: {
+    L1: { maxEntries: <span class="num">1_000</span>, ttlMs: <span class="num">10_000</span> }
+  },
+  inflight: { enabled: <span class="kw">true</span>, ttlMs: <span class="num">5_000</span> }
+});
+
+<span class="cm">// Lazy load with automatic stampede protection</span>
+<span class="kw">const</span> user = <span class="kw">await</span> cache.<span class="fn">getOrSet</span>(<span class="str">`user:<span class="op">${</span>id<span class="op">}</span>`</span>, <span class="kw">async</span> () <span class="op">=&gt;</span> {
+  <span class="kw">return</span> db.users.<span class="fn">findById</span>(id);
+});</div>
+      </div>
+
+      <!-- With Redis -->
       <div class="code-block">
         <div class="code-header">
           <span class="dot dot-r"></span>
           <span class="dot dot-y"></span>
           <span class="dot dot-g"></span>
-          <span class="code-filename">cache.ts</span>
+          <span class="code-filename">With Redis (Hybrid L1/L2)</span>
         </div>
-        <div class="code-body"><span class="kw">import</span> { createCache } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
+        <div class="code-body" style="white-space: pre;"><span class="kw">import</span> Redis <span class="kw">from</span> <span class="str">"ioredis"</span>;
+<span class="kw">import</span> { HybridCache, RedisStore } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
 
-<span class="kw">const</span> cache = <span class="fn">createCache</span>&lt;<span class="type">string</span>, <span class="type">User</span>&gt;({
+<span class="kw">const</span> redis = <span class="kw">new</span> <span class="fn">Redis</span>(process.env.REDIS_URL);
+
+<span class="kw">const</span> cache = <span class="kw">new</span> <span class="type">HybridCache</span>&lt;<span class="type">string</span>, <span class="type">User</span>&gt;({
+  l2: <span class="kw">new</span> <span class="type">RedisStore</span>&lt;<span class="type">User</span>&gt;(redis, { prefix: <span class="str">"users:"</span> }),
   ttlMs: <span class="num">60_000</span>,
-  levels: {
-    L1: { maxEntries: <span class="num">1_000</span>, ttlMs: <span class="num">10_000</span> },
-  },
-  inflight: { enabled: <span class="kw">true</span>, ttlMs: <span class="num">5_000</span> },
-  failSafe: { enabled: <span class="kw">true</span>, staleTtlMs: <span class="num">300_000</span> },
+  failSafe: { enabled: <span class="kw">true</span>, staleTtlMs: <span class="num">300_000</span> }
 });
 
-<span class="cm">// Lazy load with automatic stampede protection</span>
-<span class="kw">const</span> user = <span class="kw">await</span> cache.<span class="fn">getOrSet</span>(
-  <span class="str">`user:<span class="op">${</span>id<span class="op">}</span>`</span>,
-  <span class="kw">async</span> () <span class="op">=&gt;</span> db.users.<span class="fn">findById</span>(id)
-);
-</div>
+<span class="cm">// Fetches from L1 -> L2 -> Database</span>
+<span class="kw">const</span> user = <span class="kw">await</span> cache.<span class="fn">getOrSet</span>(<span class="str">`user:<span class="op">${</span>id<span class="op">}</span>`</span>, <span class="kw">async</span> () <span class="op">=&gt;</span> {
+  <span class="kw">return</span> db.users.<span class="fn">findById</span>(id);
+});</div>
       </div>
+
     </div>
   </div>
 </div>
