@@ -71,7 +71,7 @@
   nav {
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 200;
     background: var(--paper);
     border-bottom: 1px solid var(--border);
     display: flex;
@@ -843,18 +843,184 @@
     font-weight: 300;
   }
 
+  .api-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 80px;
+  }
+
+  .checklist-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 40px;
+    line-height: 2;
+  }
+  .hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    z-index: 300;
+    flex-shrink: 0;
+  }
+
+  .hamburger span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--ink);
+    border-radius: 2px;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+    transform-origin: center;
+  }
+
+  .hamburger.active span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .hamburger.active span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+  .hamburger.active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+  /* ---- MOBILE NAV DRAWER ---- */
+  .nav-drawer {
+    position: fixed;
+    inset: 0;
+    background: var(--paper);
+    z-index: 250;
+    display: flex;
+    flex-direction: column;
+    padding: 80px 32px 48px;
+    transform: translateX(100%);
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+  }
+
+  .nav-drawer.open { transform: translateX(0); }
+
+  .nav-drawer ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 32px;
+    flex: 1;
+  }
+
+  .nav-drawer ul li a {
+    font-family: 'Syne', sans-serif;
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--ink);
+    text-decoration: none;
+    letter-spacing: -0.03em;
+    display: block;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+    transition: color 0.15s, padding-left 0.15s;
+  }
+
+  .nav-drawer ul li a:hover { color: var(--muted); padding-left: 8px; }
+
+  .nav-drawer .drawer-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    background: var(--ink);
+    color: var(--accent);
+    padding: 16px 32px;
+    border-radius: 2px;
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    display: inline-block;
+    margin-top: 24px;
+    text-align: center;
+  }
+
   /* ---- RESPONSIVE ---- */
+  @media (max-width: 1024px) {
+    .hero { padding: 80px 32px 60px; gap: 48px; }
+    section { padding: 0 32px; }
+    nav { padding: 0 32px; }
+    footer { padding: 40px 32px; }
+    .features-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
   @media (max-width: 900px) {
-    .hero { grid-template-columns: 1fr; padding: 60px 24px; gap: 40px; }
-    .features-grid { grid-template-columns: 1fr; }
+    .hamburger { display: flex; }
+    .nav-links, .nav-badge { display: none; }
+
+    .hero { grid-template-columns: 1fr; padding: 60px 24px 48px; gap: 40px; }
+
+    .features-grid { grid-template-columns: repeat(2, 1fr); }
     .bus-grid { grid-template-columns: 1fr; }
-    .resilience-grid { grid-template-columns: 1fr; }
+    .resilience-grid { grid-template-columns: repeat(2, 1fr); }
     .events-grid { grid-template-columns: repeat(2, 1fr); }
+
     section { padding: 0 24px; }
     nav { padding: 0 24px; }
     footer { padding: 32px 24px; }
     .arch-diagram { padding: 24px; }
     .opts-grid { grid-template-columns: 1fr; }
+
+    .api-grid { grid-template-columns: 1fr; }
+    .checklist-grid { grid-template-columns: 1fr; gap: 0; }
+
+    .compare-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
+    .compare-wrapper .compare-table { min-width: 560px; }
+
+    .banner { padding: 24px 28px; }
+  }
+
+  @media (max-width: 600px) {
+    .hero { padding: 40px 16px 36px; }
+    .hero-title { font-size: clamp(36px, 12vw, 60px); }
+    .hero-desc { font-size: 15px; }
+    .hero-actions { flex-direction: column; align-items: stretch; }
+    .hero-actions .btn-primary,
+    .hero-actions .btn-ghost { text-align: center; justify-content: center; }
+
+    .features-grid { grid-template-columns: 1fr; }
+    .resilience-grid { grid-template-columns: 1fr; }
+    .events-grid { grid-template-columns: repeat(2, 1fr); }
+
+    section { padding: 0 16px; }
+    nav { padding: 0 16px; height: 56px; }
+
+    footer {
+      padding: 28px 16px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .footer-links { flex-wrap: wrap; gap: 16px; }
+
+    .install-box { flex-wrap: wrap; gap: 10px; }
+    .install-cmd { font-size: 12px; word-break: break-all; }
+
+    .arch-diagram { padding: 16px; }
+    .banner { padding: 20px 16px; font-size: 12px; line-height: 1.9; }
+
+    .compare-table th,
+    .compare-table td { padding: 12px 14px; font-size: 12.5px; }
+
+    .code-body { font-size: 11.5px; padding: 16px; }
+    .section-label { margin-bottom: 28px; }
+    .marquee-wrap { margin: 36px 0; }
+
+    .nav-drawer ul li a { font-size: 26px; padding: 14px 0; }
+    .nav-drawer { padding: 72px 24px 40px; }
+
+    .bus-grid { grid-template-columns: 1fr; }
+    .feat-card { padding: 28px 20px; }
+    .bus-card { padding: 22px 20px; }
+    .res-card { padding: 22px 20px; }
+  }
+
+  @media (max-width: 400px) {
+    .hero-title { font-size: clamp(32px, 11vw, 48px); }
+    .events-grid { grid-template-columns: 1fr; }
+    .install-cmd { font-size: 11px; }
   }
 </style>
 </head>
@@ -871,7 +1037,22 @@
     <li><a href="#api">API</a></li>
   </ul>
   <a href="https://npmjs.com/package/lazy-layers-cache" class="nav-badge">npm ↗</a>
+  <button class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false" aria-controls="navDrawer">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+
+<!-- MOBILE NAV DRAWER -->
+<div class="nav-drawer" id="navDrawer" role="navigation" aria-label="Mobile navigation" aria-hidden="true">
+  <ul>
+    <li><a href="#features" class="drawer-link">Features</a></li>
+    <li><a href="#architecture" class="drawer-link">How it works</a></li>
+    <li><a href="#buses" class="drawer-link">Event buses</a></li>
+    <li><a href="#resilience" class="drawer-link">Resilience</a></li>
+    <li><a href="#api" class="drawer-link">API</a></li>
+  </ul>
+  <a href="https://npmjs.com/package/lazy-layers-cache" class="drawer-badge">npm ↗</a>
+</div>
 
 <!-- HERO -->
 <div style="max-width:1280px; margin:0 auto;">
@@ -1201,6 +1382,7 @@
 <!-- COMPARISON -->
 <section id="api" style="margin-bottom:80px;">
   <div class="section-label">vs. other libraries</div>
+  <div class="compare-wrapper">
   <table class="compare-table">
     <thead>
       <tr>
@@ -1237,13 +1419,14 @@
       </tr>
     </tbody>
   </table>
+  </div>
 </section>
 
 <!-- API REFERENCE -->
 <section>
   <div class="section-label">API reference</div>
 
-  <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:80px;">
+  <div class="api-grid">
     <div class="code-block">
       <div class="code-header">
         <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
@@ -1304,7 +1487,7 @@
       <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
       <span class="code-filename">checklist.md</span>
     </div>
-    <div class="code-body" style="display:grid; grid-template-columns:1fr 1fr; gap:0 40px; line-height:2;">
+    <div class="code-body checklist-grid">
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Short L1 TTLs, longer L2 TTLs</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Run eventBus.healthCheck() before server start</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Unique source per cache instance</span></span>
@@ -1339,6 +1522,57 @@
       setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
     });
   }
+
+  // Hamburger / mobile nav
+  const hamburger = document.getElementById('hamburger');
+  const navDrawer = document.getElementById('navDrawer');
+  const focusableSelectors = 'a[href], button:not([disabled])';
+
+  function openDrawer() {
+    hamburger.classList.add('active');
+    navDrawer.classList.add('open');
+    hamburger.setAttribute('aria-expanded', 'true');
+    navDrawer.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    // Move focus to first focusable element in drawer
+    const firstFocusable = navDrawer.querySelector(focusableSelectors);
+    if (firstFocusable) firstFocusable.focus();
+  }
+
+  function closeDrawer() {
+    hamburger.classList.remove('active');
+    navDrawer.classList.remove('open');
+    hamburger.setAttribute('aria-expanded', 'false');
+    navDrawer.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    hamburger.focus();
+  }
+
+  hamburger.addEventListener('click', () => {
+    navDrawer.classList.contains('open') ? closeDrawer() : openDrawer();
+  });
+
+  // Close drawer when a link is clicked
+  navDrawer.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', closeDrawer);
+  });
+
+  // Close on Escape key; trap focus inside drawer when open
+  document.addEventListener('keydown', (e) => {
+    if (!navDrawer.classList.contains('open')) return;
+    if (e.key === 'Escape') { closeDrawer(); return; }
+    if (e.key === 'Tab') {
+      const focusable = Array.from(navDrawer.querySelectorAll(focusableSelectors));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+  });
 
   // Scroll-triggered fade-in
   const observer = new IntersectionObserver((entries) => {
