@@ -169,6 +169,35 @@ const user = await cache.getOrSet("user:1", async () => {
 });
 ```
 
+`createCache<string, User>()` is optional TypeScript safety, not a runtime requirement.
+
+```ts
+// string keys, User values. Best when one cache stores one value shape.
+const users = createCache<string, User>();
+
+// string keys, any JSON-like value. Better for mixed value shapes.
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+const jsonCache = createCache<string, JsonValue>();
+```
+
+In plain JavaScript, there are no generic types:
+
+```js
+import { createCache } from "lazy-layers-cache";
+
+const cache = createCache({ ttlMs: 60_000 });
+
+await cache.set("user:1", { id: "1", name: "Amonk" });
+await cache.set("count", 42);
+```
+
 ## Production Startup Flow
 
 In production, initialize external dependencies before starting your HTTP server.
