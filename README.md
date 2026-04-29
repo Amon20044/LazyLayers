@@ -17,6 +17,7 @@ Invalidation is global across connected cache instances.
 ## Contents
 
 - [What Is Included](#what-is-included)
+- [System Design](#system-design)
 - [Install](#install)
 - [JavaScript And TypeScript Usage](#javascript-and-typescript-usage)
 - [Quick Start](#quick-start)
@@ -60,6 +61,10 @@ Invalidation is global across connected cache instances.
 | Observability | Hookable cache events |
 | Startup checks | `connect()` and `healthCheck()` on event buses |
 | Logging control | Environment-aware logging, quiet in production by default |
+
+## System Design
+
+![Lazy Layers Architecture](LazyLayers.webp)
 
 ## Install
 
