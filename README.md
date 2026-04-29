@@ -20,6 +20,7 @@ Invalidation is global across connected cache instances.
 - [Install](#install)
 - [JavaScript And TypeScript Usage](#javascript-and-typescript-usage)
 - [Quick Start](#quick-start)
+- [Shared Config And Multiple Caches](#shared-config-and-multiple-caches)
 - [Production Startup Flow](#production-startup-flow)
 - [Logging And Environments](#logging-and-environments)
 - [Cache Options](#cache-options)
@@ -196,6 +197,79 @@ const cache = createCache({ ttlMs: 60_000 });
 
 await cache.set("user:1", { id: "1", name: "Amonk" });
 await cache.set("count", 42);
+```
+
+## Shared Config And Multiple Caches
+
+Create cache configuration once, then reuse it when creating domain-specific caches.
+
+```ts
+import { createCache, type CacheOptions } from "lazy-layers-cache";
+
+interface User {
+  id: string;
+  name: string;
+}
+
+interface Tournament {
+  id: string;
+  title: string;
+}
+
+const sharedCacheConfig: CacheOptions = {
+  ttlMs: 60_000,
+  logging: {
+    env: process.env.NODE_ENV === "production" ? "production" : "development",
+  },
+  levels: {
+    L1: {
+      maxEntries: 1_000,
+      ttlMs: 10_000,
+    },
+  },
+  inflight: {
+    enabled: true,
+    ttlMs: 5_000,
+    maxEntries: 1_000,
+  },
+};
+
+export const userCache = createCache<string, User>(sharedCacheConfig);
+export const tournamentCache = createCache<string, Tournament>(sharedCacheConfig);
+```
+
+Use those cache instances everywhere. Do not recreate them per request.
+
+```ts
+const user = await userCache.getOrSet(`user:${id}`, () => loadUser(id));
+
+const tournament = await tournamentCache.getOrSet(
+  `tournament:${id}`,
+  () => loadTournament(id),
+);
+```
+
+With Redis L2, reuse the same base config but give each domain its own Redis prefix.
+
+```ts
+import Redis from "ioredis";
+import { HybridCache, RedisStore } from "lazy-layers-cache";
+
+const redis = new Redis(process.env.REDIS_URL);
+
+export const userCache = new HybridCache<string, User>({
+  ...sharedCacheConfig,
+  l2: new RedisStore<User>(redis, {
+    prefix: "users:",
+  }),
+});
+
+export const tournamentCache = new HybridCache<string, Tournament>({
+  ...sharedCacheConfig,
+  l2: new RedisStore<Tournament>(redis, {
+    prefix: "tournaments:",
+  }),
+});
 ```
 
 ## Production Startup Flow
