@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>lazy-layers-cache — Hybrid Cache for Node.js</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #0d0d0f;
+    --paper: #f5f3ee;
+    --paper2: #edeae3;
+    --accent: #c8ff3e;
+    --accent2: #ff6b35;
+    --muted: #7a776e;
+    --border: #d4d0c8;
+    --code-bg: #191917;
+    --code-text: #e8e5dc;
+    --tag: #1a1a1e;
+    --radius: 4px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ---- NOISE OVERLAY ---- */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  /* ---- NAV ---- */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--paper);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 48px;
+    height: 60px;
+  }
+
+  .nav-logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+
+  .nav-logo span { color: var(--accent2); }
+
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    list-style: none;
+  }
+
+  .nav-links a {
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 400;
+    transition: color 0.15s;
+    letter-spacing: 0.01em;
+  }
+  .nav-links a:hover { color: var(--ink); }
+
+  .nav-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    background: var(--ink);
+    color: var(--accent);
+    padding: 4px 12px;
+    border-radius: 2px;
+    text-decoration: none;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---- HERO ---- */
+  .hero {
+    padding: 100px 48px 80px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: start;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  .hero-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .hero-eyebrow::before {
+    content: '';
+    display: block;
+    width: 28px;
+    height: 1px;
+    background: var(--muted);
+  }
+
+  .hero-title {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(52px, 6vw, 88px);
+    font-weight: 800;
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+    color: var(--ink);
+    margin-bottom: 28px;
+  }
+
+  .hero-title .line2 {
+    display: block;
+    color: transparent;
+    -webkit-text-stroke: 2px var(--ink);
+  }
+
+  .hero-title .accent-word {
+    position: relative;
+    display: inline-block;
+  }
+
+  .hero-title .accent-word::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: var(--accent);
+    z-index: -1;
+  }
+
+  .hero-desc {
+    font-size: 17px;
+    line-height: 1.65;
+    color: #4a4840;
+    margin-bottom: 36px;
+    max-width: 480px;
+    font-weight: 300;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    background: var(--ink);
+    color: var(--accent);
+    border: none;
+    padding: 14px 28px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    transition: transform 0.12s, box-shadow 0.12s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(13,13,15,0.18);
+  }
+
+  .btn-ghost {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--ink);
+    border: 1px solid var(--border);
+    padding: 14px 24px;
+    border-radius: var(--radius);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    transition: border-color 0.12s, background 0.12s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-ghost:hover { background: var(--paper2); border-color: #aaa8a0; }
+
+  .install-box {
+    background: var(--code-bg);
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid #2a2a27;
+  }
+
+  .install-cmd {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--accent);
+    letter-spacing: -0.01em;
+  }
+
+  .install-cmd .prefix { color: #5a7a3a; }
+
+  .copy-btn {
+    background: #2a2a27;
+    border: none;
+    color: var(--code-text);
+    padding: 6px 12px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    cursor: pointer;
+    transition: background 0.1s;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+  }
+
+  .copy-btn:hover { background: #3a3a37; }
+  .copy-btn.copied { color: var(--accent); }
+
+  .hero-right {
+    padding-top: 12px;
+  }
+
+  .code-block {
+    background: var(--code-bg);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #2a2a27;
+    animation: fadeUp 0.7s ease both;
+    animation-delay: 0.2s;
+  }
+
+  .code-header {
+    background: #191917;
+    border-bottom: 1px solid #2a2a27;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+
+  .code-filename {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: auto;
+    letter-spacing: 0.04em;
+  }
+
+  .code-body {
+    padding: 24px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.75;
+    color: var(--code-text);
+    overflow-x: auto;
+  }
+
+  .kw { color: #c792ea; }
+  .fn { color: #82aaff; }
+  .str { color: #c3e88d; }
+  .cm { color: #546e7a; font-style: italic; }
+  .num { color: #f78c6c; }
+  .type { color: #ffcb6b; }
+  .op { color: #89ddff; }
+  .prop { color: #80cbc4; }
+
+  /* ---- MARQUEE ---- */
+  .marquee-wrap {
+    background: var(--ink);
+    border-top: 1px solid #2a2a27;
+    border-bottom: 1px solid #2a2a27;
+    padding: 14px 0;
+    overflow: hidden;
+    margin: 60px 0;
+  }
+
+  .marquee-track {
+    display: flex;
+    gap: 0;
+    animation: marquee 22s linear infinite;
+    white-space: nowrap;
+  }
+
+  .marquee-item {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #4a4a47;
+    padding: 0 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .marquee-item.lit { color: var(--accent); }
+  .marquee-dot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: #3a3a37; }
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  /* ---- SECTIONS ---- */
+  section { max-width: 1280px; margin: 0 auto; padding: 0 48px; }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 48px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ---- FEATURES GRID ---- */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 80px;
+  }
+
+  .feat-card {
+    background: var(--paper);
+    padding: 36px 32px;
+    transition: background 0.15s;
+    position: relative;
+  }
+
+  .feat-card:hover { background: var(--paper2); }
+
+  .feat-icon {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ink);
+    border-radius: 4px;
+    font-size: 16px;
+  }
+
+  .feat-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+
+  .feat-desc {
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.6;
+    font-weight: 300;
+  }
+
+  /* ---- ARCHITECTURE ---- */
+  .arch-section { margin-bottom: 80px; }
+
+  .arch-diagram {
+    background: var(--code-bg);
+    border: 1px solid #2a2a27;
+    border-radius: 8px;
+    padding: 48px;
+    display: flex;
+    justify-content: flex-start;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #3a3a37 transparent;
+  }
+
+  .arch-diagram::-webkit-scrollbar {
+    height: 8px;
+  }
+  .arch-diagram::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .arch-diagram::-webkit-scrollbar-thumb {
+    background-color: #3a3a37;
+    border-radius: 4px;
+  }
+
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    margin: 0 auto;
+    gap: 0;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .arch-node {
+    background: #1e1e1b;
+    border: 1px solid #3a3a37;
+    border-radius: 6px;
+    padding: 20px 24px;
+    text-align: center;
+    min-width: 130px;
+    position: relative;
+  }
+
+  .arch-node.highlight {
+    border-color: var(--accent);
+    background: #1e2710;
+  }
+
+  .arch-node.accent2 {
+    border-color: var(--accent2);
+    background: #231610;
+  }
+
+  .arch-node-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+
+  .arch-node-val {
+    font-size: 15px;
+    color: var(--code-text);
+    font-weight: 500;
+  }
+
+  .arch-node.highlight .arch-node-val { color: var(--accent); }
+  .arch-node.accent2 .arch-node-val { color: var(--accent2); }
+
+  .arch-arrow {
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    color: #3a3a37;
+    font-size: 18px;
+    user-select: none;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .arch-arrow .arrow-label {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #3a3a37;
+  }
+
+  /* ---- BUS TABLE ---- */
+  .bus-section { margin-bottom: 80px; }
+
+  .bus-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .bus-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+
+  .bus-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .bus-card.redis::before { background: var(--accent2); }
+  .bus-card.rabbit::before { background: #ff6e96; }
+  .bus-card.nats::before { background: var(--accent); }
+
+  .bus-card:hover { border-color: #aaa8a0; transform: translateY(-2px); }
+
+  .bus-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 6px;
+  }
+
+  .bus-mode {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+
+  .bus-desc {
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 20px;
+    font-weight: 300;
+  }
+
+  .bus-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pill {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    background: var(--paper2);
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  .pill.good { background: #ecf7d8; color: #4a7a10; }
+  .pill.warn { background: #fff0e8; color: #b04a10; }
+
+  /* ---- COMPARISON ---- */
+  .compare-section { margin-bottom: 80px; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .compare-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--muted);
+    padding: 14px 24px;
+    background: var(--paper2);
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .compare-table th:first-child { color: var(--ink); }
+
+  .compare-table td {
+    padding: 16px 24px;
+    font-size: 13.5px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  .compare-table tr:last-child td { border-bottom: none; }
+
+  .compare-table td:first-child {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .compare-table tr.highlight-row td { background: #f0f8e0; }
+  .compare-table tr.highlight-row td:first-child { color: #3a6a10; }
+
+  /* ---- OPTIONS TABLE ---- */
+  .opts-section { margin-bottom: 80px; }
+
+  .opts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .opt-row {
+    display: contents;
+  }
+
+  .opt-key, .opt-val {
+    background: var(--paper);
+    padding: 16px 24px;
+  }
+
+  .opt-key {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: #82aaff;
+    background: #12120f;
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .opt-type {
+    font-size: 10px;
+    color: #c792ea;
+    font-style: italic;
+  }
+
+  .opt-val {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.55;
+    font-weight: 300;
+  }
+
+  /* ---- FOOTER ---- */
+  footer {
+    background: var(--ink);
+    color: #6a6a67;
+    padding: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 80px;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+
+  .footer-logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+  }
+
+  .footer-links {
+    display: flex;
+    gap: 24px;
+    list-style: none;
+  }
+
+  .footer-links a {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #4a4a47;
+    text-decoration: none;
+    transition: color 0.12s;
+  }
+
+  .footer-links a:hover { color: var(--accent); }
+
+  .footer-note {
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: #3a3a37;
+  }
+
+  /* ---- EVENTS SECTION ---- */
+  .events-section { margin-bottom: 80px; }
+
+  .events-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .event-pill {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 10px 14px;
+    background: var(--code-bg);
+    border: 1px solid #2a2a27;
+    border-radius: 4px;
+    color: #80cbc4;
+    letter-spacing: 0.02em;
+    transition: border-color 0.12s;
+  }
+
+  .event-pill:hover { border-color: #4a4a47; }
+
+  /* ---- ANIMATIONS ---- */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-up { animation: fadeUp 0.6s ease both; }
+  .delay-1 { animation-delay: 0.1s; }
+  .delay-2 { animation-delay: 0.2s; }
+  .delay-3 { animation-delay: 0.3s; }
+  .delay-4 { animation-delay: 0.4s; }
+  .delay-5 { animation-delay: 0.5s; }
+
+  /* ---- HIGHLIGHT BANNER ---- */
+  .banner {
+    background: var(--ink);
+    color: var(--code-text);
+    border-radius: 8px;
+    padding: 32px 40px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 2;
+    margin-bottom: 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .banner::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: var(--accent);
+  }
+
+  .banner-text { color: #546e7a; font-style: italic; }
+  .banner-em { color: var(--accent); font-style: normal; }
+
+  /* ---- RESILIENCE ---- */
+  .resilience-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 80px;
+  }
+
+  .res-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px;
+    background: var(--paper);
+    transition: background 0.15s;
+  }
+
+  .res-card:hover { background: var(--paper2); }
+
+  .res-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 48px;
+    font-weight: 800;
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--border);
+    letter-spacing: -0.06em;
+    margin-bottom: 12px;
+    line-height: 1;
+  }
+
+  .res-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+
+  .res-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    font-weight: 300;
+  }
+
+  /* ---- RESPONSIVE ---- */
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; padding: 60px 24px; gap: 40px; }
+    .features-grid { grid-template-columns: 1fr; }
+    .bus-grid { grid-template-columns: 1fr; }
+    .resilience-grid { grid-template-columns: 1fr; }
+    .events-grid { grid-template-columns: repeat(2, 1fr); }
+    section { padding: 0 24px; }
+    nav { padding: 0 24px; }
+    footer { padding: 32px 24px; }
+    .arch-diagram { padding: 24px; }
+    .opts-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">lazy<span>-</span>layers<span>-</span>cache</div>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#architecture">How it works</a></li>
+    <li><a href="#buses">Event buses</a></li>
+    <li><a href="#resilience">Resilience</a></li>
+    <li><a href="#api">API</a></li>
+  </ul>
+  <a href="https://npmjs.com/package/lazy-layers-cache" class="nav-badge">npm ↗</a>
+</nav>
+
+<!-- HERO -->
+<div style="max-width:1280px; margin:0 auto;">
+  <div class="hero">
+    <div class="hero-left fade-up">
+      <div class="hero-eyebrow">TypeScript · Node.js · L1/L2 Cache</div>
+      <h1 class="hero-title">
+        Hybrid<br>
+        <span class="line2">Cache</span><br>
+        <span class="accent-word">Done Right</span>
+      </h1>
+      <p class="hero-desc">
+        Lazy loading, stampede protection, fail-open safety, stale fallback, and distributed invalidation—shipped as one focused package.
+      </p>
+      <div class="hero-actions">
+        <a href="#features" class="btn-primary">Explore features →</a>
+        <a href="#api" class="btn-ghost">View API</a>
+      </div>
+    </div>
+
+    <div class="hero-right fade-up delay-2">
+      <div class="install-box">
+        <span class="install-cmd"><span class="prefix">$</span> npm install lazy-layers-cache</span>
+        <button class="copy-btn" onclick="copyInstall(this)">copy</button>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="dot dot-r"></span>
+          <span class="dot dot-y"></span>
+          <span class="dot dot-g"></span>
+          <span class="code-filename">cache.ts</span>
+        </div>
+        <div class="code-body"><span class="kw">import</span> { createCache } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
+
+<span class="kw">const</span> cache = <span class="fn">createCache</span>&lt;<span class="type">string</span>, <span class="type">User</span>&gt;({
+  ttlMs: <span class="num">60_000</span>,
+  levels: {
+    L1: { maxEntries: <span class="num">1_000</span>, ttlMs: <span class="num">10_000</span> },
+  },
+  inflight: { enabled: <span class="kw">true</span>, ttlMs: <span class="num">5_000</span> },
+  failSafe: { enabled: <span class="kw">true</span>, staleTtlMs: <span class="num">300_000</span> },
+});
+
+<span class="cm">// Lazy load with automatic stampede protection</span>
+<span class="kw">const</span> user = <span class="kw">await</span> cache.<span class="fn">getOrSet</span>(
+  <span class="str">`user:<span class="op">${</span>id<span class="op">}</span>`</span>,
+  <span class="kw">async</span> () <span class="op">=&gt;</span> db.users.<span class="fn">findById</span>(id)
+);
+</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee-track">
+    <!-- repeated twice for seamless loop -->
+    <span class="marquee-item lit">L1 Memory Cache</span><span class="marquee-dot"></span>
+    <span class="marquee-item">Redis L2</span><span class="marquee-dot"></span>
+    <span class="marquee-item lit">Lazy Loading</span><span class="marquee-dot"></span>
+    <span class="marquee-item">Stampede Protection</span><span class="marquee-dot"></span>
+    <span class="marquee-item lit">Fail Open</span><span class="marquee-dot"></span>
+    <span class="marquee-item">Circuit Breakers</span><span class="marquee-dot"></span>
+    <span class="marquee-item lit">Stale Fallback</span><span class="marquee-dot"></span>
+    <span class="marquee-item">Negative Caching</span><span class="marquee-dot"></span>
+    <span class="marquee-item lit">RabbitMQ · NATS · Redis PubSub</span><span class="marquee-dot"></span>
+    <span class="marquee-item">MessagePack</span><span class="marquee-dot"></span>
+    <span class="marquee-item lit">TypeScript Native</span><span class="marquee-dot"></span>
+    <span class="marquee-item">ESM + CommonJS</span><span class="marquee-dot"></span>
+    <!-- dupe -->
+    <span class="marquee-item lit">L1 Memory Cache</span><span class="marquee-dot"></span>
+    <span class="marquee-item">Redis L2</span><span class="marquee-dot"></span>
+    <span class="marquee-item lit">Lazy Loading</span><span class="marquee-dot"></span>
+    <span class="marquee-item">Stampede Protection</span><span class="marquee-dot"></span>
+    <span class="marquee-item lit">Fail Open</span><span class="marquee-dot"></span>
+    <span class="marquee-item">Circuit Breakers</span><span class="marquee-dot"></span>
+    <span class="marquee-item lit">Stale Fallback</span><span class="marquee-dot"></span>
+    <span class="marquee-item">Negative Caching</span><span class="marquee-dot"></span>
+    <span class="marquee-item lit">RabbitMQ · NATS · Redis PubSub</span><span class="marquee-dot"></span>
+    <span class="marquee-item">MessagePack</span><span class="marquee-dot"></span>
+    <span class="marquee-item lit">TypeScript Native</span><span class="marquee-dot"></span>
+    <span class="marquee-item">ESM + CommonJS</span><span class="marquee-dot"></span>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-label">What's included</div>
+  <div class="features-grid">
+    <div class="feat-card">
+      <div class="feat-icon">⚡</div>
+      <div class="feat-title">In-Process L1 Cache</div>
+      <div class="feat-desc">LRU memory cache via <code>lru-cache</code>. Configurable max entries and TTL per level. Requests warm only the instance they hit.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🗄</div>
+      <div class="feat-title">Shared Redis L2</div>
+      <div class="feat-desc">Optional ioredis backend with MessagePack serialization, binary <code>getBuffer</code> reads, millisecond TTL, and sorted-set key indexes.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔁</div>
+      <div class="feat-title">Lazy Loading</div>
+      <div class="feat-desc"><code>getOrSet(key, loader)</code>—load once, cache everywhere. Deduplicates concurrent calls to the same key in the same process.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🛡</div>
+      <div class="feat-title">Stampede Protection</div>
+      <div class="feat-desc">In-flight promise deduplication prevents same-process dogpile. Optional Redis-backed distributed lock for cross-instance coordination.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📡</div>
+      <div class="feat-title">Distributed Invalidation</div>
+      <div class="feat-desc">Invalidation over Redis Pub/Sub, RabbitMQ durable queues, NATS core, or NATS JetStream. Every connected instance clears on delete.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔒</div>
+      <div class="feat-title">Versioned Keys</div>
+      <div class="feat-desc">Optional generational key writes after invalidation. Eliminates stale write/delete races inside an instance during high-frequency updates.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🚦</div>
+      <div class="feat-title">Circuit Breakers</div>
+      <div class="feat-desc">Separate L2 and event-bus circuit breakers. After repeated failures the circuit opens and external calls are skipped until cooldown.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">⏱</div>
+      <div class="feat-title">Soft & Hard Timeouts</div>
+      <div class="feat-desc">Soft timeout returns stale immediately if available. Hard timeout aborts the loader. Both are independently configurable per cache instance.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📊</div>
+      <div class="feat-title">Observability Hooks</div>
+      <div class="feat-desc">20+ typed cache events from <code>hit</code> to <code>stale:hit</code> to <code>event-bus:publish-error</code>. Wire to metrics, logs, or traces in one call.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture">
+  <div class="section-label">How it works</div>
+
+  <div class="banner">
+    <span class="banner-text"># The core idea</span><br>
+    <span class="banner-em">Requests warm only the instance they hit.</span><br>
+    <span style="color:#5a7a3a">Shared L2 lets other instances reuse loaded data later.</span><br>
+    <span style="color:#7a5a3a">Invalidation is global across connected cache instances.</span>
+  </div>
+
+  <div class="arch-section">
+    <div class="arch-diagram">
+      <div class="arch-flow">
+        <div class="arch-node accent2">
+          <div class="arch-node-label">request</div>
+          <div class="arch-node-val">Instance A</div>
+        </div>
+        <div class="arch-arrow">
+          <span>→</span>
+          <span class="arrow-label">miss</span>
+        </div>
+        <div class="arch-node highlight">
+          <div class="arch-node-label">loader</div>
+          <div class="arch-node-val">getOrSet()</div>
+        </div>
+        <div class="arch-arrow">
+          <span>→</span>
+          <span class="arrow-label">store</span>
+        </div>
+        <div class="arch-node">
+          <div class="arch-node-label">L1</div>
+          <div class="arch-node-val">Memory</div>
+        </div>
+        <div class="arch-arrow">
+          <span>→</span>
+          <span class="arrow-label">write</span>
+        </div>
+        <div class="arch-node">
+          <div class="arch-node-label">L2</div>
+          <div class="arch-node-val">Redis</div>
+        </div>
+        <div class="arch-arrow">
+          <span>→</span>
+          <span class="arrow-label">pub</span>
+        </div>
+        <div class="arch-node accent2">
+          <div class="arch-node-label">invalidate</div>
+          <div class="arch-node-val">All Peers</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top: 40px; display: flex; justify-content: center;">
+      <img src="LazyLayers.webp" alt="Lazy Layers Architecture" style="max-width: 100%; border-radius: 8px; border: 1px solid #2a2a27;">
+    </div>
+  </div>
+</section>
+
+<!-- EVENT BUSES -->
+<section id="buses">
+  <div class="section-label">Event buses</div>
+  <div class="bus-grid" style="margin-bottom:80px;">
+
+    <div class="bus-card redis">
+      <div class="bus-name">Redis</div>
+      <div class="bus-mode">Pub/Sub · Best-effort</div>
+      <div class="bus-desc">Fastest option. Uses your existing Redis connection. Missed invalidations during disconnects recover naturally via TTL expiry.</div>
+      <div class="bus-pills">
+        <span class="pill good">low latency</span>
+        <span class="pill good">zero infra add</span>
+        <span class="pill warn">not durable</span>
+      </div>
+    </div>
+
+    <div class="bus-card rabbit">
+      <div class="bus-name">RabbitMQ</div>
+      <div class="bus-mode">Fanout · Durable queues</div>
+      <div class="bus-desc">Reliable fanout with named per-instance durable queues. Every instance gets every invalidation even after a reconnect.</div>
+      <div class="bus-pills">
+        <span class="pill good">durable</span>
+        <span class="pill good">fanout</span>
+        <span class="pill warn">requires RabbitMQ</span>
+      </div>
+    </div>
+
+    <div class="bus-card nats">
+      <div class="bus-name">NATS</div>
+      <div class="bus-mode">Core · JetStream</div>
+      <div class="bus-desc">Two modes: core for speed, JetStream for durable delivery with replay and per-instance durable consumers. Lightweight to operate.</div>
+      <div class="bus-pills">
+        <span class="pill good">durable (JS)</span>
+        <span class="pill good">replay</span>
+        <span class="pill good">lightweight</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- RESILIENCE -->
+<section id="resilience">
+  <div class="section-label">Resilience features</div>
+  <div class="resilience-grid">
+    <div class="res-card">
+      <div class="res-num">01</div>
+      <div class="res-title">Fail Open</div>
+      <div class="res-desc">L2 and event-bus failures are logged and swallowed. Local L1 continues serving requests. Your app never breaks because Redis went down.</div>
+    </div>
+    <div class="res-card">
+      <div class="res-num">02</div>
+      <div class="res-title">Stale Fallback</div>
+      <div class="res-desc">Successful values are kept in a stale map. If a later loader fails or times out, the last-known-good value is returned instead of an error.</div>
+    </div>
+    <div class="res-card">
+      <div class="res-num">03</div>
+      <div class="res-title">Negative Caching</div>
+      <div class="res-desc">Loader misses are briefly cached. Repeated queries for known-missing keys are absorbed without hammering your database every time.</div>
+    </div>
+    <div class="res-card">
+      <div class="res-num">04</div>
+      <div class="res-title">Circuit Breakers</div>
+      <div class="res-desc">Separate breakers for L2 and event-bus publish. After configurable failures, the circuit opens and external calls are skipped until cooldown.</div>
+    </div>
+    <div class="res-card">
+      <div class="res-num">05</div>
+      <div class="res-title">Distributed Lock</div>
+      <div class="res-desc">With RedisStore and distributedLock enabled, cross-instance getOrSet calls coordinate so only one instance loads a missing key at a time.</div>
+    </div>
+    <div class="res-card">
+      <div class="res-num">06</div>
+      <div class="res-title">Timeout Tiers</div>
+      <div class="res-desc">Soft timeout returns stale early when available. Hard timeout aborts loading entirely. Two independent dials for latency vs freshness tradeoffs.</div>
+    </div>
+  </div>
+</section>
+
+<!-- EVENTS -->
+<section>
+  <div class="section-label">Observability events</div>
+  <div class="events-grid" style="margin-bottom:80px;">
+    <div class="event-pill">hit</div>
+    <div class="event-pill">miss</div>
+    <div class="event-pill">set</div>
+    <div class="event-pill">delete</div>
+    <div class="event-pill">delete-pattern</div>
+    <div class="event-pill">loader:start</div>
+    <div class="event-pill">loader:success</div>
+    <div class="event-pill">loader:error</div>
+    <div class="event-pill">loader:timeout</div>
+    <div class="event-pill">inflight:reuse</div>
+    <div class="event-pill">inflight:bypass</div>
+    <div class="event-pill">stale:hit</div>
+    <div class="event-pill">negative:set</div>
+    <div class="event-pill">l2:error</div>
+    <div class="event-pill">l2:skipped</div>
+    <div class="event-pill">invalidation:received</div>
+    <div class="event-pill">invalidation:duplicate</div>
+    <div class="event-pill">event-bus:publish-error</div>
+    <div class="event-pill">event-bus:publish-skipped</div>
+    <div class="event-pill">+ custom hooks</div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section id="api" style="margin-bottom:80px;">
+  <div class="section-label">vs. other libraries</div>
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Library</th>
+        <th>Best fit</th>
+        <th>Tradeoff</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="highlight-row">
+        <td>lazy-layers-cache</td>
+        <td>Focused Node.js L1/L2 with explicit invalidation, Redis-optimized path, stampede & fail-open</td>
+        <td>Early project · fewer drivers</td>
+      </tr>
+      <tr>
+        <td>BentoCache</td>
+        <td>Full-featured caching framework with broad driver support</td>
+        <td>Larger API surface · more decisions to make</td>
+      </tr>
+      <tr>
+        <td>cache-manager</td>
+        <td>General cache abstraction layer</td>
+        <td>Less opinionated invalidation and resilience</td>
+      </tr>
+      <tr>
+        <td>Keyv</td>
+        <td>Simple key-value abstraction</td>
+        <td>Not a full cache orchestration layer</td>
+      </tr>
+      <tr>
+        <td>Direct Redis</td>
+        <td>Maximum control over every operation</td>
+        <td>You build stampede protection, invalidation, retries, and metrics yourself</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- API REFERENCE -->
+<section>
+  <div class="section-label">API reference</div>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:80px;">
+    <div class="code-block">
+      <div class="code-header">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="code-filename">instance methods</span>
+      </div>
+      <div class="code-body"><span class="kw">await</span> cache.<span class="fn">set</span>(key, value);
+<span class="kw">await</span> cache.<span class="fn">get</span>(key);
+<span class="kw">await</span> cache.<span class="fn">getOrSet</span>(key, loader);
+<span class="kw">await</span> cache.<span class="fn">has</span>(key);
+<span class="kw">await</span> cache.<span class="fn">delete</span>(key);
+<span class="kw">await</span> cache.<span class="fn">deleteByPattern</span>(<span class="str">"user:*"</span>);
+<span class="kw">await</span> cache.<span class="fn">clear</span>();
+<span class="kw">await</span> cache.<span class="fn">size</span>();
+
+<span class="cm">// Hookable event stream</span>
+<span class="kw">const</span> unsub = cache.<span class="fn">on</span>((event) <span class="op">=&gt;</span> {
+  metrics.<span class="fn">increment</span>(<span class="str">`cache.<span class="op">${</span>event.type<span class="op">}</span>`</span>);
+});
+<span class="fn">unsub</span>(); <span class="cm">// remove handler</span>
+</div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="code-filename">named exports</span>
+      </div>
+      <div class="code-body"><span class="kw">import</span> {
+  createCache,
+  HybridCache,
+  MemoryStore,
+  RedisStore,
+  RedisEventBus,
+  RabbitMQEventBus,
+  NatsEventBus,
+} <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
+
+<span class="kw">import type</span> {
+  CacheOptions,
+  CacheStore,
+  InvalidationEvent,
+  EventBusHealth,
+} <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
+
+<span class="cm">// Subpath imports</span>
+<span class="kw">import</span> { RedisEventBus } <span class="kw">from</span>
+  <span class="str">"lazy-layers-cache/event-bus"</span>;
+</div>
+    </div>
+  </div>
+</section>
+
+<!-- PRODUCTION NOTES -->
+<section>
+  <div class="section-label">Production notes</div>
+  <div class="code-block" style="margin-bottom:80px;">
+    <div class="code-header">
+      <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+      <span class="code-filename">checklist.md</span>
+    </div>
+    <div class="code-body" style="display:grid; grid-template-columns:1fr 1fr; gap:0 40px; line-height:2;">
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Short L1 TTLs, longer L2 TTLs</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Run eventBus.healthCheck() before server start</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Unique source per cache instance</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Durable queues: own queue per instance</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">NATS JetStream: own durableName per instance</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Prefer negative caching over Bloom filters</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Distributed locks only for expensive loaders</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">logging.env: "production" in prod</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Idempotent, timeout-aware loader functions</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">deleteStrategy: "unlink" for large values</span></span>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">lazy-layers-cache</div>
+  <ul class="footer-links">
+    <li><a href="https://npmjs.com/package/lazy-layers-cache">npm</a></li>
+    <li><a href="#">GitHub</a></li>
+    <li><a href="#">Changelog</a></li>
+  </ul>
+  <div class="footer-note">MIT License · TypeScript · ESM + CJS</div>
+</footer>
+
+<script>
+  function copyInstall(btn) {
+    navigator.clipboard.writeText('npm install lazy-layers-cache').then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  // Scroll-triggered fade-in
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = '1';
+        e.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.feat-card, .bus-card, .res-card, .event-pill, .compare-table tr').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(16px)';
+    el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    observer.observe(el);
+  });
+</script>
+</body>
+</html>
