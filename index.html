@@ -44,7 +44,7 @@
     --radius: 4px;
   }
 
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; overflow-x: hidden; }
 
   body {
     font-family: 'DM Sans', sans-serif;
@@ -127,7 +127,10 @@
     align-items: start;
     max-width: 1280px;
     margin: 0 auto;
+    overflow: hidden;
   }
+
+  .hero-left, .hero-right { min-width: 0; }
 
   .hero-eyebrow {
     font-family: 'DM Mono', monospace;
@@ -285,6 +288,7 @@
     border: 1px solid #2a2a27;
     animation: fadeUp 0.7s ease both;
     animation-delay: 0.2s;
+    min-width: 0;
   }
 
   .code-header {
@@ -317,7 +321,14 @@
     color: var(--code-text);
     overflow-x: auto;
     white-space: pre;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #3a3a37 transparent;
   }
+
+  .code-body::-webkit-scrollbar { height: 4px; }
+  .code-body::-webkit-scrollbar-track { background: transparent; }
+  .code-body::-webkit-scrollbar-thumb { background-color: #3a3a37; border-radius: 4px; }
 
   .kw { color: #c792ea; }
   .fn { color: #82aaff; }
@@ -786,6 +797,8 @@
     margin-bottom: 80px;
     position: relative;
     overflow: hidden;
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
 
   .banner::before {
@@ -848,7 +861,10 @@
     grid-template-columns: 1fr 1fr;
     gap: 24px;
     margin-bottom: 80px;
+    min-width: 0;
   }
+
+  .api-grid > * { min-width: 0; }
 
   .checklist-grid {
     display: grid;
@@ -1021,6 +1037,140 @@
     .hero-title { font-size: clamp(32px, 11vw, 48px); }
     .events-grid { grid-template-columns: 1fr; }
     .install-cmd { font-size: 11px; }
+  }
+
+  /* ---- HERO IMAGE ---- */
+  .hero-img-wrap {
+    margin-top: 40px;
+    display: flex;
+    justify-content: center;
+    position: relative;
+  }
+
+  .hero-img-clickable {
+    display: block;
+    max-width: 100%;
+    border-radius: 8px;
+    border: 1px solid #2a2a27;
+    cursor: zoom-in;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .hero-img-clickable:hover {
+    transform: scale(1.015);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    border-color: #4a4a47;
+  }
+
+  .hero-img-hint {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.5);
+    background: rgba(0,0,0,0.55);
+    padding: 3px 8px;
+    border-radius: 3px;
+    pointer-events: none;
+    letter-spacing: 0.04em;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .hero-img-wrap:hover .hero-img-hint { opacity: 1; }
+
+  /* ---- LIGHTBOX ---- */
+  .lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, background-color 0.3s ease;
+  }
+
+  .lightbox-overlay.lb-active {
+    opacity: 1;
+    pointer-events: all;
+    background: rgba(0, 0, 0, 0.92);
+  }
+
+  .lightbox-content {
+    position: relative;
+    max-width: 92vw;
+    max-height: 92vh;
+    transform: scale(0.82) translateY(28px);
+    transition: transform 0.42s cubic-bezier(0.34, 1.36, 0.64, 1);
+  }
+
+  .lightbox-overlay.lb-active .lightbox-content {
+    transform: scale(1) translateY(0);
+  }
+
+  .lightbox-img {
+    display: block;
+    max-width: 92vw;
+    max-height: 88vh;
+    width: auto;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid #2a2a27;
+    user-select: none;
+    -webkit-user-drag: none;
+    transform-origin: center center;
+    will-change: transform;
+  }
+
+  .lightbox-img.lb-can-zoom { cursor: zoom-in; }
+  .lightbox-img.lb-zoomed   { cursor: grab; }
+  .lightbox-img.lb-dragging { cursor: grabbing; transition: none !important; }
+
+  .lightbox-close {
+    position: absolute;
+    top: -14px;
+    right: -14px;
+    width: 34px;
+    height: 34px;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--ink);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.15s;
+    z-index: 10001;
+    line-height: 1;
+    padding: 0;
+  }
+
+  .lightbox-close:hover {
+    background: var(--paper2);
+    transform: scale(1.12);
+  }
+
+  .lightbox-hint {
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.35);
+    white-space: nowrap;
+    pointer-events: none;
   }
 </style>
 </head>
@@ -1269,7 +1419,10 @@
       </div>
     </div>
     <div style="margin-top: 40px; display: flex; justify-content: center;">
-      <img src="LazyLayers.webp" alt="Lazy Layers Architecture" style="max-width: 100%; border-radius: 8px; border: 1px solid #2a2a27;">
+      <div class="hero-img-wrap">
+        <img id="heroImg" src="LazyLayers.webp" alt="Lazy Layers Architecture" class="hero-img-clickable">
+        <span class="hero-img-hint">click to expand</span>
+      </div>
     </div>
   </div>
 </section>
@@ -1513,6 +1666,15 @@
   <div class="footer-note">MIT License · TypeScript · ESM + CJS</div>
 </footer>
 
+<!-- LIGHTBOX -->
+<div class="lightbox-overlay" id="lightboxOverlay" role="dialog" aria-modal="true" aria-label="Image viewer">
+  <div class="lightbox-content" id="lightboxContent">
+    <button class="lightbox-close" id="lightboxClose" aria-label="Close image viewer">✕</button>
+    <img class="lightbox-img lb-can-zoom" id="lightboxImg" src="LazyLayers.webp" alt="Lazy Layers Architecture">
+    <div class="lightbox-hint" id="lightboxHint">click to zoom · scroll to zoom · drag to pan</div>
+  </div>
+</div>
+
 <script>
   function copyInstall(btn) {
     navigator.clipboard.writeText('npm install lazy-layers-cache').then(() => {
@@ -1590,6 +1752,168 @@
     el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
     observer.observe(el);
   });
+
+  // ---- LIGHTBOX ----
+  (function () {
+    var overlay   = document.getElementById('lightboxOverlay');
+    var lbImg     = document.getElementById('lightboxImg');
+    var closeBtn  = document.getElementById('lightboxClose');
+    var thumbImg  = document.getElementById('heroImg');
+    var hint      = document.getElementById('lightboxHint');
+
+    var scale          = 1;
+    var translate      = { x: 0, y: 0 };
+    var isDragging     = false;
+    var dragOrigin     = { x: 0, y: 0 };
+    var touchStartDist = 0;
+    var touchStartScale= 1;
+
+    function applyTransform(animate) {
+      lbImg.style.transition = animate ? 'transform 0.35s cubic-bezier(0.34, 1.36, 0.64, 1)' : 'none';
+      lbImg.style.transform  = 'scale(' + scale + ') translate(' + (translate.x / scale) + 'px, ' + (translate.y / scale) + 'px)';
+    }
+
+    function updateCursor() {
+      lbImg.classList.toggle('lb-can-zoom', scale <= 1);
+      lbImg.classList.toggle('lb-zoomed',   scale > 1);
+    }
+
+    function resetZoom(animate) {
+      scale     = 1;
+      translate = { x: 0, y: 0 };
+      lbImg.style.transformOrigin = 'center center';
+      applyTransform(animate !== false);
+      updateCursor();
+    }
+
+    function openLightbox() {
+      overlay.classList.add('lb-active');
+      overlay.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      resetZoom(false);
+      hint.style.display = '';
+      closeBtn.focus();
+    }
+
+    function closeLightbox() {
+      overlay.classList.remove('lb-active');
+      overlay.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = drawerOpen() ? 'hidden' : '';
+      resetZoom(false);
+    }
+
+    function drawerOpen() {
+      var d = document.getElementById('navDrawer');
+      return d && d.classList.contains('open');
+    }
+
+    // Open on thumbnail click
+    thumbImg.addEventListener('click', openLightbox);
+    thumbImg.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(); }
+    });
+    thumbImg.setAttribute('tabindex', '0');
+    thumbImg.setAttribute('role', 'button');
+    thumbImg.setAttribute('aria-label', 'View full screen');
+
+    // Close button
+    closeBtn.addEventListener('click', closeLightbox);
+
+    // Click on backdrop
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeLightbox();
+    });
+
+    // Click on image to toggle zoom
+    lbImg.addEventListener('click', function (e) {
+      if (isDragging) return;
+      e.stopPropagation();
+      if (scale > 1) {
+        resetZoom(true);
+      } else {
+        var rect    = lbImg.getBoundingClientRect();
+        var ox      = ((e.clientX - rect.left) / rect.width)  * 100;
+        var oy      = ((e.clientY - rect.top)  / rect.height) * 100;
+        lbImg.style.transformOrigin = ox + '% ' + oy + '%';
+        scale     = 2.5;
+        translate = { x: 0, y: 0 };
+        applyTransform(true);
+        updateCursor();
+        hint.style.display = 'none';
+      }
+    });
+
+    // Scroll to zoom
+    lbImg.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      var delta = e.deltaY < 0 ? 0.15 : -0.15;
+      scale = Math.max(1, Math.min(5, scale + delta));
+      if (scale === 1) { translate = { x: 0, y: 0 }; lbImg.style.transformOrigin = 'center center'; hint.style.display = ''; }
+      else { hint.style.display = 'none'; }
+      applyTransform(false);
+      updateCursor();
+    }, { passive: false });
+
+    // Drag to pan when zoomed
+    lbImg.addEventListener('mousedown', function (e) {
+      if (scale <= 1) return;
+      isDragging = true;
+      lbImg.classList.add('lb-dragging');
+      dragOrigin = { x: e.clientX - translate.x, y: e.clientY - translate.y };
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', function (e) {
+      if (!isDragging) return;
+      translate = { x: e.clientX - dragOrigin.x, y: e.clientY - dragOrigin.y };
+      applyTransform(false);
+    });
+
+    window.addEventListener('mouseup', function () {
+      if (!isDragging) return;
+      isDragging = false;
+      lbImg.classList.remove('lb-dragging');
+      updateCursor();
+    });
+
+    // Pinch-to-zoom (touch)
+    lbImg.addEventListener('touchstart', function (e) {
+      if (e.touches.length === 2) {
+        touchStartDist  = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        touchStartScale = scale;
+      }
+    }, { passive: true });
+
+    lbImg.addEventListener('touchmove', function (e) {
+      if (e.touches.length === 2 && touchStartDist) {
+        e.preventDefault();
+        var dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        scale = Math.max(1, Math.min(5, touchStartScale * (dist / touchStartDist)));
+        if (scale === 1) { translate = { x: 0, y: 0 }; hint.style.display = ''; }
+        else { hint.style.display = 'none'; }
+        applyTransform(false);
+        updateCursor();
+      }
+    }, { passive: false });
+
+    lbImg.addEventListener('touchend', function () { touchStartDist = 0; });
+
+    // Keyboard: Escape to close
+    document.addEventListener('keydown', function (e) {
+      if (!overlay.classList.contains('lb-active')) return;
+      if (e.key === 'Escape') { closeLightbox(); }
+      if (e.key === 'Tab') {
+        // Trap focus inside lightbox
+        var focusable = Array.from(overlay.querySelectorAll('button, [tabindex="0"]'));
+        if (!focusable.length) return;
+        var first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
+        else            { if (document.activeElement === last)  { e.preventDefault(); first.focus(); } }
+      }
+    });
+
+    overlay.setAttribute('aria-hidden', 'true');
+  })();
 </script>
 </body>
 </html>
