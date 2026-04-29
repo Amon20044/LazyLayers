@@ -1,6 +1,6 @@
 {
   "name": "lazy-layers-cache",
-  "version": "0.1.0",
+  "version": "0.1.0a",
   "description": "A TypeScript hybrid cache with L1/L2 storage, lazy loading, inflight dedupe, and event-bus invalidation.",
   "type": "module",
   "sideEffects": false,
