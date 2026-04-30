@@ -1,6 +1,6 @@
 {
   "name": "lazy-layers-cache",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "A TypeScript hybrid cache with L1/L2 storage, lazy loading, inflight dedupe, and event-bus invalidation.",
   "type": "module",
   "sideEffects": false,
@@ -97,7 +97,7 @@
   "dependencies": {
     "amqplib": "^1.0.3",
     "ioredis": "^5.10.1",
-    "lru-cache": "^11.2.7",
+    "lru-cache": "^11.3.5",
     "msgpackr": "^1.11.10",
     "nats": "^2.29.3"
   }
