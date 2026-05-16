@@ -1,4 +1,4 @@
-export type InvalidationType = 'del' | 'pattern';
+export type InvalidationType = 'del' | 'pattern' | 'set';
 
 export interface BaseInvalidationEvent {
   id?: string;
@@ -18,4 +18,11 @@ export interface PatternEvent extends BaseInvalidationEvent {
   pattern: string;
 }
 
-export type InvalidationEvent = DeleteEvent | PatternEvent;
+export interface SetEvent extends BaseInvalidationEvent {
+  type: 'set';
+  keys: string[];
+  value: unknown;
+  ttlMs?: number;
+}
+
+export type InvalidationEvent = DeleteEvent | PatternEvent | SetEvent;

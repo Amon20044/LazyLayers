@@ -11,9 +11,9 @@ Simple TypeScript hybrid caching for Node.js with L1 memory, optional Redis L2, 
 It is designed around one practical production rule:
 
 ```txt
-Requests warm only the instance they hit.
-Shared L2 lets other instances reuse loaded data later.
-Invalidation is broadcast to every connected cache instance.
+The first instance to lazily load a key broadcasts it to every peer.
+Peers populate their L1 from the broadcast — no second loader call.
+Deletes and pattern wipes are broadcast to every connected instance.
 ```
 
 ## Features
@@ -244,7 +244,25 @@ const cache = new LazyLayersCache({
 
 ## Distributed Invalidation
 
-When multiple application instances use their own L1 memory caches, connect them with an event bus. A delete in one process clears matching local entries in the others.
+When multiple application instances use their own L1 memory caches, connect them with an event bus. The bus carries three kinds of events:
+
+| Event | Trigger | What peers do |
+| --- | --- | --- |
+| `del` | `cache.delete(key)` | Drop the key from L1 / L2 / negative / stale / inflight. |
+| `pattern` | `cache.deleteByPattern(p)` / `cache.clear()` | Drop every local entry that matches the pattern. |
+| `set` | A loader in `getOrSet` returns a value | Populate peer L1 with the broadcast value — no peer loader call. |
+
+`set` broadcasts are emitted from inside `getOrSet`'s loader path only. Direct `cache.set()` calls do **not** broadcast. This is the L1 priming path the rule above describes — one instance pays for the loader, every peer's L1 warms automatically. Self-published events are ignored via the `source` filter, and events are deduplicated by ID.
+
+Turn off the L1 priming broadcast with `broadcastSet: false` if you want pure invalidation semantics (delete-only fanout, like older releases).
+
+```ts
+const cache = new LazyLayersCache({
+  eventBus,
+  source: process.env.INSTANCE_ID,
+  broadcastSet: true, // default — peers populate L1 from getOrSet results
+});
+```
 
 ### Redis Pub/Sub
 
@@ -414,6 +432,8 @@ Common event types include:
 - `l2:error`
 - `event-bus:publish-error`
 - `invalidation:received`
+- `set:broadcast` (this instance published a `getOrSet` result to peers)
+- `set:received` (this instance applied a peer's `getOrSet` result to its L1)
 
 ## Pattern Deletes
 
@@ -559,6 +579,7 @@ Built-in implementations:
 | `eventBus` | Invalidation bus used by `delete()` and `deleteByPattern()`. |
 | `source` | Instance identifier used to ignore self-published invalidations. |
 | `subscribeToEvents` | Set `false` to publish invalidations without subscribing. |
+| `broadcastSet` | Set `false` to disable peer L1 priming after `getOrSet` loader success. Default `true` when `eventBus` is set. |
 | `events` | Initial cache event handlers. |
 | `eventDedupeMaxEntries` | Max invalidation event IDs remembered for dedupe. |
 | `eventDedupeTtlMs` | TTL for invalidation event dedupe. |
@@ -589,8 +610,9 @@ Built-in implementations:
 
 - L1 is local to the current process.
 - Redis L2 is shared across processes.
-- Event buses only carry invalidation events, not cached values.
-- Loader results of `undefined` are not stored as normal cache values.
+- Event buses carry three event types: `del`, `pattern`, and `set`. The `set` event is the L1-priming broadcast emitted from `getOrSet` loader success — it carries the loaded value so peers populate L1 without a second loader call. Disable with `broadcastSet: false` for delete-only fanout.
+- Loader results of `undefined` are not stored as normal cache values and are not broadcast.
+- Direct `cache.set()` calls do not broadcast — only `getOrSet` loader successes do.
 - Production logging is quiet by default when `NODE_ENV=production`.
 - `versioning.enabled` writes generation-suffixed storage keys after deletes.
 - Always use a stable `source` or `INSTANCE_ID` in multi-instance deployments.

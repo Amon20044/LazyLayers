@@ -1,7 +1,7 @@
 {
   "name": "lazy-layers-cache",
-  "version": "0.2.0",
-  "description": "A TypeScript hybrid cache with L1/L2 storage, lazy loading, inflight dedupe, and event-bus invalidation.",
+  "version": "0.2.1",
+  "description": "A TypeScript hybrid cache with L1/L2 storage, lazy loading, inflight dedupe, event-bus invalidation, and cross-instance L1 priming on getOrSet.",
   "type": "module",
   "sideEffects": false,
   "main": "./dist-cjs/index.js",

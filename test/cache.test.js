@@ -736,3 +736,163 @@ test("LazyLayersCache with both layers disabled does not retain values", async (
   assert.equal(await cache.has("disabled"), false);
   assert.equal(await cache.size(), 0);
 });
+
+function createSharedEventBus() {
+  const handlers = new Set();
+  const published = [];
+
+  return {
+    published,
+    async publish(event) {
+      published.push(event);
+
+      for (const handler of handlers) {
+        await handler(event);
+      }
+    },
+    async subscribe(handler) {
+      handlers.add(handler);
+    },
+  };
+}
+
+test("getOrSet broadcasts loader result so peer instances populate L1 without rerunning the loader", async () => {
+  const eventBus = createSharedEventBus();
+  let loaderCallsA = 0;
+  let loaderCallsB = 0;
+
+  const cacheA = new HybridCache({
+    eventBus,
+    source: "instance-a",
+    logging: { env: "production" },
+  });
+  const cacheB = new HybridCache({
+    eventBus,
+    source: "instance-b",
+    logging: { env: "production" },
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const value = await cacheA.getOrSet("shared:1", async () => {
+    loaderCallsA += 1;
+    return { id: 1, name: "Amonk" };
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(value, { id: 1, name: "Amonk" });
+  assert.equal(loaderCallsA, 1);
+
+  const broadcastEvent = eventBus.published.find((event) => event.type === "set");
+  assert.ok(broadcastEvent, "expected a 'set' invalidation event");
+  assert.deepEqual(broadcastEvent.keys, ["shared:1"]);
+
+  const valueOnB = await cacheB.getOrSet("shared:1", async () => {
+    loaderCallsB += 1;
+    return { id: 1, name: "Different" };
+  });
+
+  assert.deepEqual(valueOnB, { id: 1, name: "Amonk" });
+  assert.equal(loaderCallsB, 0);
+});
+
+test("getOrSet broadcast can be disabled via broadcastSet=false", async () => {
+  const eventBus = createSharedEventBus();
+  const cache = new HybridCache({
+    eventBus,
+    source: "instance-a",
+    broadcastSet: false,
+    logging: { env: "production" },
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  await cache.getOrSet("solo:1", async () => "value");
+
+  assert.equal(
+    eventBus.published.find((event) => event.type === "set"),
+    undefined,
+  );
+});
+
+test("direct set() calls do not broadcast set events", async () => {
+  const eventBus = createSharedEventBus();
+  const cache = new HybridCache({
+    eventBus,
+    source: "instance-a",
+    logging: { env: "production" },
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  await cache.set("manual", "value");
+
+  assert.equal(
+    eventBus.published.find((event) => event.type === "set"),
+    undefined,
+  );
+});
+
+test("remote set events emit set:received and clear negative cache", async () => {
+  let handler;
+  const eventBus = {
+    async publish() {},
+    async subscribe(next) {
+      handler = next;
+    },
+  };
+  const received = [];
+  const cache = new HybridCache({
+    eventBus,
+    source: "local",
+    negativeCache: { ttlMs: 1_000 },
+    logging: { env: "production" },
+    events: [(event) => received.push(event)],
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  await cache.getOrSet("post:1", async () => undefined);
+
+  assert.equal(await cache.get("post:1"), undefined);
+
+  await handler({
+    id: "remote-set-1",
+    type: "set",
+    keys: ["post:1"],
+    value: { title: "remote" },
+    ttlMs: 60_000,
+    source: "remote",
+    ts: Date.now(),
+  });
+
+  assert.deepEqual(await cache.get("post:1"), { title: "remote" });
+  assert.equal(received.some((event) => event.type === "set:received"), true);
+});
+
+test("remote set events from self source are ignored", async () => {
+  let handler;
+  const eventBus = {
+    async publish() {},
+    async subscribe(next) {
+      handler = next;
+    },
+  };
+  const cache = new HybridCache({
+    eventBus,
+    source: "self",
+    logging: { env: "production" },
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  await cache.set("loop:1", "original");
+
+  await handler({
+    id: "self-set-1",
+    type: "set",
+    keys: ["loop:1"],
+    value: "hijacked",
+    source: "self",
+    ts: Date.now(),
+  });
+
+  assert.equal(await cache.get("loop:1"), "original");
+});

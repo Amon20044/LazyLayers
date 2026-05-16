@@ -23,6 +23,7 @@ export type {
   InvalidationEvent,
   InvalidationType,
   PatternEvent,
+  SetEvent,
 } from './types/index.js';
 export type {
   CacheLayer,
