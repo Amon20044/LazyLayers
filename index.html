@@ -1780,6 +1780,116 @@ NATS_URL=<span class="str">"nats://localhost:4222"</span>
   </div>
 </section>
 
+<!-- INTELLIGENT SERIALIZER -->
+<section id="serializer">
+  <div class="section-label">Intelligent serializer · v2</div>
+
+  <p style="max-width:720px;color:var(--muted);line-height:1.65;font-size:14.5px;margin-bottom:8px;">
+    L2 values are written through an intelligent binary serializer. Each Redis payload
+    carries a fixed 4-byte magic prefix so decode is <strong style="color:var(--ink);">O(1)</strong>.
+    Small payloads stay in msgpack; large compressible payloads automatically switch to
+    gzip when it saves at least 15%.
+  </p>
+
+  <div class="prefix-tags">
+    <div class="prefix-tag"><strong>HC1M</strong> msgpack — default under 64 KB</div>
+    <div class="prefix-tag"><strong>HC1G</strong> <span class="pt-accent">gzip(msgpack)</span> — ≥ 64 KB &amp; ≥ 15% savings</div>
+    <div class="prefix-tag"><strong>HC1J</strong> JSON — opt-in debug mode</div>
+  </div>
+
+  <div class="compare-wrapper">
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Encoding</th>
+        <th>Bytes (1 MB mock listing)</th>
+        <th>vs JSON</th>
+        <th>ms / op (n=25)</th>
+        <th>When picked</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>JSON</td>
+        <td>1032.31 KB</td>
+        <td>baseline</td>
+        <td>3.19</td>
+        <td>Legacy / debug only</td>
+      </tr>
+      <tr>
+        <td>msgpack <span style="color:var(--muted);font-size:11px;">(HC1M)</span></td>
+        <td>805.50 KB</td>
+        <td>22.0% smaller</td>
+        <td>3.62</td>
+        <td>Any payload &lt; 64 KB, or when gzip doesn't pay off</td>
+      </tr>
+      <tr class="highlight-row">
+        <td>msgpack + gzip <span style="font-size:11px;">(HC1G)</span></td>
+        <td>67.57 KB</td>
+        <td>93.5% smaller</td>
+        <td>9.98</td>
+        <td>≥ 64 KB and gzip saves ≥ 15%</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="serializer-callouts">
+    <div class="serializer-callout">
+      <div class="sc-label">Network transfer</div>
+      <div class="sc-stat">~15×</div>
+      <div class="sc-desc">Less bytes per L2 fetch for the 1 MB listing. Redis stores 67.57 KB instead of 1032.31 KB.</div>
+    </div>
+    <div class="serializer-callout">
+      <div class="sc-label">Redis memory</div>
+      <div class="sc-stat">−93.5%</div>
+      <div class="sc-desc">Same data, far less memory pressure on the shared cache tier. More keys per GB.</div>
+    </div>
+    <div class="serializer-callout">
+      <div class="sc-label">CPU cost</div>
+      <div class="sc-stat">~7 ms</div>
+      <div class="sc-desc">One-time write-side cost on the 1 MB payload. Reads stay O(1) on L1 hits.</div>
+    </div>
+  </div>
+
+  <div class="api-grid" style="margin-bottom:80px;">
+    <div class="code-block">
+      <div class="code-header">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="code-filename">automatic — no code changes</span>
+      </div>
+      <div class="code-body"><span class="cm">// Same API. The serializer is wired through RedisStore.</span>
+<span class="kw">await</span> cache.<span class="fn">set</span>(<span class="str">"players:page:1"</span>, listing);
+<span class="kw">await</span> cache.<span class="fn">get</span>(<span class="str">"players:page:1"</span>);
+
+<span class="cm">// Old cache entries (raw msgpack / JSON) still decode.</span>
+<span class="cm">// Cached null is a real hit, not a miss.</span>
+</div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="code-filename">opt-in — stats &amp; debug</span>
+      </div>
+      <div class="code-body"><span class="kw">import</span> { serializeWithStats } <span class="kw">from</span> <span class="str">"lazy-layers-cache"</span>;
+
+<span class="kw">const</span> stats = <span class="fn">serializeWithStats</span>(listing);
+<span class="cm">// {</span>
+<span class="cm">//   encoding: "msgpack-gzip",</span>
+<span class="cm">//   originalBytes:    824_837,</span>
+<span class="cm">//   storedBytes:       69_198,</span>
+<span class="cm">//   compressionRatio:  0.916,</span>
+<span class="cm">//   compressed:        true,</span>
+<span class="cm">// }</span>
+
+<span class="cm">// Debug: store as readable JSON in Redis</span>
+process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</span>;
+</div>
+    </div>
+  </div>
+</section>
+
 <!-- INITIALIZATION OPTIONS -->
 <section id="options">
   <div class="section-label">Initialization options</div>
