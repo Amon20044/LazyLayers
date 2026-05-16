@@ -659,6 +659,68 @@
   .compare-table tr.highlight-row td { background: #f0f8e0; }
   .compare-table tr.highlight-row td:first-child { color: #3a6a10; }
 
+  /* ---- SERIALIZER PREFIX TAGS ---- */
+  .prefix-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 24px 0 32px;
+  }
+  .prefix-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 10px 14px;
+    background: var(--paper2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  .prefix-tag strong {
+    color: var(--ink);
+    font-weight: 600;
+    margin-right: 6px;
+  }
+  .prefix-tag .pt-accent { color: #3a6a10; }
+
+  .serializer-callouts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 32px;
+    margin-bottom: 80px;
+  }
+  .serializer-callout {
+    background: var(--paper2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 22px;
+  }
+  .serializer-callout .sc-stat {
+    font-family: 'DM Mono', monospace;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--accent2);
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .serializer-callout .sc-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .serializer-callout .sc-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  @media (max-width: 768px) {
+    .serializer-callouts { grid-template-columns: 1fr; }
+  }
+
   /* ---- OPTIONS TABLE ---- */
   .opts-section { margin-bottom: 80px; }
 
@@ -1184,6 +1246,7 @@
     <li><a href="#architecture">How it works</a></li>
     <li><a href="#buses">Event buses</a></li>
     <li><a href="#resilience">Resilience</a></li>
+    <li><a href="#serializer">Serializer</a></li>
     <li><a href="#options">Options</a></li>
     <li><a href="#api">API</a></li>
   </ul>
@@ -1200,6 +1263,7 @@
     <li><a href="#architecture" class="drawer-link">How it works</a></li>
     <li><a href="#buses" class="drawer-link">Event buses</a></li>
     <li><a href="#resilience" class="drawer-link">Resilience</a></li>
+    <li><a href="#serializer" class="drawer-link">Serializer</a></li>
     <li><a href="#options" class="drawer-link">Options</a></li>
     <li><a href="#api" class="drawer-link">API</a></li>
   </ul>
