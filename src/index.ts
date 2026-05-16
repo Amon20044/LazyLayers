@@ -48,6 +48,19 @@ export {
   RedisStore,
 } from './cache/index.js';
 export type { CacheLoggerOptions, CacheRuntimeEnv } from './utils/debugLog.js';
+export type { CacheEncoding, SerializedCacheValue } from './utils/serializer.js';
+export {
+  NULL_SENTINEL,
+  GZIP_MIN_BYTES,
+  GZIP_SAVINGS_THRESHOLD,
+  deserialize,
+  getCompressionSavings,
+  hasPrefix,
+  serialize,
+  serializeWithStats,
+  shouldGzip,
+  stripPrefix,
+} from './utils/serializer.js';
 export type {
   EventBus,
   EventBusHealth,

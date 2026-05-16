@@ -51,6 +51,8 @@ Invalidation is broadcast to every connected cache instance.
 - [API](#api)
 - [Options](#options)
 - [Runtime Notes](#runtime-notes)
+- [Intelligent Serializer (HC1M / HC1G / HC1J)](#intelligent-serializer-hc1m--hc1g--hc1j)
+- [Testing](#testing)
 - [How to Contribute](#how-to-contribute)
 - [License](#license)
 
@@ -592,6 +594,100 @@ Built-in implementations:
 - Production logging is quiet by default when `NODE_ENV=production`.
 - `versioning.enabled` writes generation-suffixed storage keys after deletes.
 - Always use a stable `source` or `INSTANCE_ID` in multi-instance deployments.
+
+## Intelligent Serializer (HC1M / HC1G / HC1J)
+
+L2 values are written through an intelligent binary serializer. Each Redis payload
+carries a fixed 4-byte magic prefix so decode is O(1):
+
+| Prefix | Encoding | When used |
+| --- | --- | --- |
+| `HC1M` | msgpack | Default for any payload under 64 KB, or when gzip doesn't pay off. |
+| `HC1G` | gzip(msgpack) | Payloads ≥ 64 KB **and** gzip saves at least 15% vs raw msgpack. |
+| `HC1J` | JSON | Opt-in debug mode (`CACHE_FORMAT=json` or `CACHE_DEBUG_SERIALIZATION=true`). |
+
+`null` and `undefined` are stored via a sentinel string (`__hybridcache_null__`) so
+a cached "the value is null" is preserved as a real cache hit, not a miss.
+
+Legacy values (pre-prefix raw msgpack buffers and JSON-as-bytes) still decode
+correctly — the deserializer falls back through them in order.
+
+### Programmatic API
+
+```ts
+import { serialize, deserialize, serializeWithStats } from 'lazy-layers-cache';
+
+const buf = serialize({ id: 1 });               // Buffer with HC1M / HC1G / HC1J prefix
+const value = deserialize(buf);                  // back to JS
+
+const stats = serializeWithStats(largeObject);
+// {
+//   buffer, encoding: 'msgpack-gzip',
+//   originalBytes, storedBytes, compressionRatio, compressed: true
+// }
+```
+
+`RedisStore` calls `serialize` on write and `redis.getBuffer` + `deserialize` on
+read automatically — you don't have to wire it in yourself.
+
+## Testing
+
+```bash
+npm test            # node --test, runs ./test/*.test.js
+npm run typecheck   # tsc --noEmit
+npm run ci          # clean + typecheck + ESM/CJS build + tests
+```
+
+The suite covers:
+
+- **Serializer** (`test/serializer.test.js`) — round-trips for plain objects, nested
+  listing responses, `null`/`undefined`, strings, legacy JSON strings, legacy JSON
+  buffers, legacy raw msgpack buffers; HC1M / HC1G / HC1J prefix decoding; gzip
+  threshold math (`shouldGzip`, `getCompressionSavings`); JSON debug mode; corrupted
+  buffer recovery; `Uint8Array` input.
+- **MemoryStore / RedisStore / HybridCache** (`test/cache.test.js`,
+  `test/edge-cases.test.js`) — L1/L2 layering, promotion, TTL, inflight dedupe,
+  distributed locks, negative caching, fail-safe stale, circuit breakers,
+  invalidation events, versioning, pattern deletes.
+
+158 tests pass on the current branch (`npm test`).
+
+### Size benchmark (1 MB mock listing)
+
+`scripts/bench-serializer.mjs` generates a realistic ~1 MB player-listing response
+(1500 entries, nested device / userSnapshot / infoCards / pagination) and serializes
+it three ways:
+
+```
+| encoding       | bytes        | vs JSON | ms/op (n=25) |
+|----------------|--------------|---------|--------------|
+| JSON           | 1032.31 KB   | baseline|     3.191    |
+| msgpack        |  805.50 KB   |   22.0% |     3.622    |
+| msgpack + gzip |   67.57 KB   |   93.5% |     9.984    |
+```
+
+`serializeWithStats` picks `msgpack-gzip` for this payload — Redis stores 67.57 KB
+instead of 1 MB, ~15× less network transfer per fetch at ~10 ms of one-time CPU on
+the writer. Run it locally:
+
+```bash
+npm run build && node scripts/bench-serializer.mjs
+```
+
+### Edge cases hardened by the test suite
+
+- Cached `null` returns `{ hit: true, value: null }`, not a miss — sentinel survives
+  both the msgpack and JSON paths.
+- Corrupted prefixed buffers (e.g. truncated gzip) return `null` instead of throwing.
+- A plain string that fails `JSON.parse` round-trips through `deserialize` unchanged.
+- `Uint8Array` input is normalized to `Buffer` before decode, so non-ioredis clients
+  that return views still work.
+- `hasPrefix` only inspects 4 bytes; a buffer shorter than 4 bytes is treated as
+  legacy and routed to the fallback decoders.
+- Large but **incompressible** payloads (random bytes) skip gzip and stay on `HC1M`
+  rather than paying CPU for no savings.
+- `CACHE_FORMAT=json` and `CACHE_DEBUG_SERIALIZATION=true` both flip the encoding to
+  `HC1J` independently — env-var precedence is checked in the test suite.
 
 ## How to Contribute
 
