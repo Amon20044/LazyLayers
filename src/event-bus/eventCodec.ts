@@ -24,6 +24,10 @@ function isInvalidationEvent(value: unknown): value is InvalidationEvent {
     return isPatternEvent(value);
   }
 
+  if (value.type === 'set') {
+    return isSetEvent(value);
+  }
+
   return false;
 }
 
@@ -33,6 +37,12 @@ function isDeleteEvent(value: Record<string, unknown>): boolean {
 
 function isPatternEvent(value: Record<string, unknown>): boolean {
   return typeof value.pattern === 'string';
+}
+
+function isSetEvent(value: Record<string, unknown>): boolean {
+  return Array.isArray(value.keys)
+    && value.keys.every((key) => typeof key === 'string')
+    && 'value' in value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,4 +1,5 @@
 import type { EventBus } from '../event-bus/index.js';
+import type { SetEvent } from '../types/event.types.js';
 import type {
   CacheKey,
   CacheLevel,
@@ -48,6 +49,7 @@ export interface HybridCacheOptions<K extends CacheKey = string, V = unknown> ex
   eventDedupeMaxEntries?: number;
   eventDedupeTtlMs?: number;
   logging?: CacheLoggerOptions;
+  broadcastSet?: boolean;
 }
 
 export class HybridCache<K extends CacheKey = string, V = unknown> implements CacheStore<K, V> {
@@ -93,6 +95,11 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
           if (event.type === 'del') {
             await Promise.all(event.keys.map((key) => this.deleteLocal(key as K)));
+            return;
+          }
+
+          if (event.type === 'set') {
+            await this.applyRemoteSet(event);
             return;
           }
 
@@ -308,6 +315,20 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     }
 
     await this.set(key, value, options);
+
+    if (this.shouldBroadcastSet()) {
+      this.emit({ type: 'set:broadcast', key });
+      await this.publishInvalidation({
+        id: createEventId(),
+        type: 'set',
+        keys: [String(key)],
+        value,
+        ttlMs: options.ttlMs ?? this.options.ttlMs,
+        source: this.source,
+        ts: Date.now(),
+        generation: this.getGeneration(String(key)),
+      });
+    }
 
     return value;
   }
@@ -702,7 +723,37 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private getLegacyEventId(event: Parameters<EventBus['publish']>[0]): string {
-    return `${event.source}:${event.ts}:${event.type}:${event.type === 'del' ? event.keys.join(',') : event.pattern}`;
+    const suffix =
+      event.type === 'del' || event.type === 'set'
+        ? event.keys.join(',')
+        : event.pattern;
+
+    return `${event.source}:${event.ts}:${event.type}:${suffix}`;
+  }
+
+  private async applyRemoteSet(event: SetEvent): Promise<void> {
+    const localOptions: CacheOptions =
+      event.ttlMs !== undefined ? { ...this.options, ttlMs: event.ttlMs } : this.options;
+
+    for (const rawKey of event.keys) {
+      const key = rawKey as K;
+      const storageKey = this.toStorageKey(key);
+
+      await this.l1?.set(storageKey, event.value as V, localOptions);
+      this.rememberStale(key, event.value as V, localOptions);
+      this.negative.delete(key);
+      this.inflight.delete(key);
+      this.emit({ type: 'set:received', key, level: 'L1' });
+      debugLog('cache set:received', { key, level: 'L1' });
+    }
+  }
+
+  private shouldBroadcastSet(): boolean {
+    if (!this.options.eventBus) {
+      return false;
+    }
+
+    return this.options.broadcastSet !== false;
   }
 }
 

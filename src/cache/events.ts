@@ -20,6 +20,8 @@ export type CacheEvent =
   | { type: 'event-bus:publish-error'; eventType: string; state: CircuitBreakerState; error: unknown }
   | { type: 'event-bus:publish-skipped'; eventType: string; state: CircuitBreakerState }
   | { type: 'invalidation:received'; eventId: string; eventType: string }
-  | { type: 'invalidation:duplicate'; eventId: string };
+  | { type: 'invalidation:duplicate'; eventId: string }
+  | { type: 'set:received'; key: CacheKey; level: CacheLevel }
+  | { type: 'set:broadcast'; key: CacheKey };
 
 export type CacheEventHandler = (event: CacheEvent) => void;

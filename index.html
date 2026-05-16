@@ -1413,8 +1413,8 @@
     </div>
     <div class="feat-card">
       <div class="feat-icon">📡</div>
-      <div class="feat-title">Distributed Invalidation</div>
-      <div class="feat-desc">Invalidation over Redis Pub/Sub, RabbitMQ durable queues, NATS core, or NATS JetStream. Every connected instance clears on delete.</div>
+      <div class="feat-title">Distributed Invalidation + L1 Priming</div>
+      <div class="feat-desc">Invalidation over Redis Pub/Sub, RabbitMQ durable queues, NATS core, or NATS JetStream. Every connected instance clears on delete <strong>and</strong> warms its L1 from peer <code>getOrSet</code> results — one loader call, all peers cached.</div>
     </div>
     <div class="feat-card">
       <div class="feat-icon">🔒</div>
@@ -1445,9 +1445,9 @@
 
   <div class="banner">
     <span class="banner-text"># The core idea</span><br>
-    <span class="banner-em">Requests warm only the instance they hit.</span><br>
-    <span style="color:#5a7a3a">Shared L2 lets other instances reuse loaded data later.</span><br>
-    <span style="color:#7a5a3a">Invalidation is global across connected cache instances.</span>
+    <span class="banner-em">The first instance to lazy-load a key broadcasts it to every peer.</span><br>
+    <span style="color:#5a7a3a">Peers populate their L1 from the broadcast — no second loader call.</span><br>
+    <span style="color:#7a5a3a">Deletes and pattern wipes fan out to every connected instance.</span>
   </div>
 
   <div class="arch-section">
@@ -1483,10 +1483,10 @@
         </div>
         <div class="arch-arrow">
           <span>→</span>
-          <span class="arrow-label">pub</span>
+          <span class="arrow-label">pub set</span>
         </div>
         <div class="arch-node accent2">
-          <div class="arch-node-label">invalidate</div>
+          <div class="arch-node-label">prime L1</div>
           <div class="arch-node-val">All Peers</div>
         </div>
       </div>
@@ -1774,6 +1774,8 @@ NATS_URL=<span class="str">"nats://localhost:4222"</span>
     <div class="event-pill">l2:skipped</div>
     <div class="event-pill">invalidation:received</div>
     <div class="event-pill">invalidation:duplicate</div>
+    <div class="event-pill">set:broadcast</div>
+    <div class="event-pill">set:received</div>
     <div class="event-pill">event-bus:publish-error</div>
     <div class="event-pill">event-bus:publish-skipped</div>
     <div class="event-pill">+ custom hooks</div>
@@ -1937,6 +1939,7 @@ process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</spa
     <span class="op">:</span> <span class="kw">undefined</span>,
   source: process.env.INSTANCE_ID,
   subscribeToEvents: <span class="kw">true</span>,
+  broadcastSet: <span class="kw">true</span>, <span class="cm">// peers populate L1 from getOrSet results</span>
   eventDedupeMaxEntries: <span class="num">10_000</span>,
   eventDedupeTtlMs: <span class="num">300_000</span>,
 
