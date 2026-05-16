@@ -350,6 +350,77 @@ const cache = new LazyLayersCache({
 });
 ```
 
+## Event Bus Initialization Options
+
+Every transport ships with sane defaults but exposes the full surface for tuning durability, fanout, retry, and per-instance identity. The `source` field on `LazyLayersCache` is what filters self-loopback regardless of transport — every transport delivers your own publishes back to you.
+
+### LazyLayersCache event-bus options (shared across all transports)
+
+| Option | Default | Why it exists |
+| --- | --- | --- |
+| `eventBus` | unset | The bus instance used for distributed invalidation and L1 priming. Without it, the cache is local-only. |
+| `source` | random per process | **Required in multi-instance setups.** Stamped on every published event; the subscribe handler discards events whose `source` matches this value so you don't invalidate yourself. Use `$HOSTNAME` / `INSTANCE_ID`. |
+| `subscribeToEvents` | `true` | Set `false` to publish-only (one-way). Useful for read-only replicas that should not apply remote invalidations. |
+| `broadcastSet` | `true` | When a `getOrSet` loader returns a value, broadcast it so peer L1s populate without a second loader call. Set `false` for delete-only fanout. |
+| `eventDedupeMaxEntries` | `10_000` | How many recent event IDs the cache remembers to drop duplicates. Durable buses can redeliver; this stops a redelivered event from re-applying. |
+| `eventDedupeTtlMs` | `300_000` | How long each event ID stays in the dedupe map. Should comfortably exceed your worst-case redelivery window. |
+| `resilience.eventBusCircuitBreaker` | unset | `{ failureThreshold, cooldownMs }`. After repeated publish failures, the circuit opens and publishes are skipped until cooldown. Keeps a broken bus from blocking your request path. |
+
+### Shared retry queue (every transport accepts `retryQueue`)
+
+| Option | Default | Why it exists |
+| --- | --- | --- |
+| `retryQueue.enabled` | `true` | If a publish throws, the event is buffered in memory and re-attempted on the next successful publish. Smooths out brief bus blips. |
+| `retryQueue.maxSize` | unset (unbounded) | Cap to prevent memory bloat when the bus stays down for a long time. Oldest event drops first with a warn log. |
+
+### RedisEventBus — `new RedisEventBus(redis, channel, options)`
+
+| Option | Default | Why it exists |
+| --- | --- | --- |
+| `redis` (ctor arg) | — | An existing `ioredis` client. The bus calls `.duplicate()` internally for the subscriber (Pub/Sub clients can't issue other commands). |
+| `channel` (ctor arg) | — | The Pub/Sub channel name. All instances that share invalidation must use the same channel. |
+| `retryQueue` | see above | Buffers failed publishes for the next attempt. Pub/Sub is fire-and-forget — without retry, a single network blip drops the event. |
+| `logging.env` | inherits `NODE_ENV` | Force `"production"` / `"development"` / `"test"` independent of `NODE_ENV`. Production suppresses debug logs. |
+| `logging.enabled` | auto from env | Hard override of the env-based switch when you want logs on or off regardless of `NODE_ENV`. |
+
+### RabbitMQEventBus — `new RabbitMQEventBus(exchange, options)`
+
+| Option | Default | Why it exists |
+| --- | --- | --- |
+| `exchange` (ctor arg) | — | Exchange name. All instances must bind to the same exchange for fanout to work. |
+| `url` | — | AMQP URL (`amqp://user:pass@host:5672`). Required unless you call `init(url)` manually. |
+| `exchangeType` | `"fanout"` | Use `"topic"` if you want one bus for multiple caches with routing keys; `"direct"` for exact-match routing. Default fanout broadcasts to every bound queue. |
+| `durableInvalidationMode` | `false` | One switch that flips `durable`, `persistent`, names the queue, and disables auto-delete/exclusive. Pick this when you cannot afford to miss an invalidation across reconnects. |
+| `durable` | follows `durableInvalidationMode` | Survives broker restarts. Required if you want messages preserved across RabbitMQ outages. |
+| `persistent` | follows `durable` | Per-message delivery mode 2 — flushed to disk before ack. Pair with `durable: true` for end-to-end durability. |
+| `queueName` | server-generated | **Set this to a stable per-instance value (e.g. `${INSTANCE_ID}-cache`) when using durable mode.** Anonymous queues vanish on reconnect, losing messages buffered for that instance. |
+| `exclusiveQueue` | `true` unless durable mode | Exclusive queues are tied to the connection and auto-deleted on disconnect. Good for ephemeral subscribers, bad for durable per-instance invalidation queues. |
+| `autoDeleteQueue` | `true` unless durable mode | Queue is removed once no consumers remain. Disable when you want messages to buffer while an instance restarts. |
+| `routingKey` | `""` | Ignored for fanout; required for topic/direct exchanges to pick which messages this consumer wants. |
+| `prefetch` | broker default (unlimited) | Channel-level QoS. Caps unacked messages per consumer so a single slow instance can't hoard the queue. |
+| `retryQueue` | see above | Buffers failed publishes when the AMQP confirm fails. |
+| `logging` | inherits env | Same shape as Redis. |
+
+### NatsEventBus — `new NatsEventBus(options)`
+
+| Option | Default | Why it exists |
+| --- | --- | --- |
+| `mode` | `"core"` | `"core"` is at-most-once, lowest latency. `"jetstream"` adds durable streams, per-instance durable consumers, redelivery, and replay. |
+| `connection` | created internally | Inject a pre-built `NatsConnection` when you want to share one connection across multiple services. The bus will not own (or drain) an injected connection on `disconnect()`. |
+| `connectionOptions` | — | Standard `nats.connect()` options when the bus creates the connection itself (`servers`, `name`, `token`, etc.). Set `name` to your instance ID for cleaner observability on the NATS server. |
+| `subject` | `"cache.invalidations"` | NATS subject used to publish and subscribe. Same value on every instance. |
+| `retryQueue` | see above | Buffers failed publishes (core mode in particular can drop on broker hiccup). |
+| `jetstream.stream` | `"CACHE_INVALIDATIONS"` | JetStream stream name. The bus creates it if `ensureStream` is true. |
+| `jetstream.durableName` | — | **Required in JetStream mode.** Per-instance durable consumer identity. JetStream replays from where this consumer last acked, so each instance needs its own unique value. |
+| `jetstream.storage` | `"file"` | `"file"` persists across NATS restarts; `"memory"` is faster but lost on restart. |
+| `jetstream.maxAgeMs` | unset (forever) | Drops messages older than this from the stream. Caps disk usage when invalidations stack up. |
+| `jetstream.maxMsgs` | `-1` (unlimited) | Hard cap on stored messages. Pair with `maxAgeMs` for predictable storage. |
+| `jetstream.ackWaitMs` | `30_000` | Time the server waits for an ack before redelivering. Increase if your handler is slow; decrease for tighter retries. |
+| `jetstream.maxDeliver` | `10` | Maximum redelivery attempts before the message is given up on. Stops poison messages from looping forever. |
+| `jetstream.ensureStream` | `true` | Auto-create the stream on `connect()` if missing. Set `false` if streams are provisioned by infra/IaC. |
+| `jetstream.ensureConsumer` | `true` | Auto-create the durable consumer for this instance if missing. Set `false` when consumers are provisioned externally. |
+| `logging` | inherits env | Same shape as Redis. |
+
 ## Resilience
 
 `lazy-layers-cache` keeps the application path moving when Redis or an invalidation transport has trouble. L2 failures return safe fallbacks, event-bus publish failures are queued by the bus, and circuit breakers avoid repeatedly calling unhealthy dependencies.
@@ -672,7 +743,7 @@ The suite covers:
   distributed locks, negative caching, fail-safe stale, circuit breakers,
   invalidation events, versioning, pattern deletes.
 
-158 tests pass on the current branch (`npm test`).
+163 tests pass on the current branch (`npm test`).
 
 ### Size benchmark (1 MB mock listing)
 

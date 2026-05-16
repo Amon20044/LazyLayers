@@ -1716,6 +1716,310 @@ NATS_URL=<span class="str">"nats://localhost:4222"</span>
 </section>
 
 
+<!-- EVENT BUS OPTIONS REFERENCE -->
+<section id="bus-options">
+  <div class="section-label">Event bus options — every knob, why it exists</div>
+
+  <p style="max-width:760px;color:var(--muted);line-height:1.65;font-size:14.5px;margin-bottom:24px;">
+    Each transport ships with sane defaults but exposes everything you need to tune durability, fanout, retry,
+    and per-instance identity. The <code>source</code> field on <code>LazyLayersCache</code> is what filters
+    self-loopback regardless of transport — every transport delivers your own publishes back to you.
+  </p>
+
+  <!-- HybridCache event-bus-related options -->
+  <div class="section-label" style="margin-top:8px;">LazyLayersCache event-bus options (shared across all transports)</div>
+  <div class="compare-wrapper" style="margin-bottom:48px;">
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Option</th>
+        <th>Default</th>
+        <th>Why it exists</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>eventBus</code></td>
+        <td>unset</td>
+        <td>The bus instance used for distributed invalidation and L1 priming. Without it, the cache is local-only.</td>
+      </tr>
+      <tr>
+        <td><code>source</code></td>
+        <td>random per process</td>
+        <td><strong>Required in multi-instance setups.</strong> Stamped on every published event; the subscribe handler discards events whose <code>source</code> matches this value so you don't invalidate yourself. Use <code>$HOSTNAME</code> / <code>INSTANCE_ID</code>.</td>
+      </tr>
+      <tr>
+        <td><code>subscribeToEvents</code></td>
+        <td><code>true</code></td>
+        <td>Set <code>false</code> to publish-only (one-way). Useful for read-only replicas that should not apply remote invalidations.</td>
+      </tr>
+      <tr>
+        <td><code>broadcastSet</code></td>
+        <td><code>true</code></td>
+        <td>When a <code>getOrSet</code> loader returns a value, broadcast it so peer L1s populate without a second loader call. Set <code>false</code> for delete-only fanout (legacy behavior).</td>
+      </tr>
+      <tr>
+        <td><code>eventDedupeMaxEntries</code></td>
+        <td><code>10_000</code></td>
+        <td>How many recent event IDs the cache remembers to drop duplicates. Durable buses can redeliver; this stops a redelivered event from re-applying.</td>
+      </tr>
+      <tr>
+        <td><code>eventDedupeTtlMs</code></td>
+        <td><code>300_000</code></td>
+        <td>How long each event ID stays in the dedupe map. Should comfortably exceed your worst-case redelivery window.</td>
+      </tr>
+      <tr>
+        <td><code>resilience.eventBusCircuitBreaker</code></td>
+        <td>unset</td>
+        <td><code>{ failureThreshold, cooldownMs }</code>. After repeated publish failures, the circuit opens and publishes are skipped until cooldown. Keeps a broken bus from blocking your request path.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- Shared retry queue -->
+  <div class="section-label" style="margin-top:8px;">Shared retry queue (every transport accepts this under <code>retryQueue</code>)</div>
+  <div class="compare-wrapper" style="margin-bottom:48px;">
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Option</th>
+        <th>Default</th>
+        <th>Why it exists</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>retryQueue.enabled</code></td>
+        <td><code>true</code></td>
+        <td>If a publish throws, the event is buffered in memory and re-attempted on the next successful publish. Smooths out brief bus blips.</td>
+      </tr>
+      <tr>
+        <td><code>retryQueue.maxSize</code></td>
+        <td>unset (unbounded)</td>
+        <td>Cap to prevent memory bloat when the bus stays down for a long time. Oldest event drops first with a warn log.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- Redis options -->
+  <div class="section-label" style="margin-top:8px;">RedisEventBus options — <code>new RedisEventBus(redis, channel, options)</code></div>
+  <div class="compare-wrapper" style="margin-bottom:48px;">
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Option</th>
+        <th>Default</th>
+        <th>Why it exists</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>redis</code> (ctor arg)</td>
+        <td>—</td>
+        <td>An existing <code>ioredis</code> client. The bus calls <code>.duplicate()</code> internally for the subscriber (Pub/Sub clients can't issue other commands).</td>
+      </tr>
+      <tr>
+        <td><code>channel</code> (ctor arg)</td>
+        <td>—</td>
+        <td>The Pub/Sub channel name. All instances that share invalidation must use the same channel.</td>
+      </tr>
+      <tr>
+        <td><code>retryQueue</code></td>
+        <td>see above</td>
+        <td>Buffers failed publishes for the next attempt. Pub/Sub is fire-and-forget — without retry, a single network blip drops the event.</td>
+      </tr>
+      <tr>
+        <td><code>logging.env</code></td>
+        <td>inherits <code>NODE_ENV</code></td>
+        <td>Force <code>"production"</code> / <code>"development"</code> / <code>"test"</code> independent of <code>NODE_ENV</code>. Production suppresses debug logs.</td>
+      </tr>
+      <tr>
+        <td><code>logging.enabled</code></td>
+        <td>auto from env</td>
+        <td>Hard override of the env-based switch when you want logs on or off regardless of <code>NODE_ENV</code>.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- RabbitMQ options -->
+  <div class="section-label" style="margin-top:8px;">RabbitMQEventBus options — <code>new RabbitMQEventBus(exchange, options)</code></div>
+  <div class="compare-wrapper" style="margin-bottom:48px;">
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Option</th>
+        <th>Default</th>
+        <th>Why it exists</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>exchange</code> (ctor arg)</td>
+        <td>—</td>
+        <td>Exchange name. All instances must bind to the same exchange for fanout to work.</td>
+      </tr>
+      <tr>
+        <td><code>url</code></td>
+        <td>—</td>
+        <td>AMQP URL (<code>amqp://user:pass@host:5672</code>). Required unless you call <code>init(url)</code> manually.</td>
+      </tr>
+      <tr>
+        <td><code>exchangeType</code></td>
+        <td><code>"fanout"</code></td>
+        <td>Use <code>"topic"</code> if you want one bus for multiple caches with routing keys; <code>"direct"</code> for exact-match routing. Default fanout broadcasts to every bound queue.</td>
+      </tr>
+      <tr>
+        <td><code>durableInvalidationMode</code></td>
+        <td><code>false</code></td>
+        <td>One switch that flips <code>durable</code>, <code>persistent</code>, names the queue, and disables auto-delete/exclusive. Pick this when you cannot afford to miss an invalidation across reconnects.</td>
+      </tr>
+      <tr>
+        <td><code>durable</code></td>
+        <td>follows <code>durableInvalidationMode</code></td>
+        <td>Survives broker restarts. Required if you want messages preserved across RabbitMQ outages.</td>
+      </tr>
+      <tr>
+        <td><code>persistent</code></td>
+        <td>follows <code>durable</code></td>
+        <td>Per-message delivery mode 2 — flushed to disk before ack. Pair with <code>durable: true</code> for end-to-end durability.</td>
+      </tr>
+      <tr>
+        <td><code>queueName</code></td>
+        <td>server-generated</td>
+        <td><strong>Set this to a stable per-instance value (e.g. <code>${INSTANCE_ID}-cache</code>) when using durable mode.</strong> Anonymous queues vanish on reconnect, losing messages buffered for that instance.</td>
+      </tr>
+      <tr>
+        <td><code>exclusiveQueue</code></td>
+        <td><code>true</code> unless durable mode</td>
+        <td>Exclusive queues are tied to the connection and auto-deleted on disconnect. Good for ephemeral subscribers, bad for durable per-instance invalidation queues.</td>
+      </tr>
+      <tr>
+        <td><code>autoDeleteQueue</code></td>
+        <td><code>true</code> unless durable mode</td>
+        <td>Queue is removed once no consumers remain. Disable when you want messages to buffer while an instance restarts.</td>
+      </tr>
+      <tr>
+        <td><code>routingKey</code></td>
+        <td><code>""</code></td>
+        <td>Ignored for fanout; required for topic/direct exchanges to pick which messages this consumer wants.</td>
+      </tr>
+      <tr>
+        <td><code>prefetch</code></td>
+        <td>broker default (unlimited)</td>
+        <td>Channel-level QoS. Caps unacked messages per consumer so a single slow instance can't hoard the queue.</td>
+      </tr>
+      <tr>
+        <td><code>retryQueue</code></td>
+        <td>see above</td>
+        <td>Buffers failed publishes when the AMQP confirm fails.</td>
+      </tr>
+      <tr>
+        <td><code>logging</code></td>
+        <td>inherits env</td>
+        <td>Same shape as Redis.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- NATS options -->
+  <div class="section-label" style="margin-top:8px;">NatsEventBus options — <code>new NatsEventBus(options)</code></div>
+  <div class="compare-wrapper" style="margin-bottom:48px;">
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Option</th>
+        <th>Default</th>
+        <th>Why it exists</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>mode</code></td>
+        <td><code>"core"</code></td>
+        <td><code>"core"</code> is at-most-once, lowest latency. <code>"jetstream"</code> adds durable streams, per-instance durable consumers, redelivery, and replay.</td>
+      </tr>
+      <tr>
+        <td><code>connection</code></td>
+        <td>created internally</td>
+        <td>Inject a pre-built <code>NatsConnection</code> when you want to share one connection across multiple services. The bus will not own (or drain) an injected connection on <code>disconnect()</code>.</td>
+      </tr>
+      <tr>
+        <td><code>connectionOptions</code></td>
+        <td>—</td>
+        <td>Standard <code>nats.connect()</code> options when the bus creates the connection itself (<code>servers</code>, <code>name</code>, <code>token</code>, etc.). Set <code>name</code> to your instance ID for cleaner observability on the NATS server.</td>
+      </tr>
+      <tr>
+        <td><code>subject</code></td>
+        <td><code>"cache.invalidations"</code></td>
+        <td>NATS subject used to publish and subscribe. Same value on every instance.</td>
+      </tr>
+      <tr>
+        <td><code>retryQueue</code></td>
+        <td>see above</td>
+        <td>Buffers failed publishes (core mode in particular can drop on broker hiccup).</td>
+      </tr>
+      <tr>
+        <td><code>jetstream.stream</code></td>
+        <td><code>"CACHE_INVALIDATIONS"</code></td>
+        <td>JetStream stream name. The bus creates it if <code>ensureStream</code> is true.</td>
+      </tr>
+      <tr>
+        <td><code>jetstream.durableName</code></td>
+        <td>—</td>
+        <td><strong>Required in JetStream mode.</strong> Per-instance durable consumer identity. JetStream replays from where this consumer last acked, so each instance needs its own unique value.</td>
+      </tr>
+      <tr>
+        <td><code>jetstream.storage</code></td>
+        <td><code>"file"</code></td>
+        <td><code>"file"</code> persists across NATS restarts; <code>"memory"</code> is faster but lost on restart.</td>
+      </tr>
+      <tr>
+        <td><code>jetstream.maxAgeMs</code></td>
+        <td>unset (forever)</td>
+        <td>Drops messages older than this from the stream. Caps disk usage when invalidations stack up.</td>
+      </tr>
+      <tr>
+        <td><code>jetstream.maxMsgs</code></td>
+        <td><code>-1</code> (unlimited)</td>
+        <td>Hard cap on stored messages. Pair with <code>maxAgeMs</code> for predictable storage.</td>
+      </tr>
+      <tr>
+        <td><code>jetstream.ackWaitMs</code></td>
+        <td><code>30_000</code></td>
+        <td>Time the server waits for an ack before redelivering. Increase if your handler is slow; decrease for tighter retries.</td>
+      </tr>
+      <tr>
+        <td><code>jetstream.maxDeliver</code></td>
+        <td><code>10</code></td>
+        <td>Maximum redelivery attempts before the message is given up on. Stops poison messages from looping forever.</td>
+      </tr>
+      <tr>
+        <td><code>jetstream.ensureStream</code></td>
+        <td><code>true</code></td>
+        <td>Auto-create the stream on <code>connect()</code> if missing. Set <code>false</code> if streams are provisioned by infra/IaC.</td>
+      </tr>
+      <tr>
+        <td><code>jetstream.ensureConsumer</code></td>
+        <td><code>true</code></td>
+        <td>Auto-create the durable consumer for this instance if missing. Set <code>false</code> when consumers are provisioned externally.</td>
+      </tr>
+      <tr>
+        <td><code>logging</code></td>
+        <td>inherits env</td>
+        <td>Same shape as Redis.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div style="margin-bottom:80px;"></div>
+</section>
+
+
 <!-- RESILIENCE -->
 <section id="resilience">
   <div class="section-label">Resilience features</div>
