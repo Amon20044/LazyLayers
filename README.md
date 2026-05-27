@@ -256,13 +256,27 @@ When multiple application instances use their own L1 memory caches, connect them
 
 Turn off the L1 priming broadcast with `broadcastSet: false` if you want pure invalidation semantics (delete-only fanout, like older releases).
 
+`del` and `set` events carry a per-key `generation`. Each cache instance ignores remote `del` / `set` events whose generation is older than the generation it has already applied for that key, so a late `set` broadcast cannot repopulate a value after a newer delete.
+
+Large `set` broadcasts can be skipped with `broadcastSetMaxBytes`. The value is still written through the normal cache path, so peers can fall back to L2 instead of receiving a large payload over the fanout bus.
+
 ```ts
 const cache = new LazyLayersCache({
   eventBus,
   source: process.env.INSTANCE_ID,
   broadcastSet: true, // default — peers populate L1 from getOrSet results
+  broadcastSetMaxBytes: 256 * 1024,
 });
 ```
+
+### Delivery Semantics
+
+| Transport | Delivery meaning |
+| --- | --- |
+| Redis Pub/Sub | At-most-once and ephemeral. Subscribers only receive messages while connected. |
+| NATS Core | At-most-once. Fast fanout, but no replay for disconnected subscribers. |
+| RabbitMQ durable mode | Retryable/durable when `durableInvalidationMode`, a stable `queueName`, and persistent messages are configured. |
+| NATS JetStream | Durable/replayable with explicit ack, durable consumers, and redelivery. |
 
 ### Redis Pub/Sub
 
@@ -362,6 +376,7 @@ Every transport ships with sane defaults but exposes the full surface for tuning
 | `source` | random per process | **Required in multi-instance setups.** Stamped on every published event; the subscribe handler discards events whose `source` matches this value so you don't invalidate yourself. Use `$HOSTNAME` / `INSTANCE_ID`. |
 | `subscribeToEvents` | `true` | Set `false` to publish-only (one-way). Useful for read-only replicas that should not apply remote invalidations. |
 | `broadcastSet` | `true` | When a `getOrSet` loader returns a value, broadcast it so peer L1s populate without a second loader call. Set `false` for delete-only fanout. |
+| `broadcastSetMaxBytes` | unset | Optional cap for the encoded `set` event. Oversized values are stored locally/L2 but not fanned out for peer L1 priming. |
 | `eventDedupeMaxEntries` | `10_000` | How many recent event IDs the cache remembers to drop duplicates. Durable buses can redeliver; this stops a redelivered event from re-applying. |
 | `eventDedupeTtlMs` | `300_000` | How long each event ID stays in the dedupe map. Should comfortably exceed your worst-case redelivery window. |
 | `resilience.eventBusCircuitBreaker` | unset | `{ failureThreshold, cooldownMs }`. After repeated publish failures, the circuit opens and publishes are skipped until cooldown. Keeps a broken bus from blocking your request path. |
@@ -371,7 +386,7 @@ Every transport ships with sane defaults but exposes the full surface for tuning
 | Option | Default | Why it exists |
 | --- | --- | --- |
 | `retryQueue.enabled` | `true` | If a publish throws, the event is buffered in memory and re-attempted on the next successful publish. Smooths out brief bus blips. |
-| `retryQueue.maxSize` | unset (unbounded) | Cap to prevent memory bloat when the bus stays down for a long time. Oldest event drops first with a warn log. |
+| `retryQueue.maxSize` | `10_000` | Cap to prevent memory bloat when the bus stays down for a long time. Oldest event drops first with a warn log. Set a smaller value for very memory-sensitive services. |
 
 ### RedisEventBus — `new RedisEventBus(redis, channel, options)`
 
@@ -380,6 +395,7 @@ Every transport ships with sane defaults but exposes the full surface for tuning
 | `redis` (ctor arg) | — | An existing `ioredis` client. The bus calls `.duplicate()` internally for the subscriber (Pub/Sub clients can't issue other commands). |
 | `channel` (ctor arg) | — | The Pub/Sub channel name. All instances that share invalidation must use the same channel. |
 | `retryQueue` | see above | Buffers failed publishes for the next attempt. Pub/Sub is fire-and-forget — without retry, a single network blip drops the event. |
+| `handlerConcurrency` | `1` | Limits concurrent subscriber handler execution. The default preserves approximate message order for invalidations. |
 | `logging.env` | inherits `NODE_ENV` | Force `"production"` / `"development"` / `"test"` independent of `NODE_ENV`. Production suppresses debug logs. |
 | `logging.enabled` | auto from env | Hard override of the env-based switch when you want logs on or off regardless of `NODE_ENV`. |
 
@@ -503,7 +519,9 @@ Common event types include:
 - `l2:error`
 - `event-bus:publish-error`
 - `invalidation:received`
+- `invalidation:stale`
 - `set:broadcast` (this instance published a `getOrSet` result to peers)
+- `set:broadcast-skipped` (the encoded `set` event exceeded `broadcastSetMaxBytes`)
 - `set:received` (this instance applied a peer's `getOrSet` result to its L1)
 
 ## Pattern Deletes
@@ -651,6 +669,7 @@ Built-in implementations:
 | `source` | Instance identifier used to ignore self-published invalidations. |
 | `subscribeToEvents` | Set `false` to publish invalidations without subscribing. |
 | `broadcastSet` | Set `false` to disable peer L1 priming after `getOrSet` loader success. Default `true` when `eventBus` is set. |
+| `broadcastSetMaxBytes` | Optional encoded-size cap for `set` broadcasts. Oversized values are not fanned out; peers can still load them from L2. |
 | `events` | Initial cache event handlers. |
 | `eventDedupeMaxEntries` | Max invalidation event IDs remembered for dedupe. |
 | `eventDedupeTtlMs` | TTL for invalidation event dedupe. |
@@ -673,7 +692,7 @@ Built-in implementations:
 | Option | Default | Description |
 | --- | --- | --- |
 | `enabled` | `true` | Keep failed publishes in memory for a later flush. |
-| `maxSize` | unset | Max events to keep after publish failures. Oldest events are dropped when full. |
+| `maxSize` | `10_000` | Max events to keep after publish failures. Oldest events are dropped when full. |
 
 ## Runtime Notes
 
@@ -682,11 +701,14 @@ Built-in implementations:
 - L1 is local to the current process.
 - Redis L2 is shared across processes.
 - Event buses carry three event types: `del`, `pattern`, and `set`. The `set` event is the L1-priming broadcast emitted from `getOrSet` loader success — it carries the loaded value so peers populate L1 without a second loader call. Disable with `broadcastSet: false` for delete-only fanout.
+- Remote `del` and `set` events are generation-checked per key. Older-generation events are ignored to prevent late `set` broadcasts from repopulating values after deletes.
+- Use `broadcastSetMaxBytes` for payload-heavy values; event buses are best for invalidations and small L1-warmup messages, not large-object fanout.
 - Loader results of `undefined` are not stored as normal cache values and are not broadcast.
 - Direct `cache.set()` calls do not broadcast — only `getOrSet` loader successes do.
 - Production logging is quiet by default when `NODE_ENV=production`.
 - `versioning.enabled` writes generation-suffixed storage keys after deletes.
 - Always use a stable `source` or `INSTANCE_ID` in multi-instance deployments.
+- Pattern invalidation scans local in-memory structures and delegates to the backing store's pattern delete. Avoid very frequent broad patterns such as `*` on large L1 maps unless you have measured the cost.
 
 ## Intelligent Serializer (HC1M / HC1G / HC1J)
 

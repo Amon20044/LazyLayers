@@ -868,6 +868,112 @@ test("remote set events emit set:received and clear negative cache", async () =>
   assert.equal(received.some((event) => event.type === "set:received"), true);
 });
 
+test("remote set events with older generations are ignored after a delete", async () => {
+  let handler;
+  const eventBus = {
+    async publish() {},
+    async subscribe(next) {
+      handler = next;
+    },
+  };
+  const events = [];
+  const cache = new HybridCache({
+    eventBus,
+    source: "local",
+    logging: { env: "production" },
+    events: [(event) => events.push(event)],
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  await cache.set("race:1", "current");
+  await cache.delete("race:1");
+
+  await handler({
+    id: "late-set-older-generation",
+    type: "set",
+    keys: ["race:1"],
+    value: "stale",
+    source: "remote",
+    ts: Date.now(),
+    generation: 0,
+  });
+
+  assert.equal(await cache.get("race:1"), undefined);
+  assert.equal(events.some((event) => event.type === "invalidation:stale"), true);
+});
+
+test("remote deletes advance to their generation before later remote sets are accepted", async () => {
+  let handler;
+  const eventBus = {
+    async publish() {},
+    async subscribe(next) {
+      handler = next;
+    },
+  };
+  const cache = new HybridCache({
+    eventBus,
+    source: "local",
+    logging: { env: "production" },
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  await cache.set("race:2", "before-delete");
+
+  await handler({
+    id: "remote-delete-generation-3",
+    type: "del",
+    keys: ["race:2"],
+    source: "remote",
+    ts: Date.now(),
+    generation: 3,
+  });
+
+  await handler({
+    id: "remote-set-generation-2",
+    type: "set",
+    keys: ["race:2"],
+    value: "stale",
+    source: "remote",
+    ts: Date.now(),
+    generation: 2,
+  });
+
+  assert.equal(await cache.get("race:2"), undefined);
+
+  await handler({
+    id: "remote-set-generation-3",
+    type: "set",
+    keys: ["race:2"],
+    value: "fresh",
+    source: "remote",
+    ts: Date.now(),
+    generation: 3,
+  });
+
+  assert.equal(await cache.get("race:2"), "fresh");
+});
+
+test("getOrSet skips set broadcasts when the encoded payload exceeds broadcastSetMaxBytes", async () => {
+  const eventBus = createSharedEventBus();
+  const events = [];
+  const cache = new HybridCache({
+    eventBus,
+    source: "instance-a",
+    broadcastSetMaxBytes: 1,
+    logging: { env: "production" },
+    events: [(event) => events.push(event)],
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const value = "x".repeat(2048);
+
+  assert.equal(await cache.getOrSet("big:1", async () => value), value);
+  assert.equal(await cache.get("big:1"), value);
+  assert.equal(eventBus.published.some((event) => event.type === "set"), false);
+  assert.equal(events.some((event) => event.type === "set:broadcast-skipped"), true);
+});
+
 test("remote set events from self source are ignored", async () => {
   let handler;
   const eventBus = {

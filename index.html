@@ -1508,7 +1508,7 @@
     <div class="bus-card redis">
       <div class="bus-name">Redis</div>
       <div class="bus-mode">Pub/Sub · Best-effort</div>
-      <div class="bus-desc">Fastest option. Uses your existing Redis connection. Missed invalidations during disconnects recover naturally via TTL expiry.</div>
+      <div class="bus-desc">Fastest option. At-most-once Pub/Sub over your existing Redis connection. Missed invalidations during disconnects recover naturally via TTL expiry.</div>
       <div class="bus-pills">
         <span class="pill good">low latency</span>
         <span class="pill good">zero infra add</span>
@@ -1530,7 +1530,7 @@
     <div class="bus-card nats">
       <div class="bus-name">NATS</div>
       <div class="bus-mode">Core · JetStream</div>
-      <div class="bus-desc">Two modes: core for speed, JetStream for durable delivery with replay and per-instance durable consumers. Lightweight to operate.</div>
+      <div class="bus-desc">Two modes: core for at-most-once speed, JetStream for durable delivery with replay, ack, and per-instance durable consumers.</div>
       <div class="bus-pills">
         <span class="pill good">durable (JS)</span>
         <span class="pill good">replay</span>
@@ -1538,6 +1538,43 @@
       </div>
     </div>
 
+  </div>
+
+  <div class="section-label" style="margin-top:8px;">Delivery semantics</div>
+  <div class="compare-wrapper" style="margin-bottom:40px;">
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Transport</th>
+        <th>Delivery meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Redis Pub/Sub</td>
+        <td>At-most-once and ephemeral. Subscribers only receive messages while connected.</td>
+      </tr>
+      <tr>
+        <td>NATS Core</td>
+        <td>At-most-once. Fast fanout, but no replay for disconnected subscribers.</td>
+      </tr>
+      <tr>
+        <td>RabbitMQ durable mode</td>
+        <td>Retryable and durable when <code>durableInvalidationMode</code>, a stable <code>queueName</code>, and persistent messages are configured.</td>
+      </tr>
+      <tr>
+        <td>NATS JetStream</td>
+        <td>Durable and replayable with explicit ack, durable consumers, and redelivery.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="banner" style="margin-bottom: 32px;">
+    <span class="banner-text"># Ordering and payload safety</span><br>
+    <span class="banner-em"><code>del</code> and <code>set</code> events carry a per-key generation.</span><br>
+    <span style="color:#5a7a3a">Peers ignore older-generation events, so a late <code>set</code> cannot repopulate stale data after a newer delete.</span><br>
+    <span style="color:#7a5a3a">For large values, set <code>broadcastSetMaxBytes</code>; oversized values stay in local/L2 cache and skip event-bus fanout.</span>
   </div>
 
   <!-- SETUP DIRECTIONS -->
@@ -1589,6 +1626,7 @@ REDIS_URL=<span class="str">"redis://localhost:6379"</span>
     enabled: <span class="kw">true</span>,
     maxSize: <span class="num">1_000</span>,
   },
+  handlerConcurrency: <span class="num">1</span>,
   logging: { env: <span class="str">"production"</span> },
 });</div>
     </div>
@@ -1635,7 +1673,7 @@ RABBITMQ_URL=<span class="str">"amqp://guest:guest@localhost:5672"</span>
   exclusiveQueue: <span class="kw">false</span>,
   autoDeleteQueue: <span class="kw">false</span>,
   prefetch: <span class="num">100</span>,
-  retryQueue: { enabled: <span class="kw">true</span> },
+  retryQueue: { enabled: <span class="kw">true</span>, maxSize: <span class="num">10_000</span> },
   logging: { env: <span class="str">"production"</span> },
 });</div>
     </div>
@@ -1759,6 +1797,11 @@ NATS_URL=<span class="str">"nats://localhost:4222"</span>
         <td>When a <code>getOrSet</code> loader returns a value, broadcast it so peer L1s populate without a second loader call. Set <code>false</code> for delete-only fanout (legacy behavior).</td>
       </tr>
       <tr>
+        <td><code>broadcastSetMaxBytes</code></td>
+        <td>unset</td>
+        <td>Optional encoded-size cap for <code>set</code> events. Oversized values are stored locally/L2 but not fanned out for peer L1 priming.</td>
+      </tr>
+      <tr>
         <td><code>eventDedupeMaxEntries</code></td>
         <td><code>10_000</code></td>
         <td>How many recent event IDs the cache remembers to drop duplicates. Durable buses can redeliver; this stops a redelivered event from re-applying.</td>
@@ -1796,8 +1839,8 @@ NATS_URL=<span class="str">"nats://localhost:4222"</span>
       </tr>
       <tr>
         <td><code>retryQueue.maxSize</code></td>
-        <td>unset (unbounded)</td>
-        <td>Cap to prevent memory bloat when the bus stays down for a long time. Oldest event drops first with a warn log.</td>
+        <td><code>10_000</code></td>
+        <td>Cap to prevent memory bloat when the bus stays down for a long time. Oldest event drops first with a warn log. Set a smaller value for memory-sensitive services.</td>
       </tr>
     </tbody>
   </table>
@@ -1829,6 +1872,11 @@ NATS_URL=<span class="str">"nats://localhost:4222"</span>
         <td><code>retryQueue</code></td>
         <td>see above</td>
         <td>Buffers failed publishes for the next attempt. Pub/Sub is fire-and-forget — without retry, a single network blip drops the event.</td>
+      </tr>
+      <tr>
+        <td><code>handlerConcurrency</code></td>
+        <td><code>1</code></td>
+        <td>Limits concurrent subscriber handler execution. The default preserves approximate message order for invalidations.</td>
       </tr>
       <tr>
         <td><code>logging.env</code></td>
@@ -2078,7 +2126,9 @@ NATS_URL=<span class="str">"nats://localhost:4222"</span>
     <div class="event-pill">l2:skipped</div>
     <div class="event-pill">invalidation:received</div>
     <div class="event-pill">invalidation:duplicate</div>
+    <div class="event-pill">invalidation:stale</div>
     <div class="event-pill">set:broadcast</div>
+    <div class="event-pill">set:broadcast-skipped</div>
     <div class="event-pill">set:received</div>
     <div class="event-pill">event-bus:publish-error</div>
     <div class="event-pill">event-bus:publish-skipped</div>
@@ -2244,6 +2294,7 @@ process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</spa
   source: process.env.INSTANCE_ID,
   subscribeToEvents: <span class="kw">true</span>,
   broadcastSet: <span class="kw">true</span>, <span class="cm">// peers populate L1 from getOrSet results</span>
+  broadcastSetMaxBytes: <span class="num">256</span> * <span class="num">1024</span>,
   eventDedupeMaxEntries: <span class="num">10_000</span>,
   eventDedupeTtlMs: <span class="num">300_000</span>,
 
@@ -2284,7 +2335,7 @@ process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</spa
       </div>
       <div class="opt-row">
         <div class="opt-key">eventBus / source<span class="opt-type">distributed invalidation</span></div>
-        <div class="opt-val">Redis Pub/Sub, RabbitMQ, or NATS invalidation with a unique source per cache instance.</div>
+        <div class="opt-val">Redis Pub/Sub, RabbitMQ, or NATS invalidation with a unique source per cache instance, event dedupe, and generation checks for late events.</div>
       </div>
       <div class="opt-row">
         <div class="opt-key">types<span class="opt-type">&lt;K, V&gt; generics</span></div>
@@ -2417,6 +2468,8 @@ process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</spa
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Idempotent, timeout-aware loader functions</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">deleteStrategy: "unlink" for large values</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">NATS server: start with -js for JetStream mode</span></span>
+<span><span class="cm"># NOTE</span> <span style="color:#80cbc4;">Set broadcastSetMaxBytes for large payloads</span></span>
+<span><span class="cm"># NOTE</span> <span style="color:#80cbc4;">Avoid frequent broad pattern deletes on large L1 maps</span></span>
     </div>
   </div>
 </section>

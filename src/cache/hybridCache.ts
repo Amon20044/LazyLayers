@@ -1,5 +1,6 @@
 import type { EventBus } from '../event-bus/index.js';
-import type { SetEvent } from '../types/event.types.js';
+import { encodeInvalidationEvent } from '../event-bus/eventCodec.js';
+import type { DeleteEvent, SetEvent } from '../types/event.types.js';
 import type {
   CacheKey,
   CacheLevel,
@@ -50,6 +51,7 @@ export interface HybridCacheOptions<K extends CacheKey = string, V = unknown> ex
   eventDedupeTtlMs?: number;
   logging?: CacheLoggerOptions;
   broadcastSet?: boolean;
+  broadcastSetMaxBytes?: number;
 }
 
 export class HybridCache<K extends CacheKey = string, V = unknown> implements CacheStore<K, V> {
@@ -94,12 +96,12 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
           debugLog('event-bus invalidation received', event);
 
           if (event.type === 'del') {
-            await Promise.all(event.keys.map((key) => this.deleteLocal(key as K)));
+            await this.applyRemoteDelete(event, eventId);
             return;
           }
 
           if (event.type === 'set') {
-            await this.applyRemoteSet(event);
+            await this.applyRemoteSet(event, eventId);
             return;
           }
 
@@ -317,8 +319,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     await this.set(key, value, options);
 
     if (this.shouldBroadcastSet()) {
-      this.emit({ type: 'set:broadcast', key });
-      await this.publishInvalidation({
+      const event: SetEvent = {
         id: createEventId(),
         type: 'set',
         keys: [String(key)],
@@ -327,7 +328,28 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
         source: this.source,
         ts: Date.now(),
         generation: this.getGeneration(String(key)),
-      });
+      };
+
+      const encodedBytes = encodeInvalidationEvent(event).byteLength;
+      const maxBytes = this.options.broadcastSetMaxBytes;
+
+      if (maxBytes !== undefined && encodedBytes > maxBytes) {
+        this.emit({
+          type: 'set:broadcast-skipped',
+          key,
+          reason: 'max-bytes',
+          bytes: encodedBytes,
+          maxBytes,
+        });
+        debugLog('cache set broadcast skipped because payload is too large', {
+          key,
+          bytes: encodedBytes,
+          maxBytes,
+        });
+      } else {
+        this.emit({ type: 'set:broadcast', key });
+        await this.publishInvalidation(event);
+      }
     }
 
     return value;
@@ -380,12 +402,12 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     return this.loadAndStore(key, loader, options);
   }
 
-  private async deleteLocal(key: K): Promise<void> {
+  private async deleteLocal(key: K, generation?: number): Promise<void> {
     this.inflight.delete(key);
     this.negative.delete(key);
     this.stale.delete(key);
     const storageKey = this.toStorageKey(key);
-    this.bumpGeneration(String(key));
+    this.advanceGenerationAfterDelete(String(key), generation);
 
     await this.l1?.delete(storageKey);
     await this.runL2('delete', storageKey, () => this.l2?.delete(storageKey) ?? Promise.resolve());
@@ -653,12 +675,23 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     return this.generations.get(key) ?? 0;
   }
 
-  private bumpGeneration(key: string): void {
-    if (this.options.versioning?.enabled !== true) {
+  private advanceGenerationAfterDelete(key: string, generation?: number): void {
+    const currentGeneration = this.getGeneration(key);
+
+    if (generation !== undefined) {
+      this.generations.set(key, Math.max(currentGeneration, generation));
       return;
     }
 
-    this.generations.set(key, this.getGeneration(key) + 1);
+    this.generations.set(key, currentGeneration + 1);
+  }
+
+  private advanceGenerationAfterRemoteSet(key: string, generation?: number): void {
+    if (generation === undefined) {
+      return;
+    }
+
+    this.generations.set(key, Math.max(this.getGeneration(key), generation));
   }
 
   private emit(event: CacheEvent): void {
@@ -731,12 +764,61 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     return `${event.source}:${event.ts}:${event.type}:${suffix}`;
   }
 
-  private async applyRemoteSet(event: SetEvent): Promise<void> {
+  private isStaleGeneration(key: string, generation?: number): boolean {
+    return generation !== undefined && generation < this.getGeneration(key);
+  }
+
+  private emitStaleInvalidation(
+    event: DeleteEvent | SetEvent,
+    eventId: string,
+    key: K,
+  ): void {
+    const localGeneration = this.getGeneration(String(key));
+
+    this.emit({
+      type: 'invalidation:stale',
+      eventId,
+      eventType: event.type,
+      key,
+      generation: event.generation,
+      localGeneration,
+    });
+    debugLog('event-bus invalidation ignored because generation is stale', {
+      eventId,
+      eventType: event.type,
+      key,
+      generation: event.generation,
+      localGeneration,
+    });
+  }
+
+  private async applyRemoteDelete(event: DeleteEvent, eventId: string): Promise<void> {
+    await Promise.all(event.keys.map(async (rawKey) => {
+      const key = rawKey as K;
+
+      if (this.isStaleGeneration(rawKey, event.generation)) {
+        this.emitStaleInvalidation(event, eventId, key);
+        return;
+      }
+
+      await this.deleteLocal(key, event.generation);
+    }));
+  }
+
+  private async applyRemoteSet(event: SetEvent, eventId: string): Promise<void> {
     const localOptions: CacheOptions =
       event.ttlMs !== undefined ? { ...this.options, ttlMs: event.ttlMs } : this.options;
 
     for (const rawKey of event.keys) {
       const key = rawKey as K;
+
+      if (this.isStaleGeneration(rawKey, event.generation)) {
+        this.emitStaleInvalidation(event, eventId, key);
+        continue;
+      }
+
+      this.advanceGenerationAfterRemoteSet(rawKey, event.generation);
+
       const storageKey = this.toStorageKey(key);
 
       await this.l1?.set(storageKey, event.value as V, localOptions);
@@ -805,5 +887,3 @@ class LoaderTimeoutError extends Error {
     super(reason);
   }
 }
-
-

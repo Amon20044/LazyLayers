@@ -10,10 +10,25 @@ const {
   RedisEventBus,
   RedisStore,
   createCache,
+  serialize,
 } = await import("../dist/index.js");
 
 const quiet = { logging: { env: "production" } };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function waitFor(predicate, timeoutMs = 250) {
+  const expiresAt = Date.now() + timeoutMs;
+
+  while (Date.now() < expiresAt) {
+    if (predicate()) {
+      return;
+    }
+
+    await sleep(1);
+  }
+
+  assert.fail("timed out waiting for condition");
+}
 
 function patternToRegex(pattern) {
   const escaped = pattern.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
@@ -73,6 +88,7 @@ class FakeRedis {
     this.zsets = new Map();
     this.deletedBy = [];
     this.published = [];
+    this.listeners = new Map();
   }
 
   pipeline() {
@@ -94,8 +110,18 @@ class FakeRedis {
 
   async subscribe() {}
   async unsubscribe() {}
-  on() {}
+  on(event, handler) {
+    this.listeners.set(event, handler);
+  }
   disconnect() {}
+
+  emitMessage(channel, event) {
+    const handler = this.listeners.get("messageBuffer");
+
+    if (handler) {
+      handler(Buffer.from(channel), serialize(event));
+    }
+  }
 
   async set(key, value, px, ttlMs, nx) {
     this.pruneKey(key);
@@ -1129,4 +1155,89 @@ test("RedisEventBus subscribe ignores duplicate subscribe calls", async () => {
   await bus.subscribe(() => {});
 
   assert.equal(subscribeCalls, 1);
+});
+
+test("RedisEventBus processes subscribed messages with bounded handler concurrency", async () => {
+  const redis = new FakeRedis();
+  const bus = new RedisEventBus(redis, "cache:invalidations", {
+    handlerConcurrency: 1,
+    logging: { env: "production" },
+  });
+  const received = [];
+  let active = 0;
+  let maxActive = 0;
+
+  await bus.subscribe(async (event) => {
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await sleep(5);
+    received.push(event.id);
+    active -= 1;
+  });
+
+  redis.emitMessage("cache:invalidations", {
+    id: "first",
+    type: "del",
+    keys: ["a"],
+    source: "remote",
+    ts: Date.now(),
+  });
+  redis.emitMessage("cache:invalidations", {
+    id: "second",
+    type: "del",
+    keys: ["b"],
+    source: "remote",
+    ts: Date.now(),
+  });
+
+  await waitFor(() => received.length === 2);
+
+  assert.deepEqual(received, ["first", "second"]);
+  assert.equal(maxActive, 1);
+});
+
+test("EventBusRetryQueue caps queued events by default", async () => {
+  const {
+    DEFAULT_EVENT_BUS_RETRY_QUEUE_MAX_SIZE,
+    EventBusRetryQueue,
+  } = await import("../dist/event-bus/retryQueue.js");
+  const queue = new EventBusRetryQueue();
+  const flushed = [];
+
+  for (let i = 0; i <= DEFAULT_EVENT_BUS_RETRY_QUEUE_MAX_SIZE; i += 1) {
+    queue.enqueue({
+      id: String(i),
+      type: "del",
+      keys: [String(i)],
+      source: "test",
+      ts: Date.now(),
+    });
+  }
+
+  await queue.flush(async (event) => {
+    flushed.push(event.id);
+  });
+
+  assert.equal(flushed.length, DEFAULT_EVENT_BUS_RETRY_QUEUE_MAX_SIZE);
+  assert.equal(flushed[0], "1");
+});
+
+test("EventBusRetryQueue drops new events when maxSize is zero", async () => {
+  const { EventBusRetryQueue } = await import("../dist/event-bus/retryQueue.js");
+  const queue = new EventBusRetryQueue({ maxSize: 0 });
+  const flushed = [];
+
+  queue.enqueue({
+    id: "dropped",
+    type: "del",
+    keys: ["a"],
+    source: "test",
+    ts: Date.now(),
+  });
+
+  await queue.flush(async (event) => {
+    flushed.push(event.id);
+  });
+
+  assert.deepEqual(flushed, []);
 });
