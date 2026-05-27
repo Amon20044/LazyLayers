@@ -16,6 +16,17 @@ function isInvalidationEvent(value: unknown): value is InvalidationEvent {
     return false;
   }
 
+  if (
+    'generation' in value
+    && (
+      typeof value.generation !== 'number'
+      || !Number.isSafeInteger(value.generation)
+      || value.generation < 0
+    )
+  ) {
+    return false;
+  }
+
   if (value.type === 'del') {
     return isDeleteEvent(value);
   }

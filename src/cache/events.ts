@@ -21,7 +21,22 @@ export type CacheEvent =
   | { type: 'event-bus:publish-skipped'; eventType: string; state: CircuitBreakerState }
   | { type: 'invalidation:received'; eventId: string; eventType: string }
   | { type: 'invalidation:duplicate'; eventId: string }
+  | {
+    type: 'invalidation:stale';
+    eventId: string;
+    eventType: string;
+    key: CacheKey;
+    generation?: number;
+    localGeneration: number;
+  }
   | { type: 'set:received'; key: CacheKey; level: CacheLevel }
+  | {
+    type: 'set:broadcast-skipped';
+    key: CacheKey;
+    reason: 'max-bytes';
+    bytes: number;
+    maxBytes: number;
+  }
   | { type: 'set:broadcast'; key: CacheKey };
 
 export type CacheEventHandler = (event: CacheEvent) => void;

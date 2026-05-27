@@ -5,10 +5,12 @@ import type { InvalidationEvent } from '../types/event.types.js';
 import { configureCacheLogger, type CacheLoggerOptions } from '../utils/debugLog.js';
 import { debugLog, errorLog, warnLog } from '../utils/debugLog.js';
 import { decodeInvalidationEvent, encodeInvalidationEvent } from './eventCodec.js';
+import { EventBusHandlerQueue } from './handlerQueue.js';
 import { EventBusRetryQueue, type EventBusRetryQueueOptions } from './retryQueue.js';
 
 export interface RedisEventBusOptions {
   retryQueue?: EventBusRetryQueueOptions;
+  handlerConcurrency?: number;
   logging?: CacheLoggerOptions;
 }
 
@@ -26,7 +28,7 @@ export class RedisEventBus implements EventBus {
   private readonly retryQueue: EventBusRetryQueue;
   private subscribed = false;
 
-  constructor(redis: RedisClient, channel: string, options: RedisEventBusOptions = {}) {
+  constructor(redis: RedisClient, channel: string, private readonly options: RedisEventBusOptions = {}) {
     configureCacheLogger(options.logging);
     this.pub = redis;
     this.sub = redis.duplicate();
@@ -90,6 +92,13 @@ export class RedisEventBus implements EventBus {
     this.subscribed = true;
     debugLog('redis event bus subscribed', { channel: this.channel });
 
+    const handlerQueue = new EventBusHandlerQueue(handler, {
+      concurrency: this.options.handlerConcurrency,
+      onError: (error) => {
+        errorLog('redis event bus handler failed', { channel: this.channel, error });
+      },
+    });
+
     this.sub.on('messageBuffer', (channel: Buffer, message: Buffer) => {
       if (channel.toString('utf8') !== this.channel) {
         return;
@@ -98,9 +107,7 @@ export class RedisEventBus implements EventBus {
       const event = decodeInvalidationEvent(message);
 
       if (event) {
-        void Promise.resolve(handler(event)).catch((error) => {
-          errorLog('redis event bus handler failed', { channel: this.channel, error });
-        });
+        handlerQueue.enqueue(event);
       } else {
         warnLog('redis event bus ignored invalid message', { channel: this.channel });
       }

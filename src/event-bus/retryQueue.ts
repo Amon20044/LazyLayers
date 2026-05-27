@@ -6,6 +6,8 @@ export interface EventBusRetryQueueOptions {
   maxSize?: number;
 }
 
+export const DEFAULT_EVENT_BUS_RETRY_QUEUE_MAX_SIZE = 10_000;
+
 export class EventBusRetryQueue {
   private readonly events: InvalidationEvent[] = [];
 
@@ -20,9 +22,14 @@ export class EventBusRetryQueue {
       return;
     }
 
-    const maxSize = this.options.maxSize;
+    const maxSize = this.options.maxSize ?? DEFAULT_EVENT_BUS_RETRY_QUEUE_MAX_SIZE;
 
-    if (maxSize !== undefined && this.events.length >= maxSize) {
+    if (maxSize <= 0) {
+      warnLog('event bus retry queue dropped event because maxSize is non-positive', { maxSize });
+      return;
+    }
+
+    if (this.events.length >= maxSize) {
       this.events.shift();
       warnLog('event bus retry queue dropped oldest event', { maxSize });
     }
