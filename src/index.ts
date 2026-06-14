@@ -20,11 +20,16 @@ export type {
   InflightEntry,
   InflightOptions,
   InflightStore,
+  InspectableStore,
   InvalidationEvent,
   InvalidationType,
+  KeyInspection,
   PatternEvent,
   SetEvent,
+  StoreInspectOptions,
+  StoreInspection,
 } from './types/index.js';
+export { isInspectableStore } from './types/index.js';
 export type {
   CacheLayer,
   CircuitBreakerOptions,
@@ -49,19 +54,59 @@ export {
   RedisStore,
 } from './cache/index.js';
 export type { CacheLoggerOptions, CacheRuntimeEnv } from './utils/debugLog.js';
-export type { CacheEncoding, SerializedCacheValue } from './utils/serializer.js';
+export type { BufferInspection, CacheEncoding, SerializedCacheValue } from './utils/serializer.js';
 export {
   NULL_SENTINEL,
   GZIP_MIN_BYTES,
   GZIP_SAVINGS_THRESHOLD,
   deserialize,
+  estimateValueBytes,
   getCompressionSavings,
   hasPrefix,
+  inspectBuffer,
   serialize,
   serializeWithStats,
   shouldGzip,
+  sizeSavings,
   stripPrefix,
 } from './utils/serializer.js';
+export {
+  DEFAULT_OBSERVABILITY_MAX_EVENTS,
+  DEFAULT_OBSERVABILITY_MAX_VALUE_BYTES,
+  DEFAULT_OBSERVABILITY_PASSWORD,
+  DEFAULT_OBSERVABILITY_PORT,
+  DEFAULT_OBSERVABILITY_ROUTE,
+  DEFAULT_OBSERVABILITY_USERNAME,
+  ObservabilityCollector,
+  ObservabilityInspector,
+  TELEMETRY_CHANNEL_NAME,
+  createObservabilityHandler,
+  hasTelemetrySubscribers,
+  normalizeRoute,
+  publishTelemetry,
+  renderDashboard,
+  renderPrometheus,
+  resolveObservabilityOptions,
+  startObservabilityServer,
+  subscribeTelemetry,
+} from './observability/index.js';
+export type {
+  ConfigSnapshot,
+  InspectorDeps,
+  ObservabilityAuthOptions,
+  ObservabilityCounters,
+  ObservabilityHandlerDeps,
+  ObservabilityOptions,
+  ObservabilityPrometheusOptions,
+  ObservabilityRequestHandler,
+  ObservabilityServerHandle,
+  ObservabilityServerOptions,
+  OverviewSnapshot,
+  PrometheusGauges,
+  RecordedEvent,
+  ResolvedObservabilityOptions,
+  StartObservabilityServerOptions,
+} from './observability/index.js';
 export type {
   EventBus,
   EventBusHealth,

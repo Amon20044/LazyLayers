@@ -80,3 +80,55 @@ export interface CacheStore<K extends CacheKey, V> {
     clear(): Promise<void>;
     size(): Promise<number>;
 }
+
+/** Options for a single page of read-only store introspection (observability). */
+export interface StoreInspectOptions {
+    /** Opaque cursor returned by a previous page (`'0'`/undefined = start). */
+    cursor?: string;
+    /** Max keys to return in this page. */
+    limit?: number;
+    /** Glob pattern (e.g. `user:*`) to scope the scan. */
+    match?: string;
+    /** When false, return only metadata (no decoded values). */
+    includeValues?: boolean;
+    /** Decoded values larger than this many bytes are truncated. */
+    maxValueBytes?: number;
+}
+
+/** One key's read-only snapshot for the dashboard. */
+export interface KeyInspection {
+    key: string;
+    /** Remaining TTL in ms; `undefined` when unknown, `-1` when no expiry. */
+    ttlRemainingMs?: number;
+    /** Bytes on the wire (L2: actual stored buffer; L1: prospective wire size). */
+    serializedBytes: number;
+    /** Estimated decoded/in-memory size of the value (UTF-8 JSON byte length). */
+    deserializedBytes: number;
+    /** Saved fraction of wire vs decoded size in [0, 1) — higher = more compact. */
+    compressionRatio: number;
+    /** Wire encoding (`legacy` = unprefixed buffer). */
+    encoding: 'msgpack' | 'msgpack-gzip' | 'json' | 'legacy';
+    /** Decoded value (omitted when includeValues is false or value truncated). */
+    value?: unknown;
+    /** True when the value was omitted because it exceeded maxValueBytes. */
+    truncated?: boolean;
+}
+
+/** One page of store introspection. */
+export interface StoreInspection {
+    /** Total entries the layer reports (may be approximate for L2). */
+    size: number;
+    /** Cursor for the next page; absent/`'0'` means the scan is complete. */
+    cursor?: string;
+    keys: KeyInspection[];
+}
+
+/** A store that can be safely introspected without disturbing its state. */
+export interface InspectableStore {
+    inspect(options?: StoreInspectOptions): Promise<StoreInspection>;
+}
+
+/** Type guard for {@link InspectableStore}. */
+export function isInspectableStore(store: unknown): store is InspectableStore {
+    return typeof (store as InspectableStore | undefined)?.inspect === 'function';
+}

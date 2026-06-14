@@ -35,6 +35,10 @@ Deletes and pattern wipes are broadcast to every connected instance.
 - Redis Pub/Sub, RabbitMQ, NATS core, and NATS JetStream invalidation buses
 - MessagePack serialization for Redis payloads
 - Cache event hooks for metrics and logs
+- Live observability dashboard at `/observelazyily` (opt-in, zero-dependency)
+- Per-key serialized-vs-in-memory size comparison and nested key explorer
+- Built-in Prometheus `/metrics` endpoint (bounded cardinality)
+- OpenTelemetry/APM telemetry via `node:diagnostics_channel`
 - Production-aware logging controls
 
 ## Table of Contents
@@ -47,6 +51,9 @@ Deletes and pattern wipes are broadcast to every connected instance.
 - [Distributed Invalidation](#distributed-invalidation)
 - [Resilience](#resilience)
 - [Observability](#observability)
+- [Observability Dashboard](#observability-dashboard)
+- [Prometheus Metrics](#prometheus-metrics)
+- [OpenTelemetry / APM Telemetry](#opentelemetry--apm-telemetry)
 - [Pattern Deletes](#pattern-deletes)
 - [API](#api)
 - [Options](#options)
@@ -523,6 +530,148 @@ Common event types include:
 - `set:broadcast` (this instance published a `getOrSet` result to peers)
 - `set:broadcast-skipped` (the encoded `set` event exceeded `broadcastSetMaxBytes`)
 - `set:received` (this instance applied a peer's `getOrSet` result to its L1)
+
+## Observability Dashboard
+
+Set `observability: true` to get a live, zero-config dashboard at
+**`/observelazyily`** — a "Redis Insight for your whole cache". It visualizes L1
+(in-memory LRU) and L2 (Redis) keys as a nested tree with **deserialized values
+and a per-key serialized-vs-in-memory size comparison**, a live event stream, and
+the resolved configuration — all separated into navigations.
+
+```ts
+const cache = createCache({
+  l2: new RedisStore(redis),
+  eventBus,
+  observability: true, // standalone server on http://127.0.0.1:7077/observelazyily
+});
+```
+
+Default credentials are **`lazydev` / `lazydev`** (HTTP Basic auth). Open the URL
+printed at startup and log in.
+
+> ⚠️ The dashboard exposes cache contents and live activity. It is intended for
+> **development/staging**. It binds to `127.0.0.1` and requires auth by default;
+> secure it (token, network policy) and avoid leaving it enabled in production.
+> A one-time notice is logged on enable — set `quiet: true` to silence it.
+
+### Design goals
+
+- **Zero performance hindrance.** Disabled by default — not a single extra
+  instruction in `get`/`set`. When enabled, the only hot-path cost is one O(1)
+  handler on the event stream the cache already emits, plus a bounded ring-buffer
+  write. All key enumeration / Redis `SCAN` / deserialization is **pull-based and
+  paginated** — it runs only while a dashboard tab is open, using `peek()` (L1)
+  and `SCAN` (L2) so inspection never disturbs eviction order or blocks Redis.
+- **Nothing is persisted.** The live event feed is an in-memory ring buffer
+  streamed over SSE — it is never written to Redis or disk.
+
+### Mount into your own server
+
+Prefer your existing HTTP server? Disable the standalone server and mount the
+framework-agnostic handler:
+
+```ts
+const cache = createCache({ observability: { enabled: true, server: false } });
+const dashboard = cache.getObservabilityHandler();
+
+http.createServer((req, res) => {
+  if (dashboard?.(req, res)) return; // handled a /observelazyily request
+  // ...your routes
+}).listen(3000);
+```
+
+### Configuration
+
+```ts
+createCache({
+  observability: {
+    enabled: true,
+    route: "/observelazyily",          // base route
+    server: { host: "127.0.0.1", port: 7077, autoStart: true }, // or `false`
+    auth: { username: "lazydev", password: "lazydev", token: "optional-bearer" },
+    maxEvents: 1000,                    // ring-buffer size for the live feed
+    maxValueBytes: 256 * 1024,         // values larger than this are truncated in the UI
+    prometheus: { enabled: true, prefix: "lazycache", public: false },
+    quiet: false,
+  },
+});
+```
+
+Everything is also configurable via **environment variables** (handy for
+toggling per environment without code changes). Precedence is
+`option > env > default`:
+
+| Env var | Purpose | Default |
+|---------|---------|---------|
+| `LAZY_OBS_ENABLED` | Enable the dashboard | `false` |
+| `LAZY_OBS_ROUTE` | Base route | `/observelazyily` |
+| `LAZY_OBS_HOST` / `LAZY_OBS_PORT` | Standalone server bind | `127.0.0.1` / `7077` |
+| `LAZY_OBS_USER` / `LAZY_OBS_PASSWORD` | Basic-auth credentials | `lazydev` / `lazydev` |
+| `LAZY_OBS_TOKEN` | Optional bearer/query token | — |
+| `LAZY_OBS_NO_SERVER` | Only expose the mountable handler | `false` |
+| `LAZY_OBS_NO_AUTH` | Disable auth (not recommended) | `false` |
+| `LAZY_OBS_PROMETHEUS` | Expose `/metrics` | `false` |
+| `LAZY_OBS_PROMETHEUS_PREFIX` | Metric name prefix | `lazycache` |
+| `LAZY_OBS_PROMETHEUS_PUBLIC` | Allow unauthenticated scrapes | `false` |
+| `LAZY_OBS_MAX_EVENTS` / `LAZY_OBS_MAX_VALUE_BYTES` | Feed / value limits | `1000` / `262144` |
+| `LAZY_OBS_QUIET` | Silence the startup notice | `false` |
+
+## Prometheus Metrics
+
+Enable a Prometheus exposition endpoint at **`{route}/metrics`** (zero extra
+dependencies):
+
+```ts
+createCache({
+  observability: { enabled: true, prometheus: { enabled: true, public: true } },
+});
+// GET http://127.0.0.1:7077/observelazyily/metrics
+```
+
+```
+# TYPE lazycache_hits_total counter
+lazycache_hits_total{level="l1"} 128
+lazycache_hits_total{level="l2"} 17
+lazycache_misses_total{level="l1"} 31
+lazycache_writes_total 44
+lazycache_hit_ratio 0.82
+lazycache_l1_entries 950
+```
+
+Metrics are labeled by `level`/`kind`/`result` only — **never by cache key** — so
+series cardinality stays bounded no matter how many keys you store. Set
+`prometheus.public: true` to allow scrapers through without UI credentials (or
+configure `basic_auth` in your Prometheus scrape config).
+
+Scrape config:
+
+```yaml
+scrape_configs:
+  - job_name: lazy-layers-cache
+    metrics_path: /observelazyily/metrics
+    static_configs:
+      - targets: ["127.0.0.1:7077"]
+```
+
+## OpenTelemetry / APM Telemetry
+
+The raw event stream is published to a Node
+[`diagnostics_channel`](https://nodejs.org/api/diagnostics_channel.html) named
+**`lazycache:cache:event`** — the zero-dependency hook for OpenTelemetry or any
+APM. Publishing is guarded by `hasSubscribers`, so it costs a single boolean
+check on the hot path when nothing is attached.
+
+```ts
+import { subscribeTelemetry, TELEMETRY_CHANNEL_NAME } from "lazy-layers-cache";
+
+const unsubscribe = subscribeTelemetry((event) => {
+  // build spans/metrics, forward to OTel, etc.
+  span.addEvent(event.type, event);
+});
+```
+
+You can also subscribe directly via `diagnostics_channel.subscribe(TELEMETRY_CHANNEL_NAME, ...)`.
 
 ## Pattern Deletes
 

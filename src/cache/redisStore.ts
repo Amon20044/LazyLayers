@@ -1,9 +1,28 @@
 import type { Redis as RedisClient } from 'ioredis';
 
-import type { CacheKey, CacheOptions, CacheStore } from '../types/index.js';
+import type {
+  CacheKey,
+  CacheOptions,
+  CacheStore,
+  InspectableStore,
+  KeyInspection,
+  StoreInspectOptions,
+  StoreInspection,
+} from '../types/index.js';
 import { debugLog } from '../utils/debugLog.js';
-import { deserialize, serialize } from '../utils/serializer.js';
+import {
+  deserialize,
+  estimateValueBytes,
+  inspectBuffer,
+  serialize,
+  sizeSavings,
+} from '../utils/serializer.js';
 import { DEFAULT_CACHE_TTL_MS } from './defaults.js';
+
+/** Default keys-per-page (SCAN COUNT) when a dashboard inspects the L2 layer. */
+const DEFAULT_INSPECT_LIMIT = 100;
+/** Default truncation threshold for decoded values (256 KB). */
+const DEFAULT_MAX_VALUE_BYTES = 256 * 1024;
 
 export interface RedisStoreOptions extends CacheOptions {
   prefix?: string;
@@ -14,7 +33,7 @@ export interface RedisStoreOptions extends CacheOptions {
   deleteStrategy?: 'unlink' | 'del';
 }
 
-export class RedisStore<V> implements CacheStore<CacheKey, V> {
+export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore {
   private readonly prefix: string;
   private readonly indexKey: string;
   private readonly options: RedisStoreOptions;
@@ -135,6 +154,112 @@ export class RedisStore<V> implements CacheStore<CacheKey, V> {
     return count;
   }
 
+  /**
+   * Read-only, cursor-paginated snapshot of the L2 keyspace for the dashboard.
+   *
+   * Uses a single SCAN/ZSCAN step (never a full keyspace blast) and pipelines the
+   * per-key PTTL + value fetch. Values are decoded via {@link inspectBuffer} so we
+   * report wire encoding + stored bytes without re-serializing. Invoked only when
+   * a dashboard tab is open — it never touches the cache hot path.
+   */
+  async inspect(options: StoreInspectOptions = {}): Promise<StoreInspection> {
+    const limit = options.limit && options.limit > 0 ? options.limit : DEFAULT_INSPECT_LIMIT;
+    const includeValues = options.includeValues !== false;
+    const maxValueBytes = options.maxValueBytes ?? DEFAULT_MAX_VALUE_BYTES;
+    const cursor = options.cursor ?? '0';
+    const matchPattern = this.toRedisPattern(options.match ?? '*');
+
+    let nextCursor: string;
+    let redisKeys: string[];
+
+    if (this.useIndex()) {
+      const [returnedCursor, members] = await this.redis.zscan(
+        this.indexKey,
+        cursor,
+        'MATCH',
+        matchPattern,
+        'COUNT',
+        limit,
+      );
+      nextCursor = returnedCursor;
+      redisKeys = [];
+      for (let i = 0; i < members.length; i += 2) {
+        redisKeys.push(members[i]);
+      }
+    } else {
+      const [returnedCursor, found] = await this.redis.scan(
+        cursor,
+        'MATCH',
+        matchPattern,
+        'COUNT',
+        limit,
+      );
+      nextCursor = returnedCursor;
+      // Exclude internal bookkeeping keys (index zset, lock keys).
+      redisKeys = found.filter((key) => !key.startsWith(`${this.prefix}__`));
+    }
+
+    const size = await this.size();
+    const keys: KeyInspection[] = [];
+
+    if (redisKeys.length > 0) {
+      const pipeline = this.redis.pipeline();
+
+      for (const redisKey of redisKeys) {
+        pipeline.pttl(redisKey);
+        if (includeValues) {
+          pipeline.getBuffer(redisKey);
+        }
+      }
+
+      const results = (await pipeline.exec()) ?? [];
+      let resultIndex = 0;
+
+      for (const redisKey of redisKeys) {
+        const ttlResult = results[resultIndex++];
+        const ttlValue = ttlResult?.[1];
+        const inspection: KeyInspection = {
+          key: this.toLogicalKey(redisKey),
+          ttlRemainingMs: typeof ttlValue === 'number' ? ttlValue : undefined,
+          serializedBytes: 0,
+          deserializedBytes: 0,
+          compressionRatio: 0,
+          encoding: 'legacy',
+        };
+
+        if (includeValues) {
+          const bufferResult = results[resultIndex++];
+          const raw = bufferResult?.[1];
+
+          if (Buffer.isBuffer(raw)) {
+            const decoded = inspectBuffer(raw);
+            inspection.serializedBytes = decoded.storedBytes;
+            inspection.deserializedBytes = estimateValueBytes(decoded.value);
+            inspection.compressionRatio = sizeSavings(
+              inspection.serializedBytes,
+              inspection.deserializedBytes,
+            );
+            inspection.encoding = decoded.encoding;
+
+            if (decoded.storedBytes > maxValueBytes) {
+              inspection.truncated = true;
+            } else {
+              inspection.value = decoded.value;
+            }
+          }
+        }
+
+        keys.push(inspection);
+      }
+    }
+
+    return {
+      size,
+      cursor: nextCursor === '0' ? undefined : nextCursor,
+      keys,
+    };
+  }
+
   async acquireLock(key: CacheKey, token: string, ttlMs: number): Promise<boolean> {
     const result = await this.redis.set(this.toLockKey(key), token, 'PX', ttlMs, 'NX');
 
@@ -156,6 +281,10 @@ export class RedisStore<V> implements CacheStore<CacheKey, V> {
 
   private toRedisPattern(pattern: string): string {
     return `${this.prefix}${pattern}`;
+  }
+
+  private toLogicalKey(redisKey: string): string {
+    return redisKey.startsWith(this.prefix) ? redisKey.slice(this.prefix.length) : redisKey;
   }
 
   private toLockKey(key: CacheKey): string {
