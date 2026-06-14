@@ -158,6 +158,65 @@ export function serialize(value: unknown): Buffer {
   return serializeWithStats(value).buffer;
 }
 
+export interface BufferInspection {
+  /** Wire encoding detected from the 4-byte prefix (or `legacy` when absent). */
+  encoding: CacheEncoding | 'legacy';
+  /** Total bytes stored on the wire (including prefix). */
+  storedBytes: number;
+  /** Fully decoded value, ready to render in a dashboard. */
+  value: unknown;
+}
+
+/**
+ * Read-only introspection of an already-stored buffer. Detects the encoding from
+ * the prefix and decodes the value WITHOUT re-serializing — used by the
+ * observability inspector. O(n) on payload (decode only), O(1) for the encoding
+ * tag. Never throws: a corrupt buffer decodes to `null` like {@link deserialize}.
+ */
+export function inspectBuffer(raw: Buffer | Uint8Array): BufferInspection {
+  const buffer = Buffer.isBuffer(raw)
+    ? raw
+    : Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
+
+  let encoding: CacheEncoding | 'legacy' = 'legacy';
+
+  if (buffer.length >= PREFIX_LEN) {
+    if (hasPrefix(buffer, HC1G)) encoding = 'msgpack-gzip';
+    else if (hasPrefix(buffer, HC1M)) encoding = 'msgpack';
+    else if (hasPrefix(buffer, HC1J)) encoding = 'json';
+  }
+
+  return {
+    encoding,
+    storedBytes: buffer.length,
+    value: deserialize(buffer),
+  };
+}
+
+/**
+ * Cheap estimate of a decoded value's in-memory footprint (UTF-8 byte length of
+ * its JSON form). Used by the dashboard to show serialized-vs-deserialized size.
+ * O(n); never throws (unsupported values estimate to 0).
+ */
+export function estimateValueBytes(value: unknown): number {
+  if (value === undefined || value === null) return 0;
+  if (typeof value === 'string') return Buffer.byteLength(value, 'utf8');
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value).length;
+
+  try {
+    return Buffer.byteLength(JSON.stringify(value) ?? '', 'utf8');
+  } catch {
+    return 0;
+  }
+}
+
+/** Saved fraction of wire size vs decoded size, clamped to [0, 1). */
+export function sizeSavings(serializedBytes: number, deserializedBytes: number): number {
+  if (deserializedBytes <= 0) return 0;
+  const saved = 1 - serializedBytes / deserializedBytes;
+  return saved < 0 ? 0 : saved;
+}
+
 function unwrapSentinel<T>(value: T): T | null {
   return value === NULL_SENTINEL ? null : value;
 }

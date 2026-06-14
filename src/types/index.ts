@@ -9,7 +9,12 @@ export type {
   InflightEntry,
   InflightOptions,
   InflightStore,
+  InspectableStore,
+  KeyInspection,
+  StoreInspectOptions,
+  StoreInspection,
 } from './core.types.js';
+export { isInspectableStore } from './core.types.js';
 
 export type {
   BaseInvalidationEvent,

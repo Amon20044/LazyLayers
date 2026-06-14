@@ -21,6 +21,21 @@ import {
 import type { CacheEvent, CacheEventHandler } from './events.js';
 import { MemoryStore } from './memoryStore.js';
 import { matchesPattern } from './pattern.js';
+import { ObservabilityCollector } from '../observability/collector.js';
+import { ObservabilityInspector } from '../observability/inspector.js';
+import {
+  createObservabilityHandler,
+  type ObservabilityRequestHandler,
+} from '../observability/handler.js';
+import {
+  startObservabilityServer,
+  type ObservabilityServerHandle,
+} from '../observability/server.js';
+import {
+  resolveObservabilityOptions,
+  type ObservabilityOptions,
+} from '../observability/types.js';
+import { publishTelemetry, TELEMETRY_CHANNEL_NAME } from '../observability/telemetry.js';
 
 interface StaleEntry<V> {
   value: V;
@@ -52,6 +67,12 @@ export interface HybridCacheOptions<K extends CacheKey = string, V = unknown> ex
   logging?: CacheLoggerOptions;
   broadcastSet?: boolean;
   broadcastSetMaxBytes?: number;
+  /**
+   * Enable the live observability dashboard. `true` uses defaults (localhost
+   * server on port 7077 at /observelazyily, credentials lazydev/lazydev), or pass
+   * an options object. Disabled by default — zero hot-path cost when off.
+   */
+  observability?: boolean | ObservabilityOptions;
 }
 
 export class HybridCache<K extends CacheKey = string, V = unknown> implements CacheStore<K, V> {
@@ -66,6 +87,8 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   private readonly generations = new Map<string, number>();
   private readonly seenEvents = new Map<string, number>();
   private readonly eventHandlers = new Set<CacheEventHandler>();
+  private observabilityHandler?: ObservabilityRequestHandler;
+  private observabilityServer?: ObservabilityServerHandle;
 
   constructor(private readonly options: HybridCacheOptions<K, V> = {}) {
     configureCacheLogger(options.logging);
@@ -110,6 +133,98 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
         .catch((error) => {
           errorLog('event-bus subscription failed', { error });
         });
+    }
+
+    this.setupObservability();
+  }
+
+  /**
+   * Wire up the observability dashboard when enabled. The collector subscribes to
+   * the same event stream `on()` uses, so the only hot-path cost is one extra
+   * O(1) handler in the already-running emit loop. When disabled, this is a no-op.
+   */
+  private setupObservability(): void {
+    const resolved = resolveObservabilityOptions(this.options.observability);
+
+    if (!resolved.enabled) {
+      return;
+    }
+
+    const collector = new ObservabilityCollector(resolved.maxEvents);
+    this.eventHandlers.add(collector.handle);
+
+    const inspector = new ObservabilityInspector({
+      l1: this.l1 as CacheStore<CacheKey, unknown> | undefined,
+      l2: this.l2 as CacheStore<CacheKey, unknown> | undefined,
+      options: this.options,
+      source: this.source,
+      route: resolved.route,
+      maxValueBytes: resolved.maxValueBytes,
+      l2CircuitBreaker: this.l2CircuitBreaker,
+      eventBusCircuitBreaker: this.eventBusCircuitBreaker,
+      eventBus: this.options.eventBus,
+      prometheus: resolved.prometheus.enabled
+        ? {
+            enabled: true,
+            prefix: resolved.prometheus.prefix,
+            endpoint: `${resolved.route}/metrics`,
+          }
+        : undefined,
+      telemetryChannel: TELEMETRY_CHANNEL_NAME,
+    });
+
+    this.observabilityHandler = createObservabilityHandler({
+      collector,
+      inspector,
+      options: resolved,
+    });
+
+    if (resolved.server) {
+      try {
+        this.observabilityServer = startObservabilityServer(this.observabilityHandler, {
+          host: resolved.server.host,
+          port: resolved.server.port,
+          route: resolved.route,
+        });
+        debugLog('observability dashboard listening', { url: this.observabilityServer.url });
+      } catch (error) {
+        errorLog('observability server failed to start', { error });
+      }
+    }
+
+    if (!resolved.quiet) {
+      const where = this.observabilityServer ? ` at ${this.observabilityServer.url}` : ' (mounted handler)';
+      // Intentionally console.warn (not the gated logger): this must surface even
+      // in production, which is exactly where you do NOT want it left enabled.
+      console.warn(
+        `[lazy-layers-cache] Observability dashboard enabled${where}. ` +
+          'It exposes cache contents + live activity and is intended for development/staging. ' +
+          'Secure it (token / localhost bind) and avoid leaving it on in production. ' +
+          'Set observability.quiet=true (or LAZY_OBS_QUIET=1) to silence this notice.',
+      );
+    }
+  }
+
+  /**
+   * The framework-agnostic dashboard request handler, for mounting into an
+   * existing HTTP server (Express/Fastify/raw http). Returns `undefined` when
+   * observability is disabled. Returns `true` from the handler if it answered the
+   * request, `false` to pass through.
+   */
+  getObservabilityHandler(): ObservabilityRequestHandler | undefined {
+    return this.observabilityHandler;
+  }
+
+  /** The standalone dashboard server handle, if one was auto-started. */
+  getObservabilityServer(): ObservabilityServerHandle | undefined {
+    return this.observabilityServer;
+  }
+
+  /** Stop the standalone observability server (if any). Safe to call when off. */
+  async closeObservability(): Promise<void> {
+    if (this.observabilityServer) {
+      await this.observabilityServer.close();
+      this.observabilityServer = undefined;
     }
   }
 
@@ -702,6 +817,9 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
         errorLog('cache event handler failed', { event: event.type, error });
       }
     }
+
+    // Telemetry hook: a single boolean check unless an APM is subscribed.
+    publishTelemetry(event);
   }
 
   private hasSeenEvent(eventId: string): boolean {

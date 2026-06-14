@@ -1,7 +1,7 @@
 {
   "name": "lazy-layers-cache",
-  "version": "0.2.2",
-  "description": "A TypeScript hybrid cache with L1/L2 storage, lazy loading, inflight dedupe, event-bus invalidation, and cross-instance L1 priming on getOrSet.",
+  "version": "0.4.0",
+  "description": "A TypeScript hybrid L1/L2 cache with lazy loading, inflight dedupe, event-bus invalidation, cross-instance L1 priming, and a live observability dashboard with Prometheus + OpenTelemetry.",
   "type": "module",
   "sideEffects": false,
   "main": "./dist-cjs/index.js",
@@ -31,6 +31,12 @@
       "import": "./dist/cache/index.js",
       "require": "./dist-cjs/cache/index.js",
       "default": "./dist/cache/index.js"
+    },
+    "./observability": {
+      "types": "./dist/observability/index.d.ts",
+      "import": "./dist/observability/index.js",
+      "require": "./dist-cjs/observability/index.js",
+      "default": "./dist/observability/index.js"
     }
   },
   "files": [
@@ -85,7 +91,13 @@
     "read-through-cache",
     "fail-open",
     "observability",
-    "metrics"
+    "metrics",
+    "dashboard",
+    "prometheus",
+    "opentelemetry",
+    "telemetry",
+    "diagnostics-channel",
+    "cache-dashboard"
   ],
   "author": "",
   "license": "MIT",
