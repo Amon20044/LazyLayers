@@ -4,3 +4,9 @@ dist-cjs/
 *.tsbuildinfo
 .env
 .DS_Store
+
+# benchmark run artefacts
+benchmarks/results.json
+benchmarks/throughput.json
+benchmarks/node_modules/
+benchmarks/package*.json

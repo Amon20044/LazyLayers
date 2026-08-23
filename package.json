@@ -1,6 +1,6 @@
 {
   "name": "lazy-layers-cache",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A TypeScript hybrid L1/L2 cache with lazy loading, inflight dedupe, event-bus invalidation, cross-instance L1 priming, and a live observability dashboard with Prometheus + OpenTelemetry.",
   "type": "module",
   "sideEffects": false,
@@ -46,6 +46,9 @@
     "README.md",
     "LICENSE"
   ],
+  "engines": {
+    "node": "20 || >=22"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/build-cjs.cjs",
     "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true }); fs.rmSync('dist-cjs', { recursive: true, force: true })\"",
@@ -102,15 +105,15 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@types/amqplib": "^0.10.8",
-    "@types/node": "^25.6.0",
-    "typescript": "^5.9.3"
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2"
   },
   "dependencies": {
-    "amqplib": "^1.0.3",
-    "ioredis": "^5.10.1",
-    "lru-cache": "^11.3.5",
-    "msgpackr": "^1.11.10",
-    "nats": "^2.29.3"
+    "@nats-io/jetstream": "^3.4.0",
+    "@nats-io/transport-node": "^3.4.0",
+    "amqplib": "^2.0.1",
+    "ioredis": "^6.0.0",
+    "lru-cache": "^11.5.2",
+    "msgpackr": "^2.0.5"
   }
 }

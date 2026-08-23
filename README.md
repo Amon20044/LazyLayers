@@ -72,12 +72,15 @@ npm install lazy-layers-cache
 The package includes the clients it needs for its built-in integrations:
 
 ```txt
-ioredis   - RedisStore and RedisEventBus
-amqplib   - RabbitMQEventBus
-nats      - NatsEventBus
-lru-cache - MemoryStore
-msgpackr  - Redis serialization
+ioredis                  - RedisStore and RedisEventBus
+amqplib                  - RabbitMQEventBus
+@nats-io/transport-node  - NatsEventBus (connection)
+@nats-io/jetstream       - NatsEventBus (JetStream mode)
+lru-cache                - MemoryStore
+msgpackr                 - Redis serialization
 ```
+
+Requires **Node.js 20 or 22+**.
 
 ## Usage
 
@@ -430,7 +433,7 @@ Every transport ships with sane defaults but exposes the full surface for tuning
 | --- | --- | --- |
 | `mode` | `"core"` | `"core"` is at-most-once, lowest latency. `"jetstream"` adds durable streams, per-instance durable consumers, redelivery, and replay. |
 | `connection` | created internally | Inject a pre-built `NatsConnection` when you want to share one connection across multiple services. The bus will not own (or drain) an injected connection on `disconnect()`. |
-| `connectionOptions` | — | Standard `nats.connect()` options when the bus creates the connection itself (`servers`, `name`, `token`, etc.). Set `name` to your instance ID for cleaner observability on the NATS server. |
+| `connectionOptions` | — | Standard `connect()` options (`NodeConnectionOptions` from `@nats-io/transport-node`) when the bus creates the connection itself (`servers`, `name`, `token`, etc.). Set `name` to your instance ID for cleaner observability on the NATS server. |
 | `subject` | `"cache.invalidations"` | NATS subject used to publish and subscribe. Same value on every instance. |
 | `retryQueue` | see above | Buffers failed publishes (core mode in particular can drop on broker hiccup). |
 | `jetstream.stream` | `"CACHE_INVALIDATIONS"` | JetStream stream name. The bus creates it if `ensureStream` is true. |
@@ -957,8 +960,14 @@ npm run build && node scripts/bench-serializer.mjs
 
 ```bash
 npm install
-npm test
 npm run build
+npm test
+```
+
+The test suite runs against the compiled `dist/`, so build before testing. `npm run ci`
+does the whole sequence in one step:
+
+```bash
 npm run ci
 ```
 
