@@ -40,7 +40,7 @@
   --glow-cyan:     radial-gradient(50% 50% at 30% 50%, rgba(34, 211, 238, 0.16), transparent 70%);
 
   /* Type scale — fluid, clamped so it never gets silly on ultrawide */
-  --fs-display: clamp(2.75rem, 1.2rem + 6.2vw, 6rem);
+  --fs-display: clamp(2.6rem, 1.2rem + 5.4vw, 5rem);
   --fs-h1:      clamp(2.25rem, 1.2rem + 4.2vw, 4.25rem);
   --fs-h2:      clamp(1.75rem, 1.1rem + 2.6vw, 3rem);
   --fs-h3:      clamp(1.25rem, 1rem + 1.1vw, 1.75rem);
@@ -50,7 +50,7 @@
   --fs-xs:      0.75rem;
   --fs-mono:    0.8125rem;
 
-  --ff-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --ff-display: 'Inter Tight', 'Inter', system-ui, -apple-system, sans-serif;
   --ff-body:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --ff-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
@@ -105,8 +105,8 @@ a { color: inherit; text-decoration: none; }
 h1, h2, h3, h4 {
   font-family: var(--ff-display);
   font-weight: 500;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
+  letter-spacing: -0.022em;
+  line-height: 1.14;
   margin: 0;
   text-wrap: balance;
 }
