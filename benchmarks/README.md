@@ -13,9 +13,25 @@ what actually lands in Redis, so excluding it would flatter us unfairly.
 ```bash
 npm run build            # the harness imports from dist/
 npm --prefix benchmarks i bentocache
-node benchmarks/run.mjs         # byte sizes + round-trip check
-node benchmarks/throughput.mjs  # ops/sec
+node benchmarks/run.mjs                        # byte sizes + round-trip check
+node benchmarks/throughput.mjs                 # ops/sec
+NODE_ENV=production node benchmarks/herd.mjs   # stampede collapse
 ```
+
+## Thundering herd
+
+`herd.mjs` fires 10,000 concurrent `getOrSet` calls at a single cold key and
+counts how many times the loader actually runs.
+
+```txt
+with inflight dedupe (default)   callers=10000  loaderCalls=1      inflightReuse=9999
+with inflight disabled           callers=10000  loaderCalls=10000  inflightReuse=0
+```
+
+The first caller's promise is stored and every subsequent caller for that key
+awaits the same promise, so the origin sees one query instead of ten thousand.
+Both runs assert every caller received the correct value — the collapse cannot
+come from dropping requests.
 
 ## Reading the results
 

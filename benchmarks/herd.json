@@ -1,0 +1,15 @@
+{
+  "N": 10000,
+  "deduped": {
+    "loaderCalls": 1,
+    "inflightReuse": 9999,
+    "ms": 38.453584000000006,
+    "allSame": true
+  },
+  "naive": {
+    "loaderCalls": 10000,
+    "inflightReuse": 0,
+    "ms": 46.553124999999994,
+    "allSame": true
+  }
+}

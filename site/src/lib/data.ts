@@ -93,6 +93,18 @@ export const LAYERS: Layer[] = [
   { code: 'HC1J', name: 'JSON passthrough',  detail: 'Readable escape hatch. Same read path, no binary decode.',                          when: 'CACHE_FORMAT=json' },
 ];
 
+/**
+ * Thundering herd, measured by benchmarks/herd.mjs: 10,000 concurrent
+ * getOrSet calls against one cold key, with and without inflight dedupe.
+ * Both runs assert every caller got the correct value.
+ */
+export const HERD = {
+  callers: 10_000,
+  loaderCalls: 1,
+  reused: 9_999,
+  withoutDedupe: 10_000,
+} as const;
+
 /* ── The three lenses the page is organised around ────────────────────── */
 
 export interface Lens {
