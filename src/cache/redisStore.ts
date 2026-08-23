@@ -372,7 +372,7 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
       return;
     }
 
-    const keys = await this.redis.zrange(this.indexKey, 0, overflow - 1);
+    const keys = await this.redis.zrange(this.indexKey, 0, String(overflow - 1));
 
     await this.deleteKeys(keys);
     debugLog('redis index trim', { maxEntries, removed: keys.length });

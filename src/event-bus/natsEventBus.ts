@@ -1,19 +1,21 @@
 import {
   AckPolicy,
-  connect as connectNats,
   DeliverPolicy,
-  nanos,
+  jetstream as jetstreamClient,
+  jetstreamManager,
   ReplayPolicy,
   RetentionPolicy,
   StorageType,
-  type ConnectionOptions,
-  type Consumer,
   type ConsumerMessages,
-  type JetStreamClient,
   type JetStreamManager,
+} from '@nats-io/jetstream';
+import {
+  connect as connectNats,
+  nanos,
   type NatsConnection,
+  type NodeConnectionOptions,
   type Subscription,
-} from 'nats';
+} from '@nats-io/transport-node';
 
 import type { InvalidationEvent } from '../types/event.types.js';
 import { configureCacheLogger, type CacheLoggerOptions } from '../utils/debugLog.js';
@@ -39,7 +41,7 @@ export interface NatsJetStreamOptions {
 export interface NatsEventBusOptions {
   mode?: NatsEventBusMode;
   connection?: NatsConnection;
-  connectionOptions?: ConnectionOptions;
+  connectionOptions?: NodeConnectionOptions;
   subject?: string;
   retryQueue?: EventBusRetryQueueOptions;
   jetstream?: NatsJetStreamOptions;
@@ -81,7 +83,7 @@ export class NatsEventBus implements EventBus {
     const connection = await this.getConnection();
 
     if (this.getMode() === 'jetstream') {
-      const manager = await connection.jetstreamManager();
+      const manager = await jetstreamManager(connection);
       await this.ensureJetStreamResources(manager);
     } else {
       await connection.flush();
@@ -179,8 +181,8 @@ export class NatsEventBus implements EventBus {
     const payload = encodeInvalidationEvent(event);
 
     if (this.getMode() === 'jetstream') {
-      const jetstream = connection.jetstream();
-      await jetstream.publish(subject, payload);
+      const js = jetstreamClient(connection);
+      await js.publish(subject, payload);
     } else {
       connection.publish(subject, payload);
       await connection.flush();
@@ -222,12 +224,12 @@ export class NatsEventBus implements EventBus {
     const stream = this.getStreamName();
     const durableName = this.getDurableName();
     const connection = await this.getConnection();
-    const manager = await connection.jetstreamManager();
+    const manager = await jetstreamManager(connection);
 
     await this.ensureJetStreamResources(manager);
 
-    const jetstream = connection.jetstream();
-    const consumer = await jetstream.consumers.get(stream, durableName);
+    const js = jetstreamClient(connection);
+    const consumer = await js.consumers.get(stream, durableName);
     const messages = await consumer.consume();
 
     this.consumerMessages = messages;

@@ -1,4 +1,4 @@
-import Redis, { type Redis as RedisClient } from 'ioredis';
+import type { Redis as RedisClient } from 'ioredis';
 
 import type { EventBus, EventBusHealth } from './eventBus.interface.js';
 import type { InvalidationEvent } from '../types/event.types.js';

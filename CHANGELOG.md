@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.5.0
+
+### Breaking
+
+- **NATS client migrated to the modular `nats.js` v3 packages.** The `nats` package
+  is deprecated upstream ("Package moved. Use `@nats-io/transport-node`") and has
+  been replaced by `@nats-io/transport-node` (connection) and `@nats-io/jetstream`
+  (JetStream mode). If you inject your own connection via `NatsEventBus`'s
+  `connection` option, build it with `connect()` from `@nats-io/transport-node`
+  instead of from `nats` — a v2 `NatsConnection` is no longer accepted.
+- `NatsEventBusOptions.connectionOptions` is now typed as `NodeConnectionOptions`
+  (from `@nats-io/transport-node`) rather than `ConnectionOptions`. The option
+  names are unchanged; only the TLS field is narrowed to the Node transport shape.
+- **Minimum Node.js is now 20** (`engines: "20 || >=22"`), following `ioredis@6`
+  and `lru-cache@11`.
+
+The `NatsEventBus` public API — `mode`, `subject`, `jetstream.*`, `retryQueue`,
+`connect` / `publish` / `subscribe` / `healthCheck` / `disconnect` — is unchanged.
+
+### Dependency updates
+
+- `nats@2` → `@nats-io/transport-node@3` + `@nats-io/jetstream@3`
+- `amqplib@1` → `@2`. Note the upstream breaking change: `heartbeat: 0` now
+  *disables* heartbeats instead of deferring to the server's suggested value.
+  amqplib now bundles its own TypeScript types, so the `@types/amqplib`
+  devDependency was dropped.
+- `ioredis@5` → `@6`. ioredis 6 defaults to **RESP3** (`protocol: 3`). Reply
+  shapes are unchanged by default because `replyMapping` defaults to `"legacy"`,
+  but RESP3 requires Redis 6.0+ — pass `protocol: 2` to your own client if you
+  talk to an older server. `lazy-layers-cache` never constructs a Redis client
+  itself, so this only affects the instance you pass in.
+- `msgpackr@1` → `@2`, `lru-cache@11.3` → `@11.5`
+- Dev: `typescript@5` → `@7`, `@types/node@25` → `@26`
+
+### Fixes
+
+- `RedisStore.trimIndex` now passes the `zrange` stop index as a string, matching
+  ioredis 6's narrowed typings.
+- The CommonJS build uses `moduleResolution: "Bundler"`. The previous `"Node"`
+  (node10) setting could not read the `exports` maps the `@nats-io` packages ship,
+  and node10 resolution was removed outright in TypeScript 7.
+- `redisEventBus` imported `ioredis`'s default export without using it, pulling
+  the client into the runtime graph for a type-only need. It is now `import type`.
+
 ## 0.4.0
 
 ### Observability dashboard (opt-in, zero new dependencies)

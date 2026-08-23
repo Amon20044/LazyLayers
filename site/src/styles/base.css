@@ -1,0 +1,149 @@
+/* ── Layout primitives + shared type ──────────────────────────────────── */
+
+.wrap {
+  width: 100%;
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.section { position: relative; padding-block: var(--sec-y); }
+.section--tight { padding-block: clamp(3rem, 7vh, 5rem); }
+
+/* Hairline rules that span the viewport but align to the grid */
+.rule { height: 1px; background: var(--line); border: 0; margin: 0; }
+.rule--fade {
+  background: linear-gradient(90deg, transparent, var(--line-strong) 20%, var(--line-strong) 80%, transparent);
+}
+
+/* Section header block: eyebrow → title → lead */
+.sec-head { max-width: 62ch; margin-bottom: clamp(2.5rem, 5vw, 4rem); }
+.sec-head--center { margin-inline: auto; text-align: center; }
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--ff-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 1.25rem;
+}
+.eyebrow::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--grad-layer);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.9);
+}
+.sec-head--center .eyebrow { justify-content: center; }
+
+.sec-title { font-size: var(--fs-h2); margin-bottom: 1.125rem; }
+
+.sec-lead {
+  font-size: var(--fs-lead);
+  color: var(--text-muted);
+  line-height: 1.65;
+  max-width: 58ch;
+}
+.sec-head--center .sec-lead { margin-inline: auto; }
+
+/* Gradient-clipped display text */
+.grad-text {
+  background: var(--grad-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.grad-accent {
+  background: var(--grad-layer);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.mono { font-family: var(--ff-mono); font-size: var(--fs-mono); }
+.muted { color: var(--text-muted); }
+.dim { color: var(--text-dim); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.skip-link {
+  position: absolute; top: -100%; left: 1rem; z-index: 200;
+  background: var(--surface-3); color: var(--text);
+  padding: 0.75rem 1.25rem; border-radius: var(--r-sm);
+  border: 1px solid var(--line-strong);
+}
+.skip-link:focus { top: 1rem; }
+
+/* ── Background texture ───────────────────────────────────────────────── */
+
+/* Faint grid that anchors the whole page. Fixed so it reads as a substrate. */
+.bg-grid {
+  position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.028) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.028) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 30%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 30%, transparent 78%);
+}
+
+/* Slow drifting colour field. Pure CSS, GPU-cheap (no layout, no paint churn). */
+.bg-aurora {
+  position: fixed; inset: -30% -10%; z-index: -3; pointer-events: none;
+  filter: blur(90px);
+  opacity: 0.5;
+  background:
+    radial-gradient(38% 44% at 18% 22%, rgba(34, 211, 238, 0.30), transparent 60%),
+    radial-gradient(42% 40% at 78% 30%, rgba(168, 85, 247, 0.26), transparent 62%),
+    radial-gradient(46% 46% at 50% 78%, rgba(99, 102, 241, 0.28), transparent 64%);
+  animation: aurora 26s var(--ease-io) infinite alternate;
+}
+
+@keyframes aurora {
+  0%   { transform: translate3d(-3%, -2%, 0) scale(1); }
+  50%  { transform: translate3d(4%, 3%, 0) scale(1.12); }
+  100% { transform: translate3d(-2%, 4%, 0) scale(1.04); }
+}
+
+/* Cursor-following glow — set from JS, degrades to nothing without JS. */
+.bg-cursor {
+  position: fixed; z-index: -1; pointer-events: none;
+  width: 620px; height: 620px;
+  left: 0; top: 0;
+  margin: -310px 0 0 -310px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.10), transparent 62%);
+  opacity: 0;
+  transition: opacity 0.6s var(--ease);
+  will-change: transform;
+}
+body.has-pointer .bg-cursor { opacity: 1; }
+
+@media (hover: none) { .bg-cursor { display: none; } }
+
+/* ── Scroll reveal ────────────────────────────────────────────────────── */
+
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 26px, 0);
+  transition:
+    opacity 0.85s var(--ease-out),
+    transform 0.85s var(--ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal.is-in { opacity: 1; transform: none; }
+
+.reveal-stagger > * {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
+}
+.reveal-stagger.is-in > * { opacity: 1; transform: none; }
