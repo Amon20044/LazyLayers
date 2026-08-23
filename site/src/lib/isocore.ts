@@ -24,23 +24,37 @@ export interface Paint {
   stroke?: string; glow?: string; className?: string; opacity?: number;
 }
 
-/** Extruded slab: top face plus the two faces you can actually see. */
+/**
+ * Extruded slab: the top face plus the two side faces that actually face the
+ * viewer.
+ *
+ * Which two? Points differing along (1,1,1) project to the same screen point,
+ * so (1,1,1) is this projection's depth axis, and since we can see the top the
+ * camera sits on the +(1,1,1) side. A face is therefore visible when its
+ * outward normal dots positively with (1,1,1) — that is `x = x1` (which lands
+ * on screen-RIGHT) and `y = y1` (screen-LEFT). The `x0` and `y0` faces are
+ * always hidden.
+ *
+ * `paint.left` / `paint.right` are named for where the face lands on screen.
+ */
 export function slab(b: Box, p: Paint): string {
   const x0 = b.cx - b.w / 2, y0 = b.cy - b.d / 2;
   const x1 = x0 + b.w, y1 = y0 + b.d;
   const zt = b.z + b.h;
 
   const top: P[]   = [proj(x0, y0, zt), proj(x1, y0, zt), proj(x1, y1, zt), proj(x0, y1, zt)];
-  const left: P[]  = [proj(x0, y0, zt), proj(x0, y1, zt), proj(x0, y1, b.z), proj(x0, y0, b.z)];
-  const right: P[] = [proj(x1, y1, zt), proj(x0, y1, zt), proj(x0, y1, b.z), proj(x1, y1, b.z)];
+  // y = y1 — hangs below the diamond's lower-left edge.
+  const left: P[]  = [proj(x1, y1, zt), proj(x0, y1, zt), proj(x0, y1, b.z), proj(x1, y1, b.z)];
+  // x = x1 — hangs below the diamond's lower-right edge.
+  const right: P[] = [proj(x1, y0, zt), proj(x1, y1, zt), proj(x1, y1, b.z), proj(x1, y0, b.z)];
 
   const st = p.stroke ? ` stroke="${p.stroke}" stroke-width="1" stroke-linejoin="round"` : '';
   const op = p.opacity !== undefined ? ` opacity="${p.opacity}"` : '';
 
   return `<g class="${p.className ?? ''}"${op}>
     ${p.glow ? `<polygon points="${pts(top)}" fill="${p.glow}" filter="url(#iso-blur)" opacity="0.62"/>` : ''}
-    <polygon points="${pts(right)}" fill="${p.right}"${st}/>
     <polygon points="${pts(left)}"  fill="${p.left}"${st}/>
+    <polygon points="${pts(right)}" fill="${p.right}"${st}/>
     <polygon points="${pts(top)}"   fill="${p.top}"${st}/>
   </g>`;
 }
