@@ -30,7 +30,7 @@ export function staleDiagram(): string {
   ];
 
   return `
-<svg viewBox="-300 -170 600 320" role="img" aria-labelledby="sd-t sd-d" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="-270 -132 540 156" role="img" aria-labelledby="sd-t sd-d" xmlns="http://www.w3.org/2000/svg">
   <title id="sd-t">Diverged L1 caches without an event bus</title>
   <desc id="sd-d">One instance writes a new value while two peers keep serving the previous version from their
     own in-process caches until their TTL expires.</desc>
@@ -100,7 +100,7 @@ export function fanoutDiagram(): string {
   }).join('');
 
   return `
-<svg viewBox="-320 -280 640 430" role="img" aria-labelledby="fd-t fd-d" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="-300 -240 600 388" role="img" aria-labelledby="fd-t fd-d" xmlns="http://www.w3.org/2000/svg">
   <title id="fd-t">Event fanout across the invalidation bus</title>
   <desc id="fd-d">One instance publishes an event down its channel to the bus hub, which fans it back out along
     every other channel so all peers apply it.</desc>

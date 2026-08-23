@@ -93,8 +93,17 @@ export const ISO_DEFS = `
   </linearGradient>`;
 
 /** Node/label typography used across diagrams. */
-export const isoLabel = (p: P, dx: number, dy: number, title: string, sub: string): string => `
+/**
+ * Diagram label. `scale` compensates for how far the SVG shrinks in its
+ * container — the hero sits in a narrow column and renders at ~0.7, so its
+ * labels need larger units to come out the same size as the full-width ones.
+ */
+export const isoLabel = (
+  p: P, dx: number, dy: number, title: string, sub: string, scale = 1,
+): string => `
   <g transform="translate(${(p[0] + dx).toFixed(1)},${(p[1] + dy).toFixed(1)})" text-anchor="${dx < 0 ? 'end' : dx === 0 ? 'middle' : 'start'}">
-    <text font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="500" fill="#EDEDF2" letter-spacing="0.06em">${title}</text>
-    ${sub ? `<text y="13" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#6B6B78" letter-spacing="0.04em">${sub}</text>` : ''}
+    <text class="iso-t" font-family="Inter,system-ui,sans-serif" font-size="${(14 * scale).toFixed(1)}"
+          font-weight="600" fill="#F4F4F8" letter-spacing="0.05em">${title}</text>
+    ${sub ? `<text class="iso-s" y="${(18 * scale).toFixed(1)}" font-family="'JetBrains Mono',monospace"
+          font-size="${(11.5 * scale).toFixed(1)}" fill="#B6B7C8" letter-spacing="0.03em">${sub}</text>` : ''}
   </g>`;

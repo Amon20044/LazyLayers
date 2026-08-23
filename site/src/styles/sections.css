@@ -170,7 +170,7 @@
   .bench__row > .bench__bar { grid-column: 1 / -1; }
   .bench__num::before {
     content: attr(data-label) ' ';
-    font-size: 0.625rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 0.6875rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em;
   }
   .bench__num, .bench__saved { text-align: left; }
 }
@@ -263,7 +263,7 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
 .calc__row b { font-family: var(--ff-mono); font-size: var(--fs-mono); font-weight: 400; color: var(--text); }
 
 .calc__note {
-  margin-top: 1.25rem; font-size: var(--fs-xs); color: var(--text-faint); line-height: 1.6;
+  margin-top: 1.25rem; font-size: var(--fs-xs); color: var(--text-dim); line-height: 1.6;
 }
 
 /* ── Layers / serializer decision ─────────────────────────────────────── */
@@ -383,7 +383,7 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
 @media (max-width: 460px) { .footer__grid { grid-template-columns: 1fr; } }
 
 .footer__blurb { font-size: var(--fs-sm); color: var(--text-dim); max-width: 34ch; margin-top: 1rem; line-height: 1.65; }
-.footer__h { font-size: var(--fs-xs); font-family: var(--ff-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-faint); margin-bottom: 1.125rem; }
+.footer__h { font-size: var(--fs-xs); font-family: var(--ff-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 1.125rem; }
 .footer__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6875rem; }
 .footer__list a { font-size: var(--fs-sm); color: var(--text-muted); transition: color 0.2s var(--ease); }
 .footer__list a:hover { color: var(--text); }
@@ -391,7 +391,7 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
 .footer__bottom {
   display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;
   padding-top: 2rem; border-top: 1px solid var(--line);
-  font-size: var(--fs-xs); color: var(--text-faint);
+  font-size: var(--fs-xs); color: var(--text-dim);
 }
 
 /* ═══ Three lenses ═══════════════════════════════════════════════════ */
@@ -666,4 +666,17 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
 
 @media (prefers-reduced-motion: reduce) {
   .flow__g, .flow path { animation: none; }
+}
+
+/* ── Diagram labels at small widths ──────────────────────────────────────
+   SVG text scales with the viewBox, so a size that reads well on desktop
+   collapses to ~7px once the diagram is squeezed into a phone column. CSS
+   font-size overrides the presentation attribute, letting us restate the size
+   in user units per diagram (hero viewBox is 800 wide, the inset figures
+   540-600). Sub-labels are dropped rather than shrunk — the titles carry the
+   structure on their own. */
+@media (max-width: 760px) {
+  .iso > svg .iso-t        { font-size: 30px; }
+  .iso--inset > svg .iso-t { font-size: 23px; }
+  .iso .iso-s              { display: none; }
 }

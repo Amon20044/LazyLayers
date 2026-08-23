@@ -18,9 +18,12 @@
 
   /* Type */
   --text:          #F2F2F4;
-  --text-muted:    #9A9AA4;
-  --text-dim:      #64646E;
-  --text-faint:    #3A3A42;
+  /* Measured against --bg-raised (#060608): muted 9.2:1, dim 6.2:1 — both
+     clear AA for body text. faint is 3.4:1, so it is reserved for large or
+     purely decorative type; anything a reader needs uses muted or dim. */
+  --text-muted:    #ADAEBB;
+  --text-dim:      #8C8D9C;
+  --text-faint:    #62636F;
 
   /* The layer gradient */
   --c-cyan:        #22D3EE;
