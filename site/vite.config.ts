@@ -13,6 +13,11 @@ function staticContent(): Plugin {
       const slots: Record<string, string> = {
         '<!--@statbar-->': r.statbar(),
         '<!--@iso-->': r.iso(),
+        '<!--@stale-->': r.stale(),
+        '<!--@fanout-->': r.fanout(),
+        '<!--@lenses-->': r.lenses(),
+        '<!--@bytes-->': r.byteStory(),
+        '<!--@bento-->': r.bento(),
         '<!--@bench-->': r.benchTable(),
         '<!--@tradeoff-->': r.tradeoff(),
         '<!--@layers-->': r.layers(),

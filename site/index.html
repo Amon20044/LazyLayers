@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-<title>LazyLayers — Cut Redis cache storage cost with smarter serialization</title>
-<meta name="description" content="LazyLayers is a TypeScript hybrid L1/L2 cache that stores 22–92% fewer bytes in Redis than JSON-based caches like bentocache, using MessagePack with conditional gzip. Reproducible benchmarks included." />
+<title>LazyLayers — The distributed cache layer for Node.js</title>
+<meta name="description" content="LazyLayers is a distributed cache layer for Node.js. Event buses keep every instance fresh with del, pattern and set fanout, while MessagePack serialization stores 22–92% fewer bytes in Redis. Reproducible benchmarks included." />
 <link rel="canonical" href="https://lazy-layers-cache.vercel.app/" />
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
 <meta name="theme-color" content="#000000" />
@@ -15,8 +15,8 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="LazyLayers" />
 <meta property="og:url" content="https://lazy-layers-cache.vercel.app/" />
-<meta property="og:title" content="LazyLayers — Cut Redis cache storage cost with smarter serialization" />
-<meta property="og:description" content="22–92% fewer bytes in Redis than JSON-based caching. MessagePack with conditional gzip, measured against bentocache with reproducible fixtures." />
+<meta property="og:title" content="LazyLayers — The distributed cache layer for Node.js" />
+<meta property="og:description" content="Event buses keep every instance fresh. MessagePack keeps the bill small — 22–92% fewer bytes, measured against bentocache." />
 <meta property="og:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
@@ -24,8 +24,8 @@
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="LazyLayers — Cut Redis cache storage cost" />
-<meta name="twitter:description" content="22–92% fewer bytes in Redis than JSON-based caching. Measured against bentocache, fixtures included." />
+<meta name="twitter:title" content="LazyLayers — The distributed cache layer for Node.js" />
+<meta name="twitter:description" content="Event buses keep every instance fresh. MessagePack keeps the bill small — measured, not estimated." />
 <meta name="twitter:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -34,9 +34,9 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" media="print" onload="this.media='all'" />
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" media="print" onload="this.media='all'" />
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
 
 <script type="application/ld+json">
 {
@@ -46,7 +46,7 @@
   "alternateName": "lazy-layers-cache",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Node.js 20+",
-  "description": "A TypeScript hybrid L1/L2 cache for Node.js with MessagePack-based serialization that stores 22-92% fewer bytes in Redis than JSON-based caches, plus lazy loading, stampede protection, cross-instance L1 priming and distributed invalidation.",
+  "description": "A distributed cache layer for Node.js. Redis Pub/Sub, RabbitMQ and NATS event buses fan del, pattern and set events across every instance to keep in-process L1 caches fresh, while MessagePack serialization stores 22-92% fewer bytes in Redis than JSON-based caching.",
   "url": "https://lazy-layers-cache.vercel.app/",
   "downloadUrl": "https://www.npmjs.com/package/lazy-layers-cache",
   "softwareVersion": "0.5.0",
@@ -84,11 +84,12 @@
     </a>
 
     <nav class="nav__links" id="navlinks" aria-label="Primary">
+      <a class="nav__link" href="#bus">Event bus</a>
+      <a class="nav__link" href="#how">How</a>
+      <a class="nav__link" href="#bytes">Bytes</a>
       <a class="nav__link" href="#benchmarks">Benchmarks</a>
       <a class="nav__link" href="#calculator">Cost</a>
-      <a class="nav__link" href="#serializer">Serializer</a>
-      <a class="nav__link" href="#architecture">Architecture</a>
-      <a class="nav__link" href="#features">Features</a>
+      <a class="nav__link" href="#features">Usage</a>
       <a class="nav__link" href="#faq">FAQ</a>
     </nav>
 
@@ -112,21 +113,20 @@
         <span class="badge reveal"><i class="badge__dot"></i> v0.5.0 · MIT · Node 20+</span>
 
         <h1 class="hero__title reveal" style="--reveal-delay:60ms">
-          <span class="grad-text">Cache more.</span><br />
-          <em class="grad-accent">Store less.</em>
+          <span class="grad-text">Cache the</span><br />
+          <em class="grad-accent">right way.</em>
         </h1>
 
         <p class="hero__lead reveal" style="--reveal-delay:120ms">
-          A hybrid L1/L2 cache for Node.js that puts <strong>22–92% fewer bytes</strong> into Redis than
-          JSON-based caching — by choosing the right wire encoding for every payload instead of
-          stringifying everything.
+          A distributed cache layer for Node.js. <strong>Event buses keep every instance fresh.</strong>
+          Binary serialization keeps the bill small.
         </p>
 
         <div class="hero__actions reveal" style="--reveal-delay:180ms">
           <a class="btn btn--primary btn--lg" href="#install" data-magnetic>
             Install <span class="btn__arrow" aria-hidden="true">→</span>
           </a>
-          <a class="btn btn--ghost btn--lg" href="#benchmarks">See the benchmarks</a>
+          <a class="btn btn--ghost btn--lg" href="#bus">See how it stays fresh</a>
         </div>
 
         <div class="hero__install reveal" style="--reveal-delay:240ms" id="install">
@@ -143,46 +143,71 @@
   </div>
 </section>
 
-<!-- ═══ PROBLEM ═══ -->
+<!-- ═══ THREE LENSES ═══ -->
 <section class="section section--tight">
   <div class="wrap">
-    <div class="split">
-      <div class="reveal">
-        <span class="eyebrow">The problem</span>
-        <h2 class="sec-title">Your cache is mostly<br />punctuation and repeated keys.</h2>
-        <p class="sec-lead">
-          Cache a thousand user records as JSON and you store the string <code class="mono">"firstName"</code>
-          a thousand times. Every number becomes a decimal string. Every value gets wrapped in quotes,
-          braces and commas.
-        </p>
-        <p class="sec-lead" style="margin-top:1rem">
-          Redis charges you for all of it — memory, network transfer, and replication, on every replica.
-        </p>
-      </div>
-
-      <div class="code reveal" style="--reveal-delay:100ms">
-        <div class="code__bar">
-          <div class="code__dots"><i></i><i></i><i></i></div>
-          <span class="code__name">what actually lands in redis</span>
-        </div>
-<pre><code><span class="t-com">// JSON.stringify — 212 bytes for one session</span>
-<span class="t-str">'{"value":{"uid":"a3f9...","sid":"7c2e...",</span>
-<span class="t-str">"exp":1740086400000,"scopes":["read","write"],</span>
-<span class="t-str">"ip":"10.42.19.7"},"createdAt":1740000000000,</span>
-<span class="t-str">"logicalExpiration":1740000060000}'</span>
-
-<span class="t-com">// LazyLayers — 123 bytes, same data</span>
-<span class="t-op">&lt;</span><span class="t-fn">Buffer</span> <span class="t-num">48 43 31 4d</span> <span class="t-com">// HC1M prefix</span>
-        <span class="t-num">85 a3 75 69 64 b8 61 33 66 39</span>
-        <span class="t-num">a3 73 69 64 b8 37 63 32 65 ...</span><span class="t-op">&gt;</span>
-
-<span class="t-com">// 42% smaller. Same object comes back out.</span></code></pre>
-      </div>
+    <div class="sec-head sec-head--center">
+      <span class="eyebrow">Three ways to look at it</span>
+      <h2 class="sec-title">Need a distributed cache layer?</h2>
+      <p class="sec-lead">Whichever question brought you here, it is the same three problems underneath.</p>
     </div>
+    <!--@lenses-->
   </div>
 </section>
 
 <hr class="rule rule--fade" />
+
+<!-- ═══ THE ARCHITECT: staleness ═══ -->
+<section class="section" id="bus">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">The architect's problem</span>
+      <h2 class="sec-title">One node writes.<br />The others keep lying.</h2>
+      <p class="sec-lead">
+        Every instance owns its L1. Without a bus, a write is invisible to your peers until their TTL
+        expires — so your staleness window <em>is</em> your TTL.
+      </p>
+    </div>
+    <!--@stale-->
+  </div>
+</section>
+
+<!-- ═══ THE FIX: fanout ═══ -->
+<section class="section section--tight">
+  <div class="wrap">
+    <div class="sec-head sec-head--center">
+      <span class="eyebrow">The fix</span>
+      <h2 class="sec-title">Channels, not guesswork.</h2>
+      <p class="sec-lead">Every instance drops onto a shared bus. One publish, every peer applies it.</p>
+    </div>
+    <!--@fanout-->
+  </div>
+</section>
+
+<!-- ═══ BENTO ═══ -->
+<section class="section section--tight" id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">What you get</span>
+      <h2 class="sec-title">Six things that stop<br />a distributed cache lying to you.</h2>
+    </div>
+    <!--@bento-->
+  </div>
+</section>
+
+<hr class="rule rule--fade" />
+
+<!-- ═══ THE COST SAVER: bytes ═══ -->
+<section class="section" id="bytes">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">The cost saver's problem</span>
+      <h2 class="sec-title">One session record,<br />every byte accounted for.</h2>
+      <p class="sec-lead">This is a real cached record. Each cell is one byte of what lands in Redis.</p>
+    </div>
+    <!--@bytes-->
+  </div>
+</section>
 
 <!-- ═══ BENCHMARKS ═══ -->
 <section class="section" id="benchmarks">
@@ -191,31 +216,21 @@
       <span class="eyebrow">Benchmarks</span>
       <h2 class="sec-title">Measured against bentocache.<br />Including the parts we lose.</h2>
       <p class="sec-lead">
-        Five realistic payloads, encoded through both libraries' actual L2 paths — ours, and
-        bentocache's default <code class="mono">JSON.stringify</code> serializer with its
-        <code class="mono">CacheEntry</code> envelope. Fixtures are seeded, so byte counts reproduce exactly.
+        Five payloads through both libraries' real L2 paths. Fixtures are seeded, so byte counts
+        reproduce exactly.
       </p>
     </div>
 
     <!--@bench-->
 
-    <p class="mono dim reveal" style="margin-top:1rem;font-size:.75rem;line-height:1.7">
-      <!--@bench-meta-->
-    </p>
+    <p class="mono dim reveal" style="margin-top:1rem;font-size:.75rem;line-height:1.7"><!--@bench-meta--></p>
 
     <div class="sec-head" style="margin-top:clamp(3rem,6vw,4.5rem);margin-bottom:1.5rem">
       <h3 class="sec-title" style="font-size:var(--fs-h3)">The trade, stated plainly</h3>
-      <p class="sec-lead">
-        Smaller payloads are not free. Here is the full picture, including where
-        <code class="mono">JSON.stringify</code> beats us.
-      </p>
     </div>
-
     <!--@tradeoff-->
   </div>
 </section>
-
-<hr class="rule rule--fade" />
 
 <!-- ═══ CALCULATOR ═══ -->
 <section class="section" id="calculator">
@@ -223,21 +238,15 @@
     <div class="sec-head sec-head--center">
       <span class="eyebrow">Cost model</span>
       <h2 class="sec-title">What the bytes are costing you</h2>
-      <p class="sec-lead">
-        Compression ratios come from the measured fixtures above. Everything else is yours to set —
-        adjust it to your workload and your provider's pricing.
-      </p>
+      <p class="sec-lead">Ratios are measured. Everything else is yours to set.</p>
     </div>
 
     <div class="calc reveal" id="calc">
       <div class="calc__controls">
         <div class="field">
-          <label class="field__top" for="c-shape">
-            <span class="field__label">Payload shape</span>
-          </label>
+          <label class="field__top" for="c-shape"><span class="field__label">Payload shape</span></label>
           <select id="c-shape"></select>
         </div>
-
         <div class="field">
           <div class="field__top">
             <label class="field__label" for="c-keys">Cached keys</label>
@@ -245,7 +254,6 @@
           </div>
           <input type="range" id="c-keys" min="4" max="8" step="0.05" value="6" />
         </div>
-
         <div class="field">
           <div class="field__top">
             <label class="field__label" for="c-price">Redis memory / GB / month</label>
@@ -253,7 +261,6 @@
           </div>
           <input type="range" id="c-price" min="5" max="80" step="1" value="28" />
         </div>
-
         <div class="field">
           <div class="field__top">
             <label class="field__label" for="c-replicas">Replicas holding the data</label>
@@ -278,9 +285,8 @@
         </div>
 
         <p class="calc__note">
-          A model, not a quote. It multiplies measured per-payload sizes by your key count and price,
-          and ignores Redis key overhead, TTL churn, eviction and fragmentation — all of which apply
-          to both sides roughly equally.
+          A model, not a quote. It ignores key overhead, TTL churn, eviction and fragmentation —
+          which apply to both sides roughly equally.
         </p>
       </div>
     </div>
@@ -289,130 +295,20 @@
 
 <hr class="rule rule--fade" />
 
-<!-- ═══ SERIALIZER ═══ -->
-<section class="section" id="serializer">
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="eyebrow">The serializer</span>
-      <h2 class="sec-title">Three encodings.<br />Chosen per payload, at write time.</h2>
-      <p class="sec-lead">
-        Every buffer carries a 4-byte prefix naming its own format, so reads stay uniform and you can
-        change the write policy without migrating a single key.
-      </p>
-    </div>
-
-    <!--@layers-->
-
-    <div class="split" style="margin-top:clamp(3rem,6vw,4.5rem)">
-      <div class="reveal">
-        <h3 class="sec-title" style="font-size:var(--fs-h3);margin-bottom:1rem">Compression that refuses to waste your CPU</h3>
-        <p class="sec-lead">
-          gzip is only attempted above 64 kB, and the result is only kept if it saves at least 15%.
-          Feed it a large blob of random bytes and it will decline to compress rather than burn
-          cycles for a rounding error.
-        </p>
-        <ul class="checklist">
-          <li><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13 4.5 6.5 11 3 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span><strong>Self-describing buffers.</strong> The 4-byte prefix means a single read path decodes every format.</span></li>
-          <li><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13 4.5 6.5 11 3 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span><strong>Corruption-safe.</strong> A truncated or damaged buffer returns <code class="mono">null</code> instead of throwing into your request path.</span></li>
-          <li><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13 4.5 6.5 11 3 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span><strong>Debuggable on demand.</strong> Set <code class="mono">CACHE_FORMAT=json</code> and read your cache with <code class="mono">redis-cli</code> again.</span></li>
-          <li><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13 4.5 6.5 11 3 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span><strong>Null-safe.</strong> <code class="mono">null</code> and <code class="mono">undefined</code> round-trip through a packed sentinel that never leaks into your values.</span></li>
-        </ul>
-      </div>
-
-      <div class="code reveal" style="--reveal-delay:100ms">
-        <div class="code__bar">
-          <div class="code__dots"><i></i><i></i><i></i></div>
-          <span class="code__name">serializer.ts — the decision</span>
-          <button class="code__copy" data-copy="const { buffer, encoding, compressionRatio } = serializeWithStats(value);">copy</button>
-        </div>
-<pre><code><span class="t-key">const</span> { buffer, encoding, compressionRatio } <span class="t-op">=</span>
-  <span class="t-fn">serializeWithStats</span>(catalog);
-
-<span class="t-var">encoding</span>          <span class="t-op">//</span> <span class="t-str">'msgpack-gzip'</span>
-<span class="t-var">buffer</span>.<span class="t-var">length</span>     <span class="t-op">//</span> <span class="t-num">9903</span>
-<span class="t-var">compressionRatio</span>  <span class="t-op">//</span> <span class="t-num">0.9211</span>
-
-<span class="t-com">// Same call on a 400-byte object:</span>
-<span class="t-var">encoding</span>          <span class="t-op">//</span> <span class="t-str">'msgpack'</span>  <span class="t-com">← gzip declined</span>
-<span class="t-var">compressed</span>        <span class="t-op">//</span> <span class="t-key">false</span>
-
-<span class="t-com">// Reads never need to know which one it was.</span>
-<span class="t-fn">deserialize</span>(buffer) <span class="t-op">//</span> <span class="t-op">→</span> original object</code></pre>
-      </div>
-    </div>
-  </div>
-</section>
-
-<hr class="rule rule--fade" />
-
-<!-- ═══ ARCHITECTURE ═══ -->
-<section class="section" id="architecture">
-  <div class="wrap">
-    <div class="sec-head sec-head--center">
-      <span class="eyebrow">Architecture</span>
-      <h2 class="sec-title">One instance pays for the load.<br />Every peer gets the result.</h2>
-      <p class="sec-lead">
-        The first instance to lazily load a key broadcasts it to every peer, so their L1 warms without a
-        second loader call. Deletes and wildcard wipes fan out the same way.
-      </p>
-    </div>
-
-    <div class="features reveal-stagger">
-      <article class="feature">
-        <div class="card__icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2.5" y="2.5" width="15" height="15" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M2.5 7.5h15M7.5 7.5v10" stroke="currentColor" stroke-width="1.5"/></svg></div>
-        <h3 class="card__title">L1 · in-process LRU</h3>
-        <p class="card__text">Live objects, no serialization, nanosecond reads. Backed by <code class="mono">lru-cache</code>. Works with zero infrastructure.</p>
-      </article>
-      <article class="feature">
-        <div class="card__icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true"><ellipse cx="10" cy="5" rx="7" ry="2.6" stroke="currentColor" stroke-width="1.5"/><path d="M3 5v10c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V5" stroke="currentColor" stroke-width="1.5"/><path d="M3 10c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6" stroke="currentColor" stroke-width="1.5"/></svg></div>
-        <h3 class="card__title">L2 · Redis</h3>
-        <p class="card__text">Shared across instances, holding compact MessagePack buffers. Fails open — a Redis outage degrades to L1 instead of erroring.</p>
-      </article>
-      <article class="feature">
-        <div class="card__icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="2.4" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="10" r="7.2" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"/></svg></div>
-        <h3 class="card__title">Event bus</h3>
-        <p class="card__text">Redis Pub/Sub, RabbitMQ, NATS core, or NATS JetStream for durable, replayable invalidation with explicit acks.</p>
-      </article>
-      <article class="feature">
-        <div class="card__icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2.5 3 6v5c0 4 3 6 7 6.5 4-.5 7-2.5 7-6.5V6l-7-3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
-        <h3 class="card__title">Stampede protection</h3>
-        <p class="card__text">In-process inflight dedupe collapses concurrent same-key loads. Add a Redis-backed distributed lock to extend it across instances.</p>
-      </article>
-      <article class="feature">
-        <div class="card__icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M2.5 14.5 7 9l3.5 3L17.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <h3 class="card__title">Live observability</h3>
-        <p class="card__text">Opt-in dashboard with per-key serialized-vs-in-memory sizes, a nested key explorer, and a live SSE event feed.</p>
-      </article>
-      <article class="feature">
-        <div class="card__icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2.5v15M4 6.5v7M16 6.5v7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
-        <h3 class="card__title">Prometheus + OTel</h3>
-        <p class="card__text">Built-in <code class="mono">/metrics</code> with bounded cardinality — never labeled by cache key — plus a <code class="mono">diagnostics_channel</code> telemetry stream.</p>
-      </article>
-    </div>
-  </div>
-</section>
-
-<hr class="rule rule--fade" />
-
-<!-- ═══ CODE / USAGE ═══ -->
+<!-- ═══ USAGE ═══ -->
 <section class="section" id="features">
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">Usage</span>
       <h2 class="sec-title">A small API that grows<br />into a distributed one.</h2>
-      <p class="sec-lead">Start in-process. Add Redis when you outgrow one instance. Add a bus when you outgrow one region.</p>
     </div>
 
     <div class="reveal">
       <div class="tabs" role="tablist" aria-label="Usage examples">
         <button class="tab" role="tab" aria-selected="true" aria-controls="p-1" id="t-1">Get started</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-2" id="t-2">Redis L2</button>
-        <button class="tab" role="tab" aria-selected="false" aria-controls="p-3" id="t-3">Invalidation</button>
-        <button class="tab" role="tab" aria-selected="false" aria-controls="p-4" id="t-4">Observability</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-3" id="t-3">Event bus</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-4" id="t-4">Durable bus</button>
       </div>
 
       <div style="margin-top:1rem">
@@ -423,7 +319,7 @@
 
 <span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({ ttlMs<span class="t-op">:</span> <span class="t-num">60_000</span> });
 
-<span class="t-com">// Lazy load. Concurrent callers share one loader call.</span>
+<span class="t-com">// Concurrent callers share one loader call.</span>
 <span class="t-key">const</span> user <span class="t-op">=</span> <span class="t-key">await</span> cache.<span class="t-fn">getOrSet</span>(<span class="t-str">`user:</span><span class="t-op">${</span>id<span class="t-op">}</span><span class="t-str">`</span>, <span class="t-op">() =&gt;</span>
   db.users.<span class="t-fn">findById</span>(id)
 );</code></pre>
@@ -436,49 +332,49 @@
 <pre><code><span class="t-key">import</span> Redis <span class="t-key">from</span> <span class="t-str">'ioredis'</span>;
 <span class="t-key">import</span> { LazyLayersCache, RedisStore } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
 
-<span class="t-key">const</span> redis <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">Redis</span>(process.env.<span class="t-var">REDIS_URL</span>);
-
 <span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({
-  l2<span class="t-op">:</span> <span class="t-key">new</span> <span class="t-fn">RedisStore</span>(redis, { keyPrefix<span class="t-op">:</span> <span class="t-str">'app:'</span> }),
+  l2<span class="t-op">:</span> <span class="t-key">new</span> <span class="t-fn">RedisStore</span>(redis, { prefix<span class="t-op">:</span> <span class="t-str">'app:'</span> }),
   ttlMs<span class="t-op">:</span> <span class="t-num">300_000</span>,
 });
 
-<span class="t-com">// Values are msgpack-encoded on the way into Redis.</span>
-<span class="t-com">// A Redis outage degrades to L1 — it does not throw.</span></code></pre>
+<span class="t-com">// msgpack on the way in. A Redis outage degrades</span>
+<span class="t-com">// to L1 — it does not throw.</span></code></pre>
           </div>
         </div>
 
         <div class="tabpanel" role="tabpanel" id="p-3" aria-labelledby="t-3" hidden>
           <div class="code">
             <div class="code__bar"><div class="code__dots"><i></i><i></i><i></i></div><span class="code__name">cache.ts</span></div>
-<pre><code><span class="t-key">import</span> { LazyLayersCache, RedisEventBus } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
+<pre><code><span class="t-key">import</span> { RedisEventBus } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
 
 <span class="t-key">const</span> bus <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">RedisEventBus</span>(redis, <span class="t-str">'cache.invalidate'</span>);
 <span class="t-key">await</span> bus.<span class="t-fn">connect</span>();
 
 <span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({
   l2, eventBus<span class="t-op">:</span> bus,
-  source<span class="t-op">:</span> process.env.<span class="t-var">INSTANCE_ID</span>,   <span class="t-com">// stops self-loopback</span>
+  source<span class="t-op">:</span> process.env.<span class="t-var">INSTANCE_ID</span>,  <span class="t-com">// no self-loopback</span>
+  broadcastSet<span class="t-op">:</span> <span class="t-key">true</span>,               <span class="t-com">// prime peer L1s</span>
 });
 
-<span class="t-key">await</span> cache.<span class="t-fn">delPattern</span>(<span class="t-str">'user:*'</span>);  <span class="t-com">// fans out to all peers</span></code></pre>
+<span class="t-key">await</span> cache.<span class="t-fn">deleteByPattern</span>(<span class="t-str">'user:*'</span>);  <span class="t-com">// fans out</span></code></pre>
           </div>
         </div>
 
         <div class="tabpanel" role="tabpanel" id="p-4" aria-labelledby="t-4" hidden>
           <div class="code">
             <div class="code__bar"><div class="code__dots"><i></i><i></i><i></i></div><span class="code__name">cache.ts</span></div>
-<pre><code><span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({
-  l2,
-  observability<span class="t-op">:</span> {
-    prometheus<span class="t-op">:</span> <span class="t-key">true</span>,      <span class="t-com">// {route}/metrics</span>
-    port<span class="t-op">:</span> <span class="t-num">7077</span>,
-  },
-});
+<pre><code><span class="t-key">import</span> { NatsEventBus } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
 
-<span class="t-com">// Live dashboard on http://127.0.0.1:7077/observelazyily</span>
-<span class="t-com">// Per-key serialized vs in-memory size, nested key tree,</span>
-<span class="t-com">// and an SSE event feed. Never persisted anywhere.</span></code></pre>
+<span class="t-com">// Durable: buffers while an instance is down,</span>
+<span class="t-com">// redelivers on reconnect, explicit ack.</span>
+<span class="t-key">const</span> bus <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">NatsEventBus</span>({
+  mode<span class="t-op">:</span> <span class="t-str">'jetstream'</span>,
+  subject<span class="t-op">:</span> <span class="t-str">'cache.invalidate'</span>,
+  jetstream<span class="t-op">:</span> {
+    durableName<span class="t-op">:</span> process.env.<span class="t-var">INSTANCE_ID</span>,
+    maxDeliver<span class="t-op">:</span> <span class="t-num">10</span>,
+  },
+});</code></pre>
           </div>
         </div>
       </div>
@@ -506,7 +402,7 @@
 <section class="section">
   <div class="wrap">
     <div class="cta reveal">
-      <h2 class="cta__title grad-text">Stop paying to store<br />punctuation.</h2>
+      <h2 class="cta__title grad-text">Fresh everywhere.<br />Cheaper everywhere.</h2>
       <p class="cta__lead">MIT licensed, TypeScript-first, ESM and CommonJS. Runs in-process on day one.</p>
       <div class="cta__actions">
         <a class="btn btn--primary btn--lg" href="https://www.npmjs.com/package/lazy-layers-cache" target="_blank" rel="noopener" data-magnetic>
@@ -546,8 +442,8 @@
         <ul class="footer__list">
           <li><a href="#benchmarks">Benchmarks</a></li>
           <li><a href="#calculator">Cost model</a></li>
-          <li><a href="#serializer">Serializer</a></li>
-          <li><a href="#architecture">Architecture</a></li>
+          <li><a href="#bus">Event bus</a></li>
+          <li><a href="#bytes">Byte budget</a></li>
         </ul>
       </div>
       <div>

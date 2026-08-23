@@ -88,38 +88,134 @@ export interface Layer {
 }
 
 export const LAYERS: Layer[] = [
-  { code: 'HC1M', name: 'MessagePack',  detail: 'Binary encode via msgpackr. Numbers stop being decimal strings, keys stop repeating as UTF-8.', when: 'Default for every payload under 64 kB' },
-  { code: 'HC1G', name: 'gzip(MessagePack)', detail: 'Deflate on top of the binary encoding — but only when it actually pays for itself.', when: '≥ 64 kB and gzip saves ≥ 15%' },
-  { code: 'HC1J', name: 'JSON passthrough', detail: 'Human-readable escape hatch. Same read path, no binary decode needed.', when: 'CACHE_FORMAT=json or debug mode' },
+  { code: 'HC1M', name: 'MessagePack',       detail: 'Binary encode. Numbers stop being decimal strings; keys stop repeating as UTF-8.', when: 'Every payload under 64 kB' },
+  { code: 'HC1G', name: 'gzip(MessagePack)', detail: 'Deflate on top of binary — kept only when it actually pays for itself.',            when: '≥ 64 kB and gzip saves ≥ 15%' },
+  { code: 'HC1J', name: 'JSON passthrough',  detail: 'Readable escape hatch. Same read path, no binary decode.',                          when: 'CACHE_FORMAT=json' },
+];
+
+/* ── The three lenses the page is organised around ────────────────────── */
+
+export interface Lens {
+  id: string;
+  eye: string;
+  title: string;
+  question: string;
+  answer: string;
+  metric: string;
+  metricLabel: string;
+  accent: string;
+}
+
+export const LENSES: Lens[] = [
+  {
+    id: 'architect',
+    eye: 'The architect',
+    title: 'Every node agrees',
+    question: 'What happens to my other instances when one of them writes?',
+    answer: 'Events fan out over a bus. Peers drop the key, or take the new value straight into L1.',
+    metric: '3',
+    metricLabel: 'event types, fanned to every peer',
+    accent: 'cyan',
+  },
+  {
+    id: 'cost',
+    eye: 'The cost saver',
+    title: 'Bytes are the bill',
+    question: 'What am I actually paying Redis to store?',
+    answer: 'Forty percent of a JSON record is punctuation and repeated key names. We stop storing it.',
+    metric: '92%',
+    metricLabel: 'smaller on the wire, measured',
+    accent: 'mint',
+  },
+  {
+    id: 'optimizer',
+    eye: 'The optimizer',
+    title: 'One load, not fifty',
+    question: 'How many times does my database answer the same question?',
+    answer: 'Inflight dedupe collapses concurrent loads. The winner broadcasts, so peers never load it at all.',
+    metric: '1',
+    metricLabel: 'loader call per key, per fanout',
+    accent: 'violet',
+  },
+];
+
+/* ── What actually travels on the bus ─────────────────────────────────── */
+
+export interface BusEvent {
+  type: string;
+  trigger: string;
+  effect: string;
+}
+
+export const BUS_EVENTS: BusEvent[] = [
+  { type: 'del',     trigger: 'cache.delete(key)',      effect: 'Peers drop the key from L1, L2, negative, stale and inflight.' },
+  { type: 'pattern', trigger: 'cache.deleteByPattern()', effect: 'Peers drop every local entry matching the wildcard.' },
+  { type: 'set',     trigger: 'a getOrSet loader returns', effect: 'Peers take the value straight into L1 — no second loader call.' },
+];
+
+/* ── Correctness guarantees ───────────────────────────────────────────── */
+
+export interface Guarantee {
+  name: string;
+  detail: string;
+}
+
+export const GUARANTEES: Guarantee[] = [
+  { name: 'Per-key generations', detail: 'del and set carry a generation. A late set can never resurrect a value a newer delete already removed.' },
+  { name: 'Event dedupe',        detail: 'Recent event IDs are remembered, so a durable bus redelivering a message cannot re-apply it.' },
+  { name: 'Loopback filter',     detail: 'Every event is stamped with its source. You never apply your own broadcast.' },
+  { name: 'Ordered handlers',    detail: 'Subscriber concurrency defaults to 1, preserving approximate invalidation order.' },
+  { name: 'Retry queue',         detail: 'A failed publish is buffered and flushed on the next success. Bounded, oldest dropped first.' },
+  { name: 'Circuit breaker',     detail: 'Repeated publish failures open the circuit, so a sick bus never blocks your request path.' },
+];
+
+/* ── Transports ───────────────────────────────────────────────────────── */
+
+export interface Transport {
+  name: string;
+  delivery: string;
+  note: string;
+  durable: boolean;
+}
+
+export const TRANSPORTS: Transport[] = [
+  { name: 'Redis Pub/Sub',   delivery: 'At-most-once', note: 'Ephemeral. Subscribers receive only while connected.', durable: false },
+  { name: 'NATS Core',       delivery: 'At-most-once', note: 'Fastest fanout. No replay for disconnected peers.',    durable: false },
+  { name: 'RabbitMQ',        delivery: 'Durable',      note: 'Persistent messages and per-instance queues.',          durable: true },
+  { name: 'NATS JetStream',  delivery: 'Durable',      note: 'Replayable, explicit ack, redelivery, max-deliver.',    durable: true },
 ];
 
 export const FAQS = [
   {
-    q: 'How does lazy-layers-cache make cached payloads smaller?',
-    a: 'It replaces JSON with MessagePack for the Redis wire format, then conditionally gzips. JSON stores numbers as decimal strings and repeats every object key as UTF-8 text on every record; MessagePack encodes both as binary. On payloads at or above 64 kB it also tries gzip and keeps the result only when compression saves at least 15%, so you never pay CPU for a compression pass that does not earn its place.',
+    q: 'What problem does the event bus actually solve?',
+    a: 'Every instance keeps its own in-process L1 cache. Without a bus, an instance that writes has no way to tell its peers, so they keep serving the previous value until their own TTL expires. Your staleness window is your L1 TTL multiplied by the share of traffic that is not hitting the instance that wrote. The bus closes that window to one network hop.',
   },
   {
-    q: 'How does it compare to bentocache?',
-    a: `Bentocache's default L2 serializer is JSON.stringify. Against it, lazy-layers-cache stored ${SAVINGS_MIN}% to ${SAVINGS_MAX}% fewer bytes across our five fixtures. The honest trade is CPU: our serialize path runs at roughly 0.2×–0.8× the speed of V8's native JSON.stringify, which is extremely well optimised. You are buying smaller payloads with cycles.`,
+    q: 'What is the difference between invalidation and L1 priming?',
+    a: 'Invalidation is delete-only: peers hear that a key is gone and drop it, then each reloads it independently on the next request. Priming goes further — when a getOrSet loader returns, the value itself is broadcast, so peers put it straight into L1 without calling the loader at all. One instance pays for the load, every peer benefits. Set broadcastSet to false if you want delete-only semantics.',
+  },
+  {
+    q: 'How do you stop a late event from resurrecting deleted data?',
+    a: 'Every del and set event carries a per-key generation counter. Each instance ignores a remote event whose generation is older than the one it has already applied for that key, so a set broadcast that arrives after a newer delete is discarded rather than repopulating the value. Durable transports can also redeliver, so events are additionally deduplicated by ID.',
+  },
+  {
+    q: 'Which transport should I pick?',
+    a: 'Redis Pub/Sub if you already run Redis and can tolerate at-most-once delivery — a disconnected instance misses events and falls back to TTL expiry. NATS Core for the fastest fanout with the same trade. RabbitMQ in durable mode, or NATS JetStream, when missing an invalidation is not acceptable: both buffer for a disconnected instance and redeliver on reconnect.',
+  },
+  {
+    q: 'How does lazy-layers-cache make cached payloads smaller?',
+    a: 'It replaces JSON with MessagePack on the Redis wire, then conditionally gzips. In a real 212-byte session record, 85 bytes are structural punctuation and repeated key names carrying no information at all. MessagePack encodes the whole record in 123 bytes — fewer than JSON spends on values alone. Above 64 kB it also tries gzip and keeps it only when compression saves at least 15%.',
   },
   {
     q: 'Is lazy-layers-cache faster than bentocache?',
-    a: 'Not at serialization, and we are not going to claim otherwise. V8 JSON.stringify beats our encoder on raw throughput in every fixture we measured. What we do win is bytes on the wire, which translates to Redis memory, network transfer, and replication cost. On large numeric payloads deserialization also gets closer to parity because there is simply less data to move.',
+    a: 'Not at serialization, and we are not going to claim otherwise. V8 JSON.stringify is native and beats our encoder on raw throughput in every fixture we measured — we run at roughly 0.2x to 0.8x its speed. What we win is bytes on the wire, which is what Redis actually bills you for, and correctness across instances, which JSON speed does nothing for.',
   },
   {
-    q: 'When is the CPU cost worth it?',
-    a: 'When bytes cost more than cycles. That is the usual shape of a managed-Redis bill: memory is the metered resource and app CPU is already provisioned. It is most compelling for large, numeric, or repetitive payloads — analytics series, catalogs, list endpoints. For tiny hot keys where you are serializing millions of times per second, plain JSON may well be the better call.',
-  },
-  {
-    q: 'Do I have to use Redis?',
-    a: 'No. It starts as an in-process LRU cache with zero infrastructure. Redis is an optional L2 layer you add when you outgrow a single instance. The serializer only runs on the L2 path — the L1 memory cache holds live objects.',
-  },
-  {
-    q: 'How do peers stay in sync across instances?',
-    a: 'The first instance to lazily load a key broadcasts the result to every peer, so their L1 warms without a second loader call. Deletes and wildcard pattern wipes fan out the same way. Transports are Redis Pub/Sub, RabbitMQ, NATS core, or NATS JetStream for durable, replayable delivery.',
+    q: 'Do I have to run Redis or a message broker?',
+    a: 'No. It starts as an in-process LRU cache with zero infrastructure. Redis becomes useful as a shared L2 when you outgrow one instance, and a bus becomes useful when peer L1s start diverging. Each layer is opt-in and the API does not change when you add one.',
   },
   {
     q: 'Can I reproduce these benchmarks?',
-    a: 'Yes, and you should. The fixtures are seeded so byte counts are deterministic and reproduce exactly. Throughput is median-of-15 fixed-iteration reps and will vary with your hardware. The methodology is documented in full on this page.',
+    a: 'Yes, and you should. The fixtures are seeded, so byte counts reproduce exactly on any machine. Throughput is a median of 15 fixed-iteration reps and will move with your hardware. The harness is in the repository under benchmarks/.',
   },
 ];
