@@ -5,6 +5,9 @@
 
 import { slab, channel, proj, pts, rail, topCentre, isoLabel, ISO_DEFS, type Box, type V } from './isocore';
 
+/** The hero SVG renders at roughly 0.7 scale in its column. */
+const HERO_LABEL = 1.6;
+
 export function isoDiagram(): string {
   const NODE_Z = 296;
   const BUS_Z = 146;
@@ -53,7 +56,7 @@ export function isoDiagram(): string {
   const spinePath = `M ${proj(0, 0, BUS_Z)[0].toFixed(1)} ${proj(0, 0, BUS_Z)[1].toFixed(1)} L ${proj(0, 0, l2.h)[0].toFixed(1)} ${proj(0, 0, l2.h)[1].toFixed(1)}`;
 
   return `
-<svg viewBox="-400 -410 800 680" role="img" aria-labelledby="iso-t iso-d" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="-400 -392 800 500" role="img" aria-labelledby="iso-t iso-d" xmlns="http://www.w3.org/2000/svg">
   <title id="iso-t">LazyLayers distributed cache architecture</title>
   <desc id="iso-d">Three application instances, each holding an in-process L1 memory cache, drop down through
     dedicated channels onto a shared invalidation event bus. The bus fans del, pattern and set events between
@@ -62,7 +65,7 @@ export function isoDiagram(): string {
   <defs>${ISO_DEFS}</defs>
 
   ${slab(l2, { top: 'url(#l2-top)', left: '#221C63', right: '#1A1550', stroke: 'rgba(255,255,255,0.18)' })}
-  ${isoLabel(proj(l2.cx + l2.w / 2, l2.cy + l2.d / 2, l2.h), 16, 4, 'L2 · SHARED STORE', 'msgpack + gzip on the wire')}
+  ${isoLabel(proj(l2.cx + l2.w / 2, l2.cy + l2.d / 2, l2.h), 20, 6, 'L2 · SHARED STORE', 'msgpack + gzip on the wire', HERO_LABEL)}
 
   ${spine}
 
@@ -74,7 +77,10 @@ export function isoDiagram(): string {
     top: 'url(#hub-top)', left: 'rgba(14,116,144,0.5)', right: 'rgba(14,116,144,0.38)',
     stroke: 'rgba(34,211,238,0.75)', glow: '#22D3EE',
   })}
-  ${isoLabel(proj(-R, R, BUS_Z), -12, -2, 'EVENT BUS', 'del · pattern · set')}
+  ${/* Anchored to the viewBox's left margin rather than the plane corner: a
+        right-anchored label runs off the canvas once the mobile CSS bumps its
+        size up. */ ''}
+  ${isoLabel([-386, proj(-R, R, BUS_Z)[1]], 2, -2, 'EVENT BUS', 'del · pattern · set', HERO_LABEL)}
 
   ${risers}
 
@@ -84,7 +90,7 @@ export function isoDiagram(): string {
       top: 'url(#chip-top)', left: '#0E7490', right: '#0A5A6E', stroke: 'rgba(255,255,255,0.28)',
       glow: '#22D3EE', className: `node-pulse${i === 0 ? ' node-pulse--b' : i === 2 ? ' node-pulse--c' : ''}`,
     })}
-    ${isoLabel(topCentre(chips[i]), 0, -27, `NODE ${i + 1}`, 'L1 · LRU')}
+    ${isoLabel(topCentre(chips[i]), 0, -44, `NODE ${i + 1}`, 'L1 · LRU', HERO_LABEL)}
   `).join('')}
 
   <g>${packets}<circle r="3.2" fill="#C4B5FD" class="packet" style="offset-path:path('${spinePath}');animation-delay:1.5s"/></g>

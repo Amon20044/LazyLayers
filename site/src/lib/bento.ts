@@ -78,13 +78,13 @@ function vizFanout(): string {
 function vizFailOpen(): string {
   return `<svg viewBox="0 0 300 108" class="viz" aria-hidden="true">
     <rect x="4" y="40" width="66" height="28" rx="8" fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.16)"/>
-    <text x="37" y="58" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#9A9AA4" letter-spacing="0.06em">REQUEST</text>
+    <text x="37" y="58" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#9A9AA4" letter-spacing="0.06em">REQUEST</text>
 
     <path d="M 72 54 L 108 54" stroke="rgba(52,211,153,0.6)" stroke-width="1.4" marker-end="url(#bn-g)"/>
 
     <rect x="112" y="34" width="72" height="40" rx="9" fill="rgba(52,211,153,0.1)" stroke="rgba(52,211,153,0.55)"/>
-    <text x="148" y="52" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#6EE7B7" letter-spacing="0.06em">L1</text>
-    <text x="148" y="64" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#4B9E80">SERVED</text>
+    <text x="148" y="52" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#6EE7B7" letter-spacing="0.06em">L1</text>
+    <text x="148" y="64" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#6EE7B7">SERVED</text>
 
     <g class="stale-blink">
       <path d="M 186 54 L 214 54" stroke="rgba(244,63,94,0.45)" stroke-width="1.4" stroke-dasharray="3 3"/>
@@ -93,8 +93,8 @@ function vizFailOpen(): string {
         <line x1="5" y1="-5" x2="-5" y2="5" stroke="#F43F5E" stroke-width="1.8" stroke-linecap="round"/>
       </g>
       <rect x="220" y="38" width="74" height="32" rx="8" fill="rgba(244,63,94,0.07)" stroke="rgba(244,63,94,0.35)"/>
-      <text x="257" y="52" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#FDA4AF" letter-spacing="0.06em">L2</text>
-      <text x="257" y="63" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="7" fill="#9F5560">DOWN</text>
+      <text x="257" y="52" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#FDA4AF" letter-spacing="0.06em">L2</text>
+      <text x="257" y="63" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#FDA4AF">DOWN</text>
     </g>
 
     <defs><marker id="bn-g" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
@@ -106,18 +106,18 @@ function vizFailOpen(): string {
 function vizGeneration(): string {
   return `<svg viewBox="0 0 300 108" class="viz" aria-hidden="true">
     <rect x="112" y="34" width="76" height="40" rx="9" fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.16)"/>
-    <text x="150" y="52" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#8A8A94" letter-spacing="0.08em">KEY</text>
+    <text x="150" y="52" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#B4B5C4" letter-spacing="0.08em">KEY</text>
     <text x="150" y="65" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#5EEAD4">gen 7</text>
 
     <g>
       <rect x="6" y="20" width="76" height="20" rx="6" fill="rgba(52,211,153,0.12)" stroke="rgba(52,211,153,0.55)"/>
-      <text x="44" y="33.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#6EE7B7">del · gen 7</text>
+      <text x="44" y="33.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#6EE7B7">del · gen 7</text>
       <path d="M 84 30 L 108 42" stroke="rgba(52,211,153,0.6)" stroke-width="1.3" marker-end="url(#bn-ok)"/>
     </g>
 
     <g class="stale-blink">
       <rect x="6" y="68" width="76" height="20" rx="6" fill="rgba(244,63,94,0.1)" stroke="rgba(244,63,94,0.5)"/>
-      <text x="44" y="81.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#FDA4AF">set · gen 6</text>
+      <text x="44" y="81.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#FDA4AF">set · gen 6</text>
       <path d="M 84 78 L 104 68" stroke="rgba(244,63,94,0.55)" stroke-width="1.3" stroke-dasharray="3 3"/>
       <g transform="translate(107,64)">
         <line x1="-5" y1="-5" x2="5" y2="5" stroke="#F43F5E" stroke-width="1.8" stroke-linecap="round"/>
@@ -125,8 +125,8 @@ function vizGeneration(): string {
       </g>
     </g>
 
-    <text x="196" y="57" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#5A5A64" letter-spacing="0.08em">OLDER GEN</text>
-    <text x="196" y="68" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#5A5A64" letter-spacing="0.08em">REFUSED</text>
+    <text x="196" y="57" font-family="'JetBrains Mono',monospace" font-size="9" fill="#9698AC" letter-spacing="0.08em">OLDER GEN</text>
+    <text x="196" y="68" font-family="'JetBrains Mono',monospace" font-size="9" fill="#9698AC" letter-spacing="0.08em">REFUSED</text>
 
     <defs><marker id="bn-ok" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
       <path d="M0 0 L6 3 L0 6 Z" fill="rgba(52,211,153,0.75)"/></marker></defs>
@@ -144,7 +144,7 @@ function vizTransports(): string {
         <rect width="144" height="44" rx="9" fill="${on ? 'rgba(52,211,153,0.07)' : 'rgba(255,255,255,0.035)'}"
               stroke="${on ? 'rgba(52,211,153,0.4)' : 'rgba(255,255,255,0.13)'}"/>
         <text x="12" y="19" font-family="Inter,sans-serif" font-size="10" font-weight="500" fill="#E8E8EE">${t.name}</text>
-        <text x="12" y="33" font-family="'JetBrains Mono',monospace" font-size="7.5"
+        <text x="12" y="33" font-family="'JetBrains Mono',monospace" font-size="9"
               fill="${on ? '#6EE7B7' : '#8A8A94'}" letter-spacing="0.08em">${t.delivery.toUpperCase()}</text>
       </g>`;
     }).join('')}
@@ -166,7 +166,7 @@ function vizStampede(): string {
     <text x="132" y="57.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#DDD6FE">1</text>
     <path d="M 148 54 L 216 54" stroke="rgba(168,85,247,0.55)" stroke-width="1.4" marker-end="url(#bn-a)"/>
     <rect x="222" y="38" width="72" height="32" rx="8" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.16)"/>
-    <text x="258" y="58" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#9A9AA4" letter-spacing="0.06em">ORIGIN</text>
+    <text x="258" y="58" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10" fill="#9A9AA4" letter-spacing="0.06em">ORIGIN</text>
     <defs><marker id="bn-a" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
       <path d="M0 0 L6 3 L0 6 Z" fill="rgba(168,85,247,0.7)"/></marker></defs>
   </svg>`;
@@ -177,9 +177,9 @@ function vizEncodings(): string {
   const out = (x: number, code: string, name: string, note: string, w: number, colour: string) => `
     <g transform="translate(${x},0)">
       <rect y="30" width="150" height="52" rx="10" fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.13)"/>
-      <text x="14" y="49" font-family="'JetBrains Mono',monospace" font-size="8" fill="${colour}" letter-spacing="0.1em">${code}</text>
+      <text x="14" y="49" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="${colour}" letter-spacing="0.1em">${code}</text>
       <text x="14" y="63" font-family="Inter,sans-serif" font-size="10.5" font-weight="500" fill="#E8E8EE">${name}</text>
-      <text x="14" y="75" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#6B6B78">${note}</text>
+      <text x="14" y="75" font-family="'JetBrains Mono',monospace" font-size="9" fill="#A2A3B4">${note}</text>
       <rect x="112" y="42" width="26" height="4" rx="2" fill="rgba(255,255,255,0.09)"/>
       <rect x="112" y="42" width="${w}" height="4" rx="2" fill="${colour}"/>
     </g>`;
@@ -191,7 +191,7 @@ function vizEncodings(): string {
     <g transform="translate(492,0)">
       <rect y="30" width="148" height="52" rx="10" fill="rgba(34,211,238,0.05)" stroke="rgba(34,211,238,0.28)"/>
       <text x="14" y="52" font-family="Inter,sans-serif" font-size="10.5" font-weight="500" fill="#A5F3FC">4-byte prefix</text>
-      <text x="14" y="67" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#6B6B78">one read path decodes all</text>
+      <text x="14" y="67" font-family="'JetBrains Mono',monospace" font-size="9" fill="#A2A3B4">decodes every format</text>
     </g>
   </svg>`;
 }
