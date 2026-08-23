@@ -25,8 +25,8 @@ export function isoDiagram(): string {
 
   const risers = nodes.map((n) =>
     slab({ cx: n.cx, cy: n.cy, z: BUS_Z + 4, w: 13, d: 13, h: n.z - BUS_Z - 4 }, {
-      top: 'rgba(34,211,238,0.5)', left: 'rgba(34,211,238,0.13)',
-      right: 'rgba(34,211,238,0.07)', stroke: 'rgba(34,211,238,0.42)',
+      top: 'rgba(34,211,238,0.5)', left: 'rgba(34,211,238,0.20)',
+      right: 'rgba(34,211,238,0.11)', stroke: 'rgba(34,211,238,0.42)',
     }),
   ).join('');
 
@@ -42,8 +42,8 @@ export function isoDiagram(): string {
   ).join('');
 
   const spine = slab({ cx: 0, cy: 0, z: l2.h, w: 15, d: 15, h: BUS_Z - l2.h }, {
-    top: 'rgba(168,85,247,0.55)', left: 'rgba(139,92,246,0.16)',
-    right: 'rgba(139,92,246,0.09)', stroke: 'rgba(168,85,247,0.45)',
+    top: 'rgba(168,85,247,0.55)', left: 'rgba(139,92,246,0.24)',
+    right: 'rgba(139,92,246,0.14)', stroke: 'rgba(168,85,247,0.45)',
   });
 
   const packets = ports.map((p, i) => {
@@ -85,7 +85,7 @@ export function isoDiagram(): string {
   ${risers}
 
   ${nodes.map((n, i) => `
-    ${slab(n, { top: '#17171E', left: '#0D0D13', right: '#08080D', stroke: 'rgba(255,255,255,0.16)' })}
+    ${slab(n, { top: '#1E1E29', left: '#15151F', right: '#0D0D15', stroke: 'rgba(255,255,255,0.16)' })}
     ${slab(chips[i], {
       top: 'url(#chip-top)', left: '#0E7490', right: '#0A5A6E', stroke: 'rgba(255,255,255,0.28)',
       glow: '#22D3EE', className: `node-pulse${i === 0 ? ' node-pulse--b' : i === 2 ? ' node-pulse--c' : ''}`,

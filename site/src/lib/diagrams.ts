@@ -14,7 +14,7 @@ const row = (spread: number, z: number): Box[] =>
 const chipOf = (n: Box): Box => ({ cx: n.cx, cy: n.cy, z: n.z + n.h, ...CHIP });
 
 const body = (n: Box) =>
-  slab(n, { top: '#17171E', left: '#0D0D13', right: '#08080D', stroke: 'rgba(255,255,255,0.16)' });
+  slab(n, { top: '#1E1E29', left: '#15151F', right: '#0D0D15', stroke: 'rgba(255,255,255,0.16)' });
 
 /* ── 1. The problem: L1s drift apart ──────────────────────────────────── */
 
@@ -72,8 +72,8 @@ export function fanoutDiagram(): string {
 
   const risers = nodes.map((n) =>
     slab({ cx: n.cx, cy: n.cy, z: BUS_Z + 4, w: 13, d: 13, h: n.z - BUS_Z - 4 }, {
-      top: 'rgba(34,211,238,0.5)', left: 'rgba(34,211,238,0.13)',
-      right: 'rgba(34,211,238,0.07)', stroke: 'rgba(34,211,238,0.42)',
+      top: 'rgba(34,211,238,0.5)', left: 'rgba(34,211,238,0.20)',
+      right: 'rgba(34,211,238,0.11)', stroke: 'rgba(34,211,238,0.42)',
     }),
   ).join('');
 
