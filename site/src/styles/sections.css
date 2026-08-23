@@ -583,19 +583,19 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
   gap: clamp(0.75rem, 1.4vw, 1.125rem);
 }
 
-/* 2 large / 3 medium / 1 wide — the asymmetry is the point. */
-.bento__cell--a { grid-column: span 4; }
-.bento__cell--b { grid-column: span 2; }
-.bento__cell--c { grid-column: span 2; }
-.bento__cell--d { grid-column: span 2; }
-.bento__cell--e { grid-column: span 2; }
-.bento__cell--f { grid-column: span 6; }
+/* Asymmetric on purpose. The fanout (a) and the herd (e) are the two ideas
+   that need room to breathe, so both get four columns. */
+.bento__cell--a { grid-column: span 4; }   /* event fanout   */
+.bento__cell--b { grid-column: span 2; }   /* fail-open      */
+.bento__cell--e { grid-column: span 4; }   /* thundering herd */
+.bento__cell--c { grid-column: span 2; }   /* generations    */
+.bento__cell--d { grid-column: span 2; }   /* transports     */
+.bento__cell--f { grid-column: span 4; }   /* encodings      */
 
 @media (max-width: 900px) {
   .bento { grid-template-columns: repeat(2, 1fr); }
-  .bento__cell--a, .bento__cell--f { grid-column: span 2; }
-  .bento__cell--b, .bento__cell--c,
-  .bento__cell--d, .bento__cell--e { grid-column: span 1; }
+  .bento__cell--a, .bento__cell--e, .bento__cell--f { grid-column: span 2; }
+  .bento__cell--b, .bento__cell--c, .bento__cell--d { grid-column: span 1; }
 }
 @media (max-width: 620px) {
   .bento { grid-template-columns: 1fr; }

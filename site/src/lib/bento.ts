@@ -151,24 +151,61 @@ function vizTransports(): string {
   </svg>`;
 }
 
-/** E: many concurrent callers collapse into one loader call. */
-function vizStampede(): string {
-  const arrows = Array.from({ length: 7 }, (_, i) => {
-    const y = 12 + i * 13;
-    return `<path d="M 6 ${y} Q 74 ${y}, 118 54" fill="none" stroke="rgba(168,85,247,0.35)" stroke-width="1"/>
-            <circle r="2" fill="#C4B5FD" class="packet" style="animation-delay:${(i * 0.16).toFixed(2)}s;
-              offset-path:path('M 6 ${y} Q 74 ${y}, 118 54')"/>`;
-  }).join('');
+/** E: ten thousand concurrent callers collapse into a single origin query. */
+function vizHerd(): string {
+  const FAN = 34;
+  const lines: string[] = [];
+  const packets: string[] = [];
 
-  return `<svg viewBox="0 0 300 108" class="viz" aria-hidden="true">
-    ${arrows}
-    <circle cx="132" cy="54" r="13" fill="rgba(168,85,247,0.14)" stroke="rgba(168,85,247,0.6)"/>
-    <text x="132" y="57.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#DDD6FE">1</text>
-    <path d="M 148 54 L 216 54" stroke="rgba(168,85,247,0.55)" stroke-width="1.4" marker-end="url(#bn-a)"/>
-    <rect x="222" y="38" width="72" height="32" rx="8" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.16)"/>
-    <text x="258" y="58" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10" fill="#9A9AA4" letter-spacing="0.06em">ORIGIN</text>
-    <defs><marker id="bn-a" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-      <path d="M0 0 L6 3 L0 6 Z" fill="rgba(168,85,247,0.7)"/></marker></defs>
+  for (let i = 0; i < FAN; i++) {
+    const t = i / (FAN - 1);
+    const y = 10 + t * 116;
+    const d = `M 122 ${y.toFixed(1)} C 206 ${y.toFixed(1)}, 244 75, 286 75`;
+    // Middle strands sit brightest so the bundle reads as a beam, not a mesh.
+    const op = (0.5 - Math.abs(t - 0.5) * 0.45).toFixed(2);
+    lines.push(`<path d="${d}" fill="none" stroke="#A855F7" stroke-width="0.9" opacity="${op}"/>`);
+    if (i % 3 === 0) {
+      packets.push(`<circle r="2.2" fill="#DDD6FE" class="packet"
+        style="offset-path:path('${d}');animation-delay:${((i / FAN) * 2.4).toFixed(2)}s"/>`);
+    }
+  }
+
+  return `<svg viewBox="0 0 620 150" class="viz viz--a" aria-hidden="true">
+    <defs>
+      <marker id="bn-a" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+        <path d="M0 0 L7 3.5 L0 7 Z" fill="#A855F7"/>
+      </marker>
+      <radialGradient id="bn-hub"><stop offset="0%" stop-color="#C4B5FD"/><stop offset="100%" stop-color="#7C3AED"/></radialGradient>
+    </defs>
+
+    <!-- the herd -->
+    <text x="0" y="62" font-family="Inter,system-ui,sans-serif" font-size="30" font-weight="600" fill="#F4F4F8">10,000</text>
+    <text x="0" y="80" font-family="'JetBrains Mono',monospace" font-size="10" fill="#A2A3B4" letter-spacing="0.06em">CONCURRENT</text>
+    <text x="0" y="94" font-family="'JetBrains Mono',monospace" font-size="10" fill="#A2A3B4" letter-spacing="0.06em">CALLERS</text>
+    ${lines.join('')}
+
+    <!-- the collapse -->
+    <circle cx="308" cy="75" r="21" fill="url(#bn-hub)" opacity="0.22"/>
+    <circle cx="308" cy="75" r="21" fill="none" stroke="#A855F7" stroke-width="1.4"/>
+    <text x="308" y="82" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="21" font-weight="600" fill="#EDE9FE">1</text>
+    <text x="308" y="44" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#A2A3B4" letter-spacing="0.06em">IN-FLIGHT</text>
+
+    <!-- the single origin query -->
+    <path d="M 332 75 L 424 75" stroke="#A855F7" stroke-width="1.8" marker-end="url(#bn-a)"/>
+    <text x="378" y="66" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#C4B5FD" letter-spacing="0.06em">1 QUERY</text>
+    <rect x="434" y="52" width="120" height="46" rx="11" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.18)"/>
+    <text x="494" y="72" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="500" fill="#E8E8EE">ORIGIN</text>
+    <text x="494" y="87" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#A2A3B4" letter-spacing="0.05em">db · api</text>
+
+    <!-- and the 9,999 that never touched it -->
+    <path d="M 292 98 C 244 124, 178 124, 126 112" fill="none" stroke="#34D399" stroke-width="1.2"
+          stroke-dasharray="4 4" opacity="0.8" marker-end="url(#bn-back)"/>
+    <text x="209" y="143" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5"
+          fill="#6EE7B7" letter-spacing="0.05em">9,999 SERVED FROM THE SAME PROMISE</text>
+    <defs><marker id="bn-back" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0 0 L7 3.5 L0 7 Z" fill="#34D399"/></marker></defs>
+
+    ${packets.join('')}
   </svg>`;
 }
 
@@ -207,10 +244,10 @@ interface Cell {
 
 const CELLS: Cell[] = [
   { span: 'a', label: 'One publish. Every peer applies it.', viz: vizFanout(),      flow: { seed: 3, hue: 'cyan' } },
-  { span: 'b', label: 'Redis dies. Requests still land.',      viz: vizFailOpen(),   flow: { seed: 11, hue: 'mint' } },
+  { span: 'b', label: 'Redis dies. Requests still land.',    viz: vizFailOpen(),    flow: { seed: 11, hue: 'mint' } },
+  { span: 'e', label: 'Ten thousand callers. One database query.', viz: vizHerd(),  flow: { seed: 7, hue: 'violet' } },
   { span: 'c', label: 'A late event cannot resurrect deleted data.', viz: vizGeneration(), flow: { seed: 19, hue: 'cyan' } },
-  { span: 'd', label: 'Pick your delivery guarantee.',        viz: vizTransports(), flow: { seed: 23, hue: 'mint' } },
-  { span: 'e', label: 'Fifty callers, one loader call.',      viz: vizStampede(),   flow: { seed: 7, hue: 'violet' } },
+  { span: 'd', label: 'Pick your delivery guarantee.',       viz: vizTransports(),  flow: { seed: 23, hue: 'mint' } },
   { span: 'f', label: 'Three encodings, chosen at write time.', viz: vizEncodings(), flow: { seed: 5, hue: 'cyan' } },
 ];
 
