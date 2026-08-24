@@ -48,6 +48,8 @@
   --aurora-alpha:  0.5;
 
   --accent:        var(--c-indigo);
+  --logo-lime:     #D3F15D;
+  --logo-ink:      #F2F3EC;
   --grad-layer:    linear-gradient(100deg, var(--c-cyan), var(--c-indigo) 48%, var(--c-violet));
   --grad-savings:  linear-gradient(100deg, var(--c-mint), var(--c-cyan));
   --grad-text:     linear-gradient(180deg, #FFFFFF 12%, #9EA0B0 100%);
@@ -92,6 +94,7 @@
    <head> resolves the system preference to an attribute before first paint,
    so the media query is really the no-JS fallback. */
 :root[data-theme='light'] {
+  --logo-ink:      #30302C;
   --c-cyan:        #0E7490;
   --c-indigo:      #4F46E5;
   --c-violet:      #7C3AED;
@@ -128,6 +131,7 @@
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']):not([data-theme='light']) {
+    --logo-ink: #30302C;
     --c-cyan: #0E7490; --c-indigo: #4F46E5; --c-violet: #7C3AED;
     --c-mint: #059669; --c-amber: #B45309; --c-rose: #E11D48;
     --bg: #FFFFFF; --bg-raised: #FBFBFC; --surface: #F6F6F8;
