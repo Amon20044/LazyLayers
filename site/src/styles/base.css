@@ -54,18 +54,19 @@
 .sec-head--center .sec-lead { margin-inline: auto; }
 
 /* Gradient-clipped display text */
-.grad-text {
-  background: var(--grad-text);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
+/* `background-clip: text` clips to the element's box, so any box shorter than
+   the glyphs slices descenders. The padding grows the clip region and the
+   negative margin cancels it out of the layout. */
+.grad-text,
 .grad-accent {
-  background: var(--grad-layer);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
 }
+.grad-text   { background-image: var(--grad-text); }
+.grad-accent { background-image: var(--grad-layer); }
 
 .mono { font-family: var(--ff-mono); font-size: var(--fs-mono); }
 .muted { color: var(--text-muted); }

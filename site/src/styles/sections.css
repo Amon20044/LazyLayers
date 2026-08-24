@@ -22,8 +22,8 @@
 .hero__title {
   font-size: var(--fs-display);
   margin: 1.5rem 0 1.5rem;
-  letter-spacing: -0.045em;
-  line-height: 0.98;
+  letter-spacing: -0.04em;
+  line-height: 1.06;
 }
 .hero__title em { font-style: normal; display: inline-block; }
 
@@ -82,15 +82,9 @@
 .iso { position: relative; }
 .iso svg { width: 100%; height: auto; overflow: visible; }
 
-/* The hero diagram carries its own dark panel for the same reason the inset
-   figures do — the artwork is lit for a dark ground, and its labels are white. */
 .hero .iso {
-  background:
-    radial-gradient(70% 70% at 55% 45%, rgba(99,102,241,0.16), transparent 70%),
-    var(--ink);
-  border: 1px solid var(--ink-line);
-  border-radius: var(--r-xl);
-  padding: clamp(0.75rem, 2vw, 1.5rem);
+  background: radial-gradient(65% 65% at 55% 45%,
+    color-mix(in srgb, var(--c-indigo) 13%, transparent), transparent 70%);
 }
 
 /* Packets travelling the wires */
@@ -484,13 +478,7 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
 }
 @media (max-width: 900px) { .bytes { grid-template-columns: 1fr; } }
 
-.bytes__viz {
-  min-width: 0;
-  background: var(--ink);
-  border: 1px solid var(--ink-line);
-  border-radius: var(--r-lg);
-  padding: clamp(1rem, 2.2vw, 1.5rem);
-}
+.bytes__viz { min-width: 0; }
 .byteviz { width: 100%; height: auto; }
 
 /* Cells flick on in sequence — the record assembling itself. */
@@ -570,16 +558,14 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
 
 /* ═══ Diagram figures ════════════════════════════════════════════════ */
 
-/* Diagrams keep a dark ground in both themes — the isometric artwork is lit
-   for it, and re-lighting every face for a white page would wash it out. */
+/* No panel. The isometric palette re-lights per theme (see "Diagram palette"
+   below), so the artwork sits straight on the page — only a soft bloom behind
+   it to keep it from floating. */
 .iso--inset {
   margin: 0;
-  background:
-    radial-gradient(70% 70% at 50% 45%, rgba(99,102,241,0.10), transparent 70%),
-    var(--ink);
-  border: 1px solid var(--ink-line);
-  border-radius: var(--r-lg);
-  padding: clamp(1rem, 2.5vw, 2rem);
+  background: radial-gradient(65% 65% at 50% 45%,
+    color-mix(in srgb, var(--c-indigo) 10%, transparent), transparent 70%);
+  padding: clamp(0.5rem, 1.5vw, 1rem);
 }
 .iso--inset svg { width: 100%; height: auto; overflow: visible; }
 
@@ -639,15 +625,15 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
   gap: 1.5rem;
   min-height: 252px;
   padding: clamp(1.125rem, 2vw, 1.625rem);
-  border: 1px solid var(--ink-line);
+  border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  background: var(--ink-2);
-  color: var(--ink-text);
+  background: var(--bg-raised);
+  color: var(--text);
   overflow: hidden;
   transition: border-color 0.45s var(--ease), background 0.45s var(--ease);
 }
-.bento__cell:hover { border-color: rgba(255,255,255,0.2); background: #101017; }
-.bento__cell .bento__no { color: rgba(255,255,255,0.28); }
+.bento__cell:hover { border-color: var(--line-strong); background: var(--surface); }
+.bento__cell .bento__no { color: var(--text-faint); }
 
 .bento__viz { display: grid; place-items: center; flex: 1; min-height: 0; }
 .viz { width: 100%; height: auto; }
@@ -664,29 +650,33 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
 
 .bento__foot { display: grid; gap: 0.4375rem; }
 
-/* Names the failure mode, so it has to read as a category label — not as a
-   claim about what this library does. Muted and small; the guarantee below it
-   is the line that carries weight. */
+/* Names the system-design concept, so it reads as a label for the idea — not
+   as a claim about what this library does. A pill, because it is a term of art
+   worth recognising on sight. */
 .bento__risk {
   justify-self: start;
   font-family: var(--ff-mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.14em;
+  font-size: 0.6875rem;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--c-amber);
-  opacity: 0.85;
+  color: var(--c-indigo);
+  border: 1px solid color-mix(in srgb, var(--c-indigo) 38%, transparent);
+  background: color-mix(in srgb, var(--c-indigo) 11%, transparent);
+  padding: 0.1875rem 0.625rem;
+  border-radius: 100px;
+  line-height: 1.4;
 }
 
 .bento__answer {
   font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
   letter-spacing: -0.015em;
   line-height: 1.35;
-  color: var(--ink-text);
+  color: var(--text);
 }
 
 .bento__detail {
   font-size: var(--fs-sm);
-  color: var(--ink-muted);
+  color: var(--text-muted);
   line-height: 1.6;
   max-width: 54ch;
 }
@@ -734,8 +724,9 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
    structure on their own. */
 @media (max-width: 760px) {
   .iso > svg .iso-t        { font-size: 30px; }
+  .iso > svg .iso-s        { font-size: 20px; }
   .iso--inset > svg .iso-t { font-size: 23px; }
-  .iso .iso-s              { display: none; }
+  .iso--inset > svg .iso-s { font-size: 17px; }
 }
 
 /* ═══ Integration strip ══════════════════════════════════════════════ */
@@ -862,3 +853,146 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
 .wire__payload code { font-family: inherit; }
 
 .wire__effect { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.6; margin-top: auto; }
+
+/* ═══ Diagram palette ════════════════════════════════════════════════
+   Slabs are painted by role (see isocore.ts), so the whole isometric set
+   re-lights for the light theme from here — no SVG changes needed.
+   Dark values first; the light overrides follow. */
+
+.d-node-top    { fill: #1E1E29; stroke: rgba(255,255,255,0.16); stroke-width: 1; stroke-linejoin: round; }
+.d-node-left   { fill: #15151F; stroke: rgba(255,255,255,0.16); stroke-width: 1; stroke-linejoin: round; }
+.d-node-right  { fill: #0D0D15; stroke: rgba(255,255,255,0.16); stroke-width: 1; stroke-linejoin: round; }
+
+.d-chip-top    { fill: #3DDBD0; stroke: rgba(255,255,255,0.28); stroke-width: 1; }
+.d-chip-left   { fill: #0E7490; stroke: rgba(255,255,255,0.28); stroke-width: 1; }
+.d-chip-right  { fill: #0A5A6E; stroke: rgba(255,255,255,0.28); stroke-width: 1; }
+.d-chip-glow   { fill: #22D3EE; opacity: 0.62; }
+
+.d-chip-stale-top   { fill: #FB5E76; stroke: rgba(255,255,255,0.28); stroke-width: 1; }
+.d-chip-stale-left  { fill: #0E7490; stroke: rgba(255,255,255,0.28); stroke-width: 1; }
+.d-chip-stale-right { fill: #0A5A6E; stroke: rgba(255,255,255,0.28); stroke-width: 1; }
+.d-chip-stale-glow  { fill: #F43F5E; opacity: 0.55; }
+
+.d-l2-top      { fill: #6D28D9; stroke: rgba(255,255,255,0.18); stroke-width: 1; }
+.d-l2-left     { fill: #221C63; stroke: rgba(255,255,255,0.18); stroke-width: 1; }
+.d-l2-right    { fill: #1A1550; stroke: rgba(255,255,255,0.18); stroke-width: 1; }
+.d-l2-glow     { fill: transparent; }
+
+.d-riser-top   { fill: rgba(34,211,238,0.50); stroke: rgba(34,211,238,0.42); stroke-width: 1; }
+.d-riser-left  { fill: rgba(34,211,238,0.20); stroke: rgba(34,211,238,0.42); stroke-width: 1; }
+.d-riser-right { fill: rgba(34,211,238,0.11); stroke: rgba(34,211,238,0.42); stroke-width: 1; }
+
+.d-pad-top     { fill: rgba(34,211,238,0.22); stroke: rgba(34,211,238,0.60); stroke-width: 1; }
+.d-pad-left    { fill: rgba(14,116,144,0.40); stroke: rgba(34,211,238,0.60); stroke-width: 1; }
+.d-pad-right   { fill: rgba(14,116,144,0.30); stroke: rgba(34,211,238,0.60); stroke-width: 1; }
+
+.d-hub-top     { fill: #45E0F2; stroke: rgba(34,211,238,0.75); stroke-width: 1; }
+.d-hub-left    { fill: rgba(14,116,144,0.50); stroke: rgba(34,211,238,0.75); stroke-width: 1; }
+.d-hub-right   { fill: rgba(14,116,144,0.38); stroke: rgba(34,211,238,0.75); stroke-width: 1; }
+.d-hub-glow    { fill: #22D3EE; opacity: 0.62; }
+
+.d-spine-top   { fill: #C4B5FD; stroke: rgba(196,181,253,0.9); stroke-width: 1; }
+.d-spine-left  { fill: #8B5CF6; stroke: rgba(196,181,253,0.7); stroke-width: 1; }
+.d-spine-right { fill: #6D3FD4; stroke: rgba(196,181,253,0.7); stroke-width: 1; }
+/* Collar where the spine meets the L2 face, so the join is explicit. */
+.d-collar-top   { fill: #DDD6FE; stroke: rgba(109,40,217,0.9); stroke-width: 1; }
+.d-collar-left  { fill: #A78BFA; stroke: rgba(109,40,217,0.9); stroke-width: 1; }
+.d-collar-right { fill: #8B5CF6; stroke: rgba(109,40,217,0.9); stroke-width: 1; }
+
+.d-lane  { fill: rgba(34,211,238,0.28); stroke: rgba(34,211,238,0.50); stroke-width: 0.9; stroke-linejoin: round; }
+.d-plane { fill: rgba(34,211,238,0.028); stroke: rgba(34,211,238,0.34); stroke-width: 1.1; stroke-dasharray: 5 6; }
+
+.d-packet   { fill: #67E8F9; }
+.d-packet-b { fill: #5EEAD4; }
+.d-packet-c { fill: #C4B5FD; }
+.d-cut      { stroke: #F43F5E; }
+
+.d-chip-card { fill: rgba(8,20,24,0.85); stroke: rgba(34,211,238,0.45); }
+.d-chip-text { fill: #A5F3FC; }
+
+.iso-t { fill: #F4F4F8; }
+.iso-s { fill: #B6B7C8; }
+
+/* ── Light theme: re-light the whole set ─────────────────────────────── */
+:root[data-theme='light'] {
+  --d-edge: rgba(9, 9, 14, 0.20);
+}
+:root[data-theme='light'] .d-node-top    { fill: #E4E6EF; stroke: var(--d-edge); }
+:root[data-theme='light'] .d-node-left   { fill: #CDD1E0; stroke: var(--d-edge); }
+:root[data-theme='light'] .d-node-right  { fill: #B7BCCE; stroke: var(--d-edge); }
+
+:root[data-theme='light'] .d-chip-top    { fill: #22B8CF; stroke: rgba(9,9,14,0.22); }
+:root[data-theme='light'] .d-chip-left   { fill: #0E7490; stroke: rgba(9,9,14,0.22); }
+:root[data-theme='light'] .d-chip-right  { fill: #0B5A70; stroke: rgba(9,9,14,0.22); }
+:root[data-theme='light'] .d-chip-glow   { opacity: 0.28; }
+
+:root[data-theme='light'] .d-chip-stale-top   { fill: #F0475F; stroke: rgba(9,9,14,0.22); }
+:root[data-theme='light'] .d-chip-stale-left  { fill: #0E7490; stroke: rgba(9,9,14,0.22); }
+:root[data-theme='light'] .d-chip-stale-right { fill: #0B5A70; stroke: rgba(9,9,14,0.22); }
+:root[data-theme='light'] .d-chip-stale-glow  { opacity: 0.22; }
+
+:root[data-theme='light'] .d-l2-top      { fill: #7C3AED; stroke: rgba(9,9,14,0.22); }
+:root[data-theme='light'] .d-l2-left     { fill: #5B25B8; stroke: rgba(9,9,14,0.22); }
+:root[data-theme='light'] .d-l2-right    { fill: #4A1C99; stroke: rgba(9,9,14,0.22); }
+
+:root[data-theme='light'] .d-riser-top   { fill: rgba(14,116,144,0.55); stroke: rgba(14,116,144,0.55); }
+:root[data-theme='light'] .d-riser-left  { fill: rgba(14,116,144,0.28); stroke: rgba(14,116,144,0.55); }
+:root[data-theme='light'] .d-riser-right { fill: rgba(14,116,144,0.18); stroke: rgba(14,116,144,0.55); }
+
+:root[data-theme='light'] .d-pad-top     { fill: rgba(14,116,144,0.22); stroke: rgba(14,116,144,0.6); }
+:root[data-theme='light'] .d-pad-left    { fill: rgba(14,116,144,0.34); stroke: rgba(14,116,144,0.6); }
+:root[data-theme='light'] .d-pad-right   { fill: rgba(14,116,144,0.26); stroke: rgba(14,116,144,0.6); }
+
+:root[data-theme='light'] .d-hub-top     { fill: #0E9BB8; stroke: rgba(14,116,144,0.8); }
+:root[data-theme='light'] .d-hub-left    { fill: rgba(14,116,144,0.55); stroke: rgba(14,116,144,0.8); }
+:root[data-theme='light'] .d-hub-right   { fill: rgba(14,116,144,0.42); stroke: rgba(14,116,144,0.8); }
+:root[data-theme='light'] .d-hub-glow    { opacity: 0.24; }
+
+:root[data-theme='light'] .d-spine-top   { fill: #DDD6FE; stroke: rgba(76,29,149,0.7); }
+:root[data-theme='light'] .d-spine-left  { fill: #A78BFA; stroke: rgba(76,29,149,0.6); }
+:root[data-theme='light'] .d-spine-right { fill: #8B5CF6; stroke: rgba(76,29,149,0.6); }
+:root[data-theme='light'] .d-collar-top   { fill: #EDE9FE; stroke: rgba(76,29,149,0.8); }
+:root[data-theme='light'] .d-collar-left  { fill: #C4B5FD; stroke: rgba(76,29,149,0.8); }
+:root[data-theme='light'] .d-collar-right { fill: #A78BFA; stroke: rgba(76,29,149,0.8); }
+
+:root[data-theme='light'] .d-lane   { fill: rgba(14,116,144,0.20); stroke: rgba(14,116,144,0.5); }
+:root[data-theme='light'] .d-plane  { fill: rgba(14,116,144,0.04); stroke: rgba(14,116,144,0.35); }
+
+:root[data-theme='light'] .d-packet   { fill: #0E7490; }
+:root[data-theme='light'] .d-packet-b { fill: #059669; }
+:root[data-theme='light'] .d-packet-c { fill: #7C3AED; }
+:root[data-theme='light'] .d-cut      { stroke: #E11D48; }
+
+:root[data-theme='light'] .d-chip-card { fill: rgba(255,255,255,0.92); stroke: rgba(14,116,144,0.45); }
+:root[data-theme='light'] .d-chip-text { fill: #0E7490; }
+
+:root[data-theme='light'] .iso-t { fill: #0B0B10; }
+:root[data-theme='light'] .iso-s { fill: #4B4B58; }
+
+/* ── Bento illustration palette ──────────────────────────────────────── */
+.v-strong { fill: var(--text); }
+.v-muted  { fill: var(--text-dim); }
+.v-box    { fill: color-mix(in srgb, var(--text) 4%, transparent); stroke: var(--line-strong); }
+.v-rule   { stroke: var(--line-strong); }
+.v-track  { fill: color-mix(in srgb, var(--text) 9%, transparent); }
+.v-cyan   { fill: var(--c-cyan); }
+.v-mint   { fill: var(--c-mint); }
+.v-violet { fill: var(--c-violet); }
+.v-amber  { fill: var(--c-amber); }
+.v-rose   { fill: var(--c-rose); }
+
+/* ── Byte grid palette ───────────────────────────────────────────────── */
+:root { --bv-struct: #F59E0B; --bv-key: #FB7185; --bv-value: #3F3F51; }
+:root[data-theme='light'] { --bv-struct: #D97706; --bv-key: #E11D48; --bv-value: #C9CBD8; }
+
+.bv-struct { fill: var(--bv-struct); }
+.bv-key    { fill: var(--bv-key); }
+.bv-value  { fill: var(--bv-value); }
+.bv-bin    { fill: var(--c-cyan); }
+
+/* ── L1 slots ────────────────────────────────────────────────────────── */
+/* Empty slots read as headroom in the LRU, filled ones as resident entries. */
+.d-slot     { fill: rgba(4, 32, 38, 0.55); }
+.d-slot--on { fill: rgba(190, 255, 250, 0.92); }
+:root[data-theme='light'] .d-slot     { fill: rgba(255, 255, 255, 0.45); }
+:root[data-theme='light'] .d-slot--on { fill: rgba(6, 50, 62, 0.85); }

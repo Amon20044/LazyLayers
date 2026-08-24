@@ -14,10 +14,17 @@ const CELL = 9;
 const GAP = 2.4;
 const PITCH = CELL + GAP;
 
-const FILL = {
-  s: '#F59E0B', // structural punctuation
-  k: '#FB7185', // key names
-  v: '#3F3F51', // values
+/* Classes, not hex — the byte grid re-colours with the theme like the
+   diagrams do. Values are deliberately the quiet one: they are the bytes that
+   actually carry information. */
+const CLS = {
+  s: 'bv-struct', // structural punctuation
+  k: 'bv-key',    // key names
+  v: 'bv-value',  // values
+} as const;
+
+export const BYTE_FILL = {
+  s: 'var(--bv-struct)', k: 'var(--bv-key)', v: 'var(--bv-value)',
 } as const;
 
 function grid(count: number, at: (i: number) => string, y0: number): string {
@@ -26,7 +33,7 @@ function grid(count: number, at: (i: number) => string, y0: number): string {
     const x = (i % PER_ROW) * PITCH;
     const y = y0 + Math.floor(i / PER_ROW) * PITCH;
     out += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${CELL}" height="${CELL}" rx="1.8"
-      fill="${at(i)}" class="bv-cell" style="--i:${i}"/>`;
+      class="bv-cell ${at(i)}" style="--i:${i}"/>`;
   }
   return out;
 }
@@ -44,9 +51,9 @@ export function byteViz(): string {
 
   const heading = (y: number, label: string, value: string, colour: string) => `
     <text x="0" y="${y}" font-family="'JetBrains Mono',monospace" font-size="10"
-          fill="#6B6B78" letter-spacing="0.12em">${label}</text>
+          class="v-muted" letter-spacing="0.12em">${label}</text>
     <text x="${width}" y="${y}" text-anchor="end" font-family="Inter,system-ui,sans-serif"
-          font-size="15" font-weight="600" fill="${colour}">${value}</text>`;
+          font-size="15" font-weight="600" class="${colour}">${value}</text>`;
 
   return `
 <svg viewBox="0 -14 ${width} ${height + 14}" role="img" aria-labelledby="bv-t bv-d"
@@ -57,25 +64,20 @@ export function byteViz(): string {
     123 bytes in total — fewer than JSON spends on values alone.</desc>
 
   <g>
-    ${heading(0, 'JSON', `${BUDGET.total} B`, '#E8E8EE')}
-    ${grid(kinds.length, (i) => FILL[kinds[i] as keyof typeof FILL], jsonY)}
+    ${heading(0, 'JSON', `${BUDGET.total} B`, 'v-strong')}
+    ${grid(kinds.length, (i) => CLS[kinds[i] as keyof typeof CLS], jsonY)}
   </g>
 
   <g>
-    ${heading(mpY - 26, 'MESSAGEPACK', `${BUDGET.binaryTotal} B`, '#5EEAD4')}
-    ${grid(mpBytes, () => 'url(#bv-bin)', mpY)}
+    ${heading(mpY - 26, 'MESSAGEPACK', `${BUDGET.binaryTotal} B`, 'v-mint')}
+    ${grid(mpBytes, () => 'bv-bin', mpY)}
   </g>
 
-  <defs>
-    <linearGradient id="bv-bin" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#5EEAD4"/><stop offset="100%" stop-color="#22D3EE"/>
-    </linearGradient>
-  </defs>
 </svg>`;
 }
 
 export const BYTE_LEGEND = [
-  { fill: FILL.s, label: 'Punctuation', value: BUDGET.structural },
-  { fill: FILL.k, label: 'Key names', value: BUDGET.keys },
-  { fill: FILL.v, label: 'Actual values', value: BUDGET.values },
+  { fill: BYTE_FILL.s, label: 'Punctuation', value: BUDGET.structural },
+  { fill: BYTE_FILL.k, label: 'Key names', value: BUDGET.keys },
+  { fill: BYTE_FILL.v, label: 'Actual values', value: BUDGET.values },
 ];

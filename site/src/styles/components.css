@@ -37,6 +37,8 @@
 }
 
 .nav__links { display: flex; gap: 0.25rem; margin-left: auto; }
+/* .nav__cta also sets margin-left:auto so the right-hand group stays pinned
+   even when the links are pulled out of flow at narrow widths. */
 .nav__link {
   font-size: var(--fs-sm); color: var(--text-muted);
   padding: 0.4375rem 0.75rem; border-radius: var(--r-sm);
@@ -50,7 +52,7 @@
   height: 1px; background: var(--grad-layer);
 }
 
-.nav__cta { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
+.nav__cta { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; margin-left: auto; }
 
 .nav__toggle {
   display: none; background: none; border: 1px solid var(--line-strong);
@@ -86,6 +88,7 @@
   .nav__link { padding: 0.75rem 0; font-size: 1rem; border-bottom: 1px solid var(--line-faint); }
   .nav__link.is-active::after { display: none; }
   .nav__toggle { display: flex; }
+  .nav__cta { margin-left: auto; }
   .nav__cta .btn--ghost { display: none; }
 }
 
