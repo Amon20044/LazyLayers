@@ -1,0 +1,120 @@
+---
+title: "RabbitMQ"
+description: "Run RabbitMQ, configure durable per-instance queues, and avoid the anonymous-queue trap."
+---
+
+Durable fanout. Every instance gets a queue that holds invalidations while it is disconnected and delivers them on reconnect.
+
+## Run RabbitMQ
+
+<Tabs>
+<Tab title="Docker">
+```bash
+docker run -d --name rabbitmq \
+  -p 5672:5672 \
+  -p 15672:15672 \
+  rabbitmq:3-management
+```
+
+Management UI at [http://localhost:15672](http://localhost:15672), default login `guest` / `guest`. The UI is worth having in development — you can watch queues fill and drain.
+</Tab>
+
+<Tab title="macOS">
+```bash
+brew install rabbitmq
+brew services start rabbitmq
+```
+</Tab>
+
+<Tab title="Managed">
+| Provider | Notes |
+| --- | --- |
+| [CloudAMQP](https://www.cloudamqp.com) | Dedicated RabbitMQ hosting, has a free tier |
+| [AWS Amazon MQ](https://aws.amazon.com/amazon-mq/) | Managed broker inside your VPC |
+</Tab>
+</Tabs>
+
+```bash .env
+RABBITMQ_URL="amqp://guest:guest@localhost:5672"
+```
+
+<Warning>
+The `guest` account only works over localhost. On a remote broker, create a real user and use `amqps://` for TLS.
+</Warning>
+
+## Connect
+
+```ts
+import { RabbitMQEventBus } from 'lazy-layers-cache';
+
+const eventBus = new RabbitMQEventBus('cache.invalidations', {
+  url: process.env.RABBITMQ_URL,
+  exchangeType: 'fanout',
+  durableInvalidationMode: true,
+  queueName: `${process.env.INSTANCE_ID}-cache`,
+  exclusiveQueue: false,
+  autoDeleteQueue: false,
+  prefetch: 100,
+  retryQueue: { enabled: true, maxSize: 10_000 },
+  logging: { env: 'production' },
+});
+
+const health = await eventBus.healthCheck();
+if (!health.ok) throw new Error(`cache bus unhealthy: ${JSON.stringify(health)}`);
+```
+
+`durableInvalidationMode: true` is the switch that matters. It sets `durable`, `persistent`, names the queue and disables auto-delete and exclusivity in one go. The explicit `exclusiveQueue` and `autoDeleteQueue` above are redundant with it, and are shown so the intent is visible.
+
+## The anonymous queue trap
+
+<Warning>
+If you enable durable mode and leave `queueName` unset, the broker generates a random name. When the connection drops, that queue is gone along with everything buffered in it — which is precisely what durability was supposed to protect.
+</Warning>
+
+Set a stable per-instance name:
+
+```ts
+queueName: `${process.env.INSTANCE_ID}-cache`,
+```
+
+On Kubernetes, `$HOSTNAME` gives you the pod name. That is stable for the pod's lifetime, which is what you need.
+
+## Options
+
+<ParamField path="exchange" type="string" required>
+  Constructor argument. Every instance must bind to the same exchange.
+</ParamField>
+
+<ParamField path="url" type="string">
+  AMQP URL. Required unless you call `init(url)` yourself.
+</ParamField>
+
+<ParamField path="exchangeType" type="'fanout' | 'topic' | 'direct'" default="fanout">
+  Fanout broadcasts to every bound queue, which is what invalidation wants. Topic or direct when one exchange serves several caches.
+</ParamField>
+
+<ParamField path="durableInvalidationMode" type="boolean" default="false">
+  Turns on durability end to end. The setting to use when a missed invalidation is unacceptable.
+</ParamField>
+
+<ParamField path="queueName" type="string">
+  Per-instance queue name. Required in durable mode.
+</ParamField>
+
+<ParamField path="prefetch" type="number">
+  Channel QoS. Caps unacknowledged messages per consumer so one slow instance cannot hoard the queue.
+</ParamField>
+
+<ParamField path="routingKey" type="string" default="">
+  Ignored for fanout. Required for topic and direct exchanges.
+</ParamField>
+
+## Watch it work
+
+In the management UI, open **Queues**. You should see one queue per instance, each bound to your exchange.
+
+Stop an instance and delete a key elsewhere. Its queue depth rises. Start it again and the depth drops to zero as it consumes the backlog. That is durability doing its job, and it is the behaviour Redis Pub/Sub cannot give you.
+
+## Note on amqplib 2.x
+
+The driver treats `heartbeat: 0` as *disabling* heartbeats, where older versions read it as "no preference". If you pass a heartbeat in your URL or options, check you meant it.

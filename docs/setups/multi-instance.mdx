@@ -1,0 +1,121 @@
+---
+title: "Multiple instances"
+description: "A recommended L1 + Redis L2 + event bus configuration, and how to give each instance an identity."
+---
+
+Use this when you run more than one process and they must agree on what is cached.
+
+## Recommended configuration
+
+```ts
+import Redis from 'ioredis';
+import { LazyLayersCache, RedisStore, RedisEventBus } from 'lazy-layers-cache';
+
+const redis = new Redis(process.env.REDIS_URL!);
+
+const eventBus = new RedisEventBus(redis, 'cache:invalidations', {
+  retryQueue: { enabled: true, maxSize: 10_000 },
+  handlerConcurrency: 1,
+});
+
+const health = await eventBus.healthCheck();
+if (!health.ok) throw new Error(`cache bus unhealthy: ${JSON.stringify(health)}`);
+
+export const cache = new LazyLayersCache<string, User>({
+  l2: new RedisStore<User>(redis, {
+    prefix: 'users:',
+    deleteStrategy: 'unlink',
+  }),
+
+  ttlMs: 60_000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 10_000 },
+    L2: { ttlMs: 300_000 },
+  },
+
+  eventBus,
+  source: process.env.INSTANCE_ID,
+  broadcastSet: true,
+  broadcastSetMaxBytes: 256 * 1024,
+
+  inflight: { enabled: true, ttlMs: 5_000 },
+  failSafe: { enabled: true, staleTtlMs: 300_000 },
+});
+```
+
+## INSTANCE_ID
+
+Every instance needs a stable, unique identity. It is stamped on published events so an instance can ignore its own, and it names durable queues and consumers on the durable transports.
+
+| Platform | Value |
+| --- | --- |
+| Kubernetes | `$HOSTNAME` — the pod name, already unique |
+| Docker Compose | `web-1`, `web-2`, set per service replica |
+| PM2 | `api-${NODE_APP_INSTANCE}` |
+| Local development | `dev-local` |
+
+```ts
+source: process.env.INSTANCE_ID ?? `dev-${process.pid}`,
+```
+
+<Warning>
+Two instances sharing a value will ignore each other's events, because each will see the other's publishes as its own. The bus will appear connected and do nothing. On durable transports they will also compete for the same queue or consumer and steal each other's messages.
+</Warning>
+
+## Short L1, long L2
+
+This is the pairing that makes a two-tier cache worth having.
+
+```ts
+levels: {
+  L1: { ttlMs: 10_000 },   // memory turns over quickly
+  L2: { ttlMs: 300_000 },  // shared tier absorbs the load
+}
+```
+
+L1 is per-instance and cannot be invalidated by anything except its own TTL or an event. Keeping it short bounds the damage when an event is missed.
+
+L2 is shared and is invalidated directly, so it can be long. It absorbs the traffic that L1 misses, which is what keeps your database quiet.
+
+A useful rule: **L1 TTL is your worst-case staleness if an event goes missing.** Choose it as the largest number you could explain to whoever reports the bug.
+
+## Run the health check before serving
+
+```ts
+const health = await eventBus.healthCheck();
+
+if (!health.ok) {
+  logger.fatal({ health }, 'cache bus unavailable');
+  process.exit(1);
+}
+
+app.listen(3000);
+```
+
+`healthCheck()` connects, creates streams and consumers where the transport needs them, and returns `{ ok: false, error }` rather than throwing. Running it before you accept traffic turns a configuration mistake into a failed startup instead of a slow leak of stale reads.
+
+## Broadcast caps
+
+A `set` event carries the loaded value so peers can fill their L1 without loading. That is excellent for a user record and wasteful for a large report.
+
+```ts
+broadcastSetMaxBytes: 256 * 1024,
+```
+
+Oversized values are still written to L1 and L2 normally. They are simply not fanned out, and peers fetch them from L2 instead. The skip emits `set:broadcast-skipped` with the size that triggered it.
+
+## Choosing a transport
+
+Redis Pub/Sub is the right default when you already run Redis and can tolerate a missed event during a disconnect. If you cannot, see [event buses](/docs/guides/event-buses) for the durable options.
+
+## Optional: versioned keys
+
+Under high-frequency updates, a write that was already in flight when a delete happened can land after it and repopulate the key.
+
+```ts
+versioning: { enabled: true },
+```
+
+With versioning on, the storage key becomes `key::v{generation}` and the generation advances on delete. A late write lands on the previous version, which nothing reads any more, so it cannot resurrect the value.
+
+The cost is that old versions stay in L2 until their TTL expires, so the keyspace grows with your delete rate. Turn it on for hot keys that are updated and deleted frequently, not everywhere.

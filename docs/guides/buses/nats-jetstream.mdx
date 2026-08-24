@@ -1,0 +1,196 @@
+---
+title: "NATS JetStream"
+description: "Run NATS with JetStream, give each instance a durable consumer, and get replay after a restart."
+---
+
+JetStream is persistence layered on the same NATS server. The subject and the client stay the same. What changes is that the server writes each invalidation to a stream and tracks, per instance, which messages that instance has acknowledged.
+
+That buys you three things core mode cannot give you:
+
+- **Durability.** An instance that is down while a key is deleted receives that invalidation when it comes back.
+- **Explicit acknowledgement.** A message is only considered delivered once your handler returns without throwing.
+- **Redelivery.** A handler that fails gets the message again rather than losing it.
+
+The cost is disk, a stream to size, and a per-instance identity you have to get right.
+
+## Run NATS with JetStream
+
+<Tabs>
+<Tab title="Docker">
+```bash
+docker run -d --name nats -p 4222:4222 nats:latest -js
+```
+</Tab>
+
+<Tab title="Binary">
+```bash
+nats-server -js
+```
+</Tab>
+
+<Tab title="Managed">
+| Provider | Notes |
+| --- | --- |
+| [Synadia Cloud](https://www.synadia.com/cloud) | From the creators of NATS, JetStream enabled by default |
+</Tab>
+</Tabs>
+
+<Warning>
+The `-js` flag is the thing people forget. Without it the server starts perfectly, accepts your connection, and then fails every stream operation — so the failure surfaces as a confusing error from `healthCheck()` rather than as a server that would not start. If `ok` is false and the error mentions JetStream not being enabled, this is why.
+</Warning>
+
+```bash .env
+NATS_URL="nats://localhost:4222"
+```
+
+## Connect
+
+```ts
+import { NatsEventBus } from 'lazy-layers-cache';
+
+const eventBus = new NatsEventBus({
+  mode: 'jetstream',
+  subject: 'cache.invalidations',
+  connectionOptions: {
+    servers: process.env.NATS_URL,
+    name: process.env.INSTANCE_ID,
+  },
+  jetstream: {
+    stream: 'CACHE_INVALIDATIONS',
+    durableName: `cache-${process.env.INSTANCE_ID}`,
+    storage: 'file',
+    maxAgeMs: 60 * 60 * 1000,
+    maxMsgs: 100_000,
+    ackWaitMs: 30_000,
+    maxDeliver: 10,
+    ensureStream: true,
+    ensureConsumer: true,
+  },
+  retryQueue: { enabled: true, maxSize: 10_000 },
+  logging: { env: 'production' },
+});
+
+const health = await eventBus.healthCheck();
+if (!health.ok) throw new Error(`cache bus unhealthy: ${JSON.stringify(health)}`);
+```
+
+`healthCheck()` connects, creates the stream and the consumer if they are missing, and returns `{ ok: false, error }` rather than throwing. Run it before you accept traffic and a bad `durableName` or a server started without `-js` becomes a failed startup instead of a cache that silently never invalidates.
+
+The stream is created with `Limits` retention, which means acknowledging a message does not remove it. Messages leave the stream when they age out of `maxAgeMs` or push it past `maxMsgs`. This is what makes replay possible for an instance that was down, and it is why both limits are worth setting.
+
+## durableName must be unique per instance
+
+<Warning>
+`durableName` names a server-side cursor. JetStream resumes delivery from wherever that cursor last acknowledged, and it delivers each message to **one** consumer of that name. Two instances sharing a `durableName` do not both get the invalidation — they split the stream between them and each one misses roughly half. The bus reports healthy the whole time, and you find out through stale reads.
+</Warning>
+
+Derive it from the same identity you pass to `source`.
+
+```ts
+durableName: `cache-${process.env.INSTANCE_ID}`,
+```
+
+On Kubernetes, `$HOSTNAME` gives you the pod name. Names must be stable across restarts — that stability is the whole mechanism, because a new name is a new cursor that starts from the beginning of the stream.
+
+`durableName` has no default and is required in JetStream mode. `connect()` throws before it opens a connection if it is missing.
+
+## JetStream options
+
+<ParamField path="jetstream.durableName" type="string" required>
+  Per-instance durable consumer identity. Required, and unique per instance.
+</ParamField>
+
+<ParamField path="jetstream.stream" type="string" default="CACHE_INVALIDATIONS">
+  Stream name. Shared by every instance, unlike `durableName`.
+</ParamField>
+
+<ParamField path="jetstream.storage" type="'file' | 'memory'" default="file">
+  File storage survives a NATS restart. Memory is faster and loses the stream with the server, which removes most of the reason to use JetStream.
+</ParamField>
+
+<ParamField path="jetstream.maxAgeMs" type="number">
+  Drop messages older than this. Unset means messages are only bounded by `maxMsgs`. Set it to the longest outage you want an instance to be able to catch up from.
+</ParamField>
+
+<ParamField path="jetstream.maxMsgs" type="number" default="-1">
+  Hard cap on stored messages. `-1` is unlimited, which on file storage means the stream grows until the disk does not.
+</ParamField>
+
+<ParamField path="jetstream.ackWaitMs" type="number" default="30000">
+  How long the server waits for an acknowledgement before redelivering the message.
+</ParamField>
+
+<ParamField path="jetstream.maxDeliver" type="number" default="10">
+  Maximum delivery attempts before the server stops redelivering a message.
+</ParamField>
+
+<ParamField path="jetstream.ensureStream" type="boolean" default="true">
+  Create the stream if it does not already exist.
+</ParamField>
+
+<ParamField path="jetstream.ensureConsumer" type="boolean" default="true">
+  Create the durable consumer if it does not already exist.
+</ParamField>
+
+Core-mode options — `subject`, `connectionOptions`, `connection`, `retryQueue` and `logging` — behave identically here and are documented on the [NATS Core](/docs/guides/buses/nats-core) page.
+
+## Letting the bus provision, or not
+
+With `ensureStream` and `ensureConsumer` left at `true`, the bus checks for the stream and the consumer on every `connect()` and creates whichever is missing. That is what you want in development and in most deployments — a fresh instance brings up its own consumer with no operational step.
+
+Set them to `false` when the stream and consumers are provisioned outside the application, by Terraform, a NATS CLI script, or your platform team. Two reasons to do that:
+
+- The application's credentials do not include stream management permissions, so the create call fails and takes startup down with it.
+- Your stream configuration is owned elsewhere and must not drift. An existing stream is never modified — the bus creates a stream only when it finds none — but turning the flags off removes the ambiguity entirely.
+
+With `ensureConsumer: false`, the consumer named by `durableName` must already exist. If it does not, `connect()` fails when it tries to bind.
+
+## The ack model
+
+The bus consumes a message, decodes it, runs your handler, and acknowledges only after the handler returns. Nothing is acknowledged in advance.
+
+Three outcomes:
+
+| Outcome | What the bus does | What the server does |
+| --- | --- | --- |
+| Handler returns | Acknowledges the message | Advances the cursor |
+| Handler throws | Negatively acknowledges | Redelivers immediately |
+| Message does not decode | Terminates the message | Never redelivers it |
+
+A handler that throws every time is a poison message. It is redelivered up to `maxDeliver` times and then the server stops, leaving it in the stream until retention removes it. With the default of 10 that costs you ten runs of a failing handler, which is why `maxDeliver` exists as a bound rather than being unlimited.
+
+`ackWaitMs` is a timeout on your handler, not just on the network. If a handler takes longer than `ackWaitMs` to return, the server assumes the delivery failed and sends the message again while the first attempt is still running. Invalidation handlers are normally fast enough that 30 seconds is generous, but if yours does anything slow, raise `ackWaitMs` rather than discovering duplicate deliveries.
+
+A message with a corrupt or unrecognised payload is terminated rather than negatively acknowledged, because redelivering it would fail identically ten more times.
+
+## Verify it works
+
+The point of JetStream is what happens across a restart, so test that rather than the happy path.
+
+<Steps>
+<Step title="Start two instances">
+Confirm normal fanout first. Delete a key on instance A and watch instance B log `invalidation:received`. If this does not work, durability is not your problem.
+</Step>
+
+<Step title="Stop instance B">
+Shut it down properly so `disconnect()` runs. Its consumer stays on the server with its cursor where it left off.
+</Step>
+
+<Step title="Delete keys on instance A">
+Delete several keys while B is down. Each publish goes into the stream.
+</Step>
+
+<Step title="Check the backlog">
+```bash
+nats consumer info CACHE_INVALIDATIONS cache-instance-b
+```
+
+`Unprocessed Messages` should equal the number of invalidations you published while B was down.
+</Step>
+
+<Step title="Start instance B again">
+It logs an `invalidation:received` for each missed delete within a moment of connecting, and the unprocessed count drops to zero. That catch-up is the behaviour core mode and Redis Pub/Sub cannot give you.
+</Step>
+</Steps>
+
+If B comes back and receives nothing, the usual cause is a `durableName` that changed with the restart. A generated or hostname-derived name that differs from the previous run is a new consumer, and a new consumer has no record of what the old one missed.

@@ -17,7 +17,7 @@ const cache = new LazyLayersCache({
 });
 ```
 
-Because L1 lives in the process, it is per-instance. Three servers means three L1 caches that know nothing about each other, which is the problem [invalidation](/concepts/invalidation) exists to solve.
+Because L1 lives in the process, it is per-instance. Three servers means three L1 caches that know nothing about each other, which is the problem [invalidation](/docs/concepts/invalidation) exists to solve.
 
 ## L2: shared store
 
@@ -32,7 +32,7 @@ const cache = new LazyLayersCache({
 });
 ```
 
-L2 stores bytes, not objects, so values are encoded on the way in and decoded on the way out. That encoding is described in [serialization](/concepts/serialization).
+L2 stores bytes, not objects, so values are encoded on the way in and decoded on the way out. That encoding is described in [serialization](/docs/concepts/serialization).
 
 L2 survives a restart and is visible to every instance. It costs a network round trip and it can fail, which is why L2 errors are treated as misses rather than exceptions.
 

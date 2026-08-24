@@ -1,0 +1,117 @@
+---
+title: "Redis Pub/Sub"
+description: "Run Redis, connect the bus, and understand what at-most-once delivery costs you."
+---
+
+The lowest-friction transport. If you already run Redis as your L2, this adds no new infrastructure.
+
+**Delivery is at-most-once.** A subscriber receives messages only while connected. An instance that was restarting misses those invalidations and falls back to TTL expiry.
+
+## Run Redis
+
+<Tabs>
+<Tab title="Docker">
+```bash
+docker run -d --name redis -p 6379:6379 redis:7-alpine
+```
+</Tab>
+
+<Tab title="macOS">
+```bash
+brew install redis
+brew services start redis
+```
+</Tab>
+
+<Tab title="Linux">
+```bash
+sudo apt install redis-server
+sudo systemctl enable --now redis-server
+```
+</Tab>
+
+<Tab title="Managed">
+No install. Create an instance and take the connection URL.
+
+| Provider | Notes |
+| --- | --- |
+| [Upstash](https://upstash.com) | Serverless, per-request pricing, generous free tier |
+| [Redis Cloud](https://redis.io/cloud/) | From the maintainers of Redis |
+| [AWS ElastiCache](https://aws.amazon.com/elasticache/) | Inside your VPC |
+| [DigitalOcean Managed Redis](https://www.digitalocean.com/products/managed-databases-redis) | Straightforward pricing |
+</Tab>
+</Tabs>
+
+```bash .env
+REDIS_URL="redis://localhost:6379"
+```
+
+Managed providers usually issue a `rediss://` URL. The extra `s` means TLS, and `ioredis` handles it from the URL alone.
+
+## Connect
+
+```ts
+import Redis from 'ioredis';
+import { LazyLayersCache, RedisStore, RedisEventBus } from 'lazy-layers-cache';
+
+const redis = new Redis(process.env.REDIS_URL!);
+
+const eventBus = new RedisEventBus(redis, 'cache:invalidations', {
+  retryQueue: { enabled: true, maxSize: 10_000 },
+  handlerConcurrency: 1,
+  logging: { env: 'production' },
+});
+
+const health = await eventBus.healthCheck();
+if (!health.ok) throw new Error(`cache bus unhealthy: ${JSON.stringify(health)}`);
+
+export const cache = new LazyLayersCache({
+  l2: new RedisStore(redis, { prefix: 'app:' }),
+  eventBus,
+  source: process.env.INSTANCE_ID,
+});
+```
+
+You pass one client. The bus calls `.duplicate()` internally for the subscriber, because a Redis connection in subscriber mode cannot issue other commands. Reusing your L2 client here is correct and intended.
+
+Every instance must use the **same channel name**. Instances on different channels will not see each other.
+
+## Options
+
+<ParamField path="redis" type="Redis" required>
+  An existing `ioredis` client.
+</ParamField>
+
+<ParamField path="channel" type="string" required>
+  Pub/Sub channel. Identical across every instance sharing invalidation.
+</ParamField>
+
+<ParamField path="handlerConcurrency" type="number" default="1">
+  Concurrent handler executions. The default preserves approximate ordering. Raise it for throughput and give that up.
+</ParamField>
+
+<ParamField path="retryQueue.enabled" type="boolean" default="true">
+  Buffer failed publishes and flush on the next success. Pub/Sub is fire-and-forget, so without this a single network blip loses the event.
+</ParamField>
+
+<ParamField path="retryQueue.maxSize" type="number" default="10000">
+  Cap on buffered events. Oldest drops first with a warning.
+</ParamField>
+
+## Verify it works
+
+Run two processes against the same Redis and watch one react to the other.
+
+```ts
+cache.on((event) => {
+  if (event.type === 'invalidation:received') {
+    console.log('received', event.eventType, event.eventId);
+  }
+});
+```
+
+Delete a key on instance A. Instance B should log an `invalidation:received` within milliseconds. If it does not, check that both use the same channel and that their `source` values differ.
+
+## When to move on
+
+Redis Pub/Sub is the right answer until a missed invalidation becomes a correctness problem rather than a staleness one. If a deploy, a network partition or a restart must not leave an instance serving old data, use [RabbitMQ](/docs/guides/buses/rabbitmq) or [NATS JetStream](/docs/guides/buses/nats-jetstream).

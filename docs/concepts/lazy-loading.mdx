@@ -16,7 +16,7 @@ const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id));
 It calls `get(key)` first, which walks L1 then L2. A hit returns immediately and the loader never runs.
 </Step>
 <Step title="Check the negative cache">
-If the key was recently recorded as a known miss, it returns `undefined` without calling the loader. See [negative caching](/guides/failure-handling#negative-caching).
+If the key was recently recorded as a known miss, it returns `undefined` without calling the loader. See [negative caching](/docs/guides/failure-handling#negative-caching).
 </Step>
 <Step title="Join an in-flight load">
 If another caller is already loading this key, the current caller waits on that same promise instead of starting a second load.
@@ -49,7 +49,7 @@ calls; // 1
 
 Each reuse emits an `inflight:reuse` event, so you can measure how much collapsing is actually happening.
 
-This is per-process. Four instances each collapse their own callers, which is four loader calls rather than one. [Stampede protection](/guides/stampede-protection) covers the distributed lock that reduces that to one.
+This is per-process. Four instances each collapse their own callers, which is four loader calls rather than one. [Stampede protection](/docs/guides/stampede-protection) covers the distributed lock that reduces that to one.
 
 ## The loader signature
 
@@ -62,7 +62,7 @@ await cache.getOrSet('user:42', async ({ signal } = {}) => {
 });
 ```
 
-The signal is aborted when a loader exceeds a configured timeout, which lets you cancel the underlying work rather than leave it running. Timeouts are covered in [failure handling](/guides/failure-handling#loader-timeouts).
+The signal is aborted when a loader exceeds a configured timeout, which lets you cancel the underlying work rather than leave it running. Timeouts are covered in [failure handling](/docs/guides/failure-handling#loader-timeouts).
 
 ## Returning undefined
 
@@ -72,4 +72,4 @@ A loader that returns `undefined` is treated as a miss rather than a value. Noth
 
 `set` writes a value you already have. `getOrSet` produces one you do not.
 
-The difference matters for [invalidation](/concepts/invalidation): a `getOrSet` loader result is broadcast to peers so their L1 fills, while a direct `set` is not. If you want peers primed, load through `getOrSet`.
+The difference matters for [invalidation](/docs/concepts/invalidation): a `getOrSet` loader result is broadcast to peers so their L1 fills, while a direct `set` is not. If you want peers primed, load through `getOrSet`.

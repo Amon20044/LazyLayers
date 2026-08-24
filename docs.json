@@ -1,0 +1,114 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "aspen",
+  "name": "LazyLayers",
+  "colors": {
+    "primary": "#4F46E5",
+    "light": "#818CF8",
+    "dark": "#4338CA"
+  },
+  "favicon": "/docs/favicon.svg",
+  "navigation": {
+    "pages": [
+      {
+        "group": "Get started",
+        "pages": [
+          "docs/index",
+          "docs/installation",
+          "docs/quickstart",
+          "docs/walkthrough"
+        ]
+      },
+      {
+        "group": "Recommended setups",
+        "pages": [
+          "docs/setups/single-process",
+          "docs/setups/multi-instance",
+          "docs/setups/production"
+        ]
+      },
+      {
+        "group": "Concepts",
+        "pages": [
+          "docs/concepts/layers",
+          "docs/concepts/lazy-loading",
+          "docs/concepts/invalidation",
+          "docs/concepts/serialization",
+          "docs/concepts/resilience"
+        ]
+      },
+      {
+        "group": "Event buses",
+        "pages": [
+          "docs/guides/event-buses",
+          "docs/guides/buses/redis",
+          "docs/guides/buses/rabbitmq",
+          "docs/guides/buses/nats-core",
+          "docs/guides/buses/nats-jetstream"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "docs/guides/stampede-protection",
+          "docs/guides/failure-handling",
+          "docs/guides/observability"
+        ]
+      },
+      {
+        "group": "Architecture",
+        "pages": [
+          "docs/architecture/execution-paths",
+          "docs/architecture/event-ordering"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "docs/reference/configuration",
+          "docs/reference/api",
+          "docs/reference/stores",
+          "docs/reference/event-buses",
+          "docs/reference/cache-events",
+          "docs/reference/environment-variables"
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/docs/logo/light.svg",
+    "dark": "/docs/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "npm",
+        "href": "https://www.npmjs.com/package/lazy-layers-cache"
+      }
+    ],
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/Amon20044/LazyLayers"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "mcp"
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/Amon20044/LazyLayers"
+    }
+  },
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/docs"
+    }
+  ]
+}

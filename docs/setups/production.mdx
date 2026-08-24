@@ -1,0 +1,158 @@
+---
+title: "Production checklist"
+description: "A fully-specified production configuration, and the things worth checking before you ship it."
+---
+
+Every option set deliberately, with the reasoning next to it.
+
+## Full configuration
+
+```ts cache.ts
+import Redis from 'ioredis';
+import { LazyLayersCache, RedisStore, RedisEventBus } from 'lazy-layers-cache';
+
+const redis = new Redis(process.env.REDIS_URL!);
+const instanceId = process.env.INSTANCE_ID ?? process.env.HOSTNAME!;
+
+const eventBus = new RedisEventBus(redis, 'cache:invalidations', {
+  retryQueue: { enabled: true, maxSize: 10_000 },
+  handlerConcurrency: 1,
+  logging: { env: 'production' },
+});
+
+export const cache = new LazyLayersCache<string, User>({
+  // Layers
+  l2: new RedisStore<User>(redis, {
+    prefix: 'users:',
+    useIndex: true,
+    scanCount: 1_000,
+    batchSize: 500,
+    deleteStrategy: 'unlink',
+  }),
+
+  // Cache policy
+  ttlMs: 60_000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 10_000 },
+    L2: { maxEntries: 100_000, ttlMs: 300_000 },
+  },
+
+  // Load behaviour
+  inflight: { enabled: true, ttlMs: 5_000, maxEntries: 10_000 },
+  distributedLock: { enabled: true, ttlMs: 10_000, waitTimeoutMs: 2_000, pollMs: 50 },
+  negativeCache: { enabled: true, ttlMs: 5_000, maxEntries: 10_000 },
+  failSafe: { enabled: true, staleTtlMs: 300_000 },
+  timeouts: { softMs: 100, hardMs: 2_000 },
+
+  // Distributed invalidation
+  eventBus,
+  source: instanceId,
+  subscribeToEvents: true,
+  broadcastSet: true,
+  broadcastSetMaxBytes: 256 * 1024,
+  eventDedupeMaxEntries: 10_000,
+  eventDedupeTtlMs: 300_000,
+
+  // Resilience
+  resilience: {
+    l2CircuitBreaker: { failureThreshold: 3, cooldownMs: 30_000 },
+    eventBusCircuitBreaker: { failureThreshold: 3, cooldownMs: 30_000 },
+  },
+
+  logging: { env: 'production' },
+  events: [(event) => metrics.increment(`cache.${event.type}`)],
+});
+```
+
+## Before you ship
+
+<Steps>
+<Step title="Give every instance a unique, stable identity">
+`source` must differ per instance and survive restarts. Two instances sharing it will ignore each other's events entirely. On durable transports they will also fight over the same queue or consumer.
+</Step>
+
+<Step title="Health-check the bus before accepting traffic">
+```ts
+const health = await eventBus.healthCheck();
+if (!health.ok) { logger.fatal({ health }); process.exit(1); }
+app.listen(3000);
+```
+This creates streams and consumers where the transport needs them, and turns a misconfiguration into a failed start rather than silent staleness.
+</Step>
+
+<Step title="Keep L1 TTL short">
+L1 is your worst-case staleness if an event is missed. Ten seconds is a reasonable default. L2 can be much longer because it is invalidated directly.
+</Step>
+
+<Step title="Give each durable consumer its own name">
+RabbitMQ `queueName` and NATS `jetstream.durableName` must be per-instance. Anonymous or shared names lose exactly the messages durability was meant to keep.
+</Step>
+
+<Step title="Make loaders idempotent and timeout-aware">
+A loader may run more than once — inflight caps, lock timeouts and retries all allow it. Accept the `AbortSignal` and pass it to your I/O so a timed-out load actually stops.
+
+```ts
+await cache.getOrSet(key, async ({ signal } = {}) => {
+  const res = await fetch(url, { signal });
+  return res.ok ? res.json() : undefined;
+});
+```
+</Step>
+
+<Step title="Set logging.env to production">
+Suppresses debug logging. Do this explicitly rather than relying on `NODE_ENV` being what you assume.
+</Step>
+
+<Step title="Cap broadcasts if values can be large">
+`broadcastSetMaxBytes` stops a large payload being copied to every instance over the bus.
+</Step>
+
+<Step title="Use unlink for deletes">
+`deleteStrategy: 'unlink'` reclaims memory on a Redis background thread instead of blocking the server. It is the default, so this is a check rather than a change.
+</Step>
+</Steps>
+
+## Things that bite
+
+<AccordionGroup>
+<Accordion title="Broad pattern deletes on a large keyspace">
+`deleteByPattern('*')` on a large cache scans a lot of keys and drops a lot of L1 entries across every instance at once, which produces a thundering herd on the next request wave.
+
+Prefer narrow prefixes (`user:42:*` over `user:*`), and prefer explicit deletes where you know the keys.
+</Accordion>
+
+<Accordion title="Distributed locks on cheap loaders">
+The lock costs a Redis round trip on every cold load. If your loader takes 5 ms, the lock is more expensive than the duplicate work it prevents.
+
+Enable it when the loader is expensive, hits a rate-limited third party, or does work you cannot afford to run twice.
+</Accordion>
+
+<Accordion title="Metrics labelled by cache key">
+Most cache events carry a `key`. Using it as a metrics label creates one time series per cache key and will take down your metrics backend before it takes down your cache.
+
+Label by `type` and `level`. Keep the key for logs.
+</Accordion>
+
+<Accordion title="Soft timeouts with no stale value">
+`timeouts.softMs` only applies when fail-safe is on and a stale value exists to serve. Setting it without `failSafe.enabled` and a `staleTtlMs` does nothing.
+
+If you want an unconditional deadline, that is `hardMs`.
+</Accordion>
+
+<Accordion title="Negative cache TTLs that are too long">
+A negative entry is the window in which a newly created record still looks absent. Seconds, not minutes.
+</Accordion>
+</AccordionGroup>
+
+## What to alert on
+
+| Signal | Event | Meaning |
+| --- | --- | --- |
+| L2 error rate | `l2:error` | Redis is unhealthy |
+| Breaker open | `l2:skipped`, `event-bus:publish-skipped` | Calls are being skipped, staleness is growing |
+| Stale served | `stale:hit` | Loaders are failing or timing out |
+| Publish failures | `event-bus:publish-error` | Instances are drifting apart |
+| Reordering | `invalidation:stale` | Events arriving badly out of order |
+| Dedupe bypass | `inflight:bypass` | `inflight.maxEntries` is too low |
+
+`invalidation:duplicate` is normal on durable transports and is not worth alerting on.
