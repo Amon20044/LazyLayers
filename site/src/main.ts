@@ -155,9 +155,25 @@ function initNav() {
   const toggle = $<HTMLButtonElement>('#navtoggle')!;
   const links = $('#navlinks')!;
 
-  const onScroll = () => nav.classList.toggle('is-stuck', window.scrollY > 24);
-  onScroll();
-  window.addEventListener('scroll', onScroll, { passive: true });
+  // A sentinel beats a scroll listener here: smooth-scroll libraries own the
+  // scroll position, and anything that offsets content without moving
+  // window.scrollY would leave the bar transparent over real content.
+  const sentinel = document.createElement('div');
+  sentinel.setAttribute('aria-hidden', 'true');
+  sentinel.style.cssText = 'position:absolute;top:0;left:0;width:1px;height:24px;pointer-events:none';
+  document.body.prepend(sentinel);
+
+  const hasIO = typeof IntersectionObserver !== 'undefined';
+  if (hasIO) {
+    new IntersectionObserver(
+      ([e]) => nav.classList.toggle('is-stuck', !e.isIntersecting),
+      { threshold: 0 },
+    ).observe(sentinel);
+  } else {
+    const onScroll = () => nav.classList.toggle('is-stuck', window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
 
   toggle.addEventListener('click', () => {
     const open = toggle.getAttribute('aria-expanded') === 'true';
