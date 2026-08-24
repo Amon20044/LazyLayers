@@ -1,0 +1,58 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "aspen",
+  "name": "LazyLayers",
+  "colors": { "primary": "#4F46E5", "light": "#818CF8", "dark": "#4338CA" },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "pages": [
+      {
+        "group": "Get started",
+        "pages": ["index", "installation", "quickstart", "walkthrough"]
+      },
+      {
+        "group": "Concepts",
+        "pages": [
+          "concepts/layers",
+          "concepts/lazy-loading",
+          "concepts/invalidation",
+          "concepts/serialization",
+          "concepts/resilience"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/event-buses",
+          "guides/stampede-protection",
+          "guides/failure-handling",
+          "guides/observability"
+        ]
+      },
+      {
+        "group": "Architecture",
+        "pages": ["architecture/execution-paths", "architecture/event-ordering"]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "reference/configuration",
+          "reference/api",
+          "reference/stores",
+          "reference/event-buses",
+          "reference/cache-events",
+          "reference/environment-variables"
+        ]
+      }
+    ]
+  },
+  "logo": { "light": "/logo/light.svg", "dark": "/logo/dark.svg" },
+  "navbar": {
+    "links": [{ "label": "npm", "href": "https://www.npmjs.com/package/lazy-layers-cache" }],
+    "primary": { "type": "github", "href": "https://github.com/Amon20044/LazyLayers" }
+  },
+  "contextual": { "options": ["copy", "view", "chatgpt", "claude", "mcp"] },
+  "footer": {
+    "socials": { "github": "https://github.com/Amon20044/LazyLayers" }
+  }
+}

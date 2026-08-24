@@ -1,0 +1,106 @@
+---
+title: "Quickstart"
+description: "Cache a database read, watch the second call skip the database, and see what the cache did."
+---
+
+By the end of this page you will have a working read-through cache and a way to see what it is doing.
+
+## Prerequisites
+
+Node.js 20 or 22+, and a project with `lazy-layers-cache` installed. No Redis, no broker.
+
+<Steps>
+<Step title="Create a cache">
+
+```ts
+import { LazyLayersCache } from 'lazy-layers-cache';
+
+const cache = new LazyLayersCache({ ttlMs: 60_000 });
+```
+
+With no layers configured, LazyLayers gives you an in-process LRU as L1. It holds 1,000 entries by default and evicts the least recently used entry when full.
+
+</Step>
+<Step title="Cache a read">
+
+`getOrSet` is the read-through path. It returns the cached value if there is one, and otherwise runs your loader and stores the result.
+
+```ts
+async function getUser(id: string) {
+  return cache.getOrSet(`user:${id}`, async () => {
+    console.log('hitting the database');
+    return db.users.findById(id);
+  });
+}
+
+await getUser('42'); // logs "hitting the database"
+await getUser('42'); // no log — served from L1
+```
+
+The second call never reaches the loader. Nothing else changed.
+
+</Step>
+<Step title="See what happened">
+
+Every operation emits an event. Subscribe to them and the cache stops being a black box.
+
+```ts
+cache.on((event) => {
+  console.log(event.type, 'key' in event ? event.key : '');
+});
+```
+
+Running the two calls above now prints roughly:
+
+```text
+miss user:42
+loader:start user:42
+loader:success user:42
+set user:42
+hit user:42
+```
+
+The full list is in the [cache events reference](/reference/cache-events).
+
+</Step>
+<Step title="Try one useful change">
+
+Ask for the same cold key many times at once. Only one loader call happens.
+
+```ts
+let calls = 0;
+
+await Promise.all(
+  Array.from({ length: 1000 }, () =>
+    cache.getOrSet('report:daily', async () => {
+      calls++;
+      return buildExpensiveReport();
+    }),
+  ),
+);
+
+console.log(calls); // 1
+```
+
+The first caller owns the load. Everyone else waits on the same promise. This is on by default and covered in [stampede protection](/guides/stampede-protection).
+
+</Step>
+</Steps>
+
+## What just happened
+
+- `getOrSet` checked L1, missed, and ran your loader.
+- The result was written back to L1 with the TTL you configured.
+- The second read was served from memory without touching the loader.
+- Concurrent callers for one key shared a single in-flight promise rather than each running the loader.
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="Walkthrough" icon="route" href="/walkthrough">
+    Add Redis and an event bus to the same service, one problem at a time.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/reference/configuration">
+    TTLs, layer sizes, timeouts and the rest.
+  </Card>
+</Columns>

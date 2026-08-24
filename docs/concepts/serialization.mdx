@@ -1,0 +1,65 @@
+---
+title: "Serialization"
+description: "The three wire encodings, how one is chosen per payload, and what the 4-byte prefix is for."
+---
+
+L1 holds live objects, so nothing is encoded there. L2 holds bytes, so every value crossing into Redis is serialized.
+
+## Why not JSON
+
+JSON spends a lot of bytes on things that carry no information. Take a real session record from the benchmark fixtures:
+
+| Part of the document | Bytes |
+| --- | --- |
+| Structural punctuation (`{}[]",:`) | 21 |
+| Key names, repeated on every record | 64 |
+| Actual values | 127 |
+| **Total** | **212** |
+
+Forty percent of that document is punctuation and key names you already know. MessagePack encodes the same record in 123 bytes, which is fewer bytes than JSON spends on the values alone.
+
+## The three encodings
+
+Each buffer is tagged with a 4-byte prefix naming its own format.
+
+| Prefix | Encoding | Chosen when |
+| --- | --- | --- |
+| `HC1M` | MessagePack | The default for any payload |
+| `HC1G` | gzip over MessagePack | Payload is at least 64 kB **and** gzip saves at least 15% |
+| `HC1J` | JSON | `CACHE_FORMAT=json` or debug serialization is on |
+
+The gzip condition has two parts, and the second one matters. A large blob of already-compressed or random data does not compress, so attempting it would burn CPU for nothing. If the compressed result does not clear the threshold, the plain MessagePack buffer is stored instead.
+
+## Reading is uniform
+
+Because the prefix names the format, the read path does not need to know how a value was written. It inspects four bytes and dispatches.
+
+That has a practical consequence: you can change the write policy without migrating anything. Old values keep decoding correctly because they carry their own format tag.
+
+Buffers written before prefixes existed are detected as `legacy` and routed to a fallback decoder.
+
+## Inspecting what a value costs
+
+`serializeWithStats` returns the buffer along with what happened.
+
+```ts
+import { serializeWithStats } from 'lazy-layers-cache';
+
+const { buffer, encoding, compressionRatio, compressed } = serializeWithStats(catalog);
+
+encoding;          // 'msgpack-gzip'
+buffer.length;     // 9903
+compressionRatio;  // 0.9211
+```
+
+The same numbers are shown per key in the [observability dashboard](/guides/observability).
+
+## Corruption is not an exception
+
+A truncated or damaged buffer returns `null` rather than throwing. A damaged cache entry becomes a miss, and your loader runs. It does not become a 500.
+
+`null` and `undefined` round-trip through a packed sentinel, so a cached `null` stays distinguishable from an absent key and the sentinel never leaks into your values.
+
+## Turning it off
+
+Set `CACHE_FORMAT=json` to store readable JSON instead. Values become inspectable with `redis-cli` at the cost of size. The read path is unchanged, so you can flip it per environment.

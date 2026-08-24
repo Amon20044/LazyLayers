@@ -1,0 +1,99 @@
+---
+title: "Stores"
+description: "MemoryStore, RedisStore, and the CacheStore interface you implement for your own."
+---
+
+A store is anything implementing `CacheStore`. Both layers accept one.
+
+## MemoryStore
+
+The default L1. Wraps `lru-cache` and holds live objects, so reads cost a map lookup.
+
+```ts
+import { MemoryStore } from 'lazy-layers-cache';
+
+const l1 = new MemoryStore({
+  levels: { L1: { maxEntries: 10_000, ttlMs: 30_000 } },
+});
+```
+
+Constructed automatically unless you pass your own `l1` or set `l1: false`.
+
+## RedisStore
+
+The shared L2. Takes an existing `ioredis` client, so connection settings, TLS and cluster configuration stay yours.
+
+```ts
+import Redis from 'ioredis';
+import { RedisStore } from 'lazy-layers-cache';
+
+const store = new RedisStore(new Redis(process.env.REDIS_URL), {
+  prefix: 'app:cache:',
+});
+```
+
+### Options
+
+<ParamField path="prefix" type="string" default="cache:">
+  Prepended to every key. Use a distinct prefix per application sharing a Redis instance.
+</ParamField>
+
+<ParamField path="indexKey" type="string" default="{prefix}__index">
+  Sorted set tracking known keys, used for pattern deletes and size.
+</ParamField>
+
+<ParamField path="useIndex" type="boolean" default="true">
+  Maintain the index. Disabling it removes a write per `set` and makes pattern deletes fall back to scanning.
+</ParamField>
+
+<ParamField path="scanCount" type="number">
+  `COUNT` hint for scans during pattern deletes.
+</ParamField>
+
+<ParamField path="batchSize" type="number">
+  How many keys are deleted per pipeline batch.
+</ParamField>
+
+<ParamField path="deleteStrategy" type="'unlink' | 'del'" default="unlink">
+  `UNLINK` reclaims memory on a background thread and does not block the server. Use `del` only if your Redis predates it.
+</ParamField>
+
+It also accepts the `CacheOptions` fields, so a store can carry its own TTL policy.
+
+### Behaviour worth knowing
+
+Values are serialized on write and read back with `getBuffer()`, which preserves binary payloads. TTLs are applied with `PX`, so expiry is Redis-side.
+
+`RedisStore` implements `InspectableStore`, which is what lets the dashboard page through keys, and it supports the distributed lock.
+
+## Custom stores
+
+Implement `CacheStore` to back a layer with something else.
+
+```ts
+import type { CacheStore, CacheOptions, CacheLoader } from 'lazy-layers-cache';
+
+class MyStore<V> implements CacheStore<string, V> {
+  async set(key: string, value: V, options?: CacheOptions): Promise<void> { /* ... */ }
+  async get(key: string): Promise<V | undefined> { /* ... */ }
+  async getOrSet(key: string, loader: CacheLoader<V>, options?: CacheOptions): Promise<V | undefined> { /* ... */ }
+  async has(key: string): Promise<boolean> { /* ... */ }
+  async delete(key: string): Promise<void> { /* ... */ }
+  async deleteByPattern(pattern: string): Promise<void> { /* ... */ }
+  async clear(): Promise<void> { /* ... */ }
+  async size(): Promise<number> { /* ... */ }
+}
+```
+
+Two optional capabilities extend what a store can participate in:
+
+| Capability | Methods | Unlocks |
+| --- | --- | --- |
+| `InspectableStore` | `inspect(options)` | Key browsing in the dashboard |
+| Distributed lock | `acquireLock`, `releaseLock` | Cross-instance stampede protection |
+
+Both are detected at runtime. A store without them still works, and the features that need them stay inactive.
+
+<Tip>
+Throw from your store methods rather than returning sentinel values. The cache wraps L2 calls in a circuit breaker that converts failures into misses, which is the behaviour you want.
+</Tip>

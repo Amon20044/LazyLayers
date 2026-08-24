@@ -1,0 +1,103 @@
+---
+title: "Handle failure"
+description: "Serve stale data when a loader fails, cache known misses, and bound how long a loader may run."
+---
+
+Three features that decide what your users see when something underneath is not working. All three are off by default.
+
+## Stale fallback
+
+When a loader fails, the cache can serve the previous value instead of propagating the error.
+
+```ts
+const cache = new LazyLayersCache({
+  failSafe: { enabled: true, staleTtlMs: 60_000 },
+});
+```
+
+Values are remembered as stale when they are read, and kept for `staleTtlMs` past their normal expiry. If a loader then throws, the stale value is returned and a `stale:hit` event is emitted with the reason.
+
+```ts
+cache.on((event) => {
+  if (event.type === 'stale:hit') {
+    logger.warn({ key: event.key, reason: event.reason }, 'served stale');
+  }
+});
+```
+
+The reason is `loader-error`, `soft-timeout` or `hard-timeout`.
+
+<Warning>
+Stale data is still stale. This is the right trade for a product page and the wrong trade for a permission check. Enable it per call rather than globally when only some reads can tolerate it.
+</Warning>
+
+## Loader timeouts
+
+A loader with no timeout can hold a request open indefinitely.
+
+```ts
+const cache = new LazyLayersCache({
+  failSafe: { enabled: true, staleTtlMs: 60_000 },
+  timeouts: { softMs: 200, hardMs: 2_000 },
+});
+```
+
+The two behave differently:
+
+| Timeout | Requires | Effect |
+| --- | --- | --- |
+| `softMs` | Fail-safe on **and** a stale value available | Stop waiting and serve stale |
+| `hardMs` | Nothing | Give up on the loader entirely |
+
+The soft timeout is for latency. You already have an answer that is slightly old, so you return it rather than making the user wait. The hard timeout is for a loader that is not coming back.
+
+Both abort the loader's `AbortSignal`, so work you pass the signal to is cancelled rather than left running:
+
+```ts
+await cache.getOrSet('user:42', async ({ signal } = {}) => {
+  const res = await fetch(url, { signal });
+  return res.json();
+});
+```
+
+## Negative caching
+
+Repeatedly asking for something that does not exist means repeatedly running the loader. Negative caching records the miss.
+
+```ts
+const cache = new LazyLayersCache({
+  negativeCache: { enabled: true, ttlMs: 10_000, maxEntries: 1_000 },
+});
+```
+
+A loader that returns `undefined` records a short-lived negative entry. Subsequent `get` and `getOrSet` calls for that key return `undefined` without calling the loader until it expires, and emit `miss` with level `negative`.
+
+Keep the TTL short. It is the window in which a newly created record still looks absent.
+
+## Watching failures
+
+Every failure path emits an event. A reasonable production subscription:
+
+```ts
+cache.on((event) => {
+  switch (event.type) {
+    case 'l2:error':
+      metrics.increment('cache.l2.error', { operation: event.operation });
+      break;
+    case 'l2:skipped':
+      metrics.increment('cache.l2.skipped');
+      break;
+    case 'stale:hit':
+      metrics.increment('cache.stale', { reason: event.reason });
+      break;
+    case 'loader:timeout':
+      metrics.increment('cache.loader.timeout');
+      break;
+    case 'event-bus:publish-error':
+      metrics.increment('cache.bus.error');
+      break;
+  }
+});
+```
+
+The full list is in the [cache events reference](/reference/cache-events).

@@ -1,0 +1,171 @@
+---
+title: "Configuration"
+description: "Every constructor option, its default, and what it changes."
+---
+
+All options are passed to the `LazyLayersCache` constructor. Options that also exist on `CacheOptions` can be overridden per call on `set` and `getOrSet`.
+
+```ts
+const cache = new LazyLayersCache({ /* options */ });
+```
+
+## Layers
+
+<ParamField path="ttlMs" type="number" default="3600000">
+  Time to live for cached entries, in milliseconds. One hour by default. Overridden by per-level and per-call values.
+</ParamField>
+
+<ParamField path="levels.L1" type="{ maxEntries?: number; ttlMs?: number }">
+  In-process LRU settings. `maxEntries` defaults to `1000`.
+</ParamField>
+
+<ParamField path="levels.L2" type="{ maxEntries?: number; ttlMs?: number }">
+  Shared store settings. `maxEntries` triggers index trimming on stores that maintain one.
+</ParamField>
+
+<ParamField path="l1" type="CacheStore | false">
+  Custom L1 store, or `false` to disable the memory layer. Defaults to a `MemoryStore` built from your options.
+</ParamField>
+
+<ParamField path="l2" type="CacheStore | false">
+  Shared store, usually a `RedisStore`. Absent by default, which means L1 only.
+</ParamField>
+
+TTL resolution runs from most specific to least: per-call level, per-call `ttlMs`, constructor level, constructor `ttlMs`, then the one-hour default.
+
+## Lazy loading
+
+<ParamField path="inflight.enabled" type="boolean" default="true">
+  Collapse concurrent callers for one key into a single loader call.
+</ParamField>
+
+<ParamField path="inflight.ttlMs" type="number" default="5000">
+  How long an in-flight entry stays reusable. A loader still running past this is no longer joined by new callers.
+</ParamField>
+
+<ParamField path="inflight.maxEntries" type="number">
+  Cap on simultaneously tracked keys. Beyond it, loads run without registration and emit `inflight:bypass`.
+</ParamField>
+
+<Note>
+The shape is `inflight: { enabled: false }`. Passing `inflight: false` has no effect because the option expects an object.
+</Note>
+
+## Failure handling
+
+<ParamField path="negativeCache.enabled" type="boolean" default="false">
+  Record loaders that return `undefined` so repeated lookups for a missing key skip the loader.
+</ParamField>
+
+<ParamField path="negativeCache.ttlMs" type="number">
+  How long a recorded miss suppresses the loader.
+</ParamField>
+
+<ParamField path="negativeCache.maxEntries" type="number">
+  Cap on remembered misses.
+</ParamField>
+
+<ParamField path="failSafe.enabled" type="boolean" default="false">
+  Serve the previous value when a loader fails or times out.
+</ParamField>
+
+<ParamField path="failSafe.staleTtlMs" type="number">
+  How long a value stays usable as stale past its normal expiry. Required for stale fallback to do anything.
+</ParamField>
+
+<ParamField path="timeouts.softMs" type="number">
+  Stop waiting and serve stale. Only applies when fail-safe is on and a stale value exists.
+</ParamField>
+
+<ParamField path="timeouts.hardMs" type="number">
+  Give up on the loader entirely. Applies unconditionally.
+</ParamField>
+
+## Distributed lock
+
+<ParamField path="distributedLock.enabled" type="boolean" default="false">
+  Serialize cold loads across instances. Requires an L2 that supports locking, such as `RedisStore`.
+</ParamField>
+
+<ParamField path="distributedLock.ttlMs" type="number" default="10000">
+  Lock lifetime. Set it above your slowest realistic loader.
+</ParamField>
+
+<ParamField path="distributedLock.waitTimeoutMs" type="number" default="2000">
+  How long a losing instance polls before running the loader itself.
+</ParamField>
+
+<ParamField path="distributedLock.pollMs" type="number" default="50">
+  Interval between polls while waiting.
+</ParamField>
+
+## Invalidation
+
+<ParamField path="eventBus" type="EventBus">
+  Transport for cross-instance invalidation. Without it the cache is local only.
+</ParamField>
+
+<ParamField path="source" type="string">
+  Identity stamped on published events and used to ignore your own. Defaults to a random per-process value. Set a stable, distinct value per instance.
+</ParamField>
+
+<ParamField path="subscribeToEvents" type="boolean" default="true">
+  Set `false` to publish without applying inbound events.
+</ParamField>
+
+<ParamField path="broadcastSet" type="boolean" default="true">
+  Broadcast `getOrSet` loader results so peers fill their L1 without loading. `false` gives delete-only fanout.
+</ParamField>
+
+<ParamField path="broadcastSetMaxBytes" type="number">
+  Skip broadcasting values larger than this. They are still written locally and to L2, and the skip emits `set:broadcast-skipped`.
+</ParamField>
+
+<ParamField path="eventDedupeMaxEntries" type="number" default="10000">
+  How many recent event IDs are remembered for duplicate suppression.
+</ParamField>
+
+<ParamField path="eventDedupeTtlMs" type="number" default="300000">
+  How long each event ID is remembered. Keep it above your worst-case redelivery window.
+</ParamField>
+
+## Resilience
+
+<ParamField path="resilience.l2CircuitBreaker" type="{ enabled?, failureThreshold?, cooldownMs? }">
+  Opens after repeated L2 failures and skips L2 for the cooldown. Skips emit `l2:skipped`.
+</ParamField>
+
+<ParamField path="resilience.eventBusCircuitBreaker" type="{ enabled?, failureThreshold?, cooldownMs? }">
+  Same, for bus publishes. Skips emit `event-bus:publish-skipped`.
+</ParamField>
+
+## Diagnostics
+
+<ParamField path="events" type="CacheEventHandler[]">
+  Handlers registered at construction. Equivalent to calling `on` for each.
+</ParamField>
+
+<ParamField path="logging.env" type="'production' | 'development' | 'test'">
+  Overrides `NODE_ENV` for log verbosity. Production suppresses debug logs.
+</ParamField>
+
+<ParamField path="logging.enabled" type="boolean">
+  Hard override of the environment-based switch.
+</ParamField>
+
+<ParamField path="observability" type="boolean | ObservabilityOptions" default="false">
+  `true` starts the dashboard with defaults. See [observability](/guides/observability).
+</ParamField>
+
+## Per-call overrides
+
+`set` and `getOrSet` accept the same `CacheOptions` shape, which lets one call differ from the cache-wide policy.
+
+```ts
+await cache.getOrSet('report:annual', buildReport, {
+  ttlMs: 24 * 60 * 60 * 1000,
+  timeouts: { hardMs: 30_000 },
+});
+```
+
+Options not valid per call are the structural ones: `l1`, `l2`, `eventBus`, `source`, `events` and `observability`.

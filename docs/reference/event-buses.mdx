@@ -1,0 +1,166 @@
+---
+title: "Event buses"
+description: "Constructor options for the Redis, RabbitMQ and NATS transports."
+---
+
+Every bus implements the same interface, so the cache configuration does not change between them.
+
+```ts
+interface EventBus {
+  connect(): Promise<void>;
+  publish(event: InvalidationEvent): Promise<void>;
+  subscribe(handler: (event: InvalidationEvent) => void | Promise<void>): Promise<void>;
+  disconnect(): Promise<void>;
+  healthCheck(): Promise<EventBusHealth>;
+}
+```
+
+## Shared options
+
+Every transport accepts these.
+
+<ParamField path="retryQueue.enabled" type="boolean" default="true">
+  Buffer failed publishes and flush them on the next successful one.
+</ParamField>
+
+<ParamField path="retryQueue.maxSize" type="number" default="10000">
+  Cap on buffered events. When full, the oldest is dropped with a warning.
+</ParamField>
+
+<ParamField path="logging" type="CacheLoggerOptions">
+  `env` and `enabled`, matching the cache's logging options.
+</ParamField>
+
+## RedisEventBus
+
+```ts
+new RedisEventBus(redis, channel, options?)
+```
+
+<ParamField path="redis" type="Redis" required>
+  An existing `ioredis` client. The bus calls `.duplicate()` internally for the subscriber, because a connection in subscriber mode cannot issue other commands.
+</ParamField>
+
+<ParamField path="channel" type="string" required>
+  Pub/Sub channel. Every instance sharing invalidation must use the same one.
+</ParamField>
+
+<ParamField path="handlerConcurrency" type="number" default="1">
+  Concurrent handler executions. The default preserves approximate ordering.
+</ParamField>
+
+Delivery is at-most-once. A disconnected subscriber misses events.
+
+## RabbitMQEventBus
+
+```ts
+new RabbitMQEventBus(exchange, options?)
+```
+
+<ParamField path="url" type="string">
+  AMQP URL. Required unless you call `init(url)` yourself.
+</ParamField>
+
+<ParamField path="exchangeType" type="'fanout' | 'topic' | 'direct'" default="fanout">
+  Fanout broadcasts to every bound queue. Use topic or direct when one exchange serves several caches.
+</ParamField>
+
+<ParamField path="durableInvalidationMode" type="boolean" default="false">
+  One switch that sets `durable`, `persistent`, a named queue, and disables auto-delete and exclusivity.
+</ParamField>
+
+<ParamField path="queueName" type="string">
+  Queue name. Set a stable per-instance value in durable mode.
+</ParamField>
+
+<ParamField path="durable" type="boolean">
+  Survive broker restarts. Follows `durableInvalidationMode`.
+</ParamField>
+
+<ParamField path="persistent" type="boolean">
+  Delivery mode 2, flushed to disk before acknowledgement. Follows `durable`.
+</ParamField>
+
+<ParamField path="exclusiveQueue" type="boolean">
+  Tie the queue to this connection. Defaults true outside durable mode.
+</ParamField>
+
+<ParamField path="autoDeleteQueue" type="boolean">
+  Remove the queue once no consumers remain. Defaults true outside durable mode.
+</ParamField>
+
+<ParamField path="routingKey" type="string" default="">
+  Ignored for fanout. Required for topic and direct.
+</ParamField>
+
+<ParamField path="prefetch" type="number">
+  Channel QoS, capping unacknowledged messages per consumer.
+</ParamField>
+
+<Warning>
+Anonymous queues vanish when the connection drops. In durable mode, always set `queueName`.
+</Warning>
+
+## NatsEventBus
+
+```ts
+new NatsEventBus(options?)
+```
+
+<ParamField path="mode" type="'core' | 'jetstream'" default="core">
+  Core is at-most-once and fastest. JetStream adds durable streams, per-instance consumers and redelivery.
+</ParamField>
+
+<ParamField path="connectionOptions" type="NodeConnectionOptions">
+  Standard `connect()` options such as `servers`, `name` and `token`.
+</ParamField>
+
+<ParamField path="connection" type="NatsConnection">
+  An existing connection to share. The bus will not drain a connection it did not create.
+</ParamField>
+
+<ParamField path="subject" type="string" default="cache.invalidations">
+  Subject used to publish and subscribe.
+</ParamField>
+
+### JetStream options
+
+<ParamField path="jetstream.durableName" type="string" required>
+  Per-instance durable consumer identity. Required in JetStream mode, and must be unique per instance.
+</ParamField>
+
+<ParamField path="jetstream.stream" type="string" default="CACHE_INVALIDATIONS">
+  Stream name.
+</ParamField>
+
+<ParamField path="jetstream.storage" type="'file' | 'memory'" default="file">
+  File survives a NATS restart. Memory is faster and lost on restart.
+</ParamField>
+
+<ParamField path="jetstream.maxAgeMs" type="number">
+  Drop messages older than this. Caps disk usage.
+</ParamField>
+
+<ParamField path="jetstream.maxMsgs" type="number" default="-1">
+  Hard cap on stored messages. `-1` is unlimited.
+</ParamField>
+
+<ParamField path="jetstream.ackWaitMs" type="number" default="30000">
+  How long the server waits for an acknowledgement before redelivering.
+</ParamField>
+
+<ParamField path="jetstream.maxDeliver" type="number" default="10">
+  Maximum redelivery attempts before the message is abandoned.
+</ParamField>
+
+<ParamField path="jetstream.ensureStream" type="boolean" default="true">
+  Create the stream on `connect()` if missing. Set false when infrastructure is provisioned separately.
+</ParamField>
+
+<ParamField path="jetstream.ensureConsumer" type="boolean" default="true">
+  Create the durable consumer if missing.
+</ParamField>
+
+<Note>
+NATS support uses the modular `nats.js` v3 packages. If you inject your own `connection`, build it with `connect()` from `@nats-io/transport-node`.
+</Note>

@@ -1,0 +1,104 @@
+---
+title: "Prevent stampedes"
+description: "Collapse concurrent callers to one loader call within a process, and to one across the cluster."
+---
+
+A cache stampede happens when a popular key expires and every concurrent request misses at once. Without protection, a thousand requests become a thousand database queries at the exact moment your database is already busy.
+
+LazyLayers handles this in two places.
+
+## In-process dedupe
+
+On by default. The first caller for a key stores its promise, and every caller arriving while it is unsettled receives that same promise.
+
+```ts
+let calls = 0;
+
+await Promise.all(
+  Array.from({ length: 10_000 }, () =>
+    cache.getOrSet('product:42', async () => {
+      calls++;
+      return db.products.findById(42);
+    }),
+  ),
+);
+
+calls; // 1
+```
+
+Ten thousand callers, one query. Each reuse emits `inflight:reuse`, so the collapse is measurable rather than assumed.
+
+### Tuning it
+
+```ts
+const cache = new LazyLayersCache({
+  inflight: {
+    enabled: true,
+    ttlMs: 5_000,
+    maxEntries: 10_000,
+  },
+});
+```
+
+`ttlMs` bounds how long an entry is considered live. A loader that hangs past it stops being reused, so one stuck load cannot pin every subsequent caller to a promise that will never settle.
+
+`maxEntries` caps how many distinct keys can be tracked at once. Past that, new loads run without being registered and emit `inflight:bypass` with reason `maxEntries`. They still work, they simply do not collapse.
+
+<Note>
+The option is `inflight: { enabled: false }`. Passing `inflight: false` is silently ignored, because the option expects an object.
+</Note>
+
+## Across instances
+
+In-process dedupe is per-process. Four instances each collapse their own callers, which is four queries rather than one.
+
+The distributed lock reduces that to one, and needs an L2 that supports it. `RedisStore` does.
+
+```ts
+const cache = new LazyLayersCache({
+  l2: new RedisStore(redis),
+  distributedLock: {
+    enabled: true,
+    ttlMs: 10_000,
+    waitTimeoutMs: 2_000,
+    pollMs: 50,
+  },
+});
+```
+
+### What happens
+
+<Steps>
+<Step title="One instance acquires the lock">
+It runs the loader and releases the lock when finished, whether the loader succeeded or threw.
+</Step>
+<Step title="The others poll">
+They check the cache every `pollMs`. As soon as the winner's value lands, they pick it up and return it without loading.
+</Step>
+<Step title="Waiting has a deadline">
+If nothing appears within `waitTimeoutMs`, the waiting instance runs the loader itself.
+</Step>
+</Steps>
+
+That last step is deliberate. A lock holder that dies would otherwise block every other instance for the full lock TTL. Waiting instances would rather duplicate work than hang.
+
+### Defaults
+
+| Option | Default | What it controls |
+| --- | --- | --- |
+| `ttlMs` | `10000` | How long the lock is held before expiring on its own |
+| `waitTimeoutMs` | `2000` | How long a loser waits before loading anyway |
+| `pollMs` | `50` | How often a loser checks for the value |
+
+Set `ttlMs` above your slowest realistic loader. If the lock expires while the holder is still working, a second instance will acquire it and start a duplicate load.
+
+## Choosing
+
+| Situation | Use |
+| --- | --- |
+| Single instance | In-process dedupe alone |
+| Several instances, cheap loader | In-process dedupe alone |
+| Several instances, expensive loader | Add the distributed lock |
+| Loader hits a rate-limited third party | Add the distributed lock |
+
+The lock costs a Redis round trip on every cold load. It earns that back when the loader is expensive and duplicate work is what you are avoiding.
