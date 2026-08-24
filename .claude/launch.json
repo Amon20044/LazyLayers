@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "lazylayers-site",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "site", "--", "--port", "5188", "--strictPort"],
-      "port": 5188
+      "name": "docs",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["mint", "dev", "--port", "3333"],
+      "port": 3333
     }
   ]
 }
