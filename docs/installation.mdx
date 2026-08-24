@@ -1,0 +1,70 @@
+---
+title: "Installation"
+description: "Install LazyLayers, check the runtime requirements, and pick the entry point that matches your build."
+---
+
+## Requirements
+
+Node.js 20, or 22 and later. The `engines` field is `20 || >=22`, which follows the floor set by `ioredis` and `lru-cache`.
+
+## Install
+
+<CodeGroup>
+```bash npm
+npm install lazy-layers-cache
+```
+
+```bash pnpm
+pnpm add lazy-layers-cache
+```
+
+```bash yarn
+yarn add lazy-layers-cache
+```
+</CodeGroup>
+
+## Optional dependencies
+
+The package installs the drivers for every layer it supports, so nothing extra is required to add Redis or a bus later. You only need the corresponding service running.
+
+| Service | Needed for |
+| --- | --- |
+| Redis | The L2 store, the Redis event bus, and the distributed lock |
+| RabbitMQ | The RabbitMQ event bus |
+| NATS | The NATS core and JetStream event buses |
+
+## Imports
+
+The package ships both ESM and CommonJS builds with TypeScript declarations.
+
+<CodeGroup>
+```ts ESM
+import { LazyLayersCache } from 'lazy-layers-cache';
+```
+
+```js CommonJS
+const { LazyLayersCache } = require('lazy-layers-cache');
+```
+</CodeGroup>
+
+Subpath exports are available when you want a narrower import:
+
+| Entry point | Contains |
+| --- | --- |
+| `lazy-layers-cache` | Everything |
+| `lazy-layers-cache/cache` | `LazyLayersCache`, `HybridCache`, `MemoryStore`, `RedisStore`, `CircuitBreaker` |
+| `lazy-layers-cache/event-bus` | `RedisEventBus`, `RabbitMQEventBus`, `NatsEventBus` |
+| `lazy-layers-cache/observability` | Dashboard, Prometheus and telemetry exports |
+| `lazy-layers-cache/types` | Types only |
+
+## Verify
+
+```ts
+import { LazyLayersCache } from 'lazy-layers-cache';
+
+const cache = new LazyLayersCache();
+await cache.set('ping', 'pong');
+console.log(await cache.get('ping')); // 'pong'
+```
+
+If that prints `pong`, you are ready for the [quickstart](/quickstart).

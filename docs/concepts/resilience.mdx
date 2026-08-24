@@ -1,0 +1,75 @@
+---
+title: "Resilience"
+description: "What LazyLayers does when a dependency is unavailable, and which behaviours are on by default."
+---
+
+Most of a cache's design is about what happens when something it depends on is not working. This page summarises those behaviours and links to the details.
+
+## Fail open
+
+An L2 that errors is treated as a miss, not an exception. The read falls through to the loader and the request completes.
+
+This applies to every L2 operation: `get`, `set`, `delete`, pattern deletes, and lock acquisition. Each failure emits an `l2:error` event carrying the operation and the breaker state, so a broken store is visible rather than silent.
+
+The same applies to the event bus. A publish that fails does not fail the write that triggered it.
+
+<Warning>
+Failing open trades consistency for availability. If your L2 is down, instances stop hearing invalidations that travelled through it, and they will serve their own L1 until TTLs expire.
+</Warning>
+
+## Circuit breakers
+
+Two independent breakers, both off unless configured.
+
+```ts
+const cache = new LazyLayersCache({
+  l2,
+  eventBus: bus,
+  resilience: {
+    l2CircuitBreaker: { failureThreshold: 5, cooldownMs: 10_000 },
+    eventBusCircuitBreaker: { failureThreshold: 3, cooldownMs: 5_000 },
+  },
+});
+```
+
+After `failureThreshold` consecutive failures the breaker opens and calls are skipped for `cooldownMs` rather than attempted. Skipped calls emit `l2:skipped` or `event-bus:publish-skipped`.
+
+The point is not to protect the cache. It is to stop your request path from queueing work against a dependency that is already struggling.
+
+## Retry queue on the bus
+
+A publish that fails is buffered in memory and flushed on the next successful publish. The queue is bounded, and the bound is deliberate: a long outage sheds the oldest events rather than growing until the process runs out of memory.
+
+Each transport takes `retryQueue` options. The default cap is 10,000 events, and dropping one logs a warning.
+
+## Stale fallback
+
+If a loader fails and you have fail-safe enabled, the cache can serve the previous value rather than propagating the error.
+
+```ts
+const cache = new LazyLayersCache({
+  failSafe: { enabled: true, staleTtlMs: 60_000 },
+});
+```
+
+Serving stale emits `stale:hit` with the reason: `loader-error`, `soft-timeout` or `hard-timeout`. Covered in [failure handling](/guides/failure-handling).
+
+## Loader timeouts
+
+`timeouts.softMs` returns stale data when one is available and lets the loader keep running. `timeouts.hardMs` gives up on the loader entirely. Both abort the loader's `AbortSignal`.
+
+## What is on by default
+
+| Behaviour | Default |
+| --- | --- |
+| L2 failures treated as misses | On |
+| In-process inflight dedupe | On |
+| L1 memory cache | On |
+| Circuit breakers | Off |
+| Distributed lock | Off |
+| Negative caching | Off |
+| Fail-safe stale | Off |
+| Loader timeouts | Off |
+| Observability dashboard | Off |
+
+The defaults keep a fresh install cheap. Everything that costs memory, latency or infrastructure is opt-in.

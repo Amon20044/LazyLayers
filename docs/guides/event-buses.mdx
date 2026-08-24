@@ -1,0 +1,106 @@
+---
+title: "Choose an event bus"
+description: "Compare the four transports by what happens to an instance that was disconnected."
+---
+
+Every transport carries the same three event types and the cache configuration does not change between them. What changes is what happens to an instance that was not connected when an event was published.
+
+## Comparison
+
+| Transport | Delivery | An instance that was offline |
+| --- | --- | --- |
+| Redis Pub/Sub | At-most-once | Misses the events. Falls back to TTL expiry. |
+| NATS Core | At-most-once | Same, with faster fanout. |
+| RabbitMQ (durable mode) | Durable | Events buffer in its queue and arrive on reconnect. |
+| NATS JetStream | Durable | Events replay from its durable consumer, with explicit ack and redelivery. |
+
+Pick at-most-once when a missed invalidation costs you some staleness and nothing more. Pick durable when it costs you correctness.
+
+## Redis Pub/Sub
+
+The obvious choice when you already run Redis for L2.
+
+```ts
+import Redis from 'ioredis';
+import { RedisEventBus } from 'lazy-layers-cache';
+
+const redis = new Redis(process.env.REDIS_URL);
+const bus = new RedisEventBus(redis, 'app:invalidate');
+await bus.connect();
+```
+
+The bus calls `.duplicate()` internally for the subscriber, because a Redis connection in subscriber mode cannot issue other commands. You pass one client and it handles that.
+
+## NATS Core
+
+The fastest fanout, with the same at-most-once trade.
+
+```ts
+import { NatsEventBus } from 'lazy-layers-cache';
+
+const bus = new NatsEventBus({
+  mode: 'core',
+  connectionOptions: { servers: process.env.NATS_URL },
+  subject: 'app.invalidate',
+});
+await bus.connect();
+```
+
+## RabbitMQ
+
+`durableInvalidationMode` is one switch that sets durable queues, persistent messages, a named queue and disables auto-delete.
+
+```ts
+import { RabbitMQEventBus } from 'lazy-layers-cache';
+
+const bus = new RabbitMQEventBus('app.invalidate', {
+  url: process.env.RABBITMQ_URL,
+  durableInvalidationMode: true,
+  queueName: process.env.INSTANCE_ID,
+});
+await bus.connect();
+```
+
+<Warning>
+Set `queueName` to a stable per-instance value when using durable mode. Anonymous queues are removed when the connection drops, which throws away exactly the messages durability was meant to keep.
+</Warning>
+
+## NATS JetStream
+
+Durable streams with per-instance consumers, explicit acknowledgement and redelivery.
+
+```ts
+const bus = new NatsEventBus({
+  mode: 'jetstream',
+  connectionOptions: { servers: process.env.NATS_URL },
+  subject: 'app.invalidate',
+  jetstream: {
+    stream: 'CACHE_INVALIDATIONS',
+    durableName: process.env.INSTANCE_ID,
+    maxDeliver: 10,
+  },
+});
+await bus.connect();
+```
+
+`durableName` is required in JetStream mode and must be unique per instance. JetStream replays from where that consumer last acknowledged, so two instances sharing a name will steal each other's messages.
+
+The stream and consumer are created on `connect()` unless you set `ensureStream` or `ensureConsumer` to `false`, which you would do when infrastructure is provisioned separately.
+
+## Health checks
+
+Every bus exposes `healthCheck()`, which returns a transport-specific object with an `ok` flag rather than throwing.
+
+```ts
+const health = await bus.healthCheck();
+
+if (!health.ok) {
+  logger.warn({ health }, 'cache bus unhealthy');
+}
+```
+
+## Ordering
+
+Subscriber handlers run with a concurrency of 1 by default, which preserves approximate invalidation order. Raising `handlerConcurrency` on the Redis bus increases throughput and gives that up.
+
+Ordering across the bus is never guaranteed regardless of transport, which is why per-key generations exist. See [event ordering](/architecture/event-ordering).

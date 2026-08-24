@@ -1,0 +1,90 @@
+---
+title: "Invalidation"
+description: "The three events that travel between instances, and why only one of them carries a value."
+---
+
+Every instance keeps its own L1. Without a bus, an instance that writes has no way to tell the others, and they keep serving the previous value until their TTL expires.
+
+An event bus closes that gap. Attach one and the cache publishes an event whenever something changes.
+
+```ts
+import { RedisEventBus } from 'lazy-layers-cache';
+
+const bus = new RedisEventBus(redis, 'app:invalidate');
+await bus.connect();
+
+const cache = new LazyLayersCache({
+  l2,
+  eventBus: bus,
+  source: process.env.INSTANCE_ID,
+});
+```
+
+## Three event types
+
+| Type | Published when | What peers do |
+| --- | --- | --- |
+| `del` | `cache.delete(key)` | Drop the key from L1, L2, negative, stale and inflight |
+| `pattern` | `cache.deleteByPattern(p)` or `cache.clear()` | Drop every local entry matching the pattern |
+| `set` | A `getOrSet` loader returns a value | Write the value straight into L1 |
+
+`del` and `pattern` only say what to forget. `set` carries the loaded value.
+
+That difference is the whole point of the `set` event. Invalidation makes every peer reload the key independently on its next request. Priming means one instance pays for the load and the others take the result. Turn it off with `broadcastSet: false` if you want delete-only behaviour.
+
+## What an event looks like
+
+```json
+{
+  "type": "del",
+  "keys": ["user:42"],
+  "source": "api-7",
+  "generation": 7,
+  "ts": 1740086400000
+}
+```
+
+A `set` event carries the value as well:
+
+```json
+{
+  "type": "set",
+  "keys": ["user:42"],
+  "value": { "id": 42, "plan": "pro" },
+  "source": "api-7",
+  "generation": 8,
+  "ttlMs": 60000
+}
+```
+
+## Not applying your own events
+
+Every event is stamped with `source`. An instance ignores events whose source matches its own, so publishing does not cause it to re-apply its own work.
+
+Set `source` to something stable and distinct per instance, such as a hostname or pod name. If you leave it out, a random identifier is generated per process, which works but makes events harder to read when you are debugging.
+
+## Large values
+
+A `set` event carries the value across the bus, which is fine for a user record and less fine for a 5 MB report. `broadcastSetMaxBytes` caps it:
+
+```ts
+const cache = new LazyLayersCache({
+  l2,
+  eventBus: bus,
+  broadcastSetMaxBytes: 256 * 1024,
+});
+```
+
+Oversized values are still written to L1 and L2 normally. They are simply not fanned out, so peers fetch them from L2 instead. The skip emits a `set:broadcast-skipped` event carrying the size that triggered it.
+
+## Correctness
+
+Buses redeliver, reorder and duplicate. Three mechanisms handle that, and they are described in [event ordering](/architecture/event-ordering):
+
+- per-key **generations** stop an older event overwriting a newer one
+- **event IDs** are deduplicated so a redelivery is not applied twice
+- the **source filter** stops self-application
+
+## Delivery guarantees
+
+The bus you choose decides what happens to an instance that was disconnected. [Choosing an event bus](/guides/event-buses) compares them.

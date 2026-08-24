@@ -1,0 +1,107 @@
+---
+title: "Observe the cache"
+description: "Turn on the dashboard, expose Prometheus metrics, and stream cache events to your APM."
+---
+
+Three ways to see what the cache is doing, from most to least interactive.
+
+## Cache events
+
+The cheapest and always available. Subscribe with `on`, which returns an unsubscribe function.
+
+```ts
+const off = cache.on((event) => {
+  if (event.type === 'hit') metrics.increment('cache.hit', { level: event.level });
+  if (event.type === 'miss') metrics.increment('cache.miss', { level: event.level });
+});
+```
+
+Events carry the key. If you forward them to a metrics backend, use the level or type as the label and leave the key out, or you will create one time series per cache key.
+
+## The dashboard
+
+Opt-in, and off by default so it costs nothing when unused.
+
+```ts
+const cache = new LazyLayersCache({
+  l2,
+  observability: true,
+});
+```
+
+That starts a standalone server on `127.0.0.1:7077` and serves the dashboard at `/observelazyily`, with basic auth credentials `lazydev` / `lazydev`.
+
+It shows live counters, an L1 and L2 key explorer with per-key serialized-versus-decoded sizes, a live event feed over SSE, and the resolved configuration.
+
+<Warning>
+The default credentials are `lazydev` / `lazydev` and the default bind is localhost. This is a development and staging tool. Do not expose it publicly without changing the credentials, and prefer mounting it behind your own authentication.
+</Warning>
+
+### Configuring it
+
+```ts
+const cache = new LazyLayersCache({
+  l2,
+  observability: {
+    route: '/internal/cache',
+    maxEvents: 5_000,
+    maxValueBytes: 64 * 1024,
+    auth: { username: 'ops', password: process.env.CACHE_DASH_PASSWORD },
+    server: { host: '127.0.0.1', port: 7077 },
+    quiet: true,
+  },
+});
+```
+
+The event feed is an in-memory ring buffer bounded by `maxEvents`. It is never written to Redis or disk.
+
+### Mounting it in your own server
+
+Set `server: false` and mount the handler on a route you already authenticate.
+
+```ts
+const cache = new LazyLayersCache({
+  l2,
+  observability: { server: false, route: '/internal/cache' },
+});
+
+const handler = cache.getObservabilityHandler();
+
+app.use('/internal/cache', requireAdmin, (req, res) => handler?.(req, res));
+```
+
+Close it on shutdown with `await cache.closeObservability()`.
+
+## Prometheus
+
+```ts
+const cache = new LazyLayersCache({
+  l2,
+  observability: {
+    prometheus: true,
+    auth: { username: 'ops', password: process.env.CACHE_DASH_PASSWORD },
+  },
+});
+```
+
+Metrics are served at `{route}/metrics`. Series are labelled by level, kind and result only, never by cache key, which keeps cardinality bounded.
+
+If your scraper cannot authenticate, set `prometheus: { public: true }` to leave the metrics endpoint unauthenticated while the dashboard stays protected.
+
+## OpenTelemetry and APM
+
+Raw events are published to a `node:diagnostics_channel` named `lazycache:cache:event`.
+
+```ts
+import { subscribeTelemetry } from 'lazy-layers-cache';
+
+const unsubscribe = subscribeTelemetry((event) => {
+  span.addEvent(event.type, { key: String(event.key ?? '') });
+});
+```
+
+The publish path is guarded by a `hasSubscribers` check, so with nothing attached it costs a single boolean test on the hot path.
+
+## Configuring by environment
+
+Every dashboard setting has an environment variable, which is useful when you want it on in staging and off in production without changing code. Precedence is option, then environment, then default. See [environment variables](/reference/environment-variables).

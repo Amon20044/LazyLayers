@@ -1,0 +1,96 @@
+---
+title: "Cache events"
+description: "Every event emitted by the cache, when it fires, and what it carries."
+---
+
+Subscribe with `on`, which returns an unsubscribe function. Events are emitted synchronously.
+
+```ts
+const off = cache.on((event) => {
+  metrics.increment(`cache.${event.type}`);
+});
+```
+
+<Warning>
+Most events carry a `key`. Do not use it as a metrics label or you will create one time series per cache key. Label by `type` and `level` instead.
+</Warning>
+
+## Reads and writes
+
+| Event | Fires when | Payload |
+| --- | --- | --- |
+| `hit` | A value is found | `key`, `level` (`L1` or `L2`) |
+| `miss` | A layer has no value | `key`, `level` (`L1`, `L2` or `negative`) |
+| `set` | A value is written | `key`, `levels` (array written to) |
+| `delete` | A key is removed | `key` |
+| `delete-pattern` | A pattern delete runs | `pattern` |
+
+## Loader
+
+| Event | Fires when | Payload |
+| --- | --- | --- |
+| `loader:start` | A loader begins | `key` |
+| `loader:success` | A loader resolves | `key`, `durationMs` |
+| `loader:error` | A loader throws | `key`, `durationMs`, `error` |
+| `loader:timeout` | A soft or hard timeout elapses | `key`, `timeoutMs` |
+
+`loader:success` gives you loader latency without instrumenting each loader.
+
+## In-flight dedupe
+
+| Event | Fires when | Payload |
+| --- | --- | --- |
+| `inflight:reuse` | A caller joins an existing load | `key` |
+| `inflight:bypass` | A load runs unregistered | `key`, `reason` |
+
+A high `inflight:reuse` rate means dedupe is doing real work. `inflight:bypass` with reason `maxEntries` means you have hit the tracking cap.
+
+## Fallbacks
+
+| Event | Fires when | Payload |
+| --- | --- | --- |
+| `stale:hit` | A stale value is served | `key`, `reason` (`loader-error`, `soft-timeout`, `hard-timeout`) |
+| `negative:set` | A miss is recorded | `key`, `ttlMs` |
+
+## L2 and circuit breakers
+
+| Event | Fires when | Payload |
+| --- | --- | --- |
+| `l2:error` | An L2 operation fails | `operation`, `key`, `state`, `error` |
+| `l2:skipped` | An L2 call is skipped by an open breaker | `operation`, `key`, `state` |
+| `event-bus:publish-error` | A publish fails | `eventType`, `state`, `error` |
+| `event-bus:publish-skipped` | A publish is skipped by an open breaker | `eventType`, `state` |
+
+`state` is the breaker state at the time: `closed`, `open` or `half-open`.
+
+## Invalidation
+
+| Event | Fires when | Payload |
+| --- | --- | --- |
+| `invalidation:received` | An inbound event is accepted | `eventId`, `eventType` |
+| `invalidation:duplicate` | An event ID was already applied | `eventId` |
+| `invalidation:stale` | An event is older than what was applied | `eventId`, `eventType`, `key`, `generation`, `localGeneration` |
+| `set:received` | A peer's value is written into a layer | `key`, `level` |
+| `set:broadcast` | A loader result is published | `key` |
+| `set:broadcast-skipped` | A value exceeded the broadcast cap | `key`, `reason`, `bytes`, `maxBytes` |
+
+Duplicates are normal on durable transports. A steady stream of `invalidation:stale` means events are arriving badly out of order.
+
+## Typed handling
+
+`CacheEvent` is a discriminated union, so narrowing by `type` gives you the right payload.
+
+```ts
+import type { CacheEvent } from 'lazy-layers-cache';
+
+function handle(event: CacheEvent) {
+  switch (event.type) {
+    case 'hit':
+      return metrics.increment('cache.hit', { level: event.level });
+    case 'stale:hit':
+      return metrics.increment('cache.stale', { reason: event.reason });
+    case 'l2:error':
+      return logger.warn({ operation: event.operation, err: event.error }, 'l2 failed');
+  }
+}
+```

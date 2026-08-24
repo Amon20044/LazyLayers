@@ -1,0 +1,170 @@
+---
+title: "API"
+description: "Methods on LazyLayersCache, and the module's exported helpers."
+---
+
+## Constructing
+
+```ts
+import { LazyLayersCache, createCache } from 'lazy-layers-cache';
+
+const cache = new LazyLayersCache<string, User>({ ttlMs: 60_000 });
+const same = createCache<string, User>({ ttlMs: 60_000 });
+```
+
+`createCache` is a factory returning the same class. `HybridCache` is the base class and `LazyLayersCache` extends it without adding behaviour, so either name works.
+
+Both take two type parameters: the key type, which must extend `string | number`, and the value type.
+
+## Methods
+
+### get
+
+```ts
+get(key: K): Promise<V | undefined>
+```
+
+Reads L1, then L2. A value found in L2 is written into L1 before it is returned. Returns `undefined` on a miss, on a negative-cached key, and when L2 errors.
+
+### set
+
+```ts
+set(key: K, value: V, options?: CacheOptions): Promise<void>
+```
+
+Writes to every configured layer and publishes a `set` invalidation if a bus is attached. `options` overrides cache-wide settings for this write.
+
+<Note>
+A direct `set` does not broadcast the value for peer L1 priming. Only `getOrSet` loader results do that.
+</Note>
+
+### getOrSet
+
+```ts
+getOrSet(key: K, loader: CacheLoader<V>, options?: CacheOptions): Promise<V | undefined>
+```
+
+The read-through path. Returns the cached value, or runs `loader`, stores the result and returns it. Concurrent callers for one key share a single loader call.
+
+The loader receives `{ signal }` and may return `undefined` to indicate a miss.
+
+```ts
+const user = await cache.getOrSet(
+  `user:${id}`,
+  async ({ signal } = {}) => {
+    const res = await fetch(`/users/${id}`, { signal });
+    return res.ok ? res.json() : undefined;
+  },
+  { ttlMs: 30_000 },
+);
+```
+
+### has
+
+```ts
+has(key: K): Promise<boolean>
+```
+
+Returns `false` for negative-cached keys without touching the layers.
+
+### delete
+
+```ts
+delete(key: K): Promise<void>
+```
+
+Removes the key from L1, L2, and the negative, stale and inflight maps, then publishes a `del` event.
+
+### deleteByPattern
+
+```ts
+deleteByPattern(pattern: string): Promise<void>
+```
+
+Removes every entry matching a glob pattern such as `user:*` and publishes a `pattern` event.
+
+<Warning>
+On Redis this scans keyspace. `RedisStore` maintains an index by default to keep that bounded, but a very broad pattern across a large keyspace is still expensive. Prefer narrow prefixes.
+</Warning>
+
+### clear
+
+```ts
+clear(): Promise<void>
+```
+
+Empties the cache and publishes a `pattern` event matching everything.
+
+### size
+
+```ts
+size(): Promise<number>
+```
+
+Entry count. Approximate for L2.
+
+### on
+
+```ts
+on(handler: CacheEventHandler): () => void
+```
+
+Subscribes to [cache events](/reference/cache-events). Returns a function that unsubscribes.
+
+```ts
+const off = cache.on((event) => console.log(event.type));
+off();
+```
+
+### Observability methods
+
+```ts
+getObservabilityHandler(): ObservabilityRequestHandler | undefined
+getObservabilityServer(): ObservabilityServerHandle | undefined
+closeObservability(): Promise<void>
+```
+
+The handler is a `(req, res)` function you can mount on your own server. Present only when observability is enabled. Call `closeObservability` during shutdown.
+
+## Exported helpers
+
+### Serializer
+
+```ts
+import {
+  serialize, serializeWithStats, deserialize,
+  inspectBuffer, estimateValueBytes, shouldGzip,
+  GZIP_MIN_BYTES, GZIP_SAVINGS_THRESHOLD, NULL_SENTINEL,
+} from 'lazy-layers-cache';
+```
+
+`serialize` returns a `Buffer`. `serializeWithStats` returns the buffer plus `encoding`, `originalBytes`, `storedBytes`, `compressionRatio` and `compressed`. `deserialize` accepts a `Buffer` or `Uint8Array` and returns `null` on corrupt input rather than throwing.
+
+### Defaults
+
+```ts
+import {
+  DEFAULT_CACHE_TTL_MS,     // 3_600_000
+  DEFAULT_L1_MAX_ENTRIES,   // 1_000
+  DEFAULT_INFLIGHT_TTL_MS,  // 5_000
+} from 'lazy-layers-cache';
+```
+
+### Telemetry
+
+```ts
+import {
+  subscribeTelemetry, publishTelemetry,
+  hasTelemetrySubscribers, TELEMETRY_CHANNEL_NAME,
+} from 'lazy-layers-cache';
+```
+
+`TELEMETRY_CHANNEL_NAME` is `lazycache:cache:event`.
+
+### Type guard
+
+```ts
+import { isInspectableStore } from 'lazy-layers-cache';
+```
+
+Returns true for stores exposing `inspect()`, which the dashboard uses to browse keys.

@@ -1,0 +1,75 @@
+---
+title: "Lazy loading"
+description: "How getOrSet turns a cache into a read-through cache, and what it does with concurrent callers."
+---
+
+`getOrSet` is the method most applications use. You give it a key and a function that produces the value, and it decides whether the function needs to run.
+
+```ts
+const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id));
+```
+
+## What it does
+
+<Steps>
+<Step title="Read the layers">
+It calls `get(key)` first, which walks L1 then L2. A hit returns immediately and the loader never runs.
+</Step>
+<Step title="Check the negative cache">
+If the key was recently recorded as a known miss, it returns `undefined` without calling the loader. See [negative caching](/guides/failure-handling#negative-caching).
+</Step>
+<Step title="Join an in-flight load">
+If another caller is already loading this key, the current caller waits on that same promise instead of starting a second load.
+</Step>
+<Step title="Run the loader">
+Otherwise it runs your loader, writes the result to every configured layer, and returns it.
+</Step>
+</Steps>
+
+## Concurrent callers share one load
+
+This is the behaviour worth understanding, because it is the reason a cold key under traffic does not become a database incident.
+
+The first caller for a key stores its promise. Every caller that arrives while that promise is unsettled receives the same promise. The loader runs once.
+
+```ts
+let calls = 0;
+
+const results = await Promise.all(
+  Array.from({ length: 10_000 }, () =>
+    cache.getOrSet('report', async () => {
+      calls++;
+      return buildReport();
+    }),
+  ),
+);
+
+calls; // 1
+```
+
+Each reuse emits an `inflight:reuse` event, so you can measure how much collapsing is actually happening.
+
+This is per-process. Four instances each collapse their own callers, which is four loader calls rather than one. [Stampede protection](/guides/stampede-protection) covers the distributed lock that reduces that to one.
+
+## The loader signature
+
+A loader receives an object with an `AbortSignal` and returns the value, or `undefined`.
+
+```ts
+await cache.getOrSet('user:42', async ({ signal } = {}) => {
+  const res = await fetch(url, { signal });
+  return res.json();
+});
+```
+
+The signal is aborted when a loader exceeds a configured timeout, which lets you cancel the underlying work rather than leave it running. Timeouts are covered in [failure handling](/guides/failure-handling#loader-timeouts).
+
+## Returning undefined
+
+A loader that returns `undefined` is treated as a miss rather than a value. Nothing is written to the layers. If negative caching is enabled, the miss is recorded so that repeated lookups for a key that does not exist stop reaching your loader.
+
+## set is not getOrSet
+
+`set` writes a value you already have. `getOrSet` produces one you do not.
+
+The difference matters for [invalidation](/concepts/invalidation): a `getOrSet` loader result is broadcast to peers so their L1 fills, while a direct `set` is not. If you want peers primed, load through `getOrSet`.

@@ -1,0 +1,55 @@
+---
+title: "Environment variables"
+description: "Variables read at runtime, and how they interact with code options."
+---
+
+Precedence is always: constructor option, then environment variable, then default. An explicit option wins.
+
+## Serialization
+
+| Variable | Effect |
+| --- | --- |
+| `CACHE_FORMAT` | Set to `json` to store readable JSON instead of MessagePack |
+| `CACHE_DEBUG_SERIALIZATION` | Truthy also selects the JSON encoding |
+
+Both make values inspectable with `redis-cli` at the cost of size. The read path is unchanged, so existing binary values keep decoding.
+
+## Logging
+
+| Variable | Effect |
+| --- | --- |
+| `NODE_ENV` | `production` suppresses debug logging |
+
+Override in code with `logging.env` or `logging.enabled` when you need verbosity that does not match the environment.
+
+## Observability
+
+Every dashboard setting has a variable, so you can enable it in staging without a code change.
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `LAZY_OBS_ENABLED` | off | Truthy enables the dashboard |
+| `LAZY_OBS_ROUTE` | `/observelazyily` | Base route |
+| `LAZY_OBS_PORT` | `7077` | Standalone server port |
+| `LAZY_OBS_HOST` | `127.0.0.1` | Bind address |
+| `LAZY_OBS_USERNAME` | `lazydev` | Basic auth username |
+| `LAZY_OBS_PASSWORD` | `lazydev` | Basic auth password |
+| `LAZY_OBS_MAX_EVENTS` | `1000` | Ring buffer size for the live feed |
+| `LAZY_OBS_MAX_VALUE_BYTES` | `262144` | Values larger than this are truncated in the UI |
+
+<Warning>
+The defaults bind to localhost with the credentials `lazydev` / `lazydev`. Change both before exposing the dashboard anywhere, and prefer mounting the handler behind your own authentication.
+</Warning>
+
+## Values used in examples
+
+These are not read by the library. They appear throughout the documentation as the conventional place to put connection details.
+
+| Variable | Used for |
+| --- | --- |
+| `REDIS_URL` | Passed to your `ioredis` client |
+| `RABBITMQ_URL` | Passed as the bus `url` |
+| `NATS_URL` | Passed as `connectionOptions.servers` |
+| `INSTANCE_ID` | Passed as `source`, and as a durable queue or consumer name |
+
+`INSTANCE_ID` is worth wiring properly. It identifies an instance for self-event filtering and names durable consumers, and both go wrong when two instances share a value.
