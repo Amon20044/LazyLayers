@@ -138,14 +138,21 @@
         <span class="badge reveal"><i class="badge__dot"></i> v0.5.0 · MIT · Node 20+</span>
 
         <h1 class="hero__title reveal" style="--reveal-delay:60ms">
-          <span class="grad-text">Cache the</span><br />
-          <em class="grad-accent">right way.</em>
+          <span class="grad-text">Laziness</span><br />
+          <em class="grad-accent">scales.</em>
         </h1>
 
         <p class="hero__lead reveal" style="--reveal-delay:120ms">
-          A hybrid L1/L2 cache for Node.js. <strong>An event bus keeps every instance honest.</strong>
-          A binary wire format keeps the bill down.
+          Every layer here refuses to work until it has to.
+          <strong>Load a key once, keep it close, and let every other server hear about it.</strong>
+          Nothing gets fetched twice. Nothing travels bigger than it needs to.
         </p>
+
+        <ul class="lazy-laws reveal" style="--reveal-delay:150ms">
+          <li><b>Load late.</b> Nothing is cached until somebody asks for it.</li>
+          <li><b>Load once.</b> Ten thousand callers, one trip to the database.</li>
+          <li><b>Load small.</b> Values go over the wire as packed binary.</li>
+        </ul>
 
         <div class="hero__actions reveal" style="--reveal-delay:180ms">
           <a class="btn btn--primary btn--lg" href="#install" data-magnetic>
@@ -351,7 +358,8 @@
 
 <span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({ ttlMs<span class="t-op">:</span> <span class="t-num">60_000</span> });
 
-<span class="t-com">// Concurrent callers share one loader call.</span>
+<span class="t-com">// Nothing is stored until somebody asks. Ten</span>
+<span class="t-com">// thousand callers, one trip to the database.</span>
 <span class="t-key">const</span> user <span class="t-op">=</span> <span class="t-key">await</span> cache.<span class="t-fn">getOrSet</span>(<span class="t-str">`user:</span><span class="t-op">${</span>id<span class="t-op">}</span><span class="t-str">`</span>, <span class="t-op">() =&gt;</span>
   db.users.<span class="t-fn">findById</span>(id)
 );</code></pre>
@@ -370,7 +378,7 @@
 });
 
 <span class="t-com">// msgpack on the way in. A Redis outage degrades</span>
-<span class="t-com">// to L1 — it does not throw.</span></code></pre>
+<span class="t-com">// to L1 instead of throwing.</span></code></pre>
           </div>
         </div>
 
@@ -385,8 +393,13 @@
 <span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({
   l2, eventBus<span class="t-op">:</span> bus,
   source<span class="t-op">:</span> process.env.<span class="t-var">INSTANCE_ID</span>,  <span class="t-com">// no self-loopback</span>
-  broadcastSet<span class="t-op">:</span> <span class="t-key">true</span>,               <span class="t-com">// prime peer L1s</span>
+  broadcastSet<span class="t-op">:</span> <span class="t-key">true</span>,               <span class="t-com">// see below</span>
 });
+
+<span class="t-com">// One server runs the loader, then broadcasts the</span>
+<span class="t-com">// value. Every peer stores it lazily in its own L1</span>
+<span class="t-com">// on arrival, so their first read is a local hit.</span>
+<span class="t-key">await</span> cache.<span class="t-fn">getOrSet</span>(<span class="t-str">`user:</span><span class="t-op">${</span>id<span class="t-op">}</span><span class="t-str">`</span>, load);
 
 <span class="t-key">await</span> cache.<span class="t-fn">deleteByPattern</span>(<span class="t-str">'user:*'</span>);  <span class="t-com">// fans out</span></code></pre>
           </div>
