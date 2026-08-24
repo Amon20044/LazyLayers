@@ -4,28 +4,19 @@
    ------------------------------------------------------------------------ */
 
 :root {
-  /* Surfaces — near-black, stepped so cards read against the page */
-  --bg:            #000000;
-  --bg-raised:     #060608;
-  --surface:       #0A0A0C;
-  --surface-2:     #0E0E12;
-  --surface-3:     #141419;
+  /* ── Palette that does NOT flip ──────────────────────────────────────
+     Diagrams and code blocks stay on a dark canvas in both themes. That is
+     deliberate: the isometric artwork is lit for a dark ground, and a dark
+     code panel on a light page is a well-worn convention (it is what the
+     references do too). Only the page chrome flips. */
+  --ink:           #08080B;
+  --ink-2:         #0D0D12;
+  --ink-line:      rgba(255, 255, 255, 0.09);
+  --ink-text:      #F2F2F4;
+  --ink-muted:     #B6B7C8;
+  --ink-dim:       #8C8D9C;
 
-  /* Hairlines. The whole layout is built from 1px rules, so these matter. */
-  --line:          rgba(255, 255, 255, 0.07);
-  --line-strong:   rgba(255, 255, 255, 0.13);
-  --line-faint:    rgba(255, 255, 255, 0.04);
-
-  /* Type */
-  --text:          #F2F2F4;
-  /* Measured against --bg-raised (#060608): muted 9.2:1, dim 6.2:1 — both
-     clear AA for body text. faint is 3.4:1, so it is reserved for large or
-     purely decorative type; anything a reader needs uses muted or dim. */
-  --text-muted:    #ADAEBB;
-  --text-dim:      #8C8D9C;
-  --text-faint:    #62636F;
-
-  /* The layer gradient */
+  /* ── Accents (dark theme values; light overrides below) ────────────── */
   --c-cyan:        #22D3EE;
   --c-indigo:      #6366F1;
   --c-violet:      #A855F7;
@@ -33,21 +24,42 @@
   --c-amber:       #FBBF24;
   --c-rose:        #FB7185;
 
+  /* ── Surfaces ─────────────────────────────────────────────────────── */
+  --bg:            #000000;
+  --bg-raised:     #060608;
+  --surface:       #0A0A0C;
+  --surface-2:     #0E0E12;
+  --surface-3:     #141419;
+
+  --line:          rgba(255, 255, 255, 0.07);
+  --line-strong:   rgba(255, 255, 255, 0.13);
+  --line-faint:    rgba(255, 255, 255, 0.04);
+
+  --text:          #F2F2F4;
+  --text-muted:    #ADAEBB;
+  --text-dim:      #8C8D9C;
+  --text-faint:    #62636F;
+
+  /* Inverted pair for solid buttons */
+  --btn-solid-bg:   #FFFFFF;
+  --btn-solid-fg:   #08080A;
+
+  --grid-line:     rgba(255, 255, 255, 0.028);
+  --aurora-alpha:  0.5;
+
   --accent:        var(--c-indigo);
   --grad-layer:    linear-gradient(100deg, var(--c-cyan), var(--c-indigo) 48%, var(--c-violet));
   --grad-savings:  linear-gradient(100deg, var(--c-mint), var(--c-cyan));
   --grad-text:     linear-gradient(180deg, #FFFFFF 12%, #9EA0B0 100%);
 
-  /* Glows used behind hero + section headers */
   --glow-indigo:   radial-gradient(60% 60% at 50% 40%, rgba(99, 102, 241, 0.22), transparent 70%);
-  --glow-cyan:     radial-gradient(50% 50% at 30% 50%, rgba(34, 211, 238, 0.16), transparent 70%);
 
-  /* Type scale — fluid, clamped so it never gets silly on ultrawide */
-  --fs-display: clamp(2.6rem, 1.2rem + 5.4vw, 5rem);
-  --fs-h1:      clamp(2.25rem, 1.2rem + 4.2vw, 4.25rem);
-  --fs-h2:      clamp(1.75rem, 1.1rem + 2.6vw, 3rem);
-  --fs-h3:      clamp(1.25rem, 1rem + 1.1vw, 1.75rem);
-  --fs-lead:    clamp(1rem, 0.95rem + 0.5vw, 1.1875rem);
+  /* ── Type ─────────────────────────────────────────────────────────── */
+  --fs-display: clamp(2.5rem, 1.1rem + 5.2vw, 4.75rem);
+  --fs-h1:      clamp(2rem, 1.1rem + 3.8vw, 3.75rem);
+  --fs-h2:      clamp(1.625rem, 1.05rem + 2.4vw, 2.75rem);
+  --fs-h3:      clamp(1.1875rem, 1rem + 1vw, 1.625rem);
+  --fs-lead:    clamp(1rem, 0.95rem + 0.4vw, 1.125rem);
   --fs-body:    0.9375rem;
   --fs-sm:      0.8125rem;
   --fs-xs:      0.75rem;
@@ -57,23 +69,84 @@
   --ff-body:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --ff-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  /* Rhythm */
+  /* ── Rhythm ───────────────────────────────────────────────────────── */
   --gutter:     clamp(1.25rem, 4vw, 3rem);
-  --maxw:       1280px;
-  --maxw-prose: 68ch;
-  --sec-y:      clamp(5rem, 11vh, 9rem);
+  --maxw:       1180px;
+  --sec-y:      clamp(3.5rem, 8vh, 6.5rem);
 
   --r-sm: 8px;
   --r:    12px;
   --r-lg: 18px;
   --r-xl: 26px;
 
-  /* Motion. One easing family keeps everything feeling related. */
   --ease:      cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
   --ease-io:   cubic-bezier(0.65, 0, 0.35, 1);
   --dur:       0.55s;
   --dur-fast:  0.22s;
+}
+
+/* ── Light theme ──────────────────────────────────────────────────────
+   Declared twice on purpose: once for an explicit choice, once for the
+   system preference when the user has not chosen. An inline script in
+   <head> resolves the system preference to an attribute before first paint,
+   so the media query is really the no-JS fallback. */
+:root[data-theme='light'] {
+  --c-cyan:        #0E7490;
+  --c-indigo:      #4F46E5;
+  --c-violet:      #7C3AED;
+  --c-mint:        #059669;
+  --c-amber:       #B45309;
+  --c-rose:        #E11D48;
+
+  --bg:            #FFFFFF;
+  --bg-raised:     #FBFBFC;
+  --surface:       #F6F6F8;
+  --surface-2:     #EFEFF3;
+  --surface-3:     #E7E7ED;
+
+  --line:          rgba(9, 9, 14, 0.10);
+  --line-strong:   rgba(9, 9, 14, 0.18);
+  --line-faint:    rgba(9, 9, 14, 0.05);
+
+  --text:          #0B0B10;
+  --text-muted:    #4B4B58;
+  --text-dim:      #64646F;
+  --text-faint:    #8A8A95;
+
+  --btn-solid-bg:  #0B0B10;
+  --btn-solid-fg:  #FFFFFF;
+
+  --grid-line:     rgba(9, 9, 14, 0.045);
+  --aurora-alpha:  0.28;
+
+  --grad-text:     linear-gradient(180deg, #0B0B10 20%, #4B4B58 100%);
+  --glow-indigo:   radial-gradient(60% 60% at 50% 40%, rgba(99, 102, 241, 0.12), transparent 70%);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']):not([data-theme='light']) {
+    --c-cyan: #0E7490; --c-indigo: #4F46E5; --c-violet: #7C3AED;
+    --c-mint: #059669; --c-amber: #B45309; --c-rose: #E11D48;
+    --bg: #FFFFFF; --bg-raised: #FBFBFC; --surface: #F6F6F8;
+    --surface-2: #EFEFF3; --surface-3: #E7E7ED;
+    --line: rgba(9,9,14,0.10); --line-strong: rgba(9,9,14,0.18); --line-faint: rgba(9,9,14,0.05);
+    --text: #0B0B10; --text-muted: #4B4B58; --text-dim: #64646F; --text-faint: #8A8A95;
+    --btn-solid-bg: #0B0B10; --btn-solid-fg: #FFFFFF;
+    --grid-line: rgba(9,9,14,0.045); --aurora-alpha: 0.28;
+    --grad-text: linear-gradient(180deg, #0B0B10 20%, #4B4B58 100%);
+    --glow-indigo: radial-gradient(60% 60% at 50% 40%, rgba(99,102,241,0.12), transparent 70%);
+    color-scheme: light;
+  }
+}
+
+:root[data-theme='dark'] { color-scheme: dark; }
+
+/* Theme swap should feel instant, not laggy — only the big planes fade. */
+body, .nav, .card, .bento__cell, .lens, .statbar, .wire__card, .stack__item {
+  transition: background-color 0.3s var(--ease), border-color 0.3s var(--ease), color 0.3s var(--ease);
 }
 
 *, *::before, *::after { box-sizing: border-box; }

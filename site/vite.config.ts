@@ -11,16 +11,16 @@ function staticContent(): Plugin {
     async transformIndexHtml(html) {
       const r = await import('./src/lib/render');
       const slots: Record<string, string> = {
+        '<!--@stack-->': r.stack(),
         '<!--@statbar-->': r.statbar(),
         '<!--@iso-->': r.iso(),
         '<!--@stale-->': r.stale(),
         '<!--@fanout-->': r.fanout(),
-        '<!--@lenses-->': r.lenses(),
         '<!--@bytes-->': r.byteStory(),
+        '<!--@wire-->': r.wireEvents(),
         '<!--@bento-->': r.bento(),
         '<!--@bench-->': r.benchTable(),
         '<!--@tradeoff-->': r.tradeoff(),
-        '<!--@layers-->': r.layers(),
         '<!--@faq-->': r.faq(),
         '<!--@faq-jsonld-->': r.faqJsonLd(),
         '<!--@bench-meta-->': r.benchMeta(),

@@ -91,8 +91,8 @@
 .bg-grid {
   position: fixed; inset: 0; z-index: -2; pointer-events: none;
   background-image:
-    linear-gradient(to right, rgba(255,255,255,0.028) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.028) 1px, transparent 1px);
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
   background-size: 64px 64px;
   mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 30%, transparent 78%);
   -webkit-mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 30%, transparent 78%);
@@ -102,7 +102,7 @@
 .bg-aurora {
   position: fixed; inset: -30% -10%; z-index: -3; pointer-events: none;
   filter: blur(90px);
-  opacity: 0.5;
+  opacity: var(--aurora-alpha);
   background:
     radial-gradient(38% 44% at 18% 22%, rgba(34, 211, 238, 0.30), transparent 60%),
     radial-gradient(42% 40% at 78% 30%, rgba(168, 85, 247, 0.26), transparent 62%),
