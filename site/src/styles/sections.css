@@ -647,9 +647,7 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
   transition: border-color 0.45s var(--ease), background 0.45s var(--ease);
 }
 .bento__cell:hover { border-color: rgba(255,255,255,0.2); background: #101017; }
-.bento__cell .bento__fails { color: var(--ink-text); }
-.bento__cell .bento__fix   { color: var(--ink-muted); }
-.bento__cell .bento__no    { color: rgba(255,255,255,0.28); }
+.bento__cell .bento__no { color: rgba(255,255,255,0.28); }
 
 .bento__viz { display: grid; place-items: center; flex: 1; min-height: 0; }
 .viz { width: 100%; height: auto; }
@@ -664,26 +662,33 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
   color: var(--text-faint);
 }
 
-.bento__foot { display: grid; gap: 0.5rem; }
+.bento__foot { display: grid; gap: 0.4375rem; }
 
-.bento__fails {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem;
-  font-size: var(--fs-body); color: var(--text);
-  letter-spacing: -0.012em; line-height: 1.4;
-}
-.bento__fails > span {
-  font-family: var(--ff-mono); font-size: 0.625rem;
-  letter-spacing: 0.12em; text-transform: uppercase;
+/* Names the failure mode, so it has to read as a category label — not as a
+   claim about what this library does. Muted and small; the guarantee below it
+   is the line that carries weight. */
+.bento__risk {
+  justify-self: start;
+  font-family: var(--ff-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--c-amber);
-  border: 1px solid color-mix(in srgb, var(--c-amber) 40%, transparent);
-  background: color-mix(in srgb, var(--c-amber) 10%, transparent);
-  padding: 0.125rem 0.4375rem; border-radius: 4px;
-  flex-shrink: 0;
+  opacity: 0.85;
 }
 
-.bento__fix {
-  font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.6;
-  max-width: 52ch;
+.bento__answer {
+  font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  color: var(--ink-text);
+}
+
+.bento__detail {
+  font-size: var(--fs-sm);
+  color: var(--ink-muted);
+  line-height: 1.6;
+  max-width: 54ch;
 }
 
 /* ── Flow-line backdrop ──────────────────────────────────────────────── */

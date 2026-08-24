@@ -275,10 +275,16 @@ function vizEncodings(): string {
 
 interface Step {
   span: string;
-  /** What breaks if you stop here. */
-  fails: string;
-  /** The mechanism that answers it. */
-  fix: string;
+  /**
+   * The failure MODE — named the way an incident review would name it. This is
+   * a property of distributed caching, never a claim about this library, which
+   * is why it is a noun and not a "fails when" clause.
+   */
+  risk: string;
+  /** The guarantee. Leads, because that is the thing being offered. */
+  answer: string;
+  /** How it is actually achieved. */
+  detail: string;
   viz: string;
   flow?: { seed: number; hue: string };
 }
@@ -290,44 +296,51 @@ interface Step {
 const STEPS: Step[] = [
   {
     span: 'b',
-    fails: 'Redis goes slow, or goes away',
-    fix: 'L2 fails open. The request drops to L1 instead of throwing, and a circuit breaker stops hammering a sick store.',
+    risk: 'L2 unavailable',
+    answer: 'Requests still land.',
+    detail: 'Redis going slow or dark drops you to L1 instead of throwing, and a circuit breaker stops hammering a store that is already unwell.',
     viz: vizFailOpen(), flow: { seed: 11, hue: 'mint' },
   },
   {
     span: 'e',
-    fails: 'A cold key meets real traffic',
-    fix: 'Concurrent callers share one in-flight promise. Ten thousand of them, one query to your origin.',
+    risk: 'Cache stampede',
+    answer: 'Ten thousand callers, one query.',
+    detail: 'Concurrent callers on a cold key share a single in-flight promise, so your origin is asked once.',
     viz: vizHerd(), flow: { seed: 7, hue: 'violet' },
   },
   {
     span: 'a',
-    fails: 'One instance writes, the rest never hear',
-    fix: 'Events fan out over a bus. Peers drop the key, or take the new value straight into L1.',
+    risk: 'Stale peers',
+    answer: 'Every node agrees.',
+    detail: 'A write fans out over the bus. Peers drop the key, or take the new value straight into L1 without calling a loader.',
     viz: vizFanout(), flow: { seed: 3, hue: 'cyan' },
   },
   {
     span: 'c',
-    fails: 'Events arrive late, twice, or out of order',
-    fix: 'Per-key generations refuse anything older than what was already applied. IDs are deduplicated; your own events are filtered out.',
+    risk: 'Out-of-order delivery',
+    answer: 'A late event cannot resurrect deleted data.',
+    detail: 'Per-key generations refuse anything older than what was already applied. Event IDs are deduplicated, and your own broadcasts are filtered out.',
     viz: vizGeneration(), flow: { seed: 19, hue: 'cyan' },
   },
   {
     span: 'd',
-    fails: 'An instance was disconnected when it mattered',
-    fix: 'Pick the guarantee. At-most-once is fastest; durable transports buffer and redeliver on reconnect.',
+    risk: 'Missed while offline',
+    answer: 'You choose the delivery guarantee.',
+    detail: 'At-most-once is the fastest fanout. Durable transports buffer for a disconnected instance and redeliver on reconnect.',
     viz: vizTransports(), flow: { seed: 23, hue: 'mint' },
   },
   {
     span: 'g',
-    fails: 'The bus itself rejects a publish',
-    fix: 'The event is buffered in a bounded queue and flushed on the next success. Oldest drops first.',
+    risk: 'Bus unavailable',
+    answer: 'A rejected publish is not a lost event.',
+    detail: 'It is buffered in a bounded queue and flushed on the next success. Oldest drops first, so a long outage cannot grow without limit.',
     viz: vizRetry(), flow: { seed: 29, hue: 'cyan' },
   },
   {
     span: 'f',
-    fails: 'Every byte is on the bill, forever',
-    fix: 'Three wire encodings, chosen per payload at write time, each tagged with a 4-byte prefix so reads stay uniform.',
+    risk: 'Storage cost',
+    answer: 'Three encodings, chosen per payload.',
+    detail: 'Picked at write time and tagged with a 4-byte prefix, so the read path stays uniform whichever one was used.',
     viz: vizEncodings(), flow: { seed: 5, hue: 'cyan' },
   },
 ];
@@ -339,8 +352,9 @@ export function bento(): string {
       <span class="bento__no">${String(i + 1).padStart(2, '0')}</span>
       <div class="bento__viz">${st.viz}</div>
       <div class="bento__foot">
-        <p class="bento__fails"><span>Fails when</span> ${st.fails}</p>
-        <p class="bento__fix">${st.fix}</p>
+        <span class="bento__risk">${st.risk}</span>
+        <p class="bento__answer">${st.answer}</p>
+        <p class="bento__detail">${st.detail}</p>
       </div>
     </li>`).join('')}</ol>`;
 }
