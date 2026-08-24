@@ -189,7 +189,11 @@ function initNav() {
   });
 
   // Highlight whichever section owns the viewport.
-  const navLinks = $$<HTMLAnchorElement>('.nav__link');
+  // Only same-page anchors can be scroll-spied. An external href is not a
+  // valid CSS selector, and passing one to querySelector throws — which would
+  // abort boot() and leave every .reveal element stuck at opacity 0.
+  const navLinks = $$<HTMLAnchorElement>('.nav__link')
+    .filter((a) => (a.getAttribute('href') ?? '').startsWith('#'));
   const sections = navLinks
     .map((a) => document.querySelector(a.getAttribute('href')!))
     .filter((s): s is Element => Boolean(s));
@@ -336,17 +340,22 @@ function initCopy() {
 
 /* ── Boot ────────────────────────────────────────────────────────────── */
 
+/** A failure in one enhancement must not stop the rest from running. */
+function safely(name: string, fn: () => void) {
+  try { fn(); } catch (err) { console.error(`[lazylayers] ${name} failed`, err); }
+}
+
 function boot() {
-  initTheme();
-  initNav();
-  initReveals();
-  initCounters();
-  initTabs();
-  initFaq();
-  initCopy();
-  initMagnetic();
-  initSpotlight();
-  initCursorGlow();
+  safely('theme', initTheme);
+  safely('nav', initNav);
+  safely('initReveals', initReveals);
+  safely('initCounters', initCounters);
+  safely('initTabs', initTabs);
+  safely('initFaq', initFaq);
+  safely('initCopy', initCopy);
+  safely('initMagnetic', initMagnetic);
+  safely('initSpotlight', initSpotlight);
+  safely('initCursorGlow', initCursorGlow);
 
   const calc = document.getElementById('calc');
   if (calc) initCalculator(calc);
