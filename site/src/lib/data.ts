@@ -80,19 +80,6 @@ export const BENCH_META = {
 export const SAVINGS_MIN = Math.round(Math.min(...BENCH.map(saved)) * 100);
 export const SAVINGS_MAX = Math.round(Math.max(...BENCH.map(saved)) * 100);
 
-export interface Layer {
-  code: string;
-  name: string;
-  detail: string;
-  when: string;
-}
-
-export const LAYERS: Layer[] = [
-  { code: 'HC1M', name: 'MessagePack',       detail: 'Binary encode. Numbers stop being decimal strings; keys stop repeating as UTF-8.', when: 'Every payload under 64 kB' },
-  { code: 'HC1G', name: 'gzip(MessagePack)', detail: 'Deflate on top of binary — kept only when it actually pays for itself.',            when: '≥ 64 kB and gzip saves ≥ 15%' },
-  { code: 'HC1J', name: 'JSON passthrough',  detail: 'Readable escape hatch. Same read path, no binary decode.',                          when: 'CACHE_FORMAT=json' },
-];
-
 /**
  * Thundering herd, measured by benchmarks/herd.mjs: 10,000 concurrent
  * getOrSet calls against one cold key, with and without inflight dedupe.
@@ -105,64 +92,63 @@ export const HERD = {
   withoutDedupe: 10_000,
 } as const;
 
-/* ── The three lenses the page is organised around ────────────────────── */
-
-export interface Lens {
-  id: string;
-  eye: string;
-  title: string;
-  question: string;
-  answer: string;
-  metric: string;
-  metricLabel: string;
-  accent: string;
-}
-
-export const LENSES: Lens[] = [
-  {
-    id: 'architect',
-    eye: 'The architect',
-    title: 'Every node agrees',
-    question: 'What happens to my other instances when one of them writes?',
-    answer: 'Events fan out over a bus. Peers drop the key, or take the new value straight into L1.',
-    metric: '3',
-    metricLabel: 'event types, fanned to every peer',
-    accent: 'cyan',
-  },
-  {
-    id: 'cost',
-    eye: 'The cost saver',
-    title: 'Bytes are the bill',
-    question: 'What am I actually paying Redis to store?',
-    answer: 'Forty percent of a JSON record is punctuation and repeated key names. We stop storing it.',
-    metric: '92%',
-    metricLabel: 'smaller on the wire, measured',
-    accent: 'mint',
-  },
-  {
-    id: 'optimizer',
-    eye: 'The optimizer',
-    title: 'One load, not fifty',
-    question: 'How many times does my database answer the same question?',
-    answer: 'Inflight dedupe collapses concurrent loads. The winner broadcasts, so peers never load it at all.',
-    metric: '1',
-    metricLabel: 'loader call per key, per fanout',
-    accent: 'violet',
-  },
-];
-
 /* ── What actually travels on the bus ─────────────────────────────────── */
 
-export interface BusEvent {
-  type: string;
-  trigger: string;
+/**
+ * Concrete example payloads, matching the InvalidationEvent union in
+ * src/types/event.types.ts exactly. The distinction that matters: `del` and
+ * `pattern` carry no value at all — they only say what to forget. `set` is the
+ * one that carries the value itself, which is what lets peers prime their L1
+ * without calling a loader.
+ */
+export interface WireEvent {
+  type: 'del' | 'pattern' | 'set';
+  headline: string;
+  payload: string;
   effect: string;
+  carriesValue: boolean;
 }
 
-export const BUS_EVENTS: BusEvent[] = [
-  { type: 'del',     trigger: 'cache.delete(key)',      effect: 'Peers drop the key from L1, L2, negative, stale and inflight.' },
-  { type: 'pattern', trigger: 'cache.deleteByPattern()', effect: 'Peers drop every local entry matching the wildcard.' },
-  { type: 'set',     trigger: 'a getOrSet loader returns', effect: 'Peers take the value straight into L1 — no second loader call.' },
+export const WIRE_EVENTS: WireEvent[] = [
+  {
+    type: 'del',
+    headline: 'Invalidate one key',
+    payload: `{
+  type: "del",
+  keys: ["user:42"],
+  source: "node-1",
+  generation: 7,
+  ts: 1740086400000
+}`,
+    effect: 'Peers drop user:42 from L1, L2, negative, stale and inflight. No value travels.',
+    carriesValue: false,
+  },
+  {
+    type: 'pattern',
+    headline: 'Invalidate a wildcard',
+    payload: `{
+  type: "pattern",
+  pattern: "user:*",
+  source: "node-1",
+  generation: 7,
+  ts: 1740086400000
+}`,
+    effect: 'Peers drop every local entry whose key matches. Still no value.',
+    carriesValue: false,
+  },
+  {
+    type: 'set',
+    headline: 'Prime peers with the value',
+    payload: `{
+  type: "set",
+  keys: ["user:42"],
+  value: { id: 42, plan: "pro" },
+  generation: 8,
+  ttlMs: 60000
+}`,
+    effect: 'The value rides along, so peers put it straight into L1 — no second loader call.',
+    carriesValue: true,
+  },
 ];
 
 /* ── Correctness guarantees ───────────────────────────────────────────── */

@@ -5,13 +5,14 @@
  */
 
 import {
-  BENCH, saved, LAYERS, FAQS, BENCH_META, SAVINGS_MIN, SAVINGS_MAX, LENSES,
+  BENCH, saved, FAQS, BENCH_META, SAVINGS_MIN, SAVINGS_MAX, WIRE_EVENTS,
 } from './data';
 import { BUDGET } from './bytes';
 import { isoDiagram } from './iso';
 import { staleDiagram, fanoutDiagram } from './diagrams';
 import { byteViz, BYTE_LEGEND } from './byteviz';
 import { bento as bentoGrid } from './bento';
+import { icon, BRAND, TITLE, type IconName } from './icons';
 
 const bytes = (b: number) =>
   b >= 1048576 ? `${(b / 1048576).toFixed(2)} MB` : b >= 1024 ? `${(b / 1024).toFixed(1)} kB` : `${b} B`;
@@ -24,26 +25,6 @@ export const iso = () => `<div class="iso reveal">${isoDiagram()}</div>`;
 export const stale = () => `<figure class="iso iso--inset reveal">${staleDiagram()}</figure>`;
 export const fanout = () => `<figure class="iso iso--inset reveal">${fanoutDiagram()}</figure>`;
 export const bento = () => bentoGrid();
-
-/* ── The three lenses ────────────────────────────────────────────────── */
-
-export function lenses(): string {
-  return `<div class="lenses reveal-stagger">${LENSES.map((l) => `
-    <article class="lens lens--${l.accent}" data-lens="${l.id}">
-      <div class="lens__eye">
-        <svg viewBox="0 0 30 18" aria-hidden="true" class="lens__icon">
-          <path d="M1 9C1 9 6 2 15 2s14 7 14 7-5 7-14 7S1 9 1 9Z" fill="none" stroke="currentColor" stroke-width="1.4"/>
-          <circle cx="15" cy="9" r="3.6" fill="currentColor"/>
-        </svg>
-        ${esc(l.eye)}
-      </div>
-      <div class="lens__metric">${l.metric}</div>
-      <div class="lens__metric-label">${esc(l.metricLabel)}</div>
-      <h3 class="lens__title">${esc(l.title)}</h3>
-      <p class="lens__q">${esc(l.question)}</p>
-      <p class="lens__a">${esc(l.answer)}</p>
-    </article>`).join('')}</div>`;
-}
 
 /* ── Byte story ──────────────────────────────────────────────────────── */
 
@@ -138,16 +119,6 @@ export function tradeoff(): string {
 
 /* ── Serializer / FAQ / stats ────────────────────────────────────────── */
 
-export function layers(): string {
-  return `<div class="layers reveal-stagger">${LAYERS.map((l) => `
-    <article class="card card--spot card--lift layer">
-      <div class="layer__code">${l.code}</div>
-      <h3 class="layer__name">${esc(l.name)}</h3>
-      <p class="layer__detail">${esc(l.detail)}</p>
-      <div class="layer__when">${esc(l.when)}</div>
-    </article>`).join('')}</div>`;
-}
-
 export function faq(): string {
   return `<div class="faq reveal">${FAQS.map((f, i) => `
     <div class="faq__item" data-faq>
@@ -185,6 +156,47 @@ export function statbar(): string {
       <div class="statbar__val" data-count="${c.n}" data-suffix="${c.suffix}">${c.v}</div>
       <div class="statbar__label">${esc(c.l)}</div>
     </div>`).join('')}</div>`;
+}
+
+/* ── What travels on the wire ────────────────────────────────────────── */
+
+export function wireEvents(): string {
+  return `<div class="wire reveal-stagger">${WIRE_EVENTS.map((e) => `
+    <article class="wire__card${e.carriesValue ? ' wire__card--value' : ''}">
+      <header class="wire__head">
+        <code class="wire__type">${esc(e.type)}</code>
+        <span class="wire__headline">${esc(e.headline)}</span>
+        <span class="wire__flag">${e.carriesValue ? 'carries a value' : 'no value'}</span>
+      </header>
+      <pre class="wire__payload"><code>${esc(e.payload)}</code></pre>
+      <p class="wire__effect">${esc(e.effect)}</p>
+    </article>`).join('')}</div>`;
+}
+
+/* ── Integration strip ───────────────────────────────────────────────── */
+
+const STACK: Array<{ id: IconName; name?: string; role: string }> = [
+  { id: 'node',    name: 'Node.js 20+', role: 'runtime' },
+  { id: 'ts',                           role: 'types built in' },
+  { id: 'redis',                        role: 'L2 store · pub/sub' },
+  { id: 'rabbit',                       role: 'durable bus' },
+  { id: 'nats',                         role: 'core · JetStream' },
+  { id: 'msgpack',                      role: 'wire format' },
+];
+
+export function stack(): string {
+  return `
+  <div class="stack reveal" aria-label="Technologies LazyLayers integrates with">
+    <span class="stack__lede">Works with</span>
+    <ul class="stack__list">
+      ${STACK.map((t) => `
+        <li class="stack__item" style="--brand:${BRAND[t.id]}">
+          ${icon(t.id, 20)}
+          <span class="stack__name">${esc(t.name ?? TITLE[t.id])}</span>
+          <span class="stack__role">${esc(t.role)}</span>
+        </li>`).join('')}
+    </ul>
+  </div>`;
 }
 
 export function benchMeta(): string {

@@ -4,6 +4,7 @@
  */
 
 import { slab, channel, proj, pts, rail, topCentre, isoLabel, ISO_DEFS, type Box, type V } from './isocore';
+import { markAt, BRAND } from './icons';
 
 /** The hero SVG renders at roughly 0.7 scale in its column. */
 const HERO_LABEL = 1.6;
@@ -65,7 +66,9 @@ export function isoDiagram(): string {
   <defs>${ISO_DEFS}</defs>
 
   ${slab(l2, { top: 'url(#l2-top)', left: '#221C63', right: '#1A1550', stroke: 'rgba(255,255,255,0.18)' })}
-  ${isoLabel(proj(l2.cx + l2.w / 2, l2.cy + l2.d / 2, l2.h), 20, 6, 'L2 · SHARED STORE', 'msgpack + gzip on the wire', HERO_LABEL)}
+  ${markAt('redis', proj(l2.cx + l2.w / 2, l2.cy + l2.d / 2, l2.h)[0] + 20,
+           proj(l2.cx + l2.w / 2, l2.cy + l2.d / 2, l2.h)[1] - 20, 34, BRAND.redis)}
+  ${isoLabel(proj(l2.cx + l2.w / 2, l2.cy + l2.d / 2, l2.h), 62, 6, 'L2 · SHARED STORE', 'msgpack + gzip on the wire', HERO_LABEL)}
 
   ${spine}
 
@@ -90,6 +93,7 @@ export function isoDiagram(): string {
       top: 'url(#chip-top)', left: '#0E7490', right: '#0A5A6E', stroke: 'rgba(255,255,255,0.28)',
       glow: '#22D3EE', className: `node-pulse${i === 0 ? ' node-pulse--b' : i === 2 ? ' node-pulse--c' : ''}`,
     })}
+    ${markAt('node', topCentre(chips[i])[0] - 19, topCentre(chips[i])[1] - 90, 38, BRAND.node)}
     ${isoLabel(topCentre(chips[i]), 0, -44, `NODE ${i + 1}`, 'L1 · LRU', HERO_LABEL)}
   `).join('')}
 

@@ -4,8 +4,8 @@
     {
       "name": "lazylayers-site",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "site"],
-      "port": 5173
+      "runtimeArgs": ["run", "dev", "--prefix", "site", "--", "--port", "5188", "--strictPort"],
+      "port": 5188
     }
   ]
 }

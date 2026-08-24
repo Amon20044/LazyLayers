@@ -4,6 +4,7 @@
  */
 
 import { TRANSPORTS } from './data';
+import { markAt, BRAND, type IconName } from './icons';
 
 /* ── Animated flow-line backdrop ──────────────────────────────────────── */
 
@@ -135,6 +136,9 @@ function vizGeneration(): string {
 
 /** D: four transports, split by delivery guarantee. */
 function vizTransports(): string {
+  // Index-matched to TRANSPORTS: Redis Pub/Sub, NATS Core, RabbitMQ, NATS JetStream.
+  const ICONS: IconName[] = ['redis', 'nats', 'rabbit', 'nats'];
+
   return `<svg viewBox="0 0 300 108" class="viz" aria-hidden="true">
     ${TRANSPORTS.map((t, i) => {
       const x = (i % 2) * 152 + 2;
@@ -143,9 +147,10 @@ function vizTransports(): string {
       return `<g transform="translate(${x},${y})">
         <rect width="144" height="44" rx="9" fill="${on ? 'rgba(52,211,153,0.07)' : 'rgba(255,255,255,0.035)'}"
               stroke="${on ? 'rgba(52,211,153,0.4)' : 'rgba(255,255,255,0.13)'}"/>
-        <text x="12" y="19" font-family="Inter,sans-serif" font-size="10" font-weight="500" fill="#E8E8EE">${t.name}</text>
-        <text x="12" y="33" font-family="'JetBrains Mono',monospace" font-size="9"
-              fill="${on ? '#6EE7B7' : '#8A8A94'}" letter-spacing="0.08em">${t.delivery.toUpperCase()}</text>
+        ${markAt(ICONS[i], 10, 12, 20, BRAND[ICONS[i]])}
+        <text x="38" y="19" font-family="Inter,sans-serif" font-size="10" font-weight="500" fill="#E8E8EE">${t.name}</text>
+        <text x="38" y="33" font-family="'JetBrains Mono',monospace" font-size="9"
+              fill="${on ? '#6EE7B7' : '#B4B5C4'}" letter-spacing="0.08em">${t.delivery.toUpperCase()}</text>
       </g>`;
     }).join('')}
   </svg>`;
@@ -209,6 +214,39 @@ function vizHerd(): string {
   </svg>`;
 }
 
+/** G: a publish fails, so the event is buffered and flushed on the next one. */
+function vizRetry(): string {
+  const q = Array.from({ length: 4 }, (_, i) => `
+    <rect x="${(96 + i * 26).toFixed(0)}" y="44" width="22" height="22" rx="5"
+          fill="rgba(251,191,36,0.14)" stroke="rgba(251,191,36,0.5)"/>`).join('');
+
+  return `<svg viewBox="0 0 300 108" class="viz" aria-hidden="true">
+    <rect x="4" y="42" width="62" height="26" rx="8" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.18)"/>
+    <text x="35" y="59" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#B4B5C4">publish</text>
+
+    <g class="stale-blink">
+      <path d="M 70 55 L 88 55" stroke="rgba(244,63,94,0.5)" stroke-width="1.3" stroke-dasharray="3 3"/>
+      <g transform="translate(79,55)">
+        <line x1="-4" y1="-4" x2="4" y2="4" stroke="#F43F5E" stroke-width="1.7" stroke-linecap="round"/>
+        <line x1="4" y1="-4" x2="-4" y2="4" stroke="#F43F5E" stroke-width="1.7" stroke-linecap="round"/>
+      </g>
+    </g>
+
+    ${q}
+    <text x="150" y="34" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9"
+          fill="#FBBF24" letter-spacing="0.06em">BUFFERED · BOUNDED</text>
+
+    <path d="M 206 55 L 236 55" stroke="rgba(52,211,153,0.6)" stroke-width="1.5" marker-end="url(#bn-ok2)"/>
+    <rect x="242" y="42" width="54" height="26" rx="8" fill="rgba(52,211,153,0.09)" stroke="rgba(52,211,153,0.45)"/>
+    <text x="269" y="59" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#6EE7B7">bus</text>
+    <text x="150" y="86" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9"
+          fill="#A2A3B4" letter-spacing="0.05em">FLUSHED ON THE NEXT SUCCESS</text>
+
+    <defs><marker id="bn-ok2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <path d="M0 0 L6 3 L0 6 Z" fill="rgba(52,211,153,0.8)"/></marker></defs>
+  </svg>`;
+}
+
 /** F: the write-time encoding decision, with real sizes. */
 function vizEncodings(): string {
   const out = (x: number, code: string, name: string, note: string, w: number, colour: string) => `
@@ -235,27 +273,74 @@ function vizEncodings(): string {
 
 /* ── Grid ─────────────────────────────────────────────────────────────── */
 
-interface Cell {
+interface Step {
   span: string;
-  label: string;
+  /** What breaks if you stop here. */
+  fails: string;
+  /** The mechanism that answers it. */
+  fix: string;
   viz: string;
   flow?: { seed: number; hue: string };
 }
 
-const CELLS: Cell[] = [
-  { span: 'a', label: 'One publish. Every peer applies it.', viz: vizFanout(),      flow: { seed: 3, hue: 'cyan' } },
-  { span: 'b', label: 'Redis dies. Requests still land.',    viz: vizFailOpen(),    flow: { seed: 11, hue: 'mint' } },
-  { span: 'e', label: 'Ten thousand callers. One database query.', viz: vizHerd(),  flow: { seed: 7, hue: 'violet' } },
-  { span: 'c', label: 'A late event cannot resurrect deleted data.', viz: vizGeneration(), flow: { seed: 19, hue: 'cyan' } },
-  { span: 'd', label: 'Pick your delivery guarantee.',       viz: vizTransports(),  flow: { seed: 23, hue: 'mint' } },
-  { span: 'f', label: 'Three encodings, chosen at write time.', viz: vizEncodings(), flow: { seed: 5, hue: 'cyan' } },
+/**
+ * The order you actually hit these problems in. Each step is the failure that
+ * pushes you to the next one — which is why they read top to bottom.
+ */
+const STEPS: Step[] = [
+  {
+    span: 'b',
+    fails: 'Redis goes slow, or goes away',
+    fix: 'L2 fails open. The request drops to L1 instead of throwing, and a circuit breaker stops hammering a sick store.',
+    viz: vizFailOpen(), flow: { seed: 11, hue: 'mint' },
+  },
+  {
+    span: 'e',
+    fails: 'A cold key meets real traffic',
+    fix: 'Concurrent callers share one in-flight promise. Ten thousand of them, one query to your origin.',
+    viz: vizHerd(), flow: { seed: 7, hue: 'violet' },
+  },
+  {
+    span: 'a',
+    fails: 'One instance writes, the rest never hear',
+    fix: 'Events fan out over a bus. Peers drop the key, or take the new value straight into L1.',
+    viz: vizFanout(), flow: { seed: 3, hue: 'cyan' },
+  },
+  {
+    span: 'c',
+    fails: 'Events arrive late, twice, or out of order',
+    fix: 'Per-key generations refuse anything older than what was already applied. IDs are deduplicated; your own events are filtered out.',
+    viz: vizGeneration(), flow: { seed: 19, hue: 'cyan' },
+  },
+  {
+    span: 'd',
+    fails: 'An instance was disconnected when it mattered',
+    fix: 'Pick the guarantee. At-most-once is fastest; durable transports buffer and redeliver on reconnect.',
+    viz: vizTransports(), flow: { seed: 23, hue: 'mint' },
+  },
+  {
+    span: 'g',
+    fails: 'The bus itself rejects a publish',
+    fix: 'The event is buffered in a bounded queue and flushed on the next success. Oldest drops first.',
+    viz: vizRetry(), flow: { seed: 29, hue: 'cyan' },
+  },
+  {
+    span: 'f',
+    fails: 'Every byte is on the bill, forever',
+    fix: 'Three wire encodings, chosen per payload at write time, each tagged with a 4-byte prefix so reads stay uniform.',
+    viz: vizEncodings(), flow: { seed: 5, hue: 'cyan' },
+  },
 ];
 
 export function bento(): string {
-  return `<div class="bento reveal-stagger">${CELLS.map((c) => `
-    <article class="bento__cell bento__cell--${c.span}">
-      ${c.flow ? flowLines(c.flow.seed, 16, c.flow.hue) : ''}
-      <div class="bento__viz">${c.viz}</div>
-      <p class="bento__label">${c.label}</p>
-    </article>`).join('')}</div>`;
+  return `<ol class="bento reveal-stagger">${STEPS.map((st, i) => `
+    <li class="bento__cell bento__cell--${st.span}">
+      ${st.flow ? flowLines(st.flow.seed, 14, st.flow.hue) : ''}
+      <span class="bento__no">${String(i + 1).padStart(2, '0')}</span>
+      <div class="bento__viz">${st.viz}</div>
+      <div class="bento__foot">
+        <p class="bento__fails"><span>Fails when</span> ${st.fails}</p>
+        <p class="bento__fix">${st.fix}</p>
+      </div>
+    </li>`).join('')}</ol>`;
 }

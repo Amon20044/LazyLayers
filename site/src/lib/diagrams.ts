@@ -4,6 +4,7 @@
  */
 
 import { slab, channel, proj, pts, rail, topCentre, isoLabel, ISO_DEFS, type Box, type V } from './isocore';
+import { markAt, BRAND } from './icons';
 
 const NODE = { w: 84, d: 84, h: 11 };
 const CHIP = { w: 44, d: 44, h: 16 };
@@ -42,6 +43,7 @@ export function staleDiagram(): string {
       top: state[i].grad, left: '#0E7490', right: '#0A5A6E',
       stroke: 'rgba(255,255,255,0.28)', glow: state[i].glow, className: state[i].cls,
     })}
+    ${markAt('node', topCentre(chips[i])[0] - 13, topCentre(chips[i])[1] - 80, 26, BRAND.node)}
     ${isoLabel(topCentre(chips[i]), 0, -40, state[i].label, state[i].sub)}
   `).join('')}
 
@@ -114,6 +116,13 @@ export function fanoutDiagram(): string {
     top: 'url(#hub-top)', left: 'rgba(14,116,144,0.5)', right: 'rgba(14,116,144,0.38)',
     stroke: 'rgba(34,211,238,0.75)', glow: '#22D3EE',
   })}
+  <g transform="translate(0,${(proj(0, 0, BUS_Z)[1] + 54).toFixed(1)})" text-anchor="middle">
+    <rect x="-118" y="-15" width="236" height="26" rx="7"
+          fill="rgba(8,20,24,0.85)" stroke="rgba(34,211,238,0.45)"/>
+    <text y="3" font-family="'JetBrains Mono',monospace" font-size="12" fill="#A5F3FC">
+      { type: "del", keys: ["user:42"] }
+    </text>
+  </g>
   ${risers}
 
   ${nodes.map((n, i) => `
@@ -122,7 +131,10 @@ export function fanoutDiagram(): string {
       top: 'url(#chip-top)', left: '#0E7490', right: '#0A5A6E', stroke: 'rgba(255,255,255,0.28)',
       glow: '#22D3EE', className: `node-pulse${i === 0 ? '' : i === 1 ? ' node-pulse--b' : ' node-pulse--c'}`,
     })}
-    ${isoLabel(topCentre(chips[i]), 0, -40, i === 0 ? 'PUBLISHES' : 'APPLIES', i === 0 ? 'del · set' : 'L1 updated')}
+    ${markAt('node', topCentre(chips[i])[0] - 13, topCentre(chips[i])[1] - 80, 26, BRAND.node)}
+    ${isoLabel(topCentre(chips[i]), 0, -40,
+        i === 0 ? 'PUBLISHES' : 'APPLIES',
+        i === 0 ? 'del user:42' : 'user:42 evicted')}
   `).join('')}
 
   <g>${packets}</g>

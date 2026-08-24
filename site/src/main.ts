@@ -115,6 +115,39 @@ function initCounters() {
   els.forEach((el) => io.observe(el));
 }
 
+/* ── Theme ───────────────────────────────────────────────────────────── */
+
+function initTheme() {
+  const btn = $<HTMLButtonElement>('#themetoggle');
+  if (!btn) return;
+
+  const root = document.documentElement;
+  const media = matchMedia('(prefers-color-scheme: light)');
+
+  const current = (): 'light' | 'dark' =>
+    (root.getAttribute('data-theme') as 'light' | 'dark' | null)
+    ?? (media.matches ? 'light' : 'dark');
+
+  const apply = (theme: 'light' | 'dark', remember: boolean) => {
+    root.setAttribute('data-theme', theme);
+    btn.setAttribute('aria-label', `Switch to ${theme === 'light' ? 'dark' : 'light'} theme`);
+    if (remember) {
+      try { localStorage.setItem('ll-theme', theme); } catch { /* private mode */ }
+    }
+  };
+
+  apply(current(), false);
+
+  btn.addEventListener('click', () => apply(current() === 'light' ? 'dark' : 'light', true));
+
+  // Follow the OS only while the user has not made a choice of their own.
+  media.addEventListener('change', (e) => {
+    let stored: string | null = null;
+    try { stored = localStorage.getItem('ll-theme'); } catch { /* ignore */ }
+    if (!stored) apply(e.matches ? 'light' : 'dark', false);
+  });
+}
+
 /* ── Nav: stuck state, active section, mobile menu ───────────────────── */
 
 function initNav() {
@@ -288,6 +321,7 @@ function initCopy() {
 /* ── Boot ────────────────────────────────────────────────────────────── */
 
 function boot() {
+  initTheme();
   initNav();
   initReveals();
   initCounters();

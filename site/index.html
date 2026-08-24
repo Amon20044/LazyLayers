@@ -8,8 +8,9 @@
 <meta name="description" content="LazyLayers is a distributed cache layer for Node.js. Event buses keep every instance fresh with del, pattern and set fanout, while MessagePack serialization stores 22–92% fewer bytes in Redis. Reproducible benchmarks included." />
 <link rel="canonical" href="https://lazy-layers-cache.vercel.app/" />
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
-<meta name="theme-color" content="#000000" />
-<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+<meta name="color-scheme" content="light dark" />
 
 <!-- Open Graph -->
 <meta property="og:type" content="website" />
@@ -27,6 +28,19 @@
 <meta name="twitter:title" content="LazyLayers — The distributed cache layer for Node.js" />
 <meta name="twitter:description" content="Event buses keep every instance fresh. MessagePack keeps the bill small — measured, not estimated." />
 <meta name="twitter:image" content="https://lazy-layers-cache.vercel.app/og.png" />
+
+<script>
+  // Runs before first paint so the page never flashes the wrong theme.
+  (function () {
+    try {
+      var stored = localStorage.getItem('ll-theme');
+      var t = stored === 'light' || stored === 'dark'
+        ? stored
+        : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) { /* private mode: fall through to the CSS media query */ }
+  })();
+</script>
 
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -84,16 +98,25 @@
     </a>
 
     <nav class="nav__links" id="navlinks" aria-label="Primary">
-      <a class="nav__link" href="#bus">Event bus</a>
-      <a class="nav__link" href="#how">How</a>
+      <a class="nav__link" href="#how">Build order</a>
+      <a class="nav__link" href="#wire">On the wire</a>
       <a class="nav__link" href="#bytes">Bytes</a>
       <a class="nav__link" href="#benchmarks">Benchmarks</a>
-      <a class="nav__link" href="#calculator">Cost</a>
       <a class="nav__link" href="#features">Usage</a>
       <a class="nav__link" href="#faq">FAQ</a>
     </nav>
 
     <div class="nav__cta">
+      <button class="themetoggle" id="themetoggle" type="button" aria-label="Switch colour theme" title="Switch theme">
+        <svg class="themetoggle__sun" viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M12 2.6v2.2M12 19.2v2.2M4.2 12H2M22 12h-2.2M6.3 6.3 4.8 4.8M19.2 19.2l-1.5-1.5M17.7 6.3l1.5-1.5M4.8 19.2l1.5-1.5"
+                stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <svg class="themetoggle__moon" viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+          <path d="M20.5 14.2A8.6 8.6 0 0 1 9.8 3.5a8.7 8.7 0 1 0 10.7 10.7Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+        </svg>
+      </button>
       <a class="btn btn--ghost btn--sm" href="https://www.npmjs.com/package/lazy-layers-cache" target="_blank" rel="noopener">npm</a>
       <a class="btn btn--primary btn--sm" href="#install" data-magnetic>Get started</a>
       <button class="nav__toggle" id="navtoggle" aria-expanded="false" aria-controls="navlinks" aria-label="Toggle menu"><span></span></button>
@@ -139,59 +162,59 @@
       <!--@iso-->
     </div>
 
+    <!--@stack-->
+
     <!--@statbar-->
   </div>
 </section>
 
-<!-- ═══ THREE LENSES ═══ -->
-<section class="section section--tight">
-  <div class="wrap">
-    <div class="sec-head sec-head--center">
-      <span class="eyebrow">Three ways to look at it</span>
-      <h2 class="sec-title">Need a distributed cache layer?</h2>
-      <p class="sec-lead">Whichever question brought you here, it is the same three problems underneath.</p>
-    </div>
-    <!--@lenses-->
-  </div>
-</section>
-
-<hr class="rule rule--fade" />
-
-<!-- ═══ THE ARCHITECT: staleness ═══ -->
+<!-- ═══ WHAT GOES WRONG ═══ -->
 <section class="section section--leads" id="bus">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">The architect's problem</span>
-      <h2 class="sec-title">One node writes.<br />The others keep lying.</h2>
+      <span class="eyebrow">Start here</span>
+      <h2 class="sec-title">Every instance owns its L1.<br />That is the whole problem.</h2>
       <p class="sec-lead">
-        Every instance owns its L1. Without a bus, a write is invisible to your peers until their TTL
-        expires — so your staleness window <em>is</em> your TTL.
+        One node writes. The others keep serving the old value until their TTL runs out — so your
+        staleness window <em>is</em> your TTL.
       </p>
     </div>
     <!--@stale-->
   </div>
 </section>
 
-<!-- ═══ THE FIX: fanout ═══ -->
-<section class="section section--tight">
-  <div class="wrap">
-    <div class="sec-head sec-head--center">
-      <span class="eyebrow">The fix</span>
-      <h2 class="sec-title">Channels, not guesswork.</h2>
-      <p class="sec-lead">Every instance drops onto a shared bus. One publish, every peer applies it.</p>
-    </div>
-    <!--@fanout-->
-  </div>
-</section>
-
-<!-- ═══ BENTO ═══ -->
+<!-- ═══ THE BUILD ORDER ═══ -->
 <section class="section section--tight" id="how">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">What you get</span>
-      <h2 class="sec-title">Six things that stop<br />a distributed cache lying to you.</h2>
+      <span class="eyebrow">The build order</span>
+      <h2 class="sec-title">Seven failures, in the order<br />you actually hit them.</h2>
+      <p class="sec-lead">
+        Each one is what pushes you to the next. A production cache is really just the accumulated
+        answer to this list.
+      </p>
     </div>
     <!--@bento-->
+  </div>
+</section>
+
+<!-- ═══ ON THE WIRE ═══ -->
+<section class="section section--tight" id="wire">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">On the wire</span>
+      <h2 class="sec-title">Three events. One carries a value.</h2>
+      <p class="sec-lead">
+        <code class="mono">del</code> and <code class="mono">pattern</code> only say what to forget.
+        <code class="mono">set</code> carries the value itself — that is what lets a peer fill its L1
+        without calling a loader.
+      </p>
+    </div>
+    <!--@wire-->
+
+    <div style="margin-top:clamp(2rem,4vw,3rem)">
+      <!--@fanout-->
+    </div>
   </div>
 </section>
 
@@ -201,8 +224,8 @@
 <section class="section" id="bytes">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">The cost saver's problem</span>
-      <h2 class="sec-title">One session record,<br />every byte accounted for.</h2>
+      <span class="eyebrow">The bill</span>
+      <h2 class="sec-title">One record.<br />Every byte accounted for.</h2>
       <p class="sec-lead">This is a real cached record. Each cell is one byte of what lands in Redis.</p>
     </div>
     <!--@bytes-->
@@ -214,10 +237,11 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">Benchmarks</span>
-      <h2 class="sec-title">Measured against bentocache.<br />Including the parts we lose.</h2>
+      <h2 class="sec-title">Measured against bentocache.<br />Including where we lose.</h2>
       <p class="sec-lead">
-        Five payloads through both libraries' real L2 paths. Fixtures are seeded, so byte counts
-        reproduce exactly.
+        Five payloads through both libraries' real L2 paths. Fixtures are seeded, so the byte counts
+        reproduce exactly on your machine. Note this compares <em>serialization only</em> — bentocache
+        is a mature library with plenty we do not have.
       </p>
     </div>
 
@@ -442,7 +466,7 @@
         <ul class="footer__list">
           <li><a href="#benchmarks">Benchmarks</a></li>
           <li><a href="#calculator">Cost model</a></li>
-          <li><a href="#bus">Event bus</a></li>
+          <li><a href="#wire">On the wire</a></li>
           <li><a href="#bytes">Byte budget</a></li>
         </ul>
       </div>
@@ -463,7 +487,12 @@
       </div>
     </div>
     <div class="footer__bottom">
-      <span>MIT licensed. Benchmarks reproducible from the fixtures described above.</span>
+      <span>
+        MIT licensed. Benchmarks reproducible from the fixtures described above.<br />
+        Node.js, TypeScript, Redis, RabbitMQ, NATS and MessagePack are trademarks of their respective
+        owners. The marks on this page are simplified illustrations, not official artwork, and LazyLayers
+        is an independent project with no affiliation or endorsement.
+      </span>
       <span class="mono">v0.5.0</span>
     </div>
   </div>
