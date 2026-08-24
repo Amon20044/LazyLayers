@@ -6,10 +6,16 @@
   border-bottom: 1px solid transparent;
 }
 .nav.is-stuck {
-  background: color-mix(in srgb, var(--bg) 78%, transparent);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  /* Opaque enough that content passing underneath never competes with the
+     nav's own labels — 0.78 left text legible straight through it. */
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
   border-bottom-color: var(--line);
+}
+/* No backdrop-filter support: go fully opaque rather than half-transparent. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .nav.is-stuck { background: var(--bg); }
 }
 
 .nav__inner {
