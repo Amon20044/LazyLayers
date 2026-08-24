@@ -75,10 +75,7 @@
       }
     ]
   },
-  "logo": {
-    "light": "/docs/logo/light.svg",
-    "dark": "/docs/logo/dark.svg"
-  },
+  "logo": "/docs/logo/lazylayers.svg",
   "navbar": {
     "links": [
       {
