@@ -141,8 +141,8 @@
         </h1>
 
         <p class="hero__lead reveal" style="--reveal-delay:120ms">
-          A hybrid L1/L2 cache for Node.js. <strong>An event bus keeps every instance honest;</strong>
-          a binary wire format keeps the bill down.
+          A hybrid L1/L2 cache for Node.js. <strong>An event bus keeps every instance honest.</strong>
+          A binary wire format keeps the bill down.
         </p>
 
         <div class="hero__actions reveal" style="--reveal-delay:180ms">
@@ -173,11 +173,11 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">Start here</span>
-      <h2 class="sec-title">Every instance owns its L1.<br />That is the whole problem.</h2>
+      <h2 class="sec-title">Every server keeps its own cache.<br />That is the whole problem.</h2>
       <p class="sec-lead">
-        A write lands on one node. The others keep serving the previous value until their own TTL
-        expires, so your staleness window is not a tuning knob — it <em>is</em> your TTL, multiplied by
-        the share of traffic that missed the write.
+        The write lands on one server. Every other server carries on serving the old value until its
+        TTL runs out. So staleness is not something you tune. It <em>is</em> your TTL, times the share
+        of traffic that never saw the write.
       </p>
     </div>
     <!--@stale-->
@@ -189,11 +189,11 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">The build order</span>
-      <h2 class="sec-title">Seven failure modes, in the order<br />production hands them to you.</h2>
+      <h2 class="sec-title">Seven problems, in the order<br />production hands them to you.</h2>
       <p class="sec-lead">
-        Each one is what pushes you into the next. Nothing here is exotic — a cache becomes
-        production-grade by answering this list, and most of the work is deciding what to do when a
-        dependency is unavailable rather than when it is healthy.
+        Each one is what pushes you into the next. None of it is exotic. A cache earns the word
+        production by answering this list, and most of that work is deciding what happens when a
+        dependency is having a bad day.
       </p>
     </div>
     <!--@bento-->
@@ -205,12 +205,12 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">On the wire</span>
-      <h2 class="sec-title">Three events. Only one carries a value.</h2>
+      <h2 class="sec-title">Three events.<br />Only one carries a value.</h2>
       <p class="sec-lead">
-        <code class="mono">del</code> and <code class="mono">pattern</code> say what to forget, and cost
-        a few bytes. <code class="mono">set</code> carries the loaded value itself, which is the
-        difference between peers <em>invalidating</em> and peers being <em>primed</em> — one costs every
-        node a reload, the other costs none.
+        <code class="mono">del</code> and <code class="mono">pattern</code> just say what to forget, and
+        they cost a few bytes. <code class="mono">set</code> brings the value with it. That is the whole
+        difference between peers <em>invalidating</em> and peers being <em>primed</em>. One makes every
+        node go and load it again. The other costs nothing.
       </p>
     </div>
     <!--@wire-->
@@ -230,8 +230,8 @@
       <span class="eyebrow">The bill</span>
       <h2 class="sec-title">One record.<br />Every byte accounted for.</h2>
       <p class="sec-lead">
-        A real cached record, one cell per byte of what actually lands in Redis. Most of a JSON document
-        is not your data.
+        A real cached record. One cell for every byte that lands in Redis. Most of a JSON document is
+        not your data at all.
       </p>
     </div>
     <!--@bytes-->
@@ -245,9 +245,9 @@
       <span class="eyebrow">Benchmarks</span>
       <h2 class="sec-title">Measured against bentocache.<br />Including where we lose.</h2>
       <p class="sec-lead">
-        Five payloads through both libraries' real L2 paths. Fixtures are seeded, so the byte counts
-        reproduce exactly on your machine. Note this compares <em>serialization only</em> — bentocache
-        is a mature library with plenty we do not have.
+        Five payloads, run through what each library actually writes to Redis. The fixtures are seeded,
+        so the byte counts come out the same on your machine. One caveat worth saying out loud. This
+        measures <em>serialization only</em>. Bentocache is a mature library with plenty we do not have.
       </p>
     </div>
 
@@ -256,7 +256,7 @@
     <p class="mono dim reveal" style="margin-top:1rem;font-size:.75rem;line-height:1.7"><!--@bench-meta--></p>
 
     <div class="sec-head" style="margin-top:clamp(3rem,6vw,4.5rem);margin-bottom:1.5rem">
-      <h3 class="sec-title" style="font-size:var(--fs-h3)">The trade, stated plainly</h3>
+      <h3 class="sec-title" style="font-size:var(--fs-h3)">Where we lose</h3>
     </div>
     <!--@tradeoff-->
   </div>
@@ -268,7 +268,7 @@
     <div class="sec-head sec-head--center">
       <span class="eyebrow">Cost model</span>
       <h2 class="sec-title">What the bytes are costing you</h2>
-      <p class="sec-lead">Ratios are measured. Everything else is yours to set.</p>
+      <p class="sec-lead">The ratios are measured. Everything else is yours to set.</p>
     </div>
 
     <div class="calc reveal" id="calc">
@@ -315,8 +315,8 @@
         </div>
 
         <p class="calc__note">
-          A model, not a quote. It ignores key overhead, TTL churn, eviction and fragmentation —
-          which apply to both sides roughly equally.
+          This is a model, not a quote. It leaves out key overhead, TTL churn, eviction and
+          fragmentation, all of which hit both sides about equally.
         </p>
       </div>
     </div>
@@ -330,7 +330,7 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">Usage</span>
-      <h2 class="sec-title">A small API that grows<br />into a distributed one.</h2>
+      <h2 class="sec-title">A small API that grows up<br />into a distributed one.</h2>
     </div>
 
     <div class="reveal">
@@ -420,8 +420,8 @@
     <div class="split" style="align-items:start">
       <div class="reveal" style="position:sticky;top:100px">
         <span class="eyebrow">FAQ</span>
-        <h2 class="sec-title">Questions engineers<br />actually ask</h2>
-        <p class="sec-lead">Including the uncomfortable one about whether this is faster.</p>
+        <h2 class="sec-title">The questions engineers<br />actually ask</h2>
+        <p class="sec-lead">Including the awkward one about whether this is actually faster.</p>
       </div>
       <!--@faq-->
     </div>
@@ -434,8 +434,8 @@
     <div class="cta reveal">
       <h2 class="cta__title grad-text">Fresh everywhere.<br />Cheaper everywhere.</h2>
       <p class="cta__lead">
-        MIT licensed, TypeScript-first, ESM and CommonJS. Starts as an in-process LRU with no
-        infrastructure, and grows a layer at a time.
+        MIT licensed, TypeScript first, ESM and CommonJS. Start as an in-process LRU with no
+        infrastructure at all, then add a layer whenever you actually need one.
       </p>
       <div class="cta__actions">
         <a class="btn btn--primary btn--lg" href="https://www.npmjs.com/package/lazy-layers-cache" target="_blank" rel="noopener" data-magnetic>

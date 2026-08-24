@@ -60,7 +60,7 @@ function vizFanout(): string {
   const wires = xs.map((x, i) => `
     <path d="M ${x} 56 L ${x} 96 Q ${x} 112 ${x > 310 ? x - 20 : x < 310 ? x + 20 : x} 112 L 310 112"
           fill="none" stroke="rgba(34,211,238,0.45)" stroke-width="1.3" class="wire-flow"/>
-    <circle r="3" fill="#67E8F9" class="packet" style="animation-delay:${(i * 0.7).toFixed(1)}s;
+    <circle r="3" class="v-cyan" class="packet" style="animation-delay:${(i * 0.7).toFixed(1)}s;
       offset-path:path('M ${x} 56 L ${x} 96 Q ${x} 112 ${x > 310 ? x - 20 : x < 310 ? x + 20 : x} 112 L 310 112')"/>`).join('');
 
   return `<svg viewBox="0 0 620 150" class="viz viz--a" aria-hidden="true">
@@ -71,21 +71,21 @@ function vizFanout(): string {
     ${wires}
     <rect x="266" y="100" width="88" height="24" rx="7" fill="rgba(34,211,238,0.14)" stroke="rgba(34,211,238,0.7)"/>
     <text x="310" y="116" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10"
-          fill="#A5F3FC" letter-spacing="0.1em">BUS</text>
+          class="v-cyan" letter-spacing="0.1em">BUS</text>
   </svg>`;
 }
 
 /** B: L2 falls over and the request still lands on L1. */
 function vizFailOpen(): string {
   return `<svg viewBox="0 0 300 108" class="viz" aria-hidden="true">
-    <rect x="4" y="40" width="66" height="28" rx="8" fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.16)"/>
-    <text x="37" y="58" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#9A9AA4" letter-spacing="0.06em">REQUEST</text>
+    <rect x="4" y="40" width="66" height="28" rx="8" class="v-box"/>
+    <text x="37" y="58" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" class="v-muted" letter-spacing="0.06em">REQUEST</text>
 
     <path d="M 72 54 L 108 54" stroke="rgba(52,211,153,0.6)" stroke-width="1.4" marker-end="url(#bn-g)"/>
 
     <rect x="112" y="34" width="72" height="40" rx="9" fill="rgba(52,211,153,0.1)" stroke="rgba(52,211,153,0.55)"/>
-    <text x="148" y="52" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#6EE7B7" letter-spacing="0.06em">L1</text>
-    <text x="148" y="64" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#6EE7B7">SERVED</text>
+    <text x="148" y="52" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" class="v-mint" letter-spacing="0.06em">L1</text>
+    <text x="148" y="64" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" class="v-mint">SERVED</text>
 
     <g class="stale-blink">
       <path d="M 186 54 L 214 54" stroke="rgba(244,63,94,0.45)" stroke-width="1.4" stroke-dasharray="3 3"/>
@@ -94,8 +94,8 @@ function vizFailOpen(): string {
         <line x1="5" y1="-5" x2="-5" y2="5" stroke="#F43F5E" stroke-width="1.8" stroke-linecap="round"/>
       </g>
       <rect x="220" y="38" width="74" height="32" rx="8" fill="rgba(244,63,94,0.07)" stroke="rgba(244,63,94,0.35)"/>
-      <text x="257" y="52" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#FDA4AF" letter-spacing="0.06em">L2</text>
-      <text x="257" y="63" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#FDA4AF">DOWN</text>
+      <text x="257" y="52" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" class="v-rose" letter-spacing="0.06em">L2</text>
+      <text x="257" y="63" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" class="v-rose">DOWN</text>
     </g>
 
     <defs><marker id="bn-g" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
@@ -106,19 +106,19 @@ function vizFailOpen(): string {
 /** C: a stale set arrives after a newer delete and is refused. */
 function vizGeneration(): string {
   return `<svg viewBox="0 0 300 108" class="viz" aria-hidden="true">
-    <rect x="112" y="34" width="76" height="40" rx="9" fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.16)"/>
-    <text x="150" y="52" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#B4B5C4" letter-spacing="0.08em">KEY</text>
-    <text x="150" y="65" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#5EEAD4">gen 7</text>
+    <rect x="112" y="34" width="76" height="40" rx="9" class="v-box"/>
+    <text x="150" y="52" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" class="v-muted" letter-spacing="0.08em">KEY</text>
+    <text x="150" y="65" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" class="v-mint">gen 7</text>
 
     <g>
       <rect x="6" y="20" width="76" height="20" rx="6" fill="rgba(52,211,153,0.12)" stroke="rgba(52,211,153,0.55)"/>
-      <text x="44" y="33.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#6EE7B7">del · gen 7</text>
+      <text x="44" y="33.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" class="v-mint">del · gen 7</text>
       <path d="M 84 30 L 108 42" stroke="rgba(52,211,153,0.6)" stroke-width="1.3" marker-end="url(#bn-ok)"/>
     </g>
 
     <g class="stale-blink">
       <rect x="6" y="68" width="76" height="20" rx="6" fill="rgba(244,63,94,0.1)" stroke="rgba(244,63,94,0.5)"/>
-      <text x="44" y="81.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#FDA4AF">set · gen 6</text>
+      <text x="44" y="81.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" class="v-rose">set · gen 6</text>
       <path d="M 84 78 L 104 68" stroke="rgba(244,63,94,0.55)" stroke-width="1.3" stroke-dasharray="3 3"/>
       <g transform="translate(107,64)">
         <line x1="-5" y1="-5" x2="5" y2="5" stroke="#F43F5E" stroke-width="1.8" stroke-linecap="round"/>
@@ -126,8 +126,8 @@ function vizGeneration(): string {
       </g>
     </g>
 
-    <text x="196" y="57" font-family="'JetBrains Mono',monospace" font-size="9" fill="#9698AC" letter-spacing="0.08em">OLDER GEN</text>
-    <text x="196" y="68" font-family="'JetBrains Mono',monospace" font-size="9" fill="#9698AC" letter-spacing="0.08em">REFUSED</text>
+    <text x="196" y="57" font-family="'JetBrains Mono',monospace" font-size="9" class="v-muted" letter-spacing="0.08em">OLDER GEN</text>
+    <text x="196" y="68" font-family="'JetBrains Mono',monospace" font-size="9" class="v-muted" letter-spacing="0.08em">REFUSED</text>
 
     <defs><marker id="bn-ok" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
       <path d="M0 0 L6 3 L0 6 Z" fill="rgba(52,211,153,0.75)"/></marker></defs>
@@ -148,9 +148,9 @@ function vizTransports(): string {
         <rect width="144" height="44" rx="9" fill="${on ? 'rgba(52,211,153,0.07)' : 'rgba(255,255,255,0.035)'}"
               stroke="${on ? 'rgba(52,211,153,0.4)' : 'rgba(255,255,255,0.13)'}"/>
         ${markAt(ICONS[i], 10, 12, 20, BRAND[ICONS[i]])}
-        <text x="38" y="19" font-family="Inter,sans-serif" font-size="10" font-weight="500" fill="#E8E8EE">${t.name}</text>
+        <text x="38" y="19" font-family="Inter,sans-serif" font-size="10" font-weight="500" class="v-strong">${t.name}</text>
         <text x="38" y="33" font-family="'JetBrains Mono',monospace" font-size="9"
-              fill="${on ? '#6EE7B7' : '#B4B5C4'}" letter-spacing="0.08em">${t.delivery.toUpperCase()}</text>
+              class="${on ? 'v-mint' : 'v-muted'}" letter-spacing="0.08em">${t.delivery.toUpperCase()}</text>
       </g>`;
     }).join('')}
   </svg>`;
@@ -170,7 +170,7 @@ function vizHerd(): string {
     const op = (0.5 - Math.abs(t - 0.5) * 0.45).toFixed(2);
     lines.push(`<path d="${d}" fill="none" stroke="#A855F7" stroke-width="0.9" opacity="${op}"/>`);
     if (i % 3 === 0) {
-      packets.push(`<circle r="2.2" fill="#DDD6FE" class="packet"
+      packets.push(`<circle r="2.2" class="v-violet" class="packet"
         style="offset-path:path('${d}');animation-delay:${((i / FAN) * 2.4).toFixed(2)}s"/>`);
     }
   }
@@ -178,37 +178,37 @@ function vizHerd(): string {
   return `<svg viewBox="0 0 620 150" class="viz viz--a" aria-hidden="true">
     <defs>
       <marker id="bn-a" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-        <path d="M0 0 L7 3.5 L0 7 Z" fill="#A855F7"/>
+        <path d="M0 0 L7 3.5 L0 7 Z" class="v-violet"/>
       </marker>
       <radialGradient id="bn-hub"><stop offset="0%" stop-color="#C4B5FD"/><stop offset="100%" stop-color="#7C3AED"/></radialGradient>
     </defs>
 
     <!-- the herd -->
-    <text x="0" y="62" font-family="Inter,system-ui,sans-serif" font-size="30" font-weight="600" fill="#F4F4F8">10,000</text>
-    <text x="0" y="80" font-family="'JetBrains Mono',monospace" font-size="10" fill="#A2A3B4" letter-spacing="0.06em">CONCURRENT</text>
-    <text x="0" y="94" font-family="'JetBrains Mono',monospace" font-size="10" fill="#A2A3B4" letter-spacing="0.06em">CALLERS</text>
+    <text x="0" y="62" font-family="Inter,system-ui,sans-serif" font-size="30" font-weight="600" class="v-strong">10,000</text>
+    <text x="0" y="80" font-family="'JetBrains Mono',monospace" font-size="10" class="v-muted" letter-spacing="0.06em">CONCURRENT</text>
+    <text x="0" y="94" font-family="'JetBrains Mono',monospace" font-size="10" class="v-muted" letter-spacing="0.06em">CALLERS</text>
     ${lines.join('')}
 
     <!-- the collapse -->
     <circle cx="308" cy="75" r="21" fill="url(#bn-hub)" opacity="0.22"/>
     <circle cx="308" cy="75" r="21" fill="none" stroke="#A855F7" stroke-width="1.4"/>
-    <text x="308" y="82" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="21" font-weight="600" fill="#EDE9FE">1</text>
-    <text x="308" y="44" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#A2A3B4" letter-spacing="0.06em">IN-FLIGHT</text>
+    <text x="308" y="82" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="21" font-weight="600" class="v-strong">1</text>
+    <text x="308" y="44" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" class="v-muted" letter-spacing="0.06em">IN-FLIGHT</text>
 
     <!-- the single origin query -->
     <path d="M 332 75 L 424 75" stroke="#A855F7" stroke-width="1.8" marker-end="url(#bn-a)"/>
-    <text x="378" y="66" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#C4B5FD" letter-spacing="0.06em">1 QUERY</text>
-    <rect x="434" y="52" width="120" height="46" rx="11" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.18)"/>
-    <text x="494" y="72" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="500" fill="#E8E8EE">ORIGIN</text>
-    <text x="494" y="87" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#A2A3B4" letter-spacing="0.05em">db · api</text>
+    <text x="378" y="66" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" class="v-violet" letter-spacing="0.06em">1 QUERY</text>
+    <rect x="434" y="52" width="120" height="46" rx="11" class="v-box"/>
+    <text x="494" y="72" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="500" class="v-strong">ORIGIN</text>
+    <text x="494" y="87" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" class="v-muted" letter-spacing="0.05em">db · api</text>
 
     <!-- and the 9,999 that never touched it -->
     <path d="M 292 98 C 244 124, 178 124, 126 112" fill="none" stroke="#34D399" stroke-width="1.2"
           stroke-dasharray="4 4" opacity="0.8" marker-end="url(#bn-back)"/>
     <text x="209" y="143" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5"
-          fill="#6EE7B7" letter-spacing="0.05em">9,999 SERVED FROM THE SAME PROMISE</text>
+          class="v-mint" letter-spacing="0.05em">9,999 SERVED FROM THE SAME PROMISE</text>
     <defs><marker id="bn-back" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-      <path d="M0 0 L7 3.5 L0 7 Z" fill="#34D399"/></marker></defs>
+      <path d="M0 0 L7 3.5 L0 7 Z" class="v-mint"/></marker></defs>
 
     ${packets.join('')}
   </svg>`;
@@ -221,8 +221,8 @@ function vizRetry(): string {
           fill="rgba(251,191,36,0.14)" stroke="rgba(251,191,36,0.5)"/>`).join('');
 
   return `<svg viewBox="0 0 300 108" class="viz" aria-hidden="true">
-    <rect x="4" y="42" width="62" height="26" rx="8" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.18)"/>
-    <text x="35" y="59" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#B4B5C4">publish</text>
+    <rect x="4" y="42" width="62" height="26" rx="8" class="v-box"/>
+    <text x="35" y="59" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" class="v-muted">publish</text>
 
     <g class="stale-blink">
       <path d="M 70 55 L 88 55" stroke="rgba(244,63,94,0.5)" stroke-width="1.3" stroke-dasharray="3 3"/>
@@ -234,13 +234,13 @@ function vizRetry(): string {
 
     ${q}
     <text x="150" y="34" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9"
-          fill="#FBBF24" letter-spacing="0.06em">BUFFERED · BOUNDED</text>
+          class="v-amber" letter-spacing="0.06em">BUFFERED · BOUNDED</text>
 
     <path d="M 206 55 L 236 55" stroke="rgba(52,211,153,0.6)" stroke-width="1.5" marker-end="url(#bn-ok2)"/>
     <rect x="242" y="42" width="54" height="26" rx="8" fill="rgba(52,211,153,0.09)" stroke="rgba(52,211,153,0.45)"/>
-    <text x="269" y="59" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#6EE7B7">bus</text>
+    <text x="269" y="59" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" class="v-mint">bus</text>
     <text x="150" y="86" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9"
-          fill="#A2A3B4" letter-spacing="0.05em">FLUSHED ON THE NEXT SUCCESS</text>
+          class="v-muted" letter-spacing="0.05em">FLUSHED ON THE NEXT SUCCESS</text>
 
     <defs><marker id="bn-ok2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
       <path d="M0 0 L6 3 L0 6 Z" fill="rgba(52,211,153,0.8)"/></marker></defs>
@@ -249,24 +249,24 @@ function vizRetry(): string {
 
 /** F: the write-time encoding decision, with real sizes. */
 function vizEncodings(): string {
-  const out = (x: number, code: string, name: string, note: string, w: number, colour: string) => `
+  const out = (x: number, code: string, name: string, note: string, w: number, tone: string) => `
     <g transform="translate(${x},0)">
-      <rect y="30" width="150" height="52" rx="10" fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.13)"/>
-      <text x="14" y="49" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="${colour}" letter-spacing="0.1em">${code}</text>
-      <text x="14" y="63" font-family="Inter,sans-serif" font-size="10.5" font-weight="500" fill="#E8E8EE">${name}</text>
-      <text x="14" y="75" font-family="'JetBrains Mono',monospace" font-size="9" fill="#A2A3B4">${note}</text>
-      <rect x="112" y="42" width="26" height="4" rx="2" fill="rgba(255,255,255,0.09)"/>
-      <rect x="112" y="42" width="${w}" height="4" rx="2" fill="${colour}"/>
+      <rect y="30" width="150" height="52" rx="10" class="v-box"/>
+      <text x="14" y="49" font-family="'JetBrains Mono',monospace" font-size="9.5" class="${tone}" letter-spacing="0.1em">${code}</text>
+      <text x="14" y="63" font-family="Inter,sans-serif" font-size="10.5" font-weight="500" class="v-strong">${name}</text>
+      <text x="14" y="75" font-family="'JetBrains Mono',monospace" font-size="9" class="v-muted">${note}</text>
+      <rect x="112" y="42" width="26" height="4" rx="2" class="v-track"/>
+      <rect x="112" y="42" width="${w}" height="4" rx="2" class="${tone}"/>
     </g>`;
 
   return `<svg viewBox="0 0 640 96" class="viz viz--wide" aria-hidden="true">
-    ${out(0, 'HC1M', 'MessagePack', '< 64 kB', 16, '#5EEAD4')}
-    ${out(164, 'HC1G', 'gzip(MessagePack)', '≥ 64 kB · saves ≥ 15%', 7, '#818CF8')}
-    ${out(328, 'HC1J', 'JSON passthrough', 'CACHE_FORMAT=json', 26, '#FBBF24')}
+    ${out(0, 'HC1M', 'MessagePack', '< 64 kB', 16, 'v-mint')}
+    ${out(164, 'HC1G', 'gzip(MessagePack)', '≥ 64 kB · saves ≥ 15%', 7, 'v-violet')}
+    ${out(328, 'HC1J', 'JSON passthrough', 'CACHE_FORMAT=json', 26, 'v-amber')}
     <g transform="translate(492,0)">
       <rect y="30" width="148" height="52" rx="10" fill="rgba(34,211,238,0.05)" stroke="rgba(34,211,238,0.28)"/>
-      <text x="14" y="52" font-family="Inter,sans-serif" font-size="10.5" font-weight="500" fill="#A5F3FC">4-byte prefix</text>
-      <text x="14" y="67" font-family="'JetBrains Mono',monospace" font-size="9" fill="#A2A3B4">decodes every format</text>
+      <text x="14" y="52" font-family="Inter,sans-serif" font-size="10.5" font-weight="500" class="v-cyan">4-byte prefix</text>
+      <text x="14" y="67" font-family="'JetBrains Mono',monospace" font-size="9" class="v-muted">decodes every format</text>
     </g>
   </svg>`;
 }
@@ -276,9 +276,9 @@ function vizEncodings(): string {
 interface Step {
   span: string;
   /**
-   * The failure MODE — named the way an incident review would name it. This is
-   * a property of distributed caching, never a claim about this library, which
-   * is why it is a noun and not a "fails when" clause.
+   * The system-design concept this step is an answer to, by its usual name —
+   * thundering herd, fail-open, and so on. A concept label, never a claim about
+   * this library, which is why it is a noun and not a "fails when" clause.
    */
   risk: string;
   /** The guarantee. Leads, because that is the thing being offered. */
@@ -296,51 +296,51 @@ interface Step {
 const STEPS: Step[] = [
   {
     span: 'b',
-    risk: 'L2 unavailable',
-    answer: 'A dead L2 is a cache miss, not an exception.',
-    detail: 'Reads fall through to L1 and then your loader, so the request still completes. After repeated failures a circuit breaker trips and stops queueing work against a store that cannot answer.',
+    risk: 'Fail-open',
+    answer: 'A dead Redis is a cache miss, not a 500.',
+    detail: 'The read falls through to L1, then to your loader, and the request finishes like nothing happened. Keep failing and a circuit breaker trips, so you stop piling work onto a store that already cannot answer.',
     viz: vizFailOpen(), flow: { seed: 11, hue: 'mint' },
   },
   {
     span: 'e',
-    risk: 'Cache stampede',
-    answer: 'The first caller owns the load. Everyone else waits on it.',
-    detail: 'Callers arriving on a key while it is in flight await the same promise. A cold key under real traffic costs your origin one read, not ten thousand — and a Redis-backed lock extends that across instances.',
+    risk: 'Thundering herd',
+    answer: 'The first caller does the work. The other 9,999 just wait.',
+    detail: 'Anyone who asks for a key while it is already loading gets handed the same promise. A cold key in the middle of a traffic spike costs your database one query instead of ten thousand. Add the Redis lock and that holds across every instance too.',
     viz: vizHerd(), flow: { seed: 7, hue: 'violet' },
   },
   {
     span: 'a',
-    risk: 'Stale peers',
-    answer: 'Writes travel. They do not wait for a TTL to expire.',
-    detail: 'A write fans out over the bus and peers either drop the key or take the value straight into L1. That turns a staleness window the length of your TTL into a single network hop.',
+    risk: 'Cache invalidation',
+    answer: 'Writes travel. They do not sit around waiting for a TTL.',
+    detail: 'The write goes out over the bus and every other server either drops the key or takes the new value straight into memory. A staleness window that used to be as long as your TTL becomes one network hop.',
     viz: vizFanout(), flow: { seed: 3, hue: 'cyan' },
   },
   {
     span: 'c',
-    risk: 'Out-of-order delivery',
-    answer: 'A late event cannot resurrect data you deleted.',
-    detail: 'Every del and set carries a per-key generation, and anything older than what was already applied is discarded. Durable transports also redeliver, so events are deduplicated by ID and your own broadcasts are filtered out by source.',
+    risk: 'Monotonic ordering',
+    answer: 'A late event cannot bring back something you deleted.',
+    detail: 'Every del and set carries a generation number for its key. Anything older than what already landed gets thrown away. Durable transports love to redeliver, so events are also deduplicated by ID, and your own broadcasts never come back to bite you.',
     viz: vizGeneration(), flow: { seed: 19, hue: 'cyan' },
   },
   {
     span: 'd',
-    risk: 'Missed while offline',
-    answer: 'Same API. You pick which failure you can live with.',
-    detail: 'At-most-once is the cheapest fanout and loses events for anyone disconnected. Durable transports hold them per instance and redeliver on reconnect, at the cost of broker state.',
+    risk: 'Delivery semantics',
+    answer: 'Same API. You decide which failure you can live with.',
+    detail: 'At-most-once is the cheapest way to fan out, and an instance that was offline simply misses the news. Durable transports hold those events per instance and hand them over on reconnect. You pay for that in broker state.',
     viz: vizTransports(), flow: { seed: 23, hue: 'mint' },
   },
   {
     span: 'g',
-    risk: 'Bus unavailable',
-    answer: 'A rejected publish is buffered, not dropped.',
-    detail: 'Failed events go into an in-memory queue and flush on the next successful publish. The queue is bounded on purpose: a long outage sheds the oldest events rather than growing until the process dies.',
+    risk: 'Bounded backpressure',
+    answer: 'A publish that fails is held, not lost.',
+    detail: 'Failed events wait in memory and go out with the next successful publish. The queue has a ceiling on purpose. A long outage sheds the oldest events instead of quietly eating your heap.',
     viz: vizRetry(), flow: { seed: 29, hue: 'cyan' },
   },
   {
     span: 'f',
-    risk: 'Storage cost',
-    answer: 'The wire format is a decision, made per payload.',
-    detail: 'MessagePack by default; gzip on top only when it clears a 15% saving, so you never burn CPU for nothing; JSON when you need to read keys yourself. A 4-byte prefix tags each buffer, so the read path never has to guess.',
+    risk: 'Wire format',
+    answer: 'The wire format is a decision, and it is made per payload.',
+    detail: 'MessagePack by default. Gzip on top only when it earns at least 15%, so you never burn CPU for a rounding error. Plain JSON when you need to read the thing yourself. Every buffer carries a 4-byte tag, so reads never have to guess.',
     viz: vizEncodings(), flow: { seed: 5, hue: 'cyan' },
   },
 ];

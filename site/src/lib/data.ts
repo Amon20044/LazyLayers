@@ -120,7 +120,7 @@ export const WIRE_EVENTS: WireEvent[] = [
   generation: 7,
   ts: 1740086400000
 }`,
-    effect: 'Peers drop user:42 from L1, L2, negative, stale and inflight. No value travels.',
+    effect: 'Every peer drops user:42 from L1, L2, negative, stale and inflight. Nothing but the key travels.',
     carriesValue: false,
   },
   {
@@ -133,7 +133,7 @@ export const WIRE_EVENTS: WireEvent[] = [
   generation: 7,
   ts: 1740086400000
 }`,
-    effect: 'Peers drop every local entry whose key matches. Still no value.',
+    effect: 'Every peer drops each local entry whose key matches. Still no value on the wire.',
     carriesValue: false,
   },
   {
@@ -146,7 +146,7 @@ export const WIRE_EVENTS: WireEvent[] = [
   generation: 8,
   ttlMs: 60000
 }`,
-    effect: 'The value rides along, so peers put it straight into L1 — no second loader call.',
+    effect: 'The value comes along for the ride, so peers drop it straight into L1 and never call the loader.',
     carriesValue: true,
   },
 ];
@@ -185,35 +185,35 @@ export const TRANSPORTS: Transport[] = [
 
 export const FAQS = [
   {
-    q: 'What problem does the event bus actually solve?',
-    a: 'Every instance keeps its own in-process L1 cache. Without a bus, an instance that writes has no way to tell its peers, so they keep serving the previous value until their own TTL expires. Your staleness window is your L1 TTL multiplied by the share of traffic that is not hitting the instance that wrote. The bus closes that window to one network hop.',
+    q: 'What does the event bus actually solve?',
+    a: 'Every instance keeps its own in-process L1. Without a bus, the instance that just wrote has no way to tell anyone. The others carry on serving the old value until their TTL runs out. That means your staleness window is your L1 TTL times the share of traffic that never touched the node that wrote. A bus closes it to one network hop.',
   },
   {
     q: 'What is the difference between invalidation and L1 priming?',
-    a: 'Invalidation is delete-only: peers hear that a key is gone and drop it, then each reloads it independently on the next request. Priming goes further — when a getOrSet loader returns, the value itself is broadcast, so peers put it straight into L1 without calling the loader at all. One instance pays for the load, every peer benefits. Set broadcastSet to false if you want delete-only semantics.',
+    a: 'Invalidation is delete only. Peers hear a key is gone, drop it, and each one reloads it on its next request. Priming goes further. When a getOrSet loader returns, the value itself is broadcast, so peers put it straight into L1 and never call the loader. One instance pays for the load and everyone else gets it free. Set broadcastSet to false if you would rather stick to delete only.',
   },
   {
     q: 'How do you stop a late event from resurrecting deleted data?',
-    a: 'Every del and set event carries a per-key generation counter. Each instance ignores a remote event whose generation is older than the one it has already applied for that key, so a set broadcast that arrives after a newer delete is discarded rather than repopulating the value. Durable transports can also redeliver, so events are additionally deduplicated by ID.',
+    a: 'Every del and set carries a generation counter for its key. An instance ignores any remote event older than what it already applied. So a set that turns up after a newer delete gets discarded, instead of quietly putting the value back. Durable transports also like to redeliver, so events are deduplicated by ID on top of that.',
   },
   {
     q: 'Which transport should I pick?',
-    a: 'Redis Pub/Sub if you already run Redis and can tolerate at-most-once delivery — a disconnected instance misses events and falls back to TTL expiry. NATS Core for the fastest fanout with the same trade. RabbitMQ in durable mode, or NATS JetStream, when missing an invalidation is not acceptable: both buffer for a disconnected instance and redeliver on reconnect.',
+    a: 'Redis Pub/Sub if you already run Redis and can live with at-most-once delivery. An instance that was disconnected misses those events and falls back to TTL expiry. NATS Core gives you the fastest fanout with the same trade. Reach for RabbitMQ in durable mode or NATS JetStream when missing an invalidation is not an option. Both hold events for an instance that is down and redeliver on reconnect.',
   },
   {
     q: 'How does lazy-layers-cache make cached payloads smaller?',
-    a: 'It replaces JSON with MessagePack on the Redis wire, then conditionally gzips. In a real 212-byte session record, 85 bytes are structural punctuation and repeated key names carrying no information at all. MessagePack encodes the whole record in 123 bytes — fewer than JSON spends on values alone. Above 64 kB it also tries gzip and keeps it only when compression saves at least 15%.',
+    a: 'It swaps JSON for MessagePack on the Redis wire and gzips on top when that is worth doing. Take a real 212-byte session record. 85 of those bytes are punctuation and key names you already know, carrying no information at all. MessagePack fits the whole record into 123 bytes, which is less than JSON spends on the values by themselves. Above 64 kB it tries gzip too, and keeps the result only when it saves at least 15%.',
   },
   {
     q: 'Is lazy-layers-cache faster than bentocache?',
-    a: 'Not at serialization, and we are not going to claim otherwise. V8 JSON.stringify is native and beats our encoder on raw throughput in every fixture we measured — we run at roughly 0.2x to 0.8x its speed. What we win is bytes on the wire, which is what Redis actually bills you for, and correctness across instances, which JSON speed does nothing for.',
+    a: 'Not at serialization, and we are not going to pretend otherwise. V8 JSON.stringify is native and it beat our encoder in every fixture we measured. We run at roughly 0.2x to 0.8x its speed. What we win is bytes on the wire, which is the thing Redis actually bills you for. And agreement between instances, which raw JSON speed does nothing for.',
   },
   {
     q: 'Do I have to run Redis or a message broker?',
-    a: 'No. It starts as an in-process LRU cache with zero infrastructure. Redis becomes useful as a shared L2 when you outgrow one instance, and a bus becomes useful when peer L1s start diverging. Each layer is opt-in and the API does not change when you add one.',
+    a: 'No. It starts as an in-process LRU with no infrastructure at all. Redis earns its place as a shared L2 once you outgrow a single instance, and a bus earns its place once peer caches start drifting apart. Every layer is opt in, and the API does not change when you add one.',
   },
   {
     q: 'Can I reproduce these benchmarks?',
-    a: 'Yes, and you should. The fixtures are seeded, so byte counts reproduce exactly on any machine. Throughput is a median of 15 fixed-iteration reps and will move with your hardware. The harness is in the repository under benchmarks/.',
+    a: 'Yes, and honestly you should. The fixtures are seeded, so the byte counts come out identical on any machine. Throughput is a median of 15 fixed-iteration runs and will move with your hardware. The harness lives in the repository under benchmarks/.',
   },
 ];

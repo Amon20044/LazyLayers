@@ -19,9 +19,20 @@ export const proj = (x: number, y: number, z: number): P => [(x - y) * COS30, (x
 export const pts = (ps: P[]) => ps.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
 
 export interface Box { cx: number; cy: number; z: number; w: number; d: number; h: number }
+
+/**
+ * A slab is painted by ROLE, not by colour. Each kind resolves to
+ * `.d-<kind>-top` / `-left` / `-right` classes in CSS, so the whole diagram
+ * palette flips with the theme without this file knowing about themes.
+ */
+export type Kind = 'node' | 'chip' | 'chip-stale' | 'l2' | 'riser' | 'pad' | 'hub' | 'spine' | 'collar';
+
 export interface Paint {
-  top: string; left: string; right: string;
-  stroke?: string; glow?: string; className?: string; opacity?: number;
+  kind: Kind;
+  /** Soft bloom under the top face, for pieces that should read as lit. */
+  glow?: boolean;
+  className?: string;
+  opacity?: number;
 }
 
 /**
@@ -48,14 +59,14 @@ export function slab(b: Box, p: Paint): string {
   // x = x1 — hangs below the diamond's lower-right edge.
   const right: P[] = [proj(x1, y0, zt), proj(x1, y1, zt), proj(x1, y1, b.z), proj(x1, y0, b.z)];
 
-  const st = p.stroke ? ` stroke="${p.stroke}" stroke-width="1" stroke-linejoin="round"` : '';
+  const k = p.kind;
   const op = p.opacity !== undefined ? ` opacity="${p.opacity}"` : '';
 
-  return `<g class="${p.className ?? ''}"${op}>
-    ${p.glow ? `<polygon points="${pts(top)}" fill="${p.glow}" filter="url(#iso-blur)" opacity="0.62"/>` : ''}
-    <polygon points="${pts(left)}"  fill="${p.left}"${st}/>
-    <polygon points="${pts(right)}" fill="${p.right}"${st}/>
-    <polygon points="${pts(top)}"   fill="${p.top}"${st}/>
+  return `<g class="d-slab ${p.className ?? ''}"${op}>
+    ${p.glow ? `<polygon class="d-glow d-${k}-glow" points="${pts(top)}" filter="url(#iso-blur)"/>` : ''}
+    <polygon class="d-${k}-left"  points="${pts(left)}"/>
+    <polygon class="d-${k}-right" points="${pts(right)}"/>
+    <polygon class="d-${k}-top"   points="${pts(top)}"/>
   </g>`;
 }
 
@@ -64,7 +75,7 @@ export function slab(b: Box, p: Paint): string {
  * iso space. Needed for the bus lanes — a plain box can't express them because
  * they run diagonally across both axes.
  */
-export function channel(a: V, b: V, z: number, width: number, fill: string, stroke: string, cls = ''): string {
+export function channel(a: V, b: V, z: number, width: number, cls = ''): string {
   const dx = b.x - a.x, dy = b.y - a.y;
   const len = Math.hypot(dx, dy) || 1;
   const nx = (-dy / len) * (width / 2);
@@ -74,7 +85,7 @@ export function channel(a: V, b: V, z: number, width: number, fill: string, stro
     proj(a.x + nx, a.y + ny, z), proj(b.x + nx, b.y + ny, z),
     proj(b.x - nx, b.y - ny, z), proj(a.x - nx, a.y - ny, z),
   ];
-  return `<polygon class="${cls}" points="${pts(quad)}" fill="${fill}" stroke="${stroke}" stroke-width="0.9" stroke-linejoin="round"/>`;
+  return `<polygon class="d-lane ${cls}" points="${pts(quad)}"/>`;
 }
 
 /** Straight path between two iso points at a given height — a packet rail. */
@@ -86,25 +97,37 @@ export const rail = (a: V, b: V, z: number, za = z): string => {
 
 export const topCentre = (b: Box): P => proj(b.cx, b.cy, b.z + b.h);
 
+/**
+ * A grid of slots laid flat on a slab's top face, so an L1 chip reads as a
+ * cache holding entries rather than a solid block. `lit` marks the occupied
+ * slots — leaving some dark is what makes it look like an LRU with room left.
+ */
+export function slots(b: Box, n = 3, lit: number[] = []): string {
+  const inset = b.w * 0.15;
+  const cell = (b.w - inset * 2) / n;
+  const gap = cell * 0.22;
+  const s = cell - gap;
+  const z = b.z + b.h;
+  const x0 = b.cx - b.w / 2 + inset;
+  const y0 = b.cy - b.d / 2 + inset;
+
+  let out = '';
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      const ax = x0 + c * cell, ay = y0 + r * cell;
+      const quad: P[] = [
+        proj(ax, ay, z), proj(ax + s, ay, z), proj(ax + s, ay + s, z), proj(ax, ay + s, z),
+      ];
+      const on = lit.includes(r * n + c);
+      out += `<polygon class="d-slot${on ? ' d-slot--on' : ''}" points="${pts(quad)}"/>`;
+    }
+  }
+  return out;
+}
+
 /** Shared <defs> every diagram relies on. */
 export const ISO_DEFS = `
-  <filter id="iso-blur" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="12"/></filter>
-  <linearGradient id="chip-top" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="#5EEAD4"/><stop offset="100%" stop-color="#22D3EE"/>
-  </linearGradient>
-  <linearGradient id="chip-stale" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="#FB7185"/><stop offset="100%" stop-color="#F43F5E"/>
-  </linearGradient>
-  <linearGradient id="l2-top" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="#4F46E5"/><stop offset="55%" stop-color="#6D28D9"/><stop offset="100%" stop-color="#9333EA"/>
-  </linearGradient>
-  <linearGradient id="lane-fill" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="#22D3EE" stop-opacity="0.46"/>
-    <stop offset="100%" stop-color="#22D3EE" stop-opacity="0.16"/>
-  </linearGradient>
-  <linearGradient id="hub-top" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="#67E8F9"/><stop offset="100%" stop-color="#22D3EE"/>
-  </linearGradient>`;
+  <filter id="iso-blur" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="12"/></filter>`;
 
 /** Node/label typography used across diagrams. */
 /**
@@ -117,7 +140,7 @@ export const isoLabel = (
 ): string => `
   <g transform="translate(${(p[0] + dx).toFixed(1)},${(p[1] + dy).toFixed(1)})" text-anchor="${dx < 0 ? 'end' : dx === 0 ? 'middle' : 'start'}">
     <text class="iso-t" font-family="Inter,system-ui,sans-serif" font-size="${(14 * scale).toFixed(1)}"
-          font-weight="600" fill="#F4F4F8" letter-spacing="0.05em">${title}</text>
+          font-weight="600" letter-spacing="0.05em">${title}</text>
     ${sub ? `<text class="iso-s" y="${(18 * scale).toFixed(1)}" font-family="'JetBrains Mono',monospace"
-          font-size="${(11.5 * scale).toFixed(1)}" fill="#B6B7C8" letter-spacing="0.03em">${sub}</text>` : ''}
+          font-size="${(11.5 * scale).toFixed(1)}" letter-spacing="0.03em">${sub}</text>` : ''}
   </g>`;
