@@ -43,9 +43,9 @@ const cache = new LazyLayersCache({
 });
 ```
 
-A read now checks L1, then L2. A hit in L2 is written into L1 on the way back, so the next read on that instance stays in memory. A restart no longer starts cold, because L2 survives it.
+Reads now check L1, then L2. When L2 answers, the value is written into L1 on the way back, so the next read on that instance stays in memory. Restarts no longer begin cold either, because L2 outlives the process.
 
-Values are encoded with MessagePack on the way into Redis. You do not configure that; it is the default wire format and it is covered in [serialization](/concepts/serialization).
+Values are encoded with MessagePack on the way into Redis. You do not configure that. It is the default wire format, and [serialization](/docs/concepts/serialization) explains how it is chosen.
 
 **What breaks:** Redis has a bad afternoon. Every request that misses L1 now waits on a connection that is not answering.
 
@@ -126,7 +126,7 @@ const bus = new NatsEventBus({
 await bus.connect();
 ```
 
-JetStream keeps a durable consumer per instance, so events that arrived while an instance was down are delivered when it reconnects. [Choosing an event bus](/guides/event-buses) compares all four transports.
+JetStream keeps a durable consumer per instance, so events that arrived while an instance was down are delivered when it reconnects. [Choosing an event bus](/docs/guides/event-buses) compares all four transports.
 
 ## Where you ended up
 
@@ -155,10 +155,10 @@ Each instance reads from memory first, falls back to a shared Redis tier, and he
 ## Next steps
 
 <Columns cols={2}>
-  <Card title="Failure handling" icon="shield" href="/guides/failure-handling">
+  <Card title="Failure handling" icon="shield" href="/docs/guides/failure-handling">
     Stale fallback, negative caching and loader timeouts.
   </Card>
-  <Card title="Event ordering" icon="list-ordered" href="/architecture/event-ordering">
+  <Card title="Event ordering" icon="list-ordered" href="/docs/architecture/event-ordering">
     How a late event is stopped from resurrecting deleted data.
   </Card>
 </Columns>

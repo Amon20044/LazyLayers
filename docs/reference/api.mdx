@@ -109,7 +109,7 @@ Entry count. Approximate for L2.
 on(handler: CacheEventHandler): () => void
 ```
 
-Subscribes to [cache events](/reference/cache-events). Returns a function that unsubscribes.
+Subscribes to [cache events](/docs/reference/cache-events). Returns a function that unsubscribes.
 
 ```ts
 const off = cache.on((event) => console.log(event.type));

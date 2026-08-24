@@ -79,7 +79,7 @@ Oversized values are still written to L1 and L2 normally. They are simply not fa
 
 ## Correctness
 
-Buses redeliver, reorder and duplicate. Three mechanisms handle that, and they are described in [event ordering](/architecture/event-ordering):
+Buses redeliver, reorder and duplicate. Three mechanisms handle that, and they are described in [event ordering](/docs/architecture/event-ordering):
 
 - per-key **generations** stop an older event overwriting a newer one
 - **event IDs** are deduplicated so a redelivery is not applied twice
@@ -87,4 +87,4 @@ Buses redeliver, reorder and duplicate. Three mechanisms handle that, and they a
 
 ## Delivery guarantees
 
-The bus you choose decides what happens to an instance that was disconnected. [Choosing an event bus](/guides/event-buses) compares them.
+The bus you choose decides what happens to an instance that was disconnected. [Choosing an event bus](/docs/guides/event-buses) compares them.

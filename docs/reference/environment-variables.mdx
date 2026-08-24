@@ -24,21 +24,37 @@ Override in code with `logging.env` or `logging.enabled` when you need verbosity
 
 ## Observability
 
-Every dashboard setting has a variable, so you can enable it in staging without a code change.
+Every dashboard setting has a variable, so you can enable it in staging without a code change. Names verified against `src/observability/types.ts`.
 
 | Variable | Default | Effect |
 | --- | --- | --- |
-| `LAZY_OBS_ENABLED` | off | Truthy enables the dashboard |
+| `LAZY_OBS_ENABLED` | `false` | Truthy enables the dashboard |
 | `LAZY_OBS_ROUTE` | `/observelazyily` | Base route |
+| `LAZY_OBS_HOST` | `127.0.0.1` | Standalone server bind address |
 | `LAZY_OBS_PORT` | `7077` | Standalone server port |
-| `LAZY_OBS_HOST` | `127.0.0.1` | Bind address |
-| `LAZY_OBS_USERNAME` | `lazydev` | Basic auth username |
+| `LAZY_OBS_USER` | `lazydev` | Basic auth username |
 | `LAZY_OBS_PASSWORD` | `lazydev` | Basic auth password |
+| `LAZY_OBS_TOKEN` | unset | Optional bearer or query token |
+| `LAZY_OBS_NO_SERVER` | `false` | Expose only the mountable handler, start no server |
+| `LAZY_OBS_NO_AUTH` | `false` | Disable authentication entirely |
 | `LAZY_OBS_MAX_EVENTS` | `1000` | Ring buffer size for the live feed |
 | `LAZY_OBS_MAX_VALUE_BYTES` | `262144` | Values larger than this are truncated in the UI |
+| `LAZY_OBS_QUIET` | `false` | Silence the one-time startup notice |
+
+<Note>
+The username variable is `LAZY_OBS_USER`, not `LAZY_OBS_USERNAME`. The code option is `auth.username`, so the two names differ deliberately.
+</Note>
+
+### Prometheus
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `LAZY_OBS_PROMETHEUS` | `false` | Expose `{route}/metrics` |
+| `LAZY_OBS_PROMETHEUS_PREFIX` | `lazycache` | Metric name prefix |
+| `LAZY_OBS_PROMETHEUS_PUBLIC` | `false` | Allow unauthenticated scrapes |
 
 <Warning>
-The defaults bind to localhost with the credentials `lazydev` / `lazydev`. Change both before exposing the dashboard anywhere, and prefer mounting the handler behind your own authentication.
+The defaults bind to localhost with the credentials `lazydev` / `lazydev`. Change both before exposing the dashboard anywhere. `LAZY_OBS_NO_AUTH` removes authentication completely and should not be set in any environment reachable from outside the host.
 </Warning>
 
 ## Values used in examples

@@ -86,4 +86,4 @@ The `LoaderTimeoutError` is caught upstream, where fail-safe converts it into a 
 
 ## Write: set
 
-A write fans out to every configured layer, then to the bus if one is attached. The L2 write is serialized; the L1 write stores the live object.
+A write fans out to every configured layer, then to the bus if one is attached. The L2 write is serialized. The L1 write stores the live object as it is.

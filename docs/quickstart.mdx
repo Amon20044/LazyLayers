@@ -5,6 +5,12 @@ description: "Cache a database read, watch the second call skip the database, an
 
 By the end of this page you will have a working read-through cache and a way to see what it is doing.
 
+<Frame caption="One instance loads a key. Every peer's L1 warms from the broadcast, and the shared L2 keeps the value across restarts.">
+  <img src="/docs/images/lazylayers-architecture.webp" alt="LazyLayers architecture: application instances each holding an in-process L1 cache, connected through an invalidation event bus to a shared Redis L2 store" />
+</Frame>
+
+That diagram is where this ends up. This page gets you the first box.
+
 ## Prerequisites
 
 Node.js 20 or 22+, and a project with `lazy-layers-cache` installed. No Redis, no broker.
@@ -60,7 +66,7 @@ set user:42
 hit user:42
 ```
 
-The full list is in the [cache events reference](/reference/cache-events).
+The full list is in the [cache events reference](/docs/reference/cache-events).
 
 </Step>
 <Step title="Try one useful change">
@@ -82,7 +88,7 @@ await Promise.all(
 console.log(calls); // 1
 ```
 
-The first caller owns the load. Everyone else waits on the same promise. This is on by default and covered in [stampede protection](/guides/stampede-protection).
+The first caller owns the load. Everyone else waits on the same promise. This is on by default and covered in [stampede protection](/docs/guides/stampede-protection).
 
 </Step>
 </Steps>
@@ -97,10 +103,10 @@ The first caller owns the load. Everyone else waits on the same promise. This is
 ## Next steps
 
 <Columns cols={2}>
-  <Card title="Walkthrough" icon="route" href="/walkthrough">
+  <Card title="Walkthrough" icon="route" href="/docs/walkthrough">
     Add Redis and an event bus to the same service, one problem at a time.
   </Card>
-  <Card title="Configuration" icon="sliders" href="/reference/configuration">
+  <Card title="Configuration" icon="sliders" href="/docs/reference/configuration">
     TTLs, layer sizes, timeouts and the rest.
   </Card>
 </Columns>

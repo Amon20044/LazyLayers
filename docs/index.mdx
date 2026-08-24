@@ -40,16 +40,16 @@ When a `getOrSet` loader returns, the value is written to both layers and broadc
 ## Core concepts
 
 <Columns cols={2}>
-  <Card title="Layers" icon="layers" href="/concepts/layers">
+  <Card title="Layers" icon="layers" href="/docs/concepts/layers">
     L1 holds live objects in memory. L2 is shared and holds encoded bytes.
   </Card>
-  <Card title="Lazy loading" icon="download" href="/concepts/lazy-loading">
+  <Card title="Lazy loading" icon="download" href="/docs/concepts/lazy-loading">
     `getOrSet` is the read-through path, and where stampede protection lives.
   </Card>
-  <Card title="Invalidation" icon="radio" href="/concepts/invalidation">
+  <Card title="Invalidation" icon="radio" href="/docs/concepts/invalidation">
     Three event types travel between instances. Only one carries a value.
   </Card>
-  <Card title="Serialization" icon="binary" href="/concepts/serialization">
+  <Card title="Serialization" icon="binary" href="/docs/concepts/serialization">
     Three wire encodings, chosen per payload at write time.
   </Card>
 </Columns>
@@ -64,21 +64,21 @@ const cache = new LazyLayersCache({ ttlMs: 60_000 });
 const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id));
 ```
 
-Ten thousand callers asking for the same cold key share one loader call. That behaviour is on by default and is described in [stampede protection](/guides/stampede-protection).
+Ten thousand callers asking for the same cold key share one loader call. That behaviour is on by default and is described in [stampede protection](/docs/guides/stampede-protection).
 
 ## Where to go next
 
 <Columns cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
+  <Card title="Quickstart" icon="rocket" href="/docs/quickstart">
     Install it and cache something in about five minutes.
   </Card>
-  <Card title="Walkthrough" icon="route" href="/walkthrough">
+  <Card title="Walkthrough" icon="route" href="/docs/walkthrough">
     Take one service from a single process to a synchronised cluster.
   </Card>
-  <Card title="Configuration" icon="sliders" href="/reference/configuration">
+  <Card title="Configuration" icon="sliders" href="/docs/reference/configuration">
     Every option, its default, and what it changes.
   </Card>
-  <Card title="Execution paths" icon="git-branch" href="/architecture/execution-paths">
+  <Card title="Execution paths" icon="git-branch" href="/docs/architecture/execution-paths">
     What actually runs on a read, a write and a load.
   </Card>
 </Columns>

@@ -1,0 +1,90 @@
+---
+title: "Single process"
+description: "A recommended L1-only configuration for one instance, with TTL guidance."
+---
+
+Use this when you run one process, or when each process may hold its own view of the data. No Redis, no broker.
+
+## Recommended configuration
+
+```ts
+import { LazyLayersCache } from 'lazy-layers-cache';
+
+export const cache = new LazyLayersCache<string, User>({
+  l2: false,                                    // explicit: no shared tier
+  ttlMs: 60_000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 30_000 },
+  },
+  inflight: { enabled: true, ttlMs: 5_000 },
+  negativeCache: { enabled: true, ttlMs: 5_000, maxEntries: 10_000 },
+  logging: { env: process.env.NODE_ENV === 'production' ? 'production' : 'development' },
+});
+```
+
+Writing `l2: false` rather than leaving it out is worth the keystrokes. It says the shared tier is off on purpose, which stops the next person wondering whether it was forgotten.
+
+## Why these values
+
+<ParamField path="levels.L1.maxEntries" type="10_000">
+  The default is 1,000, which is low for most services. Entries are live objects, so the real cost is your average value size times this number. Start at 10,000 and raise it if your hit rate is poor and you have the headroom.
+</ParamField>
+
+<ParamField path="levels.L1.ttlMs" type="30_000">
+  Short, because with one layer this is your only staleness control. Thirty seconds bounds how wrong a cached value can be.
+</ParamField>
+
+<ParamField path="inflight.ttlMs" type="5_000">
+  Set it above your slowest normal loader and below your request timeout. A loader still running past this stops being joined by new callers.
+</ParamField>
+
+<ParamField path="negativeCache.ttlMs" type="5_000">
+  Short on purpose. This is the window in which a newly created record still looks absent.
+</ParamField>
+
+## Choosing a TTL
+
+The question is not "how long can I cache this" but "how wrong can this be before someone notices".
+
+| Data | Suggested TTL | Reasoning |
+| --- | --- | --- |
+| Reference data (countries, currencies) | Hours | Changes rarely, and a stale value is harmless |
+| User profiles | 30–60s | Visible to the user who edited it, so keep it tight |
+| Permissions and entitlements | Do not cache, or seconds | Stale means wrong access |
+| Aggregates and counters | 10–60s | Approximate by nature |
+| Product catalogue | Minutes | Editors expect a short delay |
+| Session lookups | Match session lifetime | Invalidate explicitly on logout |
+
+<Warning>
+Without an event bus, a delete only affects the process that made it. If two processes share a database, the second keeps serving its own L1 until the entry expires. That is the point at which you want [multi-instance](/docs/setups/multi-instance).
+</Warning>
+
+## Sizing L1
+
+`maxEntries` counts entries, not bytes. To reason about memory, multiply by your typical value size and add object overhead.
+
+```ts
+// 10,000 entries × roughly 2 KB per user object ≈ 20 MB
+levels: { L1: { maxEntries: 10_000 } }
+```
+
+If you cache values of wildly different sizes, either cap the large ones with a separate cache instance or keep `maxEntries` conservative.
+
+## Measuring it
+
+```ts
+let hits = 0, misses = 0;
+
+cache.on((event) => {
+  if (event.type === 'hit') hits++;
+  if (event.type === 'miss' && event.level === 'L1') misses++;
+});
+
+setInterval(() => {
+  const rate = hits / (hits + misses || 1);
+  metrics.gauge('cache.hit_rate', rate);
+  hits = 0; misses = 0;
+}, 10_000);
+```
+
+A hit rate below roughly 0.5 usually means one of three things: `maxEntries` is too small and you are evicting hot keys, the TTL is shorter than your traffic pattern, or the keyspace is genuinely too wide to cache.
