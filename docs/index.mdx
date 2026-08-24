@@ -9,6 +9,9 @@ Two methods do almost all the work.
 
 ```ts
 // Read through the layers, load once if nothing has it.
+// The loader runs on one server. That server then broadcasts the value on the
+// event bus, so every other server stores it lazily in its own L1 without ever
+// touching the database.
 const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id));
 
 // Invalidate everywhere. Every instance drops the key.
@@ -68,6 +71,9 @@ export const cache = new LazyLayersCache<string, User>({
 Read through both layers:
 
 ```ts
+// L1 miss falls to L2, L2 miss runs the loader. Whichever server does the work
+// publishes a `set` event carrying the value, and every peer writes it straight
+// into its own L1. One database read warms the entire fleet.
 const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id));
 ```
 

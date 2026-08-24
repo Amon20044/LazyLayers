@@ -4,8 +4,25 @@
     {
       "name": "docs",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["mint", "dev", "--port", "3333"],
+      "runtimeArgs": [
+        "mint",
+        "dev",
+        "--port",
+        "3333"
+      ],
       "port": 3333
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5180"
+      ],
+      "port": 5180
     }
   ]
 }

@@ -228,9 +228,15 @@ TTLs resolve from most specific to least: per-call level, per-call `ttlMs`, cons
 ```ts
 export async function getUser(id: string): Promise<User | undefined> {
   return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    // This body runs on exactly one server, for exactly one caller, even when a
+    // thousand arrive at once. The rest wait on the same promise.
     const row = await db.users.findById(id, { signal });
     return row ?? undefined;   // undefined records a negative entry
   });
+  // Once the loader resolves, the value is written to L1 and L2 here, then
+  // published on the event bus as a `set` event. Every other server stores it
+  // lazily in its own L1 on arrival, so their first read of this key is already
+  // a local hit. Nobody else pays for the query.
 }
 ```
 
