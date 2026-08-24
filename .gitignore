@@ -10,3 +10,9 @@ benchmarks/results.json
 benchmarks/throughput.json
 benchmarks/node_modules/
 benchmarks/package*.json
+
+# agent skill installs (local tooling, not project code)
+.agents/
+.claude/skills/
+.zcode/
+skills-lock.json
