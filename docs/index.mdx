@@ -5,14 +5,17 @@ description: "LazyLayers is a hybrid L1/L2 cache for Node.js that keeps every in
 
 LazyLayers is a caching library for Node.js. It starts as an in-process LRU cache with no infrastructure, and grows into a distributed cache layer as you need one: a shared Redis tier, an event bus that keeps every instance in agreement, and a binary wire format that cuts what you store.
 
-The API is small. Most applications use four methods:
+Two methods do almost all the work.
 
 ```ts
-await cache.set('user:42', user);
-const user = await cache.get('user:42');
-const user = await cache.getOrSet('user:42', () => db.users.findById(42));
-await cache.delete('user:42');
+// Read through the layers, load once if nothing has it.
+const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id));
+
+// Invalidate everywhere. Every instance drops the key.
+await cache.delete(`user:${id}`);
 ```
+
+`getOrSet` is the read path. `delete` is the write path. Everything else on this site is about what happens between them.
 
 ## Why it exists
 
@@ -22,20 +25,81 @@ The difficulty starts when you run more than one instance. Each one keeps its ow
 
 You can shorten the TTL, but that just trades staleness for load on your database. LazyLayers takes the other route: when one instance writes, it tells the others.
 
-## How it works
+## The three pieces
 
-Reads walk down the layers and stop at the first hit. A hit in L2 is promoted into L1 on the way back, so the next read on that instance never leaves the process.
+```ts cache.ts expandable
+import Redis from 'ioredis';
+import { LazyLayersCache, RedisStore, RedisEventBus } from 'lazy-layers-cache';
+
+interface User {
+  id: string;
+  name: string;
+  plan: 'free' | 'pro';
+}
+
+const redis = new Redis(process.env.REDIS_URL!);
+
+// 1. The bus. Carries invalidations between instances.
+const eventBus = new RedisEventBus(redis, 'app:invalidations', {
+  retryQueue: { enabled: true, maxSize: 10_000 },
+});
+
+const health = await eventBus.healthCheck();
+if (!health.ok) throw new Error(`cache bus unhealthy: ${JSON.stringify(health)}`);
+
+// 2. The cache. Two layers, plus the bus.
+export const cache = new LazyLayersCache<string, User>({
+  // L1: in-process, holds live objects, nanosecond reads
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 10_000 },
+    L2: { ttlMs: 300_000 },
+  },
+
+  // L2: shared across instances, holds MessagePack bytes
+  l2: new RedisStore<User>(redis, { prefix: 'users:' }),
+
+  // 3. Invalidation. `source` is how an instance ignores its own events.
+  eventBus,
+  source: process.env.INSTANCE_ID,
+  broadcastSet: true,
+});
+```
+
+Read through both layers:
+
+```ts
+const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id));
+```
+
+Invalidate across every instance:
+
+```ts
+await cache.delete(`user:${id}`);        // one key, everywhere
+await cache.deleteByPattern('users:*');  // a whole prefix, everywhere
+```
+
+## What the bus carries
+
+Three event types travel between instances. Only one carries a value.
+
+| Event | Published when | What peers do |
+| --- | --- | --- |
+| `del` | `cache.delete(key)` | Drop the key from L1, L2, negative, stale and inflight |
+| `pattern` | `cache.deleteByPattern(p)` | Drop every local entry matching the pattern |
+| `set` | A `getOrSet` loader returns | Write the value straight into L1 |
+
+That last one is the difference between peers *invalidating* and peers being *primed*. Invalidation makes every instance reload the key independently. Priming means one instance pays for the load and the rest take the result.
+
+## How a read walks the layers
 
 ```mermaid
 flowchart LR
-    A[get key] --> B{L1 hit?}
+    A[getOrSet] --> B{L1 hit?}
     B -->|yes| R[return value]
     B -->|no| C{L2 hit?}
     C -->|yes| P[promote to L1] --> R
-    C -->|no| L[loader] --> W[write L1 + L2] --> R
+    C -->|no| L[loader runs once] --> W[write L1 + L2] --> BC[broadcast to peers] --> R
 ```
-
-When a `getOrSet` loader returns, the value is written to both layers and broadcast to every peer, so their L1 fills without calling the loader again.
 
 ## Core concepts
 
@@ -54,31 +118,19 @@ When a `getOrSet` loader returns, the value is written to both layers and broadc
   </Card>
 </Columns>
 
-## A small example
-
-```ts
-import { LazyLayersCache } from 'lazy-layers-cache';
-
-const cache = new LazyLayersCache({ ttlMs: 60_000 });
-
-const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id));
-```
-
-Ten thousand callers asking for the same cold key share one loader call. That behaviour is on by default and is described in [stampede protection](/docs/guides/stampede-protection).
-
 ## Where to go next
 
 <Columns cols={2}>
   <Card title="Quickstart" icon="rocket" href="/docs/quickstart">
-    Install it and cache something in about five minutes.
+    A full production configuration, every option explained.
   </Card>
   <Card title="Walkthrough" icon="route" href="/docs/walkthrough">
     Take one service from a single process to a synchronised cluster.
   </Card>
-  <Card title="Configuration" icon="sliders" href="/docs/reference/configuration">
-    Every option, its default, and what it changes.
+  <Card title="Recommended setups" icon="sliders" href="/docs/setups/multi-instance">
+    Copyable configurations with TTL guidance.
   </Card>
-  <Card title="Execution paths" icon="git-branch" href="/docs/architecture/execution-paths">
-    What actually runs on a read, a write and a load.
+  <Card title="Event buses" icon="git-branch" href="/docs/guides/event-buses">
+    Redis, RabbitMQ, NATS Core and NATS JetStream compared.
   </Card>
 </Columns>
