@@ -24,7 +24,15 @@
 }
 
 .brand { display: inline-flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
-.brand__mark { width: 26px; height: 26px; }
+/* The mark is two inks. The body follows currentColor so it flips with the
+   theme (dark ink on light chrome, light ink on dark), while the lime edge
+   highlights hold steady in both. */
+.brand__mark {
+  width: 28px;
+  height: 28px;
+  color: var(--logo-ink);
+  transition: color 0.3s var(--ease);
+}
 .brand__name {
   font-family: var(--ff-display);
   font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.02em;

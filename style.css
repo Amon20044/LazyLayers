@@ -1,0 +1,12 @@
+/*
+  Mintlify swaps the header logo with Tailwind's `hidden` / `dark:block`
+  utilities, but an unlayered `img { display: block }` in the base stylesheet
+  outranks them, so both variants render side by side. Re-assert the intent at
+  a specificity the base rule cannot beat.
+*/
+img.nav-logo.hidden { display: none; }
+:root.dark img.nav-logo.dark\:hidden { display: none; }
+:root.dark img.nav-logo.dark\:block { display: block; }
+
+/* Probe so the build can confirm this file actually loaded. */
+:root { --lazylayers-css: 1; }

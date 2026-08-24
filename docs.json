@@ -75,7 +75,10 @@
       }
     ]
   },
-  "logo": "/docs/logo/lazylayers.svg",
+  "logo": {
+    "light": "/docs/logo/lazylayers-light.svg",
+    "dark": "/docs/logo/lazylayers-dark.svg"
+  },
   "navbar": {
     "links": [
       {
@@ -107,5 +110,6 @@
       "source": "/",
       "destination": "/docs"
     }
-  ]
+  ],
+  "styling": {}
 }
