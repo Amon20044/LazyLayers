@@ -73,6 +73,14 @@
 .nav__toggle[aria-expanded='true'] span::before { transform: translateY(5px) rotate(45deg); }
 .nav__toggle[aria-expanded='true'] span::after  { transform: translateY(-5px) rotate(-45deg); }
 
+/* At 375px the bar needed 396px: brand + version tag + toggle + CTA + burger.
+   The version tag is the least useful of those, so it goes first. */
+@media (max-width: 480px) {
+  .brand__tag { display: none; }
+  .nav__inner { gap: 1rem; }
+  .nav__cta { gap: 0.5rem; }
+}
+
 @media (max-width: 900px) {
   .nav__links {
     position: fixed; inset: 62px 0 auto 0;

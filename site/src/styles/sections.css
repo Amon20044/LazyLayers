@@ -996,3 +996,12 @@ input[type='range']:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(99,
 .d-slot--on { fill: rgba(190, 255, 250, 0.92); }
 :root[data-theme='light'] .d-slot     { fill: rgba(255, 255, 255, 0.45); }
 :root[data-theme='light'] .d-slot--on { fill: rgba(6, 50, 62, 0.85); }
+
+/* ── Sticky column head ──────────────────────────────────────────────── */
+/* Only sticks while .split is genuinely two columns. Once it stacks, a pinned
+   heading just sits on top of the list scrolling underneath it. */
+.split__sticky { position: sticky; top: 100px; }
+
+@media (max-width: 940px) {
+  .split__sticky { position: static; top: auto; margin-bottom: 2rem; }
+}
