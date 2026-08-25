@@ -151,6 +151,9 @@ One file, four ways to fill it. The rest of your configuration does not change, 
       durable: true,
       persistent: true,
       durableInvalidationMode: true,
+      // Required. The queue is asserted durable only when it is named,
+      // so without this you get a transient, broker-named queue.
+      queueName: `lazylayers.${process.env.INSTANCE_ID}`,
       queueName: `${process.env.INSTANCE_ID}-cache`,
       // No default. Without it one slow handler lets the queue run away.
       prefetch: 32,
@@ -169,6 +172,9 @@ One file, four ways to fill it. The rest of your configuration does not change, 
       durable: true,
       persistent: true,
       durableInvalidationMode: true,
+      // Required. The queue is asserted durable only when it is named,
+      // so without this you get a transient, broker-named queue.
+      queueName: `lazylayers.${process.env.INSTANCE_ID}`,
       queueName: `${process.env.INSTANCE_ID}-cache`,
       // No default. Without it one slow handler lets the queue run away.
       prefetch: 32,

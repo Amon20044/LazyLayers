@@ -195,6 +195,9 @@ Pick a transport. Everything after this file is identical whichever you choose, 
       durable: true,
       persistent: true,
       durableInvalidationMode: true,
+      // Required. The queue is asserted durable only when it is named,
+      // so without this you get a transient, broker-named queue.
+      queueName: `lazylayers.${process.env.INSTANCE_ID}`,
       // Unique per server. A shared queue splits the fan-out.
       queueName: `lazylayers.${instanceId}`,
       // No default. The handler is not awaited, so this is the only thing
@@ -218,6 +221,9 @@ Pick a transport. Everything after this file is identical whichever you choose, 
       durable: true,
       persistent: true,
       durableInvalidationMode: true,
+      // Required. The queue is asserted durable only when it is named,
+      // so without this you get a transient, broker-named queue.
+      queueName: `lazylayers.${process.env.INSTANCE_ID}`,
       // Unique per server. A shared queue splits the fan-out.
       queueName: `lazylayers.${instanceId}`,
       // No default. The handler is not awaited, so this is the only thing

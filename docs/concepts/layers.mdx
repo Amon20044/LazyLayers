@@ -80,7 +80,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 ```
 </CodeGroup>
 
-L2 survives a restart, is visible to every server, and catches what L1 evicts. It costs a round trip, and it can fail. When it does, the failure is treated as a miss rather than an exception, so the read falls through to your loader and the request still completes. [Resilience](/docs/concepts/resilience#fail-open-is-a-stance) covers what that degradation looks like.
+L2 survives a restart, is visible to every server, and catches what L1 evicts. It costs a round trip, and it can fail. When it does, the failure is treated as a miss rather than an exception, so the read falls through to your loader and the request still completes. [Resilience](/docs/concepts/resilience#fail-open) covers what that degradation looks like.
 
 Its blast radius is the opposite of L1's. A wrong value in L2 is served to every server and outlives every restart until something deletes it. That is why writes invalidate L2 explicitly instead of waiting for its TTL to come around.
 

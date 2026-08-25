@@ -153,6 +153,9 @@ Pick your transport. The rest of the guide is identical whichever you choose, be
       durable: true,
       persistent: true,
       durableInvalidationMode: true,
+      // Required. The queue is asserted durable only when it is named,
+      // so without this you get a transient, broker-named queue.
+      queueName: `lazylayers.${process.env.INSTANCE_ID}`,
       // No default. Without it one slow handler lets the queue run away.
       prefetch: 32,
       retryQueue: { enabled: true, maxSize: 1000 },
@@ -170,6 +173,9 @@ Pick your transport. The rest of the guide is identical whichever you choose, be
       durable: true,
       persistent: true,
       durableInvalidationMode: true,
+      // Required. The queue is asserted durable only when it is named,
+      // so without this you get a transient, broker-named queue.
+      queueName: `lazylayers.${process.env.INSTANCE_ID}`,
       // No default. Without it one slow handler lets the queue run away.
       prefetch: 32,
       retryQueue: { enabled: true, maxSize: 1000 },
@@ -512,8 +518,11 @@ let hits = 0
 let misses = 0
 
 cache.on((event) => {
+  // One read that misses L1 and hits L2 emits BOTH a miss and a hit, so
+  // counting every event gives a layer rate, not a request rate. A loader
+  // only starts when neither layer had the value, which is the real miss.
   if (event.type === 'hit') hits++
-  if (event.type === 'miss') misses++
+  if (event.type === 'loader:start') misses++
 })
 
 setInterval(() => {
@@ -534,8 +543,11 @@ let hits = 0
 let misses = 0
 
 cache.on((event: CacheEvent) => {
+  // One read that misses L1 and hits L2 emits BOTH a miss and a hit, so
+  // counting every event gives a layer rate, not a request rate. A loader
+  // only starts when neither layer had the value, which is the real miss.
   if (event.type === 'hit') hits++
-  if (event.type === 'miss') misses++
+  if (event.type === 'loader:start') misses++
 })
 
 setInterval(() => {

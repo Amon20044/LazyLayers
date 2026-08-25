@@ -1,35 +1,92 @@
 ---
 title: "Event buses"
-description: "Constructor options for the Redis, RabbitMQ and NATS transports."
+description: "The EventBus interface, and every constructor option of the Redis, RabbitMQ and NATS transports with its real default."
 ---
 
-Every bus implements the same interface, so the cache configuration does not change between them.
+The bus is what makes a delete on one server visible to every other one, and what carries a loader result to peers so their L1 warms without running the query. Every transport satisfies the same interface, so nothing else in your configuration changes when you switch.
+
+Every bus needs `await bus.connect()` before you hand it to the cache.
+
+## The EventBus interface
+
+This is the whole contract, exactly as the cache sees it. Only `publish` and `subscribe` are required. `connect`, `healthCheck` and `disconnect` are optional, and the cache calls each one only if your bus defines it.
 
 ```ts
+interface EventBusHealth {
+  ok: boolean
+  transport: string
+  error?: unknown
+}
+
 interface EventBus {
-  connect(): Promise<void>;
-  publish(event: InvalidationEvent): Promise<void>;
-  subscribe(handler: (event: InvalidationEvent) => void | Promise<void>): Promise<void>;
-  disconnect(): Promise<void>;
-  healthCheck(): Promise<EventBusHealth>;
+  connect?(): Promise<void>
+  healthCheck?(): Promise<EventBusHealth>
+  publish(event: InvalidationEvent): Promise<void>
+  subscribe(handler: (event: InvalidationEvent) => void | Promise<void>): Promise<void>
+  disconnect?(): Promise<void>
 }
 ```
 
-## Shared options
+The three shipped transports all implement the optional methods.
 
-Every transport accepts these.
+### What travels over it
+
+`InvalidationEvent` is a three member union. A custom transport must round trip every field, including the ones it does not read, because the cache uses `id` for duplicate suppression and `generation` for ordering.
+
+```ts
+type InvalidationType = 'del' | 'pattern' | 'set'
+
+interface BaseInvalidationEvent {
+  id?: string
+  type: InvalidationType
+  source: string
+  ts: number
+  generation?: number
+}
+
+interface DeleteEvent extends BaseInvalidationEvent {
+  type: 'del'
+  keys: string[]
+}
+
+interface PatternEvent extends BaseInvalidationEvent {
+  type: 'pattern'
+  pattern: string
+}
+
+interface SetEvent extends BaseInvalidationEvent {
+  type: 'set'
+  keys: string[]
+  value: unknown
+  ttlMs?: number
+}
+```
+
+A `set` event carries the loaded value itself. That is the whole point of the fan-out, and it is also why `broadcastSetMaxBytes` matters: without a ceiling, a large value crosses the wire to every server on every cold load.
+
+## Options every transport shares
+
+<ParamField path="retryQueue" type="{ enabled?: boolean; maxSize?: number }">
+  Buffers events that failed to publish so they go out on the next successful publish. Accepted by all three transports.
+</ParamField>
 
 <ParamField path="retryQueue.enabled" type="boolean" default="true">
-  Buffer failed publishes and flush them on the next successful one.
+  On unless you pass exactly `false`. The check is `enabled !== false`, so an omitted `retryQueue` still gives you a working queue with default sizing.
 </ParamField>
 
 <ParamField path="retryQueue.maxSize" type="number" default="10000">
-  Cap on buffered events. When full, the oldest is dropped with a warning.
+  Cap on buffered events. At the cap the oldest event is dropped to make room, with a warning. A value of `0` or less drops **every** event and logs a warning each time, which is a silent way to lose invalidations.
 </ParamField>
 
-<ParamField path="logging" type="CacheLoggerOptions">
-  `env` and `enabled`, matching the cache's logging options.
+<ParamField path="logging" type="{ env?: 'development' | 'production' | 'test'; enabled?: boolean }">
+  No default. Forwarded to the process-wide logger the moment the bus is constructed. It is the same switch the cache uses, so the last bus or cache you construct wins for the whole process.
 </ParamField>
+
+Flushing is FIFO and runs at the **start** of every `publish` call, before the new event. So a queued backlog goes out in order, and the event you are publishing right now goes out last.
+
+<Warning>
+  **The retry queue cannot save an event the circuit breaker skipped.** When the event-bus circuit breaker is open, `publishInvalidation` returns before it ever reaches `eventBus.publish`, so the queue never sees that event and it is gone. Peers keep their stale copies until TTL. Keep `resilience.eventBusCircuitBreaker.cooldownMs` short, and treat `event-bus:publish-skipped` as a real signal rather than noise.
+</Warning>
 
 ## RedisEventBus
 
@@ -37,19 +94,55 @@ Every transport accepts these.
 new RedisEventBus(redis, channel, options?)
 ```
 
+Redis Pub/Sub. At-most-once delivery: a server that is disconnected when an event is published never sees it, and reloads that key on its next request.
+
 <ParamField path="redis" type="Redis" required>
-  An existing `ioredis` client. The bus calls `.duplicate()` internally for the subscriber, because a connection in subscriber mode cannot issue other commands.
+  An existing `ioredis` client, positional argument one. The bus keeps it as the publisher and calls `.duplicate()` for the subscriber, because a connection in subscriber mode cannot issue ordinary commands.
 </ParamField>
 
 <ParamField path="channel" type="string" required>
-  Pub/Sub channel. Every instance sharing invalidation must use the same one.
+  Positional argument two. Every server that shares invalidation must use the same channel string. Two applications on one Redis instance need two different channels, or each one will act on the other's deletes.
 </ParamField>
 
 <ParamField path="handlerConcurrency" type="number" default="1">
-  Concurrent handler executions. The default preserves approximate ordering.
+  How many inbound events run through your handler at once. Inbound messages go into an internal queue that keeps at most this many handler calls active.
+
+  The default of `1` processes events strictly one at a time, which preserves arrival order. Raising it drains a burst faster and lets two events for the same key interleave. Values that are not finite, or are `0` or below, are treated as `1`, and a fractional value is floored.
 </ParamField>
 
-Delivery is at-most-once. A disconnected subscriber misses events.
+<CodeGroup>
+```js src/cache/bus.js
+import { RedisEventBus } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+
+// The bus duplicates this client internally for the subscriber.
+export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+  retryQueue: { enabled: true, maxSize: 1000 },
+  handlerConcurrency: 16,
+})
+
+await bus.connect()
+```
+
+```ts src/cache/bus.ts
+import { RedisEventBus } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+
+// The bus duplicates this client internally for the subscriber.
+export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+  retryQueue: { enabled: true, maxSize: 1000 },
+  handlerConcurrency: 16,
+})
+
+await bus.connect()
+```
+</CodeGroup>
+
+`connect()` pings both the publisher and the subscriber. `healthCheck()` calls `connect()` and reports `publisherStatus` and `subscriberStatus` from the two ioredis clients.
+
+<Warning>
+  `disconnect()` tears down **both** connections, including the client you passed in. If that is the same client backing your `RedisStore`, disconnecting the bus takes your L2 down with it. On shutdown, close the cache and the bus last, or give the bus its own client.
+</Warning>
 
 ## RabbitMQEventBus
 
@@ -57,49 +150,109 @@ Delivery is at-most-once. A disconnected subscriber misses events.
 new RabbitMQEventBus(exchange, options?)
 ```
 
+Durable delivery through a broker. Events can survive a server being down and be redelivered when it returns, at the cost of broker state per server.
+
+<ParamField path="exchange" type="string" required>
+  Positional argument one. Asserted on both the consume channel and the publish channel at `connect()`.
+</ParamField>
+
 <ParamField path="url" type="string">
-  AMQP URL. Required unless you call `init(url)` yourself.
+  AMQP URL. **No default.** Without it, `connect()` throws `RabbitMQEventBus requires a URL. Pass options.url or call init(url).` You can also pass it at `init(url)` instead.
 </ParamField>
 
 <ParamField path="exchangeType" type="'fanout' | 'topic' | 'direct'" default="fanout">
-  Fanout broadcasts to every bound queue. Use topic or direct when one exchange serves several caches.
+  Fanout delivers every event to every bound queue, which is what invalidation wants. Choose topic or direct only when one exchange serves several caches, and then set `routingKey`.
 </ParamField>
 
 <ParamField path="durableInvalidationMode" type="boolean" default="false">
-  One switch that sets `durable`, `persistent`, a named queue, and disables auto-delete and exclusivity.
+  A single switch that flips the defaults of three other options at once: `durable` becomes `true`, `exclusiveQueue` becomes `false`, and `autoDeleteQueue` becomes `false`. Each of those still wins if you set it explicitly.
+
+  It does **not** name your queue. Read the warning below.
 </ParamField>
 
-<ParamField path="queueName" type="string">
-  Queue name. Set a stable per-instance value in durable mode.
+<ParamField path="durable" type="boolean" default="false">
+  Whether the exchange survives a broker restart. Defaults to whatever `durableInvalidationMode` is, so `false` on its own and `true` in durable mode.
 </ParamField>
 
-<ParamField path="durable" type="boolean">
-  Survive broker restarts. Follows `durableInvalidationMode`.
-</ParamField>
-
-<ParamField path="persistent" type="boolean">
-  Delivery mode 2, flushed to disk before acknowledgement. Follows `durable`.
-</ParamField>
-
-<ParamField path="exclusiveQueue" type="boolean">
-  Tie the queue to this connection. Defaults true outside durable mode.
-</ParamField>
-
-<ParamField path="autoDeleteQueue" type="boolean">
-  Remove the queue once no consumers remain. Defaults true outside durable mode.
-</ParamField>
-
-<ParamField path="routingKey" type="string" default="">
-  Ignored for fanout. Required for topic and direct.
+<ParamField path="persistent" type="boolean" default="false">
+  Marks published messages persistent so the broker writes them to disk. Defaults to the resolved value of `durable`.
 </ParamField>
 
 <ParamField path="prefetch" type="number">
-  Channel QoS, capping unacknowledged messages per consumer.
+  **No default.** Channel QoS: the maximum number of unacknowledged deliveries the broker will hand this consumer. When you leave it unset, no QoS is applied at all and the broker pushes as fast as it can.
+
+  This is the single most important option on this transport. See the sharp edge below.
+</ParamField>
+
+<ParamField path="queueName" type="string" default="">
+  The queue this server consumes from. The default empty string asks the broker to generate a random name, which is a different name after every reconnect.
+</ParamField>
+
+<ParamField path="exclusiveQueue" type="boolean" default="true">
+  Ties the queue to this connection, so nobody else can consume from it and it disappears when the connection drops. Defaults to the inverse of `durableInvalidationMode`, so `true` normally and `false` in durable mode.
+</ParamField>
+
+<ParamField path="autoDeleteQueue" type="boolean" default="true">
+  Removes the queue once its last consumer goes away. Also defaults to the inverse of `durableInvalidationMode`.
+</ParamField>
+
+<ParamField path="routingKey" type="string" default="">
+  Used on both publish and bind. Ignored by a fanout exchange. Set it when `exchangeType` is topic or direct, or the binding matches nothing and this server receives no invalidations at all.
 </ParamField>
 
 <Warning>
-Anonymous queues vanish when the connection drops. In durable mode, always set `queueName`.
+  **`durableInvalidationMode` alone does not give you a durable queue.** The queue is asserted durable only when you also set `queueName`, because the assert reads `durable: queueName ? durable : false`. Leave `queueName` unset in durable mode and you get a non-exclusive, non-auto-delete queue with a broker-generated name that is still transient, and a fresh random queue on every reconnect. Set a stable, unique `queueName` per server whenever you turn durable mode on.
 </Warning>
+
+<CodeGroup>
+```js src/cache/bus.js
+import { RabbitMQEventBus } from 'lazy-layers-cache'
+
+export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
+  url: process.env.RABBITMQ_URL,
+  exchangeType: 'fanout',
+  durable: true,
+  persistent: true,
+  durableInvalidationMode: true,
+  // Durable mode needs a stable per-server name, or the queue is transient.
+  queueName: `lazylayers.${process.env.INSTANCE_ID}`,
+  // No default. This is the only bound on handler concurrency.
+  prefetch: 32,
+  retryQueue: { enabled: true, maxSize: 1000 },
+})
+
+await bus.connect()
+```
+
+```ts src/cache/bus.ts
+import { RabbitMQEventBus } from 'lazy-layers-cache'
+
+export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
+  url: process.env.RABBITMQ_URL,
+  exchangeType: 'fanout',
+  durable: true,
+  persistent: true,
+  durableInvalidationMode: true,
+  // Durable mode needs a stable per-server name, or the queue is transient.
+  queueName: `lazylayers.${process.env.INSTANCE_ID}`,
+  // No default. This is the only bound on handler concurrency.
+  prefetch: 32,
+  retryQueue: { enabled: true, maxSize: 1000 },
+})
+
+await bus.connect()
+```
+</CodeGroup>
+
+### Sharp edge: the handler is not awaited
+
+The consumer dispatches with `void Promise.resolve(handler(event))`. It attaches an ack on fulfilment and a nack on rejection, but it does not wait before pulling the next delivery.
+
+**That makes `prefetch` the only bound on how many invalidations are being applied at once**, and `prefetch` has no default. Leave it unset and a handler that has slowed down lets unacknowledged deliveries pile up without limit, in memory, on the consuming process. Set it to a real number in the tens.
+
+A handler that rejects is nacked with `requeue: false`, so the delivery is discarded rather than retried unless you have bound a dead letter exchange. A message the codec cannot decode is acked and dropped with a warning, so one poisoned payload does not wedge the queue.
+
+Publishing goes through a separate confirm channel and awaits `waitForConfirms()`, so a resolved `publish` means the broker accepted the message.
 
 ## NatsEventBus
 
@@ -107,60 +260,243 @@ Anonymous queues vanish when the connection drops. In durable mode, always set `
 new NatsEventBus(options?)
 ```
 
+Two modes on one class. Core is at-most-once fan-out. JetStream adds a durable stream, a per-server consumer and explicit acknowledgement.
+
 <ParamField path="mode" type="'core' | 'jetstream'" default="core">
-  Core is at-most-once and fastest. JetStream adds durable streams, per-instance consumers and redelivery.
+  Core publishes and flushes. JetStream publishes into a stream and consumes through a durable consumer with redelivery.
 </ParamField>
 
 <ParamField path="connectionOptions" type="NodeConnectionOptions">
-  Standard `connect()` options such as `servers`, `name` and `token`.
+  No default. Passed straight to `connect()` from `@nats-io/transport-node`, so `servers`, `name`, `token` and the rest behave exactly as that library documents. Omitted entirely, the client falls back to its own defaults.
 </ParamField>
 
 <ParamField path="connection" type="NatsConnection">
-  An existing connection to share. The bus will not drain a connection it did not create.
+  No default. An existing connection to reuse. Pass one and the bus does not own it, so `disconnect()` will close its subscription but will **not** drain your connection. Leave it out and the bus opens and drains its own.
 </ParamField>
 
 <ParamField path="subject" type="string" default="cache.invalidations">
-  Subject used to publish and subscribe.
+  Subject used to publish, to subscribe, as the stream's subject when the bus creates one, and as the consumer's `filter_subject`.
 </ParamField>
 
 ### JetStream options
 
+Everything under `jetstream` is read only in `mode: 'jetstream'`.
+
 <ParamField path="jetstream.durableName" type="string" required>
-  Per-instance durable consumer identity. Required in JetStream mode, and must be unique per instance.
+  **No default, and required.** In JetStream mode `connect()` throws `NatsEventBus JetStream mode requires jetstream.durableName for persistent per-instance delivery.` when it is missing or empty.
 </ParamField>
 
+<Warning>
+  **`durableName` must be unique per server.** A durable consumer is a work queue: two servers sharing one `durableName` split the stream between them, so each invalidation is delivered to exactly one of them and the other keeps serving the value you just deleted. Derive it from a per-server identity such as `INSTANCE_ID`, never from a static string in your configuration.
+</Warning>
+
 <ParamField path="jetstream.stream" type="string" default="CACHE_INVALIDATIONS">
-  Stream name.
+  Stream name. Used for the consumer lookup and for the stream the bus creates when `ensureStream` is on.
 </ParamField>
 
 <ParamField path="jetstream.storage" type="'file' | 'memory'" default="file">
-  File survives a NATS restart. Memory is faster and lost on restart.
+  Applied only when the bus creates the stream. `file` survives a NATS restart. Anything other than the exact string `'memory'` resolves to file storage.
 </ParamField>
 
 <ParamField path="jetstream.maxAgeMs" type="number">
-  Drop messages older than this. Caps disk usage.
+  No default, so a stream the bus creates has no age limit and keeps invalidations until another limit evicts them. Set it, because a new durable consumer starts at the beginning of the stream and replays everything still in it.
 </ParamField>
 
 <ParamField path="jetstream.maxMsgs" type="number" default="-1">
-  Hard cap on stored messages. `-1` is unlimited.
+  Hard cap on messages held in a stream the bus creates. `-1` is unlimited.
 </ParamField>
 
 <ParamField path="jetstream.ackWaitMs" type="number" default="30000">
-  How long the server waits for an acknowledgement before redelivering.
+  How long the server waits for an acknowledgement before redelivering. Thirty seconds. Set it near your worst-case handler time. Below that you get redeliveries of work that already succeeded, which your event dedupe then has to absorb.
 </ParamField>
 
 <ParamField path="jetstream.maxDeliver" type="number" default="10">
-  Maximum redelivery attempts before the message is abandoned.
+  Redelivery attempts before the server gives up on a message.
 </ParamField>
 
 <ParamField path="jetstream.ensureStream" type="boolean" default="true">
-  Create the stream on `connect()` if missing. Set false when infrastructure is provisioned separately.
+  Create the stream on `connect()` when it is missing. The check is `!== false`. Set it to `false` when your streams are provisioned separately.
 </ParamField>
 
 <ParamField path="jetstream.ensureConsumer" type="boolean" default="true">
-  Create the durable consumer if missing.
+  Create the durable consumer when it is missing. Also `!== false`.
 </ParamField>
 
+<CodeGroup>
+```js src/cache/bus.js
+import { NatsEventBus } from 'lazy-layers-cache'
+
+export const bus = new NatsEventBus({
+  mode: 'jetstream',
+  connectionOptions: { servers: process.env.NATS_URL },
+  subject: 'lazylayers.invalidate',
+  jetstream: {
+    stream: 'LAZYLAYERS',
+    // Unique per server. Two servers sharing this split the stream.
+    durableName: process.env.INSTANCE_ID,
+    storage: 'file',
+    maxAgeMs: 60 * 60 * 1000,
+    ackWaitMs: 5000,
+    maxDeliver: 3,
+    ensureStream: true,
+    ensureConsumer: true,
+  },
+})
+
+await bus.connect()
+```
+
+```ts src/cache/bus.ts
+import { NatsEventBus } from 'lazy-layers-cache'
+
+export const bus = new NatsEventBus({
+  mode: 'jetstream',
+  connectionOptions: { servers: process.env.NATS_URL },
+  subject: 'lazylayers.invalidate',
+  jetstream: {
+    stream: 'LAZYLAYERS',
+    // Unique per server. Two servers sharing this split the stream.
+    durableName: process.env.INSTANCE_ID,
+    storage: 'file',
+    maxAgeMs: 60 * 60 * 1000,
+    ackWaitMs: 5000,
+    maxDeliver: 3,
+    ensureStream: true,
+    ensureConsumer: true,
+  },
+})
+
+await bus.connect()
+```
+</CodeGroup>
+
 <Note>
-NATS support uses the modular `nats.js` v3 packages. If you inject your own `connection`, build it with `connect()` from `@nats-io/transport-node`.
+  `storage`, `maxAgeMs` and `maxMsgs` are creation-time settings. If the stream already exists, the bus reads its info and leaves it alone, so changing these values in your configuration will not reshape a stream that is already there. The same applies to `ackWaitMs` and `maxDeliver` on an existing consumer.
 </Note>
+
+The consumer the bus creates uses explicit acks, `DeliverPolicy.All` and `ReplayPolicy.Instant`, filtered to your subject. `DeliverPolicy.All` is why `maxAgeMs` matters: a brand new `durableName` starts from the oldest message the stream still holds.
+
+Both NATS modes **await** your handler before moving to the next message, so a slow handler slows delivery instead of piling up work. In JetStream a handler that resolves acks the message, one that throws naks it for redelivery, and a payload the codec cannot decode is terminated so it is never redelivered.
+
+## Health checks
+
+All three buses implement `healthCheck()`. Each one calls `connect()` internally and reports `ok: false` with the thrown error rather than throwing, so it is safe in a readiness probe.
+
+<CodeGroup>
+```js src/health.js
+import { bus } from './cache/bus.js'
+
+export async function busHealth() {
+  const health = await bus.healthCheck()
+
+  return { ok: health.ok, transport: health.transport }
+}
+```
+
+```ts src/health.ts
+import type { EventBusHealth } from 'lazy-layers-cache'
+import { bus } from './cache/bus.js'
+
+export async function busHealth(): Promise<{ ok: boolean; transport: string }> {
+  const health: EventBusHealth = await bus.healthCheck()
+
+  return { ok: health.ok, transport: health.transport }
+}
+```
+</CodeGroup>
+
+Each transport widens the result with its own fields: Redis adds `channel`, `publisherStatus` and `subscriberStatus`, RabbitMQ adds `exchange`, `queueName`, `durable` and `initialized`, and NATS adds `mode`, `subject`, `server`, `stream` and `durableName`.
+
+## Writing your own bus
+
+Implement `publish` and `subscribe`, add the optional methods you can support, and pass the instance as `eventBus`. Nothing else in the cache changes.
+
+<CodeGroup>
+```js src/cache/localBus.js
+import { EventEmitter } from 'node:events'
+
+// A single-process bus, useful in tests where you want the fan-out path
+// exercised without a broker.
+export class LocalEventBus {
+  constructor() {
+    this.emitter = new EventEmitter()
+  }
+
+  async connect() {}
+
+  async healthCheck() {
+    return { ok: true, transport: 'local' }
+  }
+
+  async publish(event) {
+    // Structured clone so a subscriber cannot mutate the publisher's object.
+    this.emitter.emit('event', structuredClone(event))
+  }
+
+  async subscribe(handler) {
+    this.emitter.on('event', (event) => {
+      void handler(event)
+    })
+  }
+
+  async disconnect() {
+    this.emitter.removeAllListeners()
+  }
+}
+```
+
+```ts src/cache/localBus.ts
+import { EventEmitter } from 'node:events'
+import type { EventBus, EventBusHealth, InvalidationEvent } from 'lazy-layers-cache'
+
+// A single-process bus, useful in tests where you want the fan-out path
+// exercised without a broker.
+export class LocalEventBus implements EventBus {
+  private readonly emitter = new EventEmitter()
+
+  async connect(): Promise<void> {}
+
+  async healthCheck(): Promise<EventBusHealth> {
+    return { ok: true, transport: 'local' }
+  }
+
+  async publish(event: InvalidationEvent): Promise<void> {
+    // Structured clone so a subscriber cannot mutate the publisher's object.
+    this.emitter.emit('event', structuredClone(event))
+  }
+
+  async subscribe(handler: (event: InvalidationEvent) => void | Promise<void>): Promise<void> {
+    this.emitter.on('event', (event: InvalidationEvent) => {
+      void handler(event)
+    })
+  }
+
+  async disconnect(): Promise<void> {
+    this.emitter.removeAllListeners()
+  }
+}
+```
+</CodeGroup>
+
+Four rules your transport has to respect:
+
+1. **Carry every field.** `id` drives duplicate suppression, `source` drives self-event filtering, and `generation` drives ordering. Drop any one of them and the guarantees above it stop working.
+2. **Do not deliver a subscriber its own publish more than once.** The cache dedupes by `id`, but only for `eventDedupeTtlMs`.
+3. **Reject from `publish` when the send failed.** The cache catches it, records a circuit-breaker failure and emits `event-bus:publish-error`. Swallowing the error hides a broken bus.
+4. **Bound your handler concurrency.** If you dispatch without awaiting, you own the backpressure, the way RabbitMQ owns it through `prefetch`.
+
+The shipped `EventBusRetryQueue` class is internal. Only the `EventBusRetryQueueOptions` type is exported, so a custom transport buffers its own failures.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Event bus guide" icon="tower-broadcast" href="/docs/guides/event-buses">
+    Delivery semantics compared side by side, and how to choose between the four transports.
+  </Card>
+  <Card title="Configuration reference" icon="sliders" href="/docs/reference/configuration#event-bus">
+    The cache-side options that decide what gets published and how large it is allowed to be.
+  </Card>
+  <Card title="Event ordering" icon="arrows-rotate" href="/docs/architecture/event-ordering">
+    Why duplicate suppression and generation counters exist, and what they still do not guarantee.
+  </Card>
+</CardGroup>

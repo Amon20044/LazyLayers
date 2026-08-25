@@ -13,7 +13,15 @@ import type {
 import { configureCacheLogger, type CacheLoggerOptions } from '../utils/debugLog.js';
 import { debugLog, errorLog } from '../utils/debugLog.js';
 import { CircuitBreaker, type CircuitBreakerOptions } from './circuitBreaker.js';
-import { DEFAULT_INFLIGHT_TTL_MS } from './defaults.js';
+import {
+  DEFAULT_CACHE_TTL_MS,
+  DEFAULT_INFLIGHT_TTL_MS,
+  DEFAULT_L1_MAX_ENTRIES,
+  DEFAULT_LOADER_HARD_TIMEOUT_MS,
+  DEFAULT_NEGATIVE_MAX_ENTRIES,
+  DEFAULT_NEGATIVE_TTL_MS,
+  DEFAULT_STALE_TTL_MS,
+} from './defaults.js';
 import {
   supportsDistributedLock,
   type DistributedLockOptions,
@@ -633,8 +641,12 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     return options.inflight?.enabled === false || this.options.inflight?.enabled === false;
   }
 
+  /**
+   * Opt-out. `loadWithDistributedLock` already falls through when L2 cannot
+   * lock, so this costs a single-process cache nothing.
+   */
   private distributedLockEnabled(options: CacheOptions): boolean {
-    return options.distributedLock?.enabled === true || this.options.distributedLock?.enabled === true;
+    return options.distributedLock?.enabled !== false && this.options.distributedLock?.enabled !== false;
   }
 
   private canTrackNewInflight(): boolean {
@@ -672,7 +684,9 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     options: CacheOptions,
   ): Promise<V | undefined> {
     const softMs = options.timeouts?.softMs ?? this.options.timeouts?.softMs;
-    const hardMs = options.timeouts?.hardMs ?? this.options.timeouts?.hardMs;
+    const hardMs = options.timeouts?.hardMs
+      ?? this.options.timeouts?.hardMs
+      ?? DEFAULT_LOADER_HARD_TIMEOUT_MS;
     const loaderPromise = loader({ signal: controller.signal });
     const stale = this.getStale(key);
 
@@ -708,9 +722,11 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       return;
     }
 
-    const staleTtlMs = options.failSafe?.staleTtlMs ?? this.options.failSafe?.staleTtlMs;
+    const staleTtlMs = options.failSafe?.staleTtlMs
+      ?? this.options.failSafe?.staleTtlMs
+      ?? DEFAULT_STALE_TTL_MS;
 
-    if (staleTtlMs === undefined || staleTtlMs <= 0) {
+    if (staleTtlMs <= 0) {
       return;
     }
 
@@ -732,8 +748,9 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     return entry.value;
   }
 
+  /** Opt-out. Serving a slightly stale value beats serving an error. */
   private failSafeEnabled(options: CacheOptions): boolean {
-    return options.failSafe?.enabled === true || this.options.failSafe?.enabled === true;
+    return options.failSafe?.enabled !== false && this.options.failSafe?.enabled !== false;
   }
 
   private hasNegative(key: K): boolean {
@@ -756,13 +773,17 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       return;
     }
 
-    const ttlMs = options.negativeCache?.ttlMs ?? this.options.negativeCache?.ttlMs;
+    const ttlMs = options.negativeCache?.ttlMs
+      ?? this.options.negativeCache?.ttlMs
+      ?? DEFAULT_NEGATIVE_TTL_MS;
 
-    if (ttlMs === undefined || ttlMs <= 0) {
+    if (ttlMs <= 0) {
       return;
     }
 
-    const maxEntries = options.negativeCache?.maxEntries ?? this.options.negativeCache?.maxEntries;
+    const maxEntries = options.negativeCache?.maxEntries
+      ?? this.options.negativeCache?.maxEntries
+      ?? DEFAULT_NEGATIVE_MAX_ENTRIES;
 
     while (maxEntries !== undefined && this.negative.size >= maxEntries) {
       const oldestKey = this.negative.keys().next().value;

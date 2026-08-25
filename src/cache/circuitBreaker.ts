@@ -1,3 +1,5 @@
+import { DEFAULT_BREAKER_COOLDOWN_MS, DEFAULT_BREAKER_FAILURE_THRESHOLD } from './defaults.js';
+
 export type CircuitBreakerState = 'closed' | 'open' | 'half-open';
 
 export interface CircuitBreakerOptions {
@@ -69,10 +71,10 @@ export class CircuitBreaker {
   }
 
   private getFailureThreshold(): number {
-    return this.options.failureThreshold ?? 3;
+    return this.options.failureThreshold ?? DEFAULT_BREAKER_FAILURE_THRESHOLD;
   }
 
   private getCooldownMs(): number {
-    return this.options.cooldownMs ?? 30_000;
+    return this.options.cooldownMs ?? DEFAULT_BREAKER_COOLDOWN_MS;
   }
 }
