@@ -1,0 +1,362 @@
+# lazy-layers-cache — Full Context for LLMs
+
+> A focused TypeScript hybrid L1/L2 cache for Node.js with lazy loading, stampede protection, fail-open resilience, size-tiered compression, and distributed invalidation over Redis Pub/Sub, RabbitMQ, or NATS.
+
+## What It Is
+
+lazy-layers-cache is a Promise-based caching library for Node.js that provides a two-layer cache (L1 in-memory LRU + L2 Redis) with automatic distributed invalidation. It is designed around one production rule: the first instance to lazily load a key broadcasts it to every peer, so peers populate their L1 from the broadcast with no second loader call.
+
+## Installation
+
+```bash
+npm install lazy-layers-cache
+```
+
+Requires Node.js 20 or 22+. Dependencies ship with the package: ioredis, amqplib, @nats-io/transport-node, @nats-io/jetstream, lru-cache, msgpackr, lz4-napi, snappy.
+
+## Core API
+
+### Creating a Cache
+
+```ts
+import { LazyLayersCache, RedisStore, RedisEventBus } from "lazy-layers-cache";
+import Redis from "ioredis";
+
+const redis = new Redis(process.env.REDIS_URL!);
+const eventBus = new RedisEventBus(redis, "cache:invalidations");
+const l2 = new RedisStore<User>(redis, { prefix: "users:" });
+
+const cache = new LazyLayersCache<string, User>({
+  l2,
+  eventBus,
+  source: process.env.INSTANCE_ID,
+  ttlMs: 60_000,
+  levels: {
+    L1: { maxEntries: 1_000, ttlMs: 10_000 },
+    L2: { maxEntries: 100_000, ttlMs: 60_000 },
+  },
+  inflight: { enabled: true, ttlMs: 5_000 },
+  failSafe: { enabled: true, staleTtlMs: 300_000 },
+  broadcastSet: true,
+});
+```
+
+### Key Methods
+
+| Method | Description |
+| --- | --- |
+| `cache.get(key)` | Read from L1 first, then L2. L2 hits promoted to L1. |
+| `cache.set(key, value)` | Store a value. Does NOT broadcast to peers. |
+| `cache.getOrSet(key, loader)` | Read through layers. Loader runs once for concurrent callers. Broadcasts result to peers. |
+| `cache.delete(key)` | Delete locally and publish invalidation to all instances. |
+| `cache.deleteByPattern(pattern)` | Delete matching keys locally and publish pattern invalidation. |
+| `cache.clear()` | Delete all keys via deleteByPattern("*"). |
+| `cache.has(key)` | Check if a key exists in any layer. |
+| `cache.size()` | Return the active store size. |
+| `cache.on(handler)` | Subscribe to cache events. Returns unsubscribe function. |
+
+### L1 Only (No Redis)
+
+```ts
+const cache = new LazyLayersCache({
+  l2: false,
+  ttlMs: 60_000,
+  levels: { L1: { maxEntries: 1_000, ttlMs: 10_000 } },
+});
+```
+
+### L2 Only (No L1)
+
+```ts
+const cache = new LazyLayersCache({
+  l1: false,
+  l2: new RedisStore(redis, { prefix: "app:" }),
+});
+```
+
+## Architecture
+
+### How a Read Walks the Layers
+
+1. `getOrSet(key, loader)` is called
+2. Check L1 (in-memory LRU) — if hit, return immediately (nanoseconds)
+3. Check L2 (Redis) — if hit, promote to L1, return (milliseconds)
+4. Run the loader once (all concurrent callers for the same key reuse the same promise)
+5. Write result to L1 and L2
+6. Broadcast a `set` event to all peer instances via the event bus
+7. Peers receive the `set` event and write the value directly into their L1 (no second loader call)
+
+### Event Bus System
+
+Three event types travel between instances:
+
+| Event | Trigger | What peers do |
+| --- | --- | --- |
+| `del` | `cache.delete(key)` | Drop key from L1, L2, negative, stale, and inflight maps |
+| `pattern` | `cache.deleteByPattern(p)` | Drop every local entry matching the pattern |
+| `set` | A `getOrSet` loader returns | Write the value straight into L1 (L1 priming) |
+
+Key design decisions:
+- Only `getOrSet` loader results broadcast, not direct `cache.set()` calls
+- Self-published events are ignored via the `source` filter
+- Events carry per-key generation numbers; older-generation events are ignored
+- Large set broadcasts can be skipped with `broadcastSetMaxBytes`
+
+### Event Bus Options
+
+#### RedisEventBus
+
+```ts
+const eventBus = new RedisEventBus(redis, "cache:invalidations", {
+  retryQueue: { enabled: true, maxSize: 1_000 },
+  handlerConcurrency: 1,
+  logging: { env: "production" },
+});
+```
+
+At-most-once Pub/Sub. Fastest option. Zero extra infrastructure. Missed invalidations during disconnects recover naturally via TTL expiry.
+
+#### RabbitMQEventBus
+
+```ts
+const eventBus = new RabbitMQEventBus("cache.invalidations", {
+  url: process.env.RABBITMQ_URL,
+  exchangeType: "fanout",
+  durableInvalidationMode: true,
+  queueName: `${process.env.INSTANCE_ID}-cache`,
+  prefetch: 100,
+  retryQueue: { enabled: true, maxSize: 10_000 },
+});
+```
+
+Durable fanout with named per-instance durable queues. Every instance gets every invalidation even after reconnect.
+
+#### NatsEventBus
+
+```ts
+// Core mode (at-most-once)
+const eventBus = new NatsEventBus({
+  mode: "core",
+  connectionOptions: { servers: process.env.NATS_URL },
+  subject: "cache.invalidations",
+});
+
+// JetStream mode (durable, replayable)
+const eventBus = new NatsEventBus({
+  mode: "jetstream",
+  connectionOptions: { servers: process.env.NATS_URL },
+  subject: "cache.invalidations",
+  jetstream: {
+    stream: "CACHE_INVALIDATIONS",
+    durableName: process.env.INSTANCE_ID,
+    ensureStream: true,
+    ensureConsumer: true,
+  },
+});
+```
+
+### Resilience Features
+
+| Feature | What it does |
+| --- | --- |
+| Fail-open | L2 and event-bus failures are logged and swallowed. Local L1 continues serving. |
+| Stale fallback | Last-known-good values returned on loader errors or timeouts. |
+| Negative caching | Loader misses briefly cached to avoid hammering databases. |
+| Circuit breakers | After configurable failures, the circuit opens and external calls are skipped until cooldown. |
+| Soft timeout | Returns stale immediately when available. |
+| Hard timeout | Aborts the loader entirely with AbortSignal. |
+| Distributed lock | Cross-instance getOrSet coordination via RedisStore lock methods. |
+
+```ts
+const cache = new LazyLayersCache({
+  failSafe: { enabled: true, staleTtlMs: 300_000 },
+  negativeCache: { enabled: true, ttlMs: 5_000, maxEntries: 10_000 },
+  timeouts: { softMs: 100, hardMs: 2_000 },
+  distributedLock: { enabled: true, ttlMs: 10_000, waitTimeoutMs: 2_000, pollMs: 50 },
+  resilience: {
+    l2CircuitBreaker: { failureThreshold: 3, cooldownMs: 30_000 },
+    eventBusCircuitBreaker: { failureThreshold: 3, cooldownMs: 30_000 },
+  },
+});
+```
+
+## Serialization
+
+Size-tiered binary compression with 4-byte magic prefixes for O(1) decode.
+
+### Compression Tiers
+
+| Size | Codec | Wire prefix | Why |
+| --- | --- | --- | --- |
+| < 256 B | none | HC1M (msgpack) | A 48-byte record grows under every codec |
+| 256 B – 4 KB | lz4 | HC1L | Smaller than zstd at these sizes, ~5x faster |
+| 4 KB+ | zstd | HC1Z | 767 B/µs savings at 256 KB; falls back to lz4 on Node 20 |
+
+### Wire Prefixes
+
+| Prefix | Encoding | When used |
+| --- | --- | --- |
+| HC1M | msgpack only | Under 256 B, or when compression doesn't save >= 15% |
+| HC1L | lz4(msgpack) | 256 B to 4 KB |
+| HC1Z | zstd(msgpack) | 4 KB+ on Node 22.15+ |
+| HC1G | gzip(msgpack) | Legacy, or when zstd unavailable on Node 20 |
+| HC1J | JSON | Debug mode (CACHE_FORMAT=json) |
+
+### Null Handling
+
+`null` and `undefined` are stored via a sentinel string (`__hybridcache_null__`) so a cached "the value is null" is preserved as a real cache hit, not a miss.
+
+### Configuration
+
+```ts
+import { configureCompression, getCompressionTiers } from "lazy-layers-cache";
+
+// Custom tiers
+configureCompression([
+  { maxBytes: 256, codec: "none" },
+  { maxBytes: 4096, codec: "lz4" },
+  { codec: "zstd" },
+]);
+
+// Shorthand
+configureCompression("auto");  // uses default tiers
+configureCompression("gzip");  // gzip for everything above 1 KB
+configureCompression("zstd");  // zstd for everything above 1 KB
+
+// Inspect current tiers
+const tiers = getCompressionTiers();
+```
+
+### Environment Variables
+
+| Variable | Effect |
+| --- | --- |
+| `CACHE_COMPRESSION=auto` | Use default size-tiered compression |
+| `CACHE_COMPRESSION=gzip` | Force gzip for all compressible payloads |
+| `CACHE_COMPRESSION=zstd` | Force zstd for all compressible payloads |
+| `CACHE_COMPRESSION=[...]` | JSON array of custom tier objects |
+| `CACHE_FORMAT=json` | Store all values as readable JSON in Redis (debug) |
+| `CACHE_DEBUG_SERIALIZATION=true` | Same as CACHE_FORMAT=json |
+
+### Programmatic API
+
+```ts
+import { serialize, deserialize, serializeWithStats } from "lazy-layers-cache";
+
+const buf = serialize(value);       // Buffer with HC1 prefix
+const value = deserialize(buf);     // back to JS
+
+const stats = serializeWithStats(largeObject);
+// { encoding: "msgpack-zstd", originalBytes: 14140, storedBytes: 3400,
+//   compressionRatio: 0.76, compressed: true }
+```
+
+## Observability
+
+### Event Hooks
+
+```ts
+const unsub = cache.on((event) => {
+  if (event.type === "hit") metrics.increment("cache.hit");
+  if (event.type === "loader:error") logger.error(event.error);
+});
+```
+
+Event types: hit, miss, set, delete, delete-pattern, loader:start, loader:success, loader:error, loader:timeout, inflight:reuse, inflight:bypass, stale:hit, negative:set, l2:error, l2:skipped, invalidation:received, invalidation:duplicate, invalidation:stale, set:broadcast, set:broadcast-skipped, set:received, event-bus:publish-error, event-bus:publish-skipped.
+
+### Dashboard
+
+```ts
+const cache = new LazyLayersCache({
+  observability: {
+    enabled: true,
+    route: "/observelazyily",
+    server: { host: "127.0.0.1", port: 7077 },
+    auth: { username: "lazydev", password: "lazydev" },
+    prometheus: { enabled: true, prefix: "lazycache", public: false },
+  },
+});
+```
+
+### Prometheus
+
+```ts
+// GET /observelazyily/metrics
+// lazycache_hits_total{level="l1"} 128
+// lazycache_hits_total{level="l2"} 17
+// lazycache_misses_total{level="l1"} 31
+// lazycache_hit_ratio 0.82
+```
+
+### OpenTelemetry
+
+```ts
+import { subscribeTelemetry } from "lazy-layers-cache";
+const unsub = subscribeTelemetry((event) => {
+  span.addEvent(event.type, event);
+});
+```
+
+## Environment Variables
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `INSTANCE_ID` | Unique identifier for this cache instance | random per process |
+| `REDIS_URL` | Redis connection URL | — |
+| `RABBITMQ_URL` | RabbitMQ AMQP URL | — |
+| `NATS_URL` | NATS connection URL | — |
+| `CACHE_COMPRESSION` | Compression mode or custom tier list | auto |
+| `CACHE_FORMAT` | Force JSON encoding for debugging | — |
+| `CACHE_DEBUG_SERIALIZATION` | Alias for CACHE_FORMAT=json | — |
+| `LAZY_OBS_ENABLED` | Enable the dashboard | false |
+| `LAZY_OBS_ROUTE` | Dashboard base route | /observelazyily |
+| `LAZY_OBS_HOST` / `LAZY_OBS_PORT` | Dashboard server bind | 127.0.0.1 / 7077 |
+| `LAZY_OBS_USER` / `LAZY_OBS_PASSWORD` | Dashboard auth | lazydev / lazydev |
+| `LAZY_OBS_PROMETHEUS` | Expose /metrics | false |
+
+## Production Checklist
+
+- Short L1 TTLs, longer L2 TTLs
+- Run eventBus.healthCheck() before starting HTTP server
+- Unique INSTANCE_ID per deployment (via env var)
+- Set INSTANCE_ID as source for event deduplication
+- Durable queues: own queue per instance
+- NATS JetStream: own durableName per instance
+- Prefer negative caching over Bloom filters
+- Distributed locks only for expensive loaders
+- logging.env: "production" in prod
+- Idempotent, timeout-aware loader functions
+- deleteStrategy: "unlink" for large values
+- Set broadcastSetMaxBytes for large payloads
+
+## Benchmarks
+
+### Serialization Speed
+
+- 845 → 2,670 ops/s (3.2x faster than previous serializer)
+- 0.83x bentocache throughput (up from 0.25x)
+
+### Storage (14 KB API list)
+
+- 14,140 B raw → 3,400 B stored (76% saved)
+
+### Small Payload Codec Selection (measured)
+
+| Packed size | lz4 | snappy | zstd | Best | Worth it? |
+| --- | --- | --- | --- | --- | --- |
+| 48 B | 50 B (+4%) | 46 B (4%) | 57 B (-19%) | snappy 4% | No |
+| 73 B | 52 B (29%) | 48 B (34%) | 58 B (21%) | snappy 34% | Yes |
+| 169 B | 52 B (69%) | 52 B (69%) | 58 B (66%) | lz4 69% | Yes |
+| 342 B | 54 B (84%) | 62 B (82%) | 61 B (82%) | lz4 84% | Yes |
+| 942 B | 56 B (94%) | 91 B (90%) | 61 B (94%) | lz4 94% | Yes |
+
+## Links
+
+- npm: https://www.npmjs.com/package/lazy-layers-cache
+- GitHub: https://github.com/Amon20044/LazyLayers
+- Docs: https://lazy-layers-cache.vercel.app/docs
+- Changelog: https://github.com/Amon20044/LazyLayers/blob/main/CHANGELOG.md
+
+## License
+
+MIT

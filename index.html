@@ -3,27 +3,167 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>lazy-layers-cache — Hybrid Cache for Node.js</title>
+<title>lazy-layers-cache — Hybrid L1/L2 Cache for Node.js with Size-Tiered Compression</title>
 
 <!-- Primary Meta Tags -->
-<meta name="title" content="lazy-layers-cache — Hybrid Cache for Node.js">
-<meta name="description" content="A focused TypeScript hybrid cache for Node.js featuring L1 memory cache, Redis L2, lazy loading, stampede protection, fail-open resilience, and distributed invalidation.">
-<meta name="keywords" content="nodejs cache, typescript cache, hybrid cache, redis cache, l1 l2 cache, stampede protection, lazy loading, distributed invalidation, event bus, rabbitmq, nats">
-<meta name="author" content="lazy-layers-cache">
-<meta name="robots" content="index, follow">
+<meta name="title" content="lazy-layers-cache — Hybrid L1/L2 Cache for Node.js with Size-Tiered Compression">
+<meta name="description" content="TypeScript hybrid cache for Node.js: L1 memory cache, Redis L2, lazy loading with getOrSet, stampede protection, fail-open resilience, size-tiered compression (lz4/zstd), and distributed invalidation over Redis PubSub, RabbitMQ, or NATS. 3.2x faster serialization.">
+<meta name="keywords" content="nodejs cache, typescript cache, hybrid cache, redis cache, l1 l2 cache, stampede protection, lazy loading, distributed invalidation, event bus, rabbitmq, nats, lz4, zstd, compression, serialization, getOrSet, fail-open, cache invalidation, nodejs performance, cache library">
+<meta name="author" content="lazy-layers-cache contributors">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
 <meta name="theme-color" content="#0d0d0f">
+<link rel="canonical" href="https://lazy-layers-cache.vercel.app/">
 
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="lazy-layers-cache — Hybrid Cache for Node.js">
-<meta property="og:description" content="A focused TypeScript hybrid L1/L2 cache for Node.js. Built-in stampede protection, stale fallback, and global invalidation over Redis PubSub, RabbitMQ, or NATS.">
+<meta property="og:url" content="https://lazy-layers-cache.vercel.app/">
+<meta property="og:title" content="lazy-layers-cache — Hybrid L1/L2 Cache for Node.js">
+<meta property="og:description" content="TypeScript hybrid cache: L1 memory + Redis L2, lazy loading, stampede protection, fail-open resilience, size-tiered compression (lz4/zstd), and distributed invalidation. 3.2x faster serialization.">
 <meta property="og:image" content="https://raw.githubusercontent.com/Amon20044/LazyLayers/main/LazyLayers.webp">
+<meta property="og:image:alt" content="LazyLayers architecture diagram showing L1 memory cache, Redis L2, event bus, and size-tiered compression">
+<meta property="og:site_name" content="lazy-layers-cache">
+<meta property="og:locale" content="en_US">
 
 <!-- Twitter -->
-<meta property="twitter:card" content="summary_large_image">
-<meta property="twitter:title" content="lazy-layers-cache — Hybrid Cache for Node.js">
-<meta property="twitter:description" content="A focused TypeScript hybrid L1/L2 cache for Node.js. Built-in stampede protection, stale fallback, and global invalidation.">
-<meta property="twitter:image" content="https://raw.githubusercontent.com/Amon20044/LazyLayers/main/LazyLayers.webp">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://lazy-layers-cache.vercel.app/">
+<meta name="twitter:title" content="lazy-layers-cache — Hybrid L1/L2 Cache for Node.js">
+<meta name="twitter:description" content="TypeScript hybrid cache: L1 memory + Redis L2, lazy loading, stampede protection, fail-open resilience, size-tiered compression (lz4/zstd), and distributed invalidation.">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/Amon20044/LazyLayers/main/LazyLayers.webp">
+<meta name="twitter:image:alt" content="LazyLayers architecture diagram">
+
+<!-- JSON-LD Structured Data: SoftwareApplication -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "lazy-layers-cache",
+  "description": "TypeScript hybrid L1/L2 cache for Node.js with lazy loading, stampede protection, fail-open resilience, size-tiered compression, and distributed invalidation over Redis, RabbitMQ, or NATS.",
+  "url": "https://lazy-layers-cache.vercel.app/",
+  "downloadUrl": "https://www.npmjs.com/package/lazy-layers-cache",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Node.js 20+",
+  "license": "https://opensource.org/licenses/MIT",
+  "codeRepository": "https://github.com/Amon20044/LazyLayers",
+  "programmingLanguage": ["TypeScript", "JavaScript"],
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "softwareHelp": {
+    "@type": "CreativeWork",
+    "url": "https://lazy-layers-cache.vercel.app/docs"
+  }
+}
+</script>
+
+<!-- JSON-LD Structured Data: WebSite with SearchAction -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "lazy-layers-cache",
+  "url": "https://lazy-layers-cache.vercel.app/",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://lazy-layers-cache.vercel.app/docs?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+
+<!-- JSON-LD Structured Data: BreadcrumbList -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://lazy-layers-cache.vercel.app/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Documentation",
+      "item": "https://lazy-layers-cache.vercel.app/docs"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "npm",
+      "item": "https://www.npmjs.com/package/lazy-layers-cache"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "name": "GitHub",
+      "item": "https://github.com/Amon20044/LazyLayers"
+    }
+  ]
+}
+</script>
+
+<!-- JSON-LD Structured Data: FAQPage (AEO) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is lazy-layers-cache?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "lazy-layers-cache is a TypeScript hybrid L1/L2 cache for Node.js. It combines an in-process LRU memory cache (L1) with an optional shared Redis tier (L2), lazy loading via getOrSet(), stampede protection, fail-open resilience, size-tiered binary compression (lz4/zstd), and distributed invalidation over Redis PubSub, RabbitMQ, or NATS."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does lazy loading work in lazy-layers-cache?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Call cache.getOrSet(key, loader). The first caller runs the loader, stores the result in L1 and L2, and broadcasts it to all peer instances via the event bus. Concurrent callers for the same key reuse the same in-flight promise — no duplicate loader calls."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What compression does lazy-layers-cache use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "lazy-layers-cache uses size-tiered compression: no compression for payloads under 256 bytes (compression makes small payloads bigger), lz4 for 256 bytes to 4 KB (smaller and ~5x faster than zstd at these sizes), and zstd for 4 KB and above (767 B/µs savings at 256 KB). Codecs are chosen automatically at write time."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does distributed cache invalidation work?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "When one instance calls cache.delete() or getOrSet() returns a value, the event is published over Redis PubSub, RabbitMQ, or NATS. All other instances receive it and clear or prime their local L1 accordingly. Events carry per-key generation numbers so stale events are ignored."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What happens when Redis goes down?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "lazy-layers-cache fails open. L2 and event-bus failures are logged and swallowed. The local L1 memory cache continues serving requests. Circuit breakers prevent repeated calls to unhealthy dependencies. Stale fallback returns last-known-good values on loader errors or timeouts."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How fast is lazy-layers-cache serialization?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The v3 size-tiered serializer runs at 2,670 ops/s (3.2x faster than the previous version) and achieves 0.83x of bentocache throughput. A 14 KB API list is stored as 3.4 KB — 76% smaller — with lz4 handling small payloads and zstd handling large ones."
+      }
+    }
+  ]
+}
+</script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -1248,6 +1388,8 @@
     <li><a href="#resilience">Resilience</a></li>
     <li><a href="#serializer">Serializer</a></li>
     <li><a href="#options">Options</a></li>
+    <li><a href="#faq">FAQ</a></li>
+    <li><a href="https://lazy-layers-cache.vercel.app/docs">Docs</a></li>
     <li><a href="#api">API</a></li>
   </ul>
   <a href="https://npmjs.com/package/lazy-layers-cache" class="nav-badge">npm ↗</a>
@@ -1265,6 +1407,8 @@
     <li><a href="#resilience" class="drawer-link">Resilience</a></li>
     <li><a href="#serializer" class="drawer-link">Serializer</a></li>
     <li><a href="#options" class="drawer-link">Options</a></li>
+    <li><a href="#faq" class="drawer-link">FAQ</a></li>
+    <li><a href="https://lazy-layers-cache.vercel.app/docs" class="drawer-link">Docs ↗</a></li>
     <li><a href="#api" class="drawer-link">API</a></li>
   </ul>
   <a href="https://npmjs.com/package/lazy-layers-cache" class="drawer-badge">npm ↗</a>
@@ -1274,18 +1418,19 @@
 <div style="max-width:1280px; margin:0 auto;">
   <div class="hero">
     <div class="hero-left fade-up">
-      <div class="hero-eyebrow">TypeScript · Node.js · L1/L2 Cache</div>
+      <div class="hero-eyebrow">TypeScript · Node.js · L1/L2 Cache · Size-Tiered Compression</div>
       <h1 class="hero-title">
         Hybrid<br>
         <span class="line2">Cache</span><br>
         <span class="accent-word">Done Right</span>
       </h1>
       <p class="hero-desc">
-        Lazy loading, stampede protection, fail-open safety, stale fallback, and distributed invalidation—shipped as one focused package.
+        L1 memory + Redis L2 with lazy loading, stampede protection, fail-open safety, and distributed invalidation. Size-tiered compression — lz4 for small payloads, zstd for large — cuts storage up to 76%. One loader call warms every peer.
       </p>
       <div class="hero-actions">
         <a href="#features" class="btn-primary">Explore features →</a>
-        <a href="#api" class="btn-ghost">View API</a>
+        <a href="https://lazy-layers-cache.vercel.app/docs" class="btn-ghost">Read the docs</a>
+        <a href="https://www.npmjs.com/package/lazy-layers-cache" class="btn-ghost">npm ↗</a>
       </div>
     </div>
 
@@ -1398,47 +1543,47 @@
     <div class="feat-card">
       <div class="feat-icon">⚡</div>
       <div class="feat-title">In-Process L1 Cache</div>
-      <div class="feat-desc">LRU memory cache via <code>lru-cache</code>. Configurable max entries and TTL per level. Requests warm only the instance they hit.</div>
+      <div class="feat-desc">LRU memory cache via <code>lru-cache</code>. Holds live JavaScript objects with nanosecond reads. Configurable max entries and TTL per level.</div>
     </div>
     <div class="feat-card">
       <div class="feat-icon">🗄</div>
       <div class="feat-title">Shared Redis L2</div>
-      <div class="feat-desc">Optional ioredis backend with size-tiered binary compression — LZ4 for small payloads, Zstd for large — binary <code>getBuffer</code> reads, millisecond TTL, and sorted-set key indexes.</div>
+      <div class="feat-desc">Optional ioredis backend with size-tiered binary compression — none under 256 B, lz4 for 256 B–4 KB, zstd for 4 KB+ — binary <code>getBuffer</code> reads, millisecond TTL, and sorted-set key indexes.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📦</div>
+      <div class="feat-title">Size-Tiered Compression</div>
+      <div class="feat-desc">Automatic codec selection by measurement: lz4 for small payloads (5× faster, smaller than zstd below 4 KB), zstd for large (767 B/µs savings). 3.2× faster serialization than v2. Falls back to lz4 on Node 20.</div>
     </div>
     <div class="feat-card">
       <div class="feat-icon">🔁</div>
       <div class="feat-title">Lazy Loading</div>
-      <div class="feat-desc"><code>getOrSet(key, loader)</code>—load once, cache everywhere. Deduplicates concurrent calls to the same key in the same process.</div>
+      <div class="feat-desc"><code>getOrSet(key, loader)</code> — load once, cache everywhere. One loader call warms every peer's L1 via the event bus. No second loader call on any instance.</div>
     </div>
     <div class="feat-card">
       <div class="feat-icon">🛡</div>
       <div class="feat-title">Stampede Protection</div>
-      <div class="feat-desc">In-flight promise deduplication prevents same-process dogpile. Optional Redis-backed distributed lock for cross-instance coordination.</div>
+      <div class="feat-desc">In-flight promise deduplication prevents same-process dogpile. Optional Redis-backed distributed lock for cross-instance coordination on expensive loaders.</div>
     </div>
     <div class="feat-card">
       <div class="feat-icon">📡</div>
-      <div class="feat-title">Distributed Invalidation + L1 Priming</div>
-      <div class="feat-desc">Invalidation over Redis Pub/Sub, RabbitMQ durable queues, NATS core, or NATS JetStream. Every connected instance clears on delete <strong>and</strong> warms its L1 from peer <code>getOrSet</code> results — one loader call, all peers cached.</div>
+      <div class="feat-title">Distributed Invalidation</div>
+      <div class="feat-desc">Three event types over Redis PubSub, RabbitMQ durable queues, NATS core, or NATS JetStream. <code>del</code>, <code>pattern</code>, and <code>set</code> (L1 priming) — generation-checked to prevent stale repopulation.</div>
     </div>
     <div class="feat-card">
       <div class="feat-icon">🔒</div>
-      <div class="feat-title">Versioned Keys</div>
-      <div class="feat-desc">Optional generational key writes after invalidation. Eliminates stale write/delete races inside an instance during high-frequency updates.</div>
-    </div>
-    <div class="feat-card">
-      <div class="feat-icon">🚦</div>
-      <div class="feat-title">Circuit Breakers</div>
-      <div class="feat-desc">Separate L2 and event-bus circuit breakers. After repeated failures the circuit opens and external calls are skipped until cooldown.</div>
-    </div>
-    <div class="feat-card">
-      <div class="feat-icon">⏱</div>
-      <div class="feat-title">Soft & Hard Timeouts</div>
-      <div class="feat-desc">Soft timeout returns stale immediately if available. Hard timeout aborts the loader. Both are independently configurable per cache instance.</div>
+      <div class="feat-title">Fail-Open Resilience</div>
+      <div class="feat-desc">L2 and event-bus failures are swallowed. Local L1 keeps serving. Circuit breakers, stale fallback, negative caching, and soft/hard timeouts — every safety feature is opt-out instead of opt-in.</div>
     </div>
     <div class="feat-card">
       <div class="feat-icon">📊</div>
-      <div class="feat-title">Observability Hooks</div>
-      <div class="feat-desc">20+ typed cache events from <code>hit</code> to <code>stale:hit</code> to <code>event-bus:publish-error</code>. Wire to metrics, logs, or traces in one call.</div>
+      <div class="feat-title">Observability</div>
+      <div class="feat-desc">20+ typed cache events, live dashboard at <code>/observelazyily</code>, Prometheus <code>/metrics</code>, and OpenTelemetry via <code>diagnostics_channel</code>. Zero hot-path cost when off.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔌</div>
+      <div class="feat-title">TypeScript Native</div>
+      <div class="feat-desc">Generic <code>&lt;K, V&gt;</code> cache instances. ESM and CommonJS builds. Node.js 20+. Subpath imports for narrower bundles. Zero external type dependencies.</div>
     </div>
   </div>
 </section>
@@ -1476,6 +1621,14 @@
         <div class="arch-node">
           <div class="arch-node-label">L1</div>
           <div class="arch-node-val">Memory</div>
+        </div>
+        <div class="arch-arrow">
+          <span>→</span>
+          <span class="arrow-label">serialize</span>
+        </div>
+        <div class="arch-node">
+          <div class="arch-node-label">codec</div>
+          <div class="arch-node-val">lz4 / zstd</div>
         </div>
         <div class="arch-arrow">
           <span>→</span>
@@ -2365,34 +2518,34 @@ process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</spa
       <tr>
         <th>Library</th>
         <th>Best fit</th>
-        <th>Tradeoff</th>
+        <th>What you trade</th>
       </tr>
     </thead>
     <tbody>
       <tr class="highlight-row">
         <td>lazy-layers-cache</td>
-        <td>Focused Node.js L1/L2 with explicit invalidation, Redis-optimized path, stampede & fail-open</td>
+        <td>Focused Node.js L1/L2 with size-tiered compression, explicit invalidation, stampede & fail-open</td>
         <td>Early project · fewer drivers</td>
       </tr>
       <tr>
         <td>BentoCache</td>
         <td>Full-featured caching framework with broad driver support</td>
-        <td>Larger API surface · more decisions to make</td>
+        <td>Larger API surface · no size-tiered compression · more decisions</td>
       </tr>
       <tr>
         <td>cache-manager</td>
         <td>General cache abstraction layer</td>
-        <td>Less opinionated invalidation and resilience</td>
+        <td>Less opinionated invalidation and resilience · no built-in compression</td>
       </tr>
       <tr>
         <td>Keyv</td>
-        <td>Simple key-value abstraction</td>
-        <td>Not a full cache orchestration layer</td>
+        <td>Simple key-value abstraction with storage adapters</td>
+        <td>Not a full cache orchestration layer · no event bus · no compression</td>
       </tr>
       <tr>
         <td>Direct Redis</td>
         <td>Maximum control over every operation</td>
-        <td>You build stampede protection, invalidation, retries, and metrics yourself</td>
+        <td>You build stampede protection, invalidation, compression, and metrics yourself</td>
       </tr>
     </tbody>
   </table>
@@ -2485,15 +2638,83 @@ process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</spa
   </div>
 </section>
 
+<!-- FAQ (AEO + GEO) -->
+<section id="faq" style="margin-bottom:80px;">
+  <div class="section-label">Frequently asked questions</div>
+
+  <div style="max-width:760px;">
+    <details style="border:1px solid var(--border);border-radius:8px;padding:0;margin-bottom:12px;overflow:hidden;">
+      <summary style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;letter-spacing:-0.02em;padding:20px 24px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;background:var(--paper);transition:background 0.15s;">
+        What is lazy-layers-cache?
+        <span style="font-size:18px;color:var(--muted);transition:transform 0.2s;">+</span>
+      </summary>
+      <div style="padding:0 24px 20px;font-size:14px;color:var(--muted);line-height:1.7;font-weight:300;">
+        lazy-layers-cache is a TypeScript hybrid L1/L2 cache for Node.js. It combines an in-process LRU memory cache (L1) with an optional shared Redis tier (L2), lazy loading via <code>getOrSet()</code>, stampede protection, fail-open resilience, size-tiered binary compression (lz4/zstd), and distributed invalidation over Redis PubSub, RabbitMQ, or NATS.
+      </div>
+    </details>
+
+    <details style="border:1px solid var(--border);border-radius:8px;padding:0;margin-bottom:12px;overflow:hidden;">
+      <summary style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;letter-spacing:-0.02em;padding:20px 24px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;background:var(--paper);transition:background 0.15s;">
+        How does lazy loading work?
+        <span style="font-size:18px;color:var(--muted);transition:transform 0.2s;">+</span>
+      </summary>
+      <div style="padding:0 24px 20px;font-size:14px;color:var(--muted);line-height:1.7;font-weight:300;">
+        Call <code>cache.getOrSet(key, loader)</code>. The first caller runs the loader, stores the result in L1 and L2, and broadcasts it to all peer instances via the event bus. Concurrent callers for the same key reuse the same in-flight promise — no duplicate loader calls, no stampede.
+      </div>
+    </details>
+
+    <details style="border:1px solid var(--border);border-radius:8px;padding:0;margin-bottom:12px;overflow:hidden;">
+      <summary style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;letter-spacing:-0.02em;padding:20px 24px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;background:var(--paper);transition:background 0.15s;">
+        What compression does it use?
+        <span style="font-size:18px;color:var(--muted);transition:transform 0.2s;">+</span>
+      </summary>
+      <div style="padding:0 24px 20px;font-size:14px;color:var(--muted);line-height:1.7;font-weight:300;">
+        Size-tiered compression chosen by measurement: <strong>no compression</strong> for payloads under 256 bytes (compression makes small payloads bigger), <strong>lz4</strong> for 256 B–4 KB (smaller and ~5× faster than zstd at these sizes), and <strong>zstd</strong> for 4 KB+ (767 B/µs savings at 256 KB). Codecs are selected automatically at write time. Falls back to lz4 on Node 20 where zstd is unavailable.
+      </div>
+    </details>
+
+    <details style="border:1px solid var(--border);border-radius:8px;padding:0;margin-bottom:12px;overflow:hidden;">
+      <summary style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;letter-spacing:-0.02em;padding:20px 24px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;background:var(--paper);transition:background 0.15s;">
+        How does distributed cache invalidation work?
+        <span style="font-size:18px;color:var(--muted);transition:transform 0.2s;">+</span>
+      </summary>
+      <div style="padding:0 24px 20px;font-size:14px;color:var(--muted);line-height:1.7;font-weight:300;">
+        When one instance calls <code>cache.delete()</code> or <code>getOrSet()</code> returns a value, the event is published over Redis PubSub, RabbitMQ, or NATS. All other instances receive it and clear or prime their local L1 accordingly. Events carry per-key generation numbers so stale events are ignored — a late <code>set</code> cannot repopulate a value after a newer <code>del</code>.
+      </div>
+    </details>
+
+    <details style="border:1px solid var(--border);border-radius:8px;padding:0;margin-bottom:12px;overflow:hidden;">
+      <summary style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;letter-spacing:-0.02em;padding:20px 24px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;background:var(--paper);transition:background 0.15s;">
+        What happens when Redis goes down?
+        <span style="font-size:18px;color:var(--muted);transition:transform 0.2s;">+</span>
+      </summary>
+      <div style="padding:0 24px 20px;font-size:14px;color:var(--muted);line-height:1.7;font-weight:300;">
+        lazy-layers-cache fails open. L2 and event-bus failures are logged and swallowed. The local L1 memory cache continues serving requests. Circuit breakers prevent repeated calls to unhealthy dependencies. Stale fallback returns last-known-good values on loader errors or timeouts. Your app never breaks because Redis went down.
+      </div>
+    </details>
+
+    <details style="border:1px solid var(--border);border-radius:8px;padding:0;margin-bottom:12px;overflow:hidden;">
+      <summary style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;letter-spacing:-0.02em;padding:20px 24px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;background:var(--paper);transition:background 0.15s;">
+        How fast is the serialization?
+        <span style="font-size:18px;color:var(--muted);transition:transform 0.2s;">+</span>
+      </summary>
+      <div style="padding:0 24px 20px;font-size:14px;color:var(--muted);line-height:1.7;font-weight:300;">
+        The v3 size-tiered serializer runs at 2,670 ops/s (3.2× faster than the previous version) and achieves 0.83× of bentocache throughput. A 14 KB API list is stored as 3.4 KB — 76% smaller — with lz4 handling small payloads and zstd handling large ones. The tier list is configurable at runtime via <code>configureCompression()</code> or the <code>CACHE_COMPRESSION</code> environment variable.
+      </div>
+    </details>
+  </div>
+</section>
+
 <!-- FOOTER -->
 <footer>
   <div class="footer-logo">lazy-layers-cache</div>
   <ul class="footer-links">
     <li><a href="https://npmjs.com/package/lazy-layers-cache">npm</a></li>
-    <li><a href="#">GitHub</a></li>
-    <li><a href="#">Changelog</a></li>
+    <li><a href="https://github.com/Amon20044/LazyLayers">GitHub</a></li>
+    <li><a href="https://lazy-layers-cache.vercel.app/docs">Docs</a></li>
+    <li><a href="https://github.com/Amon20044/LazyLayers/blob/main/CHANGELOG.md">Changelog</a></li>
   </ul>
-  <div class="footer-note">MIT License · TypeScript · ESM + CJS</div>
+  <div class="footer-note">MIT License · TypeScript · ESM + CJS · Node.js 20+</div>
 </footer>
 
 <!-- LIGHTBOX -->

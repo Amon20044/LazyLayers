@@ -1,4 +1,24 @@
 User-agent: *
 Allow: /
+Disallow: /node_modules/
+Disallow: /dist/
+Disallow: /dist-cjs/
+Disallow: /test/
 
 Sitemap: https://lazy-layers-cache.vercel.app/sitemap.xml
+
+# LLMs
+User-agent: GPTBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
