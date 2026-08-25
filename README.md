@@ -14,12 +14,24 @@ Start with an in-process LRU cache. Add Redis when you need a shared L2. Add Red
 npm install lazy-layers-cache
 ```
 
-## The Four Production Pillars
+---
 
-1. **Protect the origin**: In-process inflight deduplication collapses concurrent `getOrSet()` calls for the same key into a single loader execution. Add the Redis distributed lock when you need cluster-wide stampede protection.
-2. **Keep L1s coordinated**: When any instance mutates or deletes data, peers receive `del`, `pattern`, or `set` priming events over Redis Pub/Sub, RabbitMQ, or NATS. Values are broadcast to prime peer caches without redundant database trips.
-3. **Fail like a cache**: Circuit breakers trip on repeated L2/bus errors. If Redis or message brokers degrade, LazyLayers gracefully fails open to L1 or loaders without throwing 500 errors.
-4. **Make it operable**: Inspect live in-memory L1 entries, Redis L2 keys, TTL countdowns, compression savings, hit ratios, and real-time invalidation traffic from a built-in dashboard at `/__lazylayers` (or `/observelazyily`), or scrape Prometheus metrics at `/__lazylayers/metrics`.
+### ✨ Key Features & Capabilities
+
+- ⚡ **Multi-Tier Hybrid Caching**: Sub-0.1ms in-process L1 LRU memory + shared remote L2 Redis with automated promotion & tiering.
+- 🗜️ **Size-Tiered Binary Compression**: Native MessagePack + dynamic LZ4/Zstd compression (33%–92% smaller wire payloads than raw JSON and metadata envelopes).
+- 🛑 **Thundering Herd Stampede Protection**: In-flight Promise deduplication (10,000 concurrent callers for a cold key execute exactly 1 database query) + Redis distributed mutex locks.
+- 🔄 **Fleet Synchronization via Event Bus**: Real-time cross-instance invalidation (`del`, `pattern`) and lazy value priming (`set`) over **Redis Pub/Sub**, **RabbitMQ (AMQP topic/fanout)**, **NATS Core**, or **NATS JetStream**.
+- 🛡️ **Fail-Open Resilience & Circuit Breaking**: If Redis or message brokers degrade, traffic gracefully fails open to L1 RAM or DB without blocking threads or throwing 500 errors.
+- ⏳ **Grace Periods & Fail-Safe Stale Fallbacks**: Serves stale cached copies during upstream database outages to guarantee 100% uptime.
+- 🚫 **Negative Caching (404 Protection)**: Automatically caches missing keys (`null`/`undefined`) with short TTLs to prevent database penetration attacks.
+- 🎯 **Deterministic Causal Ordering**: Instance identity (`source`), event deduplication, and per-key generation counters prevent out-of-order race conditions and loopback self-echos.
+- 📊 **Built-in Real-Time Observability Dashboard**: Zero-dependency live dashboard at `/__lazylayers` with Light/Dark mode, interactive canvas Bezier sparklines, traffic distribution visualizer, and L1/L2 memory inspectors.
+- 📈 **Native Prometheus Metrics**: Direct Prometheus exposition at `/__lazylayers/metrics` and `node:diagnostics_channel` telemetry stream.
+- 🏷️ **Pattern-Based Invalidation**: Single-key `delete()` and wildcard `deleteByPattern('users:*')` broadcast across the entire cluster.
+- 💎 **100% Type-Safe TypeScript & Zero-Config Defaults**: Complete end-to-end generic typing with hardened, battle-tested production defaults out of the box.
+
+---
 
 ## Progressive Architecture
 
