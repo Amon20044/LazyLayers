@@ -423,7 +423,7 @@ Every transport ships with sane defaults but exposes the full surface for tuning
 | `exclusiveQueue` | `true` unless durable mode | Exclusive queues are tied to the connection and auto-deleted on disconnect. Good for ephemeral subscribers, bad for durable per-instance invalidation queues. |
 | `autoDeleteQueue` | `true` unless durable mode | Queue is removed once no consumers remain. Disable when you want messages to buffer while an instance restarts. |
 | `routingKey` | `""` | Ignored for fanout; required for topic/direct exchanges to pick which messages this consumer wants. |
-| `prefetch` | broker default (unlimited) | Channel-level QoS. Caps unacked messages per consumer so a single slow instance can't hoard the queue. |
+| `prefetch` | `32` | Channel-level QoS. The handler is acked only after it resolves, so this is also the handler concurrency cap. Unlimited would let the broker push the whole queue at once and run every invalidation in parallel. |
 | `retryQueue` | see above | Buffers failed publishes when the AMQP confirm fails. |
 | `logging` | inherits env | Same shape as Redis. |
 
