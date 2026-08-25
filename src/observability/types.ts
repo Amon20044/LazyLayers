@@ -1,7 +1,9 @@
 import type { CacheEvent } from '../cache/events.js';
 
 /** Default route the dashboard is served under. */
-export const DEFAULT_OBSERVABILITY_ROUTE = '/observelazyily';
+export const DEFAULT_OBSERVABILITY_ROUTE = '/__lazylayers';
+/** Historical/playful alias route for backward compatibility. */
+export const ALIAS_OBSERVABILITY_ROUTE = '/observelazyily';
 /** Default standalone server binding — localhost only, opt into wider exposure. */
 export const DEFAULT_OBSERVABILITY_HOST = '127.0.0.1';
 export const DEFAULT_OBSERVABILITY_PORT = 7077;

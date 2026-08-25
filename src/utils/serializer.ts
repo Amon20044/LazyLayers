@@ -11,19 +11,20 @@ import {
 } from './codecs.js';
 
 /**
- * Intelligent hybrid cache serializer (v2).
+ * Intelligent hybrid cache serializer (v3).
  *
  * Decision table:
- *   - Small payload (< GZIP_MIN_BYTES): msgpack only          -> HC1M
- *   - Large payload (>= GZIP_MIN_BYTES) AND gzip saves >= 15%: gzip(msgpack) -> HC1G
- *   - Large payload but gzip doesn't pay off: msgpack only    -> HC1M
+ *   - Payload < 256 B: msgpack only (raw)                     -> HC1M
+ *   - 256 B <= Payload < 4 KB: lz4(msgpack) if savings >= 15% -> HC1L
+ *   - Payload >= 4 KB: zstd(msgpack) if savings >= 15%        -> HC1Z (or HC1L on Node 20)
+ *   - Incompressible payload (savings < 15%): msgpack only    -> HC1M
  *   - CACHE_FORMAT=json or CACHE_DEBUG_SERIALIZATION=true:    -> HC1J  (JSON.stringify)
  *   - null/undefined: packed sentinel string                  -> HC1M
  *
  * Time/space complexity:
  *   - hasPrefix / stripPrefix : O(1) (fixed 4-byte compare)
  *   - msgpack pack/unpack     : O(n)
- *   - gzip / gunzip           : O(n) (higher CPU constant)
+ *   - lz4 / zstd compress     : O(n) (runtime-aware size-tiered)
  *   - serialize / deserialize : O(n) on payload size
  *   - memory                  : O(stored bytes)
  */

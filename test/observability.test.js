@@ -150,7 +150,7 @@ test("MemoryStore.inspect: match filter, pagination, value truncation", async ()
 test("resolveObservabilityOptions: defaults, env overrides, precedence", () => {
   const def = resolveObservabilityOptions(true);
   assert.equal(def.enabled, true);
-  assert.equal(def.route, "/observelazyily");
+  assert.equal(def.route, "/__lazylayers");
   assert.equal(def.auth.username, "lazydev");
   assert.equal(def.auth.password, "lazydev");
   assert.equal(def.server.host, "127.0.0.1");

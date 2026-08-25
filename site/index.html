@@ -4,11 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-<title>LazyLayers — The distributed cache layer for Node.js</title>
-<meta name="description" content="LazyLayers is a TypeScript hybrid L1/L2 cache for Node.js. Size-tiered compression (lz4, zstd, gzip) stores 14-92% fewer bytes in Redis. Event buses keep every instance fresh. Reproducible benchmarks included." />
+<title>LazyLayers — Local-speed caching for distributed Node.js apps</title>
+<meta name="description" content="Start with an in-process LRU. Add Redis for shared L2. Add Redis Pub/Sub, RabbitMQ, or NATS for cross-instance invalidation and priming. Byte-efficient binary storage, fail-open resilience, and live observability behind one TypeScript API." />
 <link rel="canonical" href="https://lazy-layers-cache.vercel.app/" />
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
-<meta name="keywords" content="nodejs cache, typescript cache, hybrid cache, redis cache, distributed cache, l1 cache, l2 cache, cache invalidation, lazy loading, stampede protection, lz4, zstd, msgpack, event bus, pubsub, rabbitmq, nats, observability, prometheus, opentelemetry" />
 <meta name="author" content="Amon20044" />
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
@@ -18,18 +17,18 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="LazyLayers" />
 <meta property="og:url" content="https://lazy-layers-cache.vercel.app/" />
-<meta property="og:title" content="LazyLayers — The distributed cache layer for Node.js" />
-<meta property="og:description" content="A TypeScript hybrid L1/L2 cache for Node.js. Size-tiered compression (lz4, zstd) keeps the bill small — 14-92% fewer bytes, measured against bentocache." />
+<meta property="og:title" content="LazyLayers — Local-speed caching for distributed Node.js apps" />
+<meta property="og:description" content="Start with an in-process LRU. Add Redis for shared L2. Add Redis Pub/Sub, RabbitMQ, or NATS for cross-instance invalidation and priming. Byte-efficient binary storage and fail-open resilience behind one TypeScript API." />
 <meta property="og:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="LazyLayers — hybrid L1/L2 cache with size-tiered compression" />
+<meta property="og:image:alt" content="LazyLayers — Local-speed caching for distributed Node.js apps" />
 <meta property="og:locale" content="en_US" />
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="LazyLayers — The distributed cache layer for Node.js" />
-<meta name="twitter:description" content="A TypeScript hybrid L1/L2 cache for Node.js. Size-tiered compression (lz4, zstd) keeps the bill small — measured, not estimated." />
+<meta name="twitter:title" content="LazyLayers — Local-speed caching for distributed Node.js apps" />
+<meta name="twitter:description" content="Start with an in-process LRU. Add Redis for shared L2. Add Redis Pub/Sub, RabbitMQ, or NATS for cross-instance invalidation and priming. Byte-efficient binary storage and fail-open resilience." />
 <meta name="twitter:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 
 <script>
@@ -63,7 +62,7 @@
   "alternateName": "lazy-layers-cache",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Node.js 20+",
-  "description": "A TypeScript hybrid L1/L2 cache for Node.js. Redis Pub/Sub, RabbitMQ and NATS event buses fan del, pattern and set events across every instance to keep in-process L1 caches fresh, while size-tiered compression (lz4, zstd, gzip) stores 14-92% fewer bytes in Redis than JSON-based caching.",
+  "description": "A TypeScript hybrid L1/L2 cache for Node.js. Start with an in-process LRU, add Redis for shared L2, and add Redis Pub/Sub, RabbitMQ, or NATS when instances need to stay in sync. Features size-tiered LZ4/Zstd compression, fail-open resilience, stampede protection, and live observability.",
   "url": "https://lazy-layers-cache.vercel.app/",
   "downloadUrl": "https://www.npmjs.com/package/lazy-layers-cache",
   "installUrl": "https://www.npmjs.com/package/lazy-layers-cache",
@@ -110,13 +109,12 @@
     </a>
 
     <nav class="nav__links" id="navlinks" aria-label="Primary">
-      <a class="nav__link" href="#how">Build order</a>
-      <a class="nav__link" href="#wire">On the wire</a>
-      <a class="nav__link" href="#bytes">Bytes</a>
+      <a class="nav__link" href="#architecture">Architecture</a>
+      <a class="nav__link" href="#quickstart">Quickstart</a>
       <a class="nav__link" href="#benchmarks">Benchmarks</a>
-      <a class="nav__link" href="#features">Usage</a>
+      <a class="nav__link" href="#observability">Observability</a>
+      <a class="nav__link" href="#comparison">Compare</a>
       <a class="nav__link" href="#faq">FAQ</a>
-      <a class="nav__link" href="https://lazylayers.mintlify.site/docs/learn" target="_blank" rel="noopener">Learn</a>
       <a class="nav__link" href="https://lazylayers.mintlify.site/docs" target="_blank" rel="noopener">Docs</a>
     </nav>
 
@@ -131,9 +129,9 @@
           <path d="M20.5 14.2A8.6 8.6 0 0 1 9.8 3.5a8.7 8.7 0 1 0 10.7 10.7Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
         </svg>
       </button>
-      <a class="btn btn--ghost btn--sm" href="https://lazylayers.mintlify.site/docs" target="_blank" rel="noopener">Docs</a>
+      <a class="btn btn--ghost btn--sm" href="https://github.com/Amon20044/LazyLayers" target="_blank" rel="noopener">GitHub ↗</a>
       <a class="btn btn--ghost btn--sm" href="https://www.npmjs.com/package/lazy-layers-cache" target="_blank" rel="noopener">npm</a>
-      <a class="btn btn--primary btn--sm" href="#install" data-magnetic>Get started</a>
+      <a class="btn btn--primary btn--sm" href="#quickstart" data-magnetic>Get started</a>
       <button class="nav__toggle" id="navtoggle" aria-expanded="false" aria-controls="navlinks" aria-label="Toggle menu"><span></span></button>
     </div>
   </div>
@@ -142,36 +140,45 @@
 <main id="main">
 <span id="top"></span>
 
-<!-- ═══ HERO ═══ -->
-<section class="hero">
+<!-- ═══ 1. HERO ═══ -->
+<section class="hero" id="hero">
   <div class="hero__glow" aria-hidden="true"></div>
   <div class="wrap hero__inner">
     <div class="hero__grid">
       <div>
-        <span class="badge reveal"><i class="badge__dot"></i> v0.5.0 · MIT · Node 20+</span>
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+          <span class="badge reveal"><i class="badge__dot"></i> MIT · TypeScript · ESM + CJS · Node 20+</span>
+        </div>
+
+        <div class="reveal" style="margin-top:1rem">
+          <span class="eyebrow" style="font-size:var(--fs-sm);letter-spacing:0.12em">Laziness scales.</span>
+        </div>
 
         <h1 class="hero__title reveal" style="--reveal-delay:60ms">
-          <span class="grad-text">Laziness</span><br />
-          <em class="grad-accent">scales.</em>
+          <span class="grad-text">Local-speed caching</span><br />
+          <em class="grad-accent">for distributed Node.js apps.</em>
         </h1>
 
         <p class="hero__lead reveal" style="--reveal-delay:120ms">
-          Every layer here refuses to work until it has to.
-          <strong>Load a key once, keep it close, and let every other server hear about it.</strong>
-          Nothing gets fetched twice. Small payloads travel as packed binary. Large ones get compressed with size-tiered lz4 and zstd.
+          Start with an in-process LRU. Add Redis when you need a shared L2. Add Redis Pub/Sub, RabbitMQ, or NATS when instances need to stay in sync. LazyLayers handles lazy loading, duplicate-load collapse, stale fallback, fail-open caching, cross-instance invalidation, and compact Redis payloads behind one TypeScript API.
         </p>
 
         <ul class="lazy-laws reveal" style="--reveal-delay:150ms">
           <li><b>Load late.</b> Nothing is cached until somebody asks for it.</li>
-          <li><b>Load once.</b> Ten thousand callers, one trip to the database.</li>
-          <li><b>Load small.</b> Size-tiered compression picks the right codec per payload.</li>
+          <li><b>Load once.</b> Concurrent loads collapse to one loader per process. Add Redis distributed lock for cluster-wide stampede protection.</li>
+          <li><b>Load small.</b> MessagePack with size-tiered LZ4/Zstd compression, with runtime-aware fallbacks.</li>
         </ul>
 
         <div class="hero__actions reveal" style="--reveal-delay:180ms">
-          <a class="btn btn--primary btn--lg" href="#install" data-magnetic>
-            Install <span class="btn__arrow" aria-hidden="true">→</span>
+          <a class="btn btn--primary btn--lg" href="#quickstart" data-magnetic>
+            Get started <span class="btn__arrow" aria-hidden="true">→</span>
           </a>
-          <a class="btn btn--ghost btn--lg" href="https://lazylayers.mintlify.site/docs" target="_blank" rel="noopener">Read the docs</a>
+          <a class="btn btn--ghost btn--lg" href="https://github.com/Amon20044/LazyLayers" target="_blank" rel="noopener">
+            View on GitHub ↗
+          </a>
+          <a class="btn btn--ghost btn--lg" href="https://lazylayers.mintlify.site/docs" target="_blank" rel="noopener">
+            Read the docs
+          </a>
         </div>
 
         <div class="hero__install reveal" style="--reveal-delay:240ms" id="install">
@@ -190,49 +197,156 @@
   </div>
 </section>
 
-<!-- ═══ WHAT GOES WRONG ═══ -->
-<section class="section section--leads" id="bus">
+<!-- ═══ 2. ARCHITECTURE & PROGRESSIVE ADOPTION ═══ -->
+<section class="section" id="architecture">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">Start here</span>
-      <h2 class="sec-title">Every server keeps its own cache.<br />That is the whole problem.</h2>
+      <span class="eyebrow">Architecture</span>
+      <h2 class="sec-title">Start local. Add coordination<br />when it earns its keep.</h2>
       <p class="sec-lead">
-        The write lands on one server. Every other server carries on serving the old value until its
-        TTL runs out. So staleness is not something you tune. It <em>is</em> your TTL, times the share
-        of traffic that never saw the write.
+        Progressive adoption means you never deploy infrastructure you do not need today. One TypeScript API scales seamlessly from single-process memory to multi-instance distributed coordination.
+      </p>
+    </div>
+
+    <!--@progressive-->
+  </div>
+</section>
+
+<!-- ═══ 3. 30-SECOND QUICKSTART ═══ -->
+<section class="section section--tight" id="quickstart">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Quickstart</span>
+      <h2 class="sec-title">Up and running in 30 seconds.</h2>
+      <p class="sec-lead">A small Promise-based API that grows from a simple LRU into a coordinated distributed cache.</p>
+    </div>
+
+    <div class="reveal">
+      <div class="tabs" role="tablist" aria-label="Quickstart examples">
+        <button class="tab" role="tab" aria-selected="true" aria-controls="p-1" id="t-1">1. Single Process (L1)</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-2" id="t-2">2. Redis L2 (Fail-Open)</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-3" id="t-3">3. Event Bus (Pub/Sub &amp; Priming)</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-4" id="t-4">4. Type-Safe Usage</button>
+      </div>
+
+      <div style="margin-top:1rem">
+        <div class="tabpanel" role="tabpanel" id="p-1" aria-labelledby="t-1">
+          <div class="code">
+            <div class="code__bar"><div class="code__dots"><i></i><i></i><i></i></div><span class="code__name">cache.ts</span></div>
+<pre><code><span class="t-key">import</span> { LazyLayersCache } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
+
+<span class="t-com">// In-process LRU cache with zero external infrastructure.</span>
+<span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({ ttlMs<span class="t-op">:</span> <span class="t-num">60_000</span> });
+
+<span class="t-com">// getOrSet collapses concurrent callers into a single loader execution.</span>
+<span class="t-key">const</span> user <span class="t-op">=</span> <span class="t-key">await</span> cache.<span class="t-fn">getOrSet</span>(<span class="t-str">`user:</span><span class="t-op">${</span>id<span class="t-op">}</span><span class="t-str">`</span>, <span class="t-op">() =&gt;</span>
+  db.users.<span class="t-fn">findById</span>(id)
+);</code></pre>
+          </div>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" id="p-2" aria-labelledby="t-2" hidden>
+          <div class="code">
+            <div class="code__bar"><div class="code__dots"><i></i><i></i><i></i></div><span class="code__name">cache.ts</span></div>
+<pre><code><span class="t-key">import</span> Redis <span class="t-key">from</span> <span class="t-str">'ioredis'</span>;
+<span class="t-key">import</span> { LazyLayersCache, RedisStore } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
+
+<span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({
+  l2<span class="t-op">:</span> <span class="t-key">new</span> <span class="t-fn">RedisStore</span>(redis, { prefix<span class="t-op">:</span> <span class="t-str">'app:'</span> }),
+  ttlMs<span class="t-op">:</span> <span class="t-num">300_000</span>,
+});
+
+<span class="t-com">// MessagePack + size-tiered LZ4/Zstd encodes data compactly into Redis.</span>
+<span class="t-com">// If Redis has an outage, reads fail open to L1 / loader instead of throwing.</span></code></pre>
+          </div>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" id="p-3" aria-labelledby="t-3" hidden>
+          <div class="code">
+            <div class="code__bar"><div class="code__dots"><i></i><i></i><i></i></div><span class="code__name">cache.ts</span></div>
+<pre><code><span class="t-key">import</span> { LazyLayersCache, RedisStore, RedisEventBus } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
+
+<span class="t-key">const</span> bus <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">RedisEventBus</span>(redis, <span class="t-str">'cache.invalidate'</span>);
+<span class="t-key">await</span> bus.<span class="t-fn">connect</span>();
+
+<span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({
+  l2<span class="t-op">:</span> <span class="t-key">new</span> <span class="t-fn">RedisStore</span>(redis),
+  eventBus<span class="t-op">:</span> bus,
+  source<span class="t-op">:</span> process.env.<span class="t-var">POD_NAME</span>,  <span class="t-com">// prevents loopback self-echo</span>
+  broadcastSet<span class="t-op">:</span> <span class="t-key">true</span>,               <span class="t-com">// primes peers with new values</span>
+});
+
+<span class="t-com">// The first server runs the loader, then broadcasts the value.</span>
+<span class="t-com">// Peer instances warm L1 immediately without calling their loaders.</span>
+<span class="t-key">await</span> cache.<span class="t-fn">getOrSet</span>(<span class="t-str">`user:</span><span class="t-op">${</span>id<span class="t-op">}</span><span class="t-str">`</span>, loadUser);
+<span class="t-key">await</span> cache.<span class="t-fn">deleteByPattern</span>(<span class="t-str">'user:*'</span>);  <span class="t-com">// fans out wildcard deletion</span></code></pre>
+          </div>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" id="p-4" aria-labelledby="t-4" hidden>
+          <div class="code">
+            <div class="code__bar"><div class="code__dots"><i></i><i></i><i></i></div><span class="code__name">cache.ts</span></div>
+<pre><code><span class="t-key">import</span> { LazyLayersCache } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
+
+<span class="t-key">interface</span> <span class="t-type">UserProfile</span> {
+  id<span class="t-op">:</span> <span class="t-type">string</span>;
+  name<span class="t-op">:</span> <span class="t-type">string</span>;
+  plan<span class="t-op">:</span> <span class="t-str">'free'</span> <span class="t-op">|</span> <span class="t-str">'pro'</span>;
+}
+
+<span class="t-com">// Bind one cache instance to a strongly-typed value schema.</span>
+<span class="t-key">const</span> users <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span><span class="t-op">&lt;</span><span class="t-type">string</span>, <span class="t-type">UserProfile</span><span class="t-op">&gt;</span>({ ttlMs<span class="t-op">:</span> <span class="t-num">60_000</span> });
+
+<span class="t-key">const</span> user <span class="t-op">=</span> <span class="t-key">await</span> users.<span class="t-fn">get</span>(<span class="t-str">'user:1'</span>); <span class="t-com">// user is UserProfile | undefined</span></code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 4. WHY LAZYLAYERS ═══ -->
+<section class="section section--leads" id="why">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Why LazyLayers</span>
+      <h2 class="sec-title">Every server keeps its own memory.<br />Without a bus, caches drift.</h2>
+      <p class="sec-lead">
+        Without invalidation, another instance can continue serving its stale in-process L1 copy until that entry's TTL expires. With a healthy invalidation bus, the stale window collapses from minutes down to network propagation latency.
       </p>
     </div>
     <!--@stale-->
   </div>
 </section>
 
-<!-- ═══ THE BUILD ORDER ═══ -->
-<section class="section section--tight" id="how">
+<!-- ═══ 5. PRODUCTION BEHAVIOR (FOUR PILLARS) ═══ -->
+<section class="section" id="resilience">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">The build order</span>
-      <h2 class="sec-title">Seven problems, in the order<br />production hands them to you.</h2>
+      <span class="eyebrow">Production guarantees</span>
+      <h2 class="sec-title">Built for when dependencies<br />have a bad day.</h2>
       <p class="sec-lead">
-        Each one is what pushes you into the next. None of it is exotic. A cache earns the word
-        production by answering this list, and most of that work is deciding what happens when a
-        dependency is having a bad day.
+        A cache earns the word production by answering failure modes up front. Most of that work is deciding what happens when databases stall, Redis disconnects, or message buses reorder packets.
       </p>
     </div>
-    <!--@bento-->
+    <!--@pillars-->
+
+    <div style="margin-top:2.5rem;text-align:center">
+      <a class="btn btn--ghost" href="https://lazylayers.mintlify.site/docs/learn" target="_blank" rel="noopener">
+        Read the architectural deep dive in Docs →
+      </a>
+    </div>
   </div>
 </section>
 
-<!-- ═══ ON THE WIRE ═══ -->
+<!-- ═══ 6. COHERENCE ON THE WIRE ═══ -->
 <section class="section section--tight" id="wire">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">On the wire</span>
+      <span class="eyebrow">Coherence on the wire</span>
       <h2 class="sec-title">Three events.<br />Only one carries a value.</h2>
       <p class="sec-lead">
-        <code class="mono">del</code> and <code class="mono">pattern</code> just say what to forget, and
-        they cost a few bytes. <code class="mono">set</code> brings the value with it. That is the whole
-        difference between peers <em>invalidating</em> and peers being <em>primed</em>. One makes every
-        node go and load it again. The other costs nothing.
+        <code class="mono">del</code> and <code class="mono">pattern</code> just say what to forget. <code class="mono">set</code> brings the newly loaded value with it, allowing peer instances to warm L1 directly without redundant database trips.
       </p>
     </div>
     <!--@wire-->
@@ -240,36 +354,26 @@
     <div style="margin-top:clamp(2rem,4vw,3rem)">
       <!--@fanout-->
     </div>
+
+    <p class="mono dim reveal" style="margin-top:2rem;text-align:center;font-size:var(--fs-xs);line-height:1.7">
+      Per-key generations reject older del and set events, reducing stale resurrection under reordering.
+      <a href="https://lazylayers.mintlify.site/docs/architecture/event-ordering" target="_blank" rel="noopener" style="color:var(--c-cyan);text-decoration:underline;margin-left:0.25rem">
+        Read the consistency model →
+      </a>
+    </p>
   </div>
 </section>
 
 <hr class="rule rule--fade" />
 
-<!-- ═══ THE COST SAVER: bytes ═══ -->
-<section class="section" id="bytes">
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="eyebrow">The bill</span>
-      <h2 class="sec-title">One record.<br />Every byte accounted for.</h2>
-      <p class="sec-lead">
-        A real cached record. One cell for every byte that lands in Redis. Most of a JSON document is
-        not your data at all.
-      </p>
-    </div>
-    <!--@bytes-->
-  </div>
-</section>
-
-<!-- ═══ BENCHMARKS ═══ -->
+<!-- ═══ 7. BENCHMARKS & TRANSPARENT TRADE-OFFS ═══ -->
 <section class="section" id="benchmarks">
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">Benchmarks</span>
-      <h2 class="sec-title">Measured against bentocache.<br />Reproducible from the fixtures.</h2>
+      <h2 class="sec-title">Spend CPU where bytes are expensive.</h2>
       <p class="sec-lead">
-        Five payloads, run through what each library actually writes to Redis. The fixtures are seeded,
-        so the byte counts come out the same on your machine. One caveat worth saying out loud. This
-        measures <em>serialization only</em>. Bentocache is a mature library with plenty we do not have.
+        Redis payload size using each library's default storage format. BentoCache default measurement includes its CacheEntry metadata envelope ({ value, createdAt, logicalExpiration }) because that is written to Redis; LazyLayers manages metadata separately and stores compact binary values directly.
       </p>
     </div>
 
@@ -278,14 +382,23 @@
     <p class="mono dim reveal" style="margin-top:1rem;font-size:.75rem;line-height:1.7"><!--@bench-meta--></p>
 
     <div class="sec-head" style="margin-top:clamp(3rem,6vw,4.5rem);margin-bottom:1.5rem">
-      <h3 class="sec-title" style="font-size:var(--fs-h3)">The trade-offs</h3>
+      <h3 class="sec-title" style="font-size:var(--fs-h3)">The engineering trade-offs</h3>
     </div>
     <!--@tradeoff-->
+
+    <div class="sec-head" style="margin-top:clamp(3rem,6vw,4.5rem);margin-bottom:1.5rem">
+      <span class="eyebrow">Wire encoding</span>
+      <h3 class="sec-title" style="font-size:var(--fs-h3)">One record. Every byte accounted for.</h3>
+      <p class="sec-lead">
+        Most of a JSON document is punctuation and repeated key names. Binary MessagePack stores the entire record in fewer bytes than JSON spends on values alone.
+      </p>
+    </div>
+    <!--@bytes-->
   </div>
 </section>
 
 <!-- ═══ CALCULATOR ═══ -->
-<section class="section" id="calculator">
+<section class="section section--tight" id="calculator">
   <div class="wrap">
     <div class="sec-head sec-head--center">
       <span class="eyebrow">Cost model</span>
@@ -315,7 +428,7 @@
         </div>
         <div class="field">
           <div class="field__top">
-            <label class="field__label" for="c-replicas">Replicas holding the data</label>
+            <label class="field__label" for="c-replicas">Redis copies / replicas</label>
             <output class="field__val" id="c-replicas-v">2</output>
           </div>
           <input type="range" id="c-replicas" min="1" max="6" step="1" value="2" />
@@ -330,146 +443,114 @@
         <p class="calc__sub" id="c-sub">Adjust the inputs to model your workload.</p>
 
         <div class="calc__rows">
-          <div class="calc__row"><span>JSON footprint</span><b id="c-json">—</b></div>
-          <div class="calc__row"><span>LazyLayers footprint</span><b id="c-ll">—</b></div>
+          <div class="calc__row"><span>BentoCache default payload</span><b id="c-json">—</b></div>
+          <div class="calc__row"><span>LazyLayers payload</span><b id="c-ll">—</b></div>
           <div class="calc__row"><span>Bytes saved per replica set</span><b id="c-diff">—</b></div>
           <div class="calc__row"><span>Encoding chosen</span><b id="c-enc">—</b></div>
         </div>
 
         <p class="calc__note">
-          This is a model, not a quote. It leaves out key overhead, TTL churn, eviction and
-          fragmentation, all of which hit both sides about equally.
+          Estimate only. Payload bytes exclude Redis key/object overhead, allocator fragmentation, indexes, persistence, and provider-specific pricing.
         </p>
       </div>
     </div>
   </div>
 </section>
 
-<hr class="rule rule--fade" />
-
-<!-- ═══ USAGE ═══ -->
-<section class="section" id="features">
+<!-- ═══ 8. OBSERVABILITY ═══ -->
+<section class="section" id="observability">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">Usage</span>
-      <h2 class="sec-title">A small API that grows up<br />into a distributed one.</h2>
+      <span class="eyebrow">Observability</span>
+      <h2 class="sec-title">Don't guess whether your cache works.</h2>
+      <p class="sec-lead">
+        Inspect L1/L2 entries, TTL countdowns, compression savings, hit ratios, inflight reuse, and real-time invalidation traffic directly from the built-in live dashboard at <code class="mono">/__lazylayers</code>.
+      </p>
     </div>
 
-    <div class="reveal">
-      <div class="tabs" role="tablist" aria-label="Usage examples">
-        <button class="tab" role="tab" aria-selected="true" aria-controls="p-1" id="t-1">Get started</button>
-        <button class="tab" role="tab" aria-selected="false" aria-controls="p-2" id="t-2">Redis L2</button>
-        <button class="tab" role="tab" aria-selected="false" aria-controls="p-3" id="t-3">Event bus</button>
-        <button class="tab" role="tab" aria-selected="false" aria-controls="p-4" id="t-4">Durable bus</button>
-      </div>
+    <!--@observability-->
+  </div>
+</section>
 
-      <div style="margin-top:1rem">
-        <div class="tabpanel" role="tabpanel" id="p-1" aria-labelledby="t-1">
-          <div class="code">
-            <div class="code__bar"><div class="code__dots"><i></i><i></i><i></i></div><span class="code__name">cache.ts</span></div>
-<pre><code><span class="t-key">import</span> { LazyLayersCache } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
-
-<span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({ ttlMs<span class="t-op">:</span> <span class="t-num">60_000</span> });
-
-<span class="t-com">// Nothing is stored until somebody asks. Ten</span>
-<span class="t-com">// thousand callers, one trip to the database.</span>
-<span class="t-key">const</span> user <span class="t-op">=</span> <span class="t-key">await</span> cache.<span class="t-fn">getOrSet</span>(<span class="t-str">`user:</span><span class="t-op">${</span>id<span class="t-op">}</span><span class="t-str">`</span>, <span class="t-op">() =&gt;</span>
-  db.users.<span class="t-fn">findById</span>(id)
-);</code></pre>
-          </div>
-        </div>
-
-        <div class="tabpanel" role="tabpanel" id="p-2" aria-labelledby="t-2" hidden>
-          <div class="code">
-            <div class="code__bar"><div class="code__dots"><i></i><i></i><i></i></div><span class="code__name">cache.ts</span></div>
-<pre><code><span class="t-key">import</span> Redis <span class="t-key">from</span> <span class="t-str">'ioredis'</span>;
-<span class="t-key">import</span> { LazyLayersCache, RedisStore } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
-
-<span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({
-  l2<span class="t-op">:</span> <span class="t-key">new</span> <span class="t-fn">RedisStore</span>(redis, { prefix<span class="t-op">:</span> <span class="t-str">'app:'</span> }),
-  ttlMs<span class="t-op">:</span> <span class="t-num">300_000</span>,
-});
-
-<span class="t-com">// size-tiered codec picks the right encoding.</span>
-<span class="t-com">// A Redis outage degrades to L1 instead of throwing.</span></code></pre>
-          </div>
-        </div>
-
-        <div class="tabpanel" role="tabpanel" id="p-3" aria-labelledby="t-3" hidden>
-          <div class="code">
-            <div class="code__bar"><div class="code__dots"><i></i><i></i><i></i></div><span class="code__name">cache.ts</span></div>
-<pre><code><span class="t-key">import</span> { RedisEventBus } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
-
-<span class="t-key">const</span> bus <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">RedisEventBus</span>(redis, <span class="t-str">'cache.invalidate'</span>);
-<span class="t-key">await</span> bus.<span class="t-fn">connect</span>();
-
-<span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({
-  l2, eventBus<span class="t-op">:</span> bus,
-  source<span class="t-op">:</span> process.env.<span class="t-var">INSTANCE_ID</span>,  <span class="t-com">// no self-loopback</span>
-  broadcastSet<span class="t-op">:</span> <span class="t-key">true</span>,               <span class="t-com">// see below</span>
-});
-
-<span class="t-com">// One server runs the loader, then broadcasts the</span>
-<span class="t-com">// value. Every peer stores it lazily in its own L1</span>
-<span class="t-com">// on arrival, so their first read is a local hit.</span>
-<span class="t-key">await</span> cache.<span class="t-fn">getOrSet</span>(<span class="t-str">`user:</span><span class="t-op">${</span>id<span class="t-op">}</span><span class="t-str">`</span>, load);
-
-<span class="t-key">await</span> cache.<span class="t-fn">deleteByPattern</span>(<span class="t-str">'user:*'</span>);  <span class="t-com">// fans out</span></code></pre>
-          </div>
-        </div>
-
-        <div class="tabpanel" role="tabpanel" id="p-4" aria-labelledby="t-4" hidden>
-          <div class="code">
-            <div class="code__bar"><div class="code__dots"><i></i><i></i><i></i></div><span class="code__name">cache.ts</span></div>
-<pre><code><span class="t-key">import</span> { NatsEventBus } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
-
-<span class="t-com">// Durable: buffers while an instance is down,</span>
-<span class="t-com">// redelivers on reconnect, explicit ack.</span>
-<span class="t-key">const</span> bus <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">NatsEventBus</span>({
-  mode<span class="t-op">:</span> <span class="t-str">'jetstream'</span>,
-  subject<span class="t-op">:</span> <span class="t-str">'cache.invalidate'</span>,
-  jetstream<span class="t-op">:</span> {
-    durableName<span class="t-op">:</span> process.env.<span class="t-var">INSTANCE_ID</span>,
-    maxDeliver<span class="t-op">:</span> <span class="t-num">10</span>,
-  },
-});</code></pre>
-          </div>
-        </div>
-      </div>
+<!-- ═══ 9. TRANSPORTS MATRIX ═══ -->
+<section class="section section--tight" id="transports">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Transports</span>
+      <h2 class="sec-title">Choose your delivery semantics.</h2>
+      <p class="sec-lead">
+        At-most-once for ultra-low latency fanout, or durable brokers for persistent message delivery on reconnect.
+      </p>
     </div>
+
+    <!--@transports-->
+  </div>
+</section>
+
+<!-- ═══ 10. WHEN NOT TO USE IT ═══ -->
+<section class="section" id="limitations">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Engineering honesty</span>
+      <h2 class="sec-title">When you should NOT use LazyLayers.</h2>
+      <p class="sec-lead">
+        No infrastructure library is right for every workload. If your architecture has these requirements, LazyLayers is the wrong choice.
+      </p>
+    </div>
+
+    <!--@limitations-->
+  </div>
+</section>
+
+<!-- ═══ 11. ECOSYSTEM COMPARISON ═══ -->
+<section class="section" id="comparison">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Ecosystem comparison</span>
+      <h2 class="sec-title">LazyLayers vs BentoCache vs Keyv / Cacheable.</h2>
+      <p class="sec-lead">
+        We let competitors win where they excel. Here is a feature-by-feature comparison across Node.js caching libraries.
+      </p>
+    </div>
+
+    <!--@comparison-->
   </div>
 </section>
 
 <hr class="rule rule--fade" />
 
-<!-- ═══ FAQ ═══ -->
+<!-- ═══ 12. FAQ ═══ -->
 <section class="section" id="faq">
   <div class="wrap">
     <div class="split" style="align-items:start">
       <div class="reveal split__sticky">
         <span class="eyebrow">FAQ</span>
         <h2 class="sec-title">The questions engineers<br />actually ask</h2>
-        <p class="sec-lead">Including the awkward one about whether this is actually faster.</p>
+        <p class="sec-lead">Technical answers about guarantees, trade-offs, and failure boundaries.</p>
       </div>
       <!--@faq-->
     </div>
   </div>
 </section>
 
-<!-- ═══ CTA ═══ -->
+<!-- ═══ 13. FINAL INSTALL CTA ═══ -->
 <section class="section">
   <div class="wrap">
     <div class="cta reveal">
-      <h2 class="cta__title grad-text">Fresh everywhere.<br />Cheaper everywhere.</h2>
+      <h2 class="cta__title grad-text">Start local.<br />Scale distributed.</h2>
       <p class="cta__lead">
-        MIT licensed, TypeScript first, ESM and CommonJS. Start as an in-process LRU with no
-        infrastructure at all, then add a layer whenever you actually need one.
+        MIT licensed · TypeScript first · ESM + CommonJS · Node 20+. Start as an in-process LRU with zero external dependencies, then add Redis and event buses as your architecture demands.
       </p>
       <div class="cta__actions">
         <a class="btn btn--primary btn--lg" href="https://www.npmjs.com/package/lazy-layers-cache" target="_blank" rel="noopener" data-magnetic>
           npm i lazy-layers-cache <span class="btn__arrow" aria-hidden="true">→</span>
         </a>
-        <a class="btn btn--ghost btn--lg" href="https://lazylayers.mintlify.site/docs" target="_blank" rel="noopener">Read the docs</a>
+        <a class="btn btn--ghost btn--lg" href="https://github.com/Amon20044/LazyLayers" target="_blank" rel="noopener">
+          View on GitHub ↗
+        </a>
+        <a class="btn btn--ghost btn--lg" href="https://lazylayers.mintlify.site/docs" target="_blank" rel="noopener">
+          Read the docs
+        </a>
       </div>
     </div>
   </div>
@@ -494,42 +575,41 @@
           <span class="brand__name">LazyLayers</span>
         </a>
         <p class="footer__blurb">
-          Hybrid L1/L2 caching for Node.js, built around the idea that the cheapest byte is the one you
-          never stored.
+          Local-speed caching for distributed Node.js applications, built around progressive architecture and byte-conscious Redis storage.
         </p>
       </div>
       <div>
-        <div class="footer__h">Product</div>
+        <div class="footer__h">Architecture</div>
+        <ul class="footer__list">
+          <li><a href="#architecture">Progressive adoption</a></li>
+          <li><a href="#resilience">Production pillars</a></li>
+          <li><a href="#wire">Wire protocol</a></li>
+          <li><a href="#transports">Transports</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer__h">Evidence</div>
         <ul class="footer__list">
           <li><a href="#benchmarks">Benchmarks</a></li>
           <li><a href="#calculator">Cost model</a></li>
-          <li><a href="#wire">On the wire</a></li>
-          <li><a href="#bytes">Byte budget</a></li>
+          <li><a href="#observability">Live dashboard</a></li>
+          <li><a href="#comparison">Ecosystem comparison</a></li>
         </ul>
       </div>
       <div>
         <div class="footer__h">Resources</div>
         <ul class="footer__list">
           <li><a href="https://lazylayers.mintlify.site/docs" target="_blank" rel="noopener">Documentation</a></li>
-          <li><a href="https://www.npmjs.com/package/lazy-layers-cache" target="_blank" rel="noopener">npm package</a></li>
-          <li><a href="#features">Usage examples</a></li>
-          <li><a href="#faq">FAQ</a></li>
-        </ul>
-      </div>
-      <div>
-        <div class="footer__h">Compare</div>
-        <ul class="footer__list">
-          <li><a href="#benchmarks">vs. bentocache</a></li>
-          <li><a href="#serializer">vs. plain JSON</a></li>
+          <li><a href="https://github.com/Amon20044/LazyLayers" target="_blank" rel="noopener">GitHub Repository</a></li>
+          <li><a href="https://www.npmjs.com/package/lazy-layers-cache" target="_blank" rel="noopener">npm Package</a></li>
+          <li><a href="#limitations">When not to use</a></li>
         </ul>
       </div>
     </div>
     <div class="footer__bottom">
       <span>
-        MIT licensed. Benchmarks reproducible from the fixtures described above.<br />
-        Node.js, TypeScript, Redis, RabbitMQ, NATS and MessagePack are trademarks of their respective
-        owners. The marks on this page are simplified illustrations, not official artwork, and LazyLayers
-        is an independent project with no affiliation or endorsement.
+        MIT licensed. Benchmarks reproducible from the fixtures in the repository.<br />
+        Node.js, TypeScript, Redis, RabbitMQ, and NATS are trademarks of their respective owners.
       </span>
       <span class="mono">v0.5.0</span>
     </div>

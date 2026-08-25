@@ -1,66 +1,49 @@
 # lazy-layers-cache
 
-Simple TypeScript hybrid caching for Node.js with L1 memory, optional Redis L2, lazy loading, stampede protection, fail-open behavior, stale fallback, and distributed invalidation.
+> **Local-speed caching for distributed Node.js apps.**
 
 [![npm version](https://img.shields.io/npm/v/lazy-layers-cache.svg)](https://www.npmjs.com/package/lazy-layers-cache)
+[![CI](https://github.com/Amon20044/LazyLayers/actions/workflows/ci.yml/badge.svg)](https://github.com/Amon20044/LazyLayers/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/lazy-layers-cache.svg)](LICENSE)
 [![types](https://img.shields.io/npm/types/lazy-layers-cache.svg)](https://www.npmjs.com/package/lazy-layers-cache)
+[![node](https://img.shields.io/badge/node-20%2B-brightgreen.svg)](https://nodejs.org)
 
-`lazy-layers-cache` gives you a small Promise-based cache API that can start as an in-process LRU cache and grow into a multi-instance cache backed by Redis and invalidated over Redis Pub/Sub, RabbitMQ, or NATS.
+Start with an in-process LRU cache. Add Redis when you need a shared L2. Add Redis Pub/Sub, RabbitMQ, or NATS when instances need to stay in sync. LazyLayers handles lazy loading, duplicate-load collapse, stale fallback, fail-open caching, cross-instance invalidation, and compact Redis payloads behind one TypeScript API.
 
-It is designed around one practical production rule:
-
-```txt
-The first instance to lazily load a key broadcasts it to every peer.
-Peers populate their L1 from the broadcast — no second loader call.
-Deletes and pattern wipes are broadcast to every connected instance.
+```bash
+npm install lazy-layers-cache
 ```
 
-## Features
+## The Four Production Pillars
 
-- Simple async key-value cache API
-- TypeScript declarations built in
-- ESM and CommonJS builds
-- L1 memory cache by default using `lru-cache`
-- Optional Redis L2 store using `ioredis`
-- Lazy loading with `getOrSet(key, loader)`
-- In-process inflight dedupe for same-key concurrent loads
-- Optional Redis-backed distributed lock for cross-instance stampede protection
-- TTLs at global, layer, and per-call level
-- Fail-open L2 and event-bus behavior
-- Circuit breakers for L2 and invalidation publishing
-- Stale fallback when loaders fail or time out
-- Negative caching for short-lived known misses
-- Wildcard pattern invalidation
-- Redis Pub/Sub, RabbitMQ, NATS core, and NATS JetStream invalidation buses
-- MessagePack serialization for Redis payloads
-- Cache event hooks for metrics and logs
-- Live observability dashboard at `/observelazyily` (opt-in, zero-dependency)
-- Per-key serialized-vs-in-memory size comparison and nested key explorer
-- Built-in Prometheus `/metrics` endpoint (bounded cardinality)
-- OpenTelemetry/APM telemetry via `node:diagnostics_channel`
-- Production-aware logging controls
+1. **Protect the origin**: In-process inflight deduplication collapses concurrent `getOrSet()` calls for the same key into a single loader execution. Add the Redis distributed lock when you need cluster-wide stampede protection.
+2. **Keep L1s coordinated**: When any instance mutates or deletes data, peers receive `del`, `pattern`, or `set` priming events over Redis Pub/Sub, RabbitMQ, or NATS. Values are broadcast to prime peer caches without redundant database trips.
+3. **Fail like a cache**: Circuit breakers trip on repeated L2/bus errors. If Redis or message brokers degrade, LazyLayers gracefully fails open to L1 or loaders without throwing 500 errors.
+4. **Make it operable**: Inspect live in-memory L1 entries, Redis L2 keys, TTL countdowns, compression savings, hit ratios, and real-time invalidation traffic from a built-in dashboard at `/__lazylayers` (or `/observelazyily`), or scrape Prometheus metrics at `/__lazylayers/metrics`.
+
+## Progressive Architecture
+
+```txt
+Stage 1: Single Process    ──> In-memory LRU with getOrSet() & inflight dedupe (zero infra)
+Stage 2: Shared L2 Store   ──> Add RedisStore with size-tiered LZ4/Zstd binary compression
+Stage 3: Multi-Instance    ──> Add Redis Pub/Sub, RabbitMQ, or NATS for del/pattern/set fanout
+Stage 4: Cold Spike Shield ──> Enable Redis-backed distributed lock for cross-instance dedupe
+```
 
 ## Table of Contents
 
 - [Install](#install)
-- [Usage](#usage)
+- [Quickstart (15 Lines)](#quickstart-15-lines)
 - [Type-safe Usage](#type-safe-usage)
-- [Layer Modes](#layer-modes)
+- [Layer Modes & Progressive Adoption](#layer-modes--progressive-adoption)
 - [Using Redis L2](#using-redis-l2)
-- [Distributed Invalidation](#distributed-invalidation)
-- [Resilience](#resilience)
-- [Observability](#observability)
-- [Observability Dashboard](#observability-dashboard)
-- [Prometheus Metrics](#prometheus-metrics)
-- [OpenTelemetry / APM Telemetry](#opentelemetry--apm-telemetry)
-- [Pattern Deletes](#pattern-deletes)
-- [API](#api)
-- [Options](#options)
-- [Runtime Notes](#runtime-notes)
-- [Intelligent Serializer (HC1M / HC1G / HC1J)](#intelligent-serializer-hc1m--hc1g--hc1j)
+- [Distributed Invalidation & Priming](#distributed-invalidation--priming)
+- [Resilience & Fail-Open Behavior](#resilience--fail-open-behavior)
+- [Observability Dashboard & Prometheus](#observability-dashboard--prometheus)
+- [Size-Tiered Serializer (HC1M / HC1L / HC1Z / HC1G / HC1J)](#size-tiered-serializer-hc1m--hc1l--hc1z--hc1g--hc1j)
+- [API Reference](#api)
 - [Testing](#testing)
-- [How to Contribute](#how-to-contribute)
+- [Contributing](#contributing)
 - [License](#license)
 
 ## Install
@@ -862,40 +845,38 @@ Built-in implementations:
 - Always use a stable `source` or `INSTANCE_ID` in multi-instance deployments.
 - Pattern invalidation scans local in-memory structures and delegates to the backing store's pattern delete. Avoid very frequent broad patterns such as `*` on large L1 maps unless you have measured the cost.
 
-## Intelligent Serializer (HC1M / HC1G / HC1J)
+## Size-Tiered Serializer (HC1M / HC1L / HC1Z / HC1G / HC1J)
 
-L2 values are written through an intelligent binary serializer. Each Redis payload
-carries a fixed 4-byte magic prefix so decode is O(1):
+L2 values are written through an intelligent size-tiered binary serializer. Each Redis payload carries a fixed 4-byte magic prefix so decode is O(1):
 
-| Prefix | Encoding | When used |
+| Prefix | Encoding | Size Decision & When Used |
 | --- | --- | --- |
-| `HC1M` | msgpack | Default for any payload under 64 KB, or when gzip doesn't pay off. |
-| `HC1G` | gzip(msgpack) | Payloads ≥ 64 KB **and** gzip saves at least 15% vs raw msgpack. |
+| `HC1M` | msgpack | Under 256 bytes (raw MessagePack, no compression overhead). Also used if compression saves < 15%. |
+| `HC1L` | lz4(msgpack) | 256 B to 4 KB: LZ4 compression (5x faster than Zstd at low byte sizes). |
+| `HC1Z` | zstd(msgpack) | Payloads ≥ 4 KB: Zstd (highest bytes saved per microsecond). Falls back to LZ4 on Node 20. |
+| `HC1G` | gzip(msgpack) | Legacy fallback format for pre-v3 compressed buffers. |
 | `HC1J` | JSON | Opt-in debug mode (`CACHE_FORMAT=json` or `CACHE_DEBUG_SERIALIZATION=true`). |
 
-`null` and `undefined` are stored via a sentinel string (`__hybridcache_null__`) so
-a cached "the value is null" is preserved as a real cache hit, not a miss.
+`null` and `undefined` are stored via a sentinel string (`__hybridcache_null__`) so a cached "the value is null" is preserved as a real cache hit, not a miss.
 
-Legacy values (pre-prefix raw msgpack buffers and JSON-as-bytes) still decode
-correctly — the deserializer falls back through them in order.
+Legacy values (pre-prefix raw msgpack buffers and JSON-as-bytes) still decode correctly — the deserializer falls back through them in order.
 
 ### Programmatic API
 
 ```ts
 import { serialize, deserialize, serializeWithStats } from 'lazy-layers-cache';
 
-const buf = serialize({ id: 1 });               // Buffer with HC1M / HC1G / HC1J prefix
+const buf = serialize({ id: 1 });               // Buffer with HC1M / HC1L / HC1Z prefix
 const value = deserialize(buf);                  // back to JS
 
 const stats = serializeWithStats(largeObject);
 // {
-//   buffer, encoding: 'msgpack-gzip',
+//   buffer, encoding: 'msgpack-zstd',
 //   originalBytes, storedBytes, compressionRatio, compressed: true
 // }
 ```
 
-`RedisStore` calls `serialize` on write and `redis.getBuffer` + `deserialize` on
-read automatically — you don't have to wire it in yourself.
+`RedisStore` calls `serialize` on write and `redis.getBuffer` + `deserialize` on read automatically.
 
 ## Testing
 
@@ -907,56 +888,13 @@ npm run ci          # clean + typecheck + ESM/CJS build + tests
 
 The suite covers:
 
-- **Serializer** (`test/serializer.test.js`) — round-trips for plain objects, nested
-  listing responses, `null`/`undefined`, strings, legacy JSON strings, legacy JSON
-  buffers, legacy raw msgpack buffers; HC1M / HC1G / HC1J prefix decoding; gzip
-  threshold math (`shouldGzip`, `getCompressionSavings`); JSON debug mode; corrupted
-  buffer recovery; `Uint8Array` input.
-- **MemoryStore / RedisStore / HybridCache** (`test/cache.test.js`,
-  `test/edge-cases.test.js`) — L1/L2 layering, promotion, TTL, inflight dedupe,
-  distributed locks, negative caching, fail-safe stale, circuit breakers,
-  invalidation events, versioning, pattern deletes.
+- **Serializer & Codecs** (`test/serializer.test.js`, `test/codecs.test.js`) — round-trips for plain objects, nested listing responses, `null`/`undefined`, strings, legacy JSON strings, legacy JSON buffers, legacy raw msgpack buffers; HC1M / HC1L / HC1Z / HC1G / HC1J prefix decoding; size-tiering rules; JSON debug mode; corrupted buffer recovery; `Uint8Array` input.
+- **MemoryStore / RedisStore / HybridCache** (`test/cache.test.js`, `test/edge-cases.test.js`) — L1/L2 layering, promotion, TTL, inflight dedupe, distributed locks, negative caching, fail-safe stale, circuit breakers, invalidation events, versioning, pattern deletes.
+- **Observability** (`test/observability.test.js`) — dashboard routes (`/__lazylayers` and `/observelazyily`), Prometheus metrics exposition, and SSE stream endpoints.
 
-163 tests pass on the current branch (`npm test`).
+219 tests pass on the current branch (`npm test`).
 
-### Size benchmark (1 MB mock listing)
-
-`scripts/bench-serializer.mjs` generates a realistic ~1 MB player-listing response
-(1500 entries, nested device / userSnapshot / infoCards / pagination) and serializes
-it three ways:
-
-```
-| encoding       | bytes        | vs JSON | ms/op (n=25) |
-|----------------|--------------|---------|--------------|
-| JSON           | 1032.31 KB   | baseline|     3.191    |
-| msgpack        |  805.50 KB   |   22.0% |     3.622    |
-| msgpack + gzip |   67.57 KB   |   93.5% |     9.984    |
-```
-
-`serializeWithStats` picks `msgpack-gzip` for this payload — Redis stores 67.57 KB
-instead of 1 MB, ~15× less network transfer per fetch at ~10 ms of one-time CPU on
-the writer. Run it locally:
-
-```bash
-npm run build && node scripts/bench-serializer.mjs
-```
-
-### Edge cases hardened by the test suite
-
-- Cached `null` returns `{ hit: true, value: null }`, not a miss — sentinel survives
-  both the msgpack and JSON paths.
-- Corrupted prefixed buffers (e.g. truncated gzip) return `null` instead of throwing.
-- A plain string that fails `JSON.parse` round-trips through `deserialize` unchanged.
-- `Uint8Array` input is normalized to `Buffer` before decode, so non-ioredis clients
-  that return views still work.
-- `hasPrefix` only inspects 4 bytes; a buffer shorter than 4 bytes is treated as
-  legacy and routed to the fallback decoders.
-- Large but **incompressible** payloads (random bytes) skip gzip and stay on `HC1M`
-  rather than paying CPU for no savings.
-- `CACHE_FORMAT=json` and `CACHE_DEBUG_SERIALIZATION=true` both flip the encoding to
-  `HC1J` independently — env-var precedence is checked in the test suite.
-
-## How to Contribute
+## Contributing
 
 ```bash
 npm install
@@ -964,7 +902,7 @@ npm run build
 npm test
 ```
 
-The test suite runs against the compiled `dist/`, so build before testing. `npm run ci`
+The test suite runs against the compiled `dist/`, so build before testing. `npm run ci` does the whole sequence in one step.
 does the whole sequence in one step:
 
 ```bash

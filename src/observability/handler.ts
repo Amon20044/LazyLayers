@@ -35,10 +35,13 @@ export function createObservabilityHandler(
     const url = new URL(req.url ?? '/', 'http://localhost');
     const path = url.pathname;
 
-    const underRoute = path === base || path.startsWith(`${base}/`);
+    const isAlias = base === '/__lazylayers' && (path === '/observelazyily' || path.startsWith('/observelazyily/'));
+    const underRoute = path === base || path.startsWith(`${base}/`) || isAlias;
     if (!underRoute) {
       return false;
     }
+
+    const canonicalPath = isAlias ? path.replace(/^\/observelazyily/, base) : path;
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       sendJson(res, 405, { error: 'method not allowed' });
@@ -47,7 +50,7 @@ export function createObservabilityHandler(
 
     // Prometheus scrapers may be allowed through without UI credentials.
     const publicMetrics =
-      options.prometheus.enabled && options.prometheus.public && path === metricsPath;
+      options.prometheus.enabled && options.prometheus.public && canonicalPath === metricsPath;
 
     if (!publicMetrics && !isAuthorized(req, url, options)) {
       res.writeHead(401, {
@@ -58,7 +61,7 @@ export function createObservabilityHandler(
       return true;
     }
 
-    void route(path).catch((error) => {
+    void route(canonicalPath).catch((error) => {
       if (!res.headersSent) {
         sendJson(res, 500, { error: String(error) });
       }

@@ -132,7 +132,7 @@ export function autoTiers(): CompressionTier[] {
 }
 
 /**
- * Pick the codec for a payload. Falls back to gzip when a tier names something
+ * Pick the codec for a payload. Falls back to lz4 (or none) when a tier names something
  * this process cannot run, so a config written for one machine never throws on
  * another.
  */
