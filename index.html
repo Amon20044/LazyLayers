@@ -2511,41 +2511,46 @@ process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</spa
 
 <!-- COMPARISON -->
 <section id="api" style="margin-bottom:80px;">
-  <div class="section-label">vs. other libraries</div>
+  <div class="section-label">Why lazy-layers-cache</div>
   <div class="compare-wrapper">
   <table class="compare-table">
     <thead>
       <tr>
-        <th>Library</th>
-        <th>Best fit</th>
-        <th>What you trade</th>
+        <th>What you get</th>
+        <th>lazy-layers-cache</th>
+        <th>Others</th>
       </tr>
     </thead>
     <tbody>
       <tr class="highlight-row">
-        <td>lazy-layers-cache</td>
-        <td>Focused Node.js L1/L2 with size-tiered compression, explicit invalidation, stampede & fail-open</td>
-        <td>Early project · fewer drivers</td>
+        <td>Size-tiered compression</td>
+        <td>Automatic lz4/zstd selection by measurement. 76% storage savings. 3.2× faster serialization.</td>
+        <td>No built-in compression, or gzip-only with a 64 KB floor.</td>
       </tr>
-      <tr>
-        <td>BentoCache</td>
-        <td>Full-featured caching framework with broad driver support</td>
-        <td>Larger API surface · no size-tiered compression · more decisions</td>
+      <tr class="highlight-row">
+        <td>L1 priming via event bus</td>
+        <td>One loader call warms every peer's L1. No second loader call on any instance.</td>
+        <td>Invalidation only — every instance reloads independently.</td>
       </tr>
-      <tr>
-        <td>cache-manager</td>
-        <td>General cache abstraction layer</td>
-        <td>Less opinionated invalidation and resilience · no built-in compression</td>
+      <tr class="highlight-row">
+        <td>Fail-open by default</td>
+        <td>L2 down? Local L1 keeps serving. Circuit breakers, stale fallback, negative caching — all opt-out.</td>
+        <td>Fail-closed or require manual resilience wiring.</td>
       </tr>
-      <tr>
-        <td>Keyv</td>
-        <td>Simple key-value abstraction with storage adapters</td>
-        <td>Not a full cache orchestration layer · no event bus · no compression</td>
+      <tr class="highlight-row">
+        <td>Stampede protection</td>
+        <td>In-flight dedupe + optional distributed lock. Concurrent callers share one loader promise.</td>
+        <td>You build your own deduplication and locking.</td>
       </tr>
-      <tr>
-        <td>Direct Redis</td>
-        <td>Maximum control over every operation</td>
-        <td>You build stampede protection, invalidation, compression, and metrics yourself</td>
+      <tr class="highlight-row">
+        <td>Event bus choice</td>
+        <td>Redis PubSub, RabbitMQ durable, NATS core, NATS JetStream — all built-in, same interface.</td>
+        <td>One transport or bring your own adapter.</td>
+      </tr>
+      <tr class="highlight-row">
+        <td>TypeScript native</td>
+        <td>Generic <code>&lt;K, V&gt;</code> cache instances. ESM + CJS. Subpath imports.</td>
+        <td>Loose types or JavaScript-first with bolted-on .d.ts.</td>
       </tr>
     </tbody>
   </table>
