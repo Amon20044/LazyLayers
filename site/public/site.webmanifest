@@ -1,7 +1,7 @@
 {
   "name": "LazyLayers — hybrid L1/L2 cache",
   "short_name": "LazyLayers",
-  "description": "Cut Redis cache storage cost with MessagePack-based serialization.",
+  "description": "A TypeScript hybrid L1/L2 cache for Node.js with size-tiered compression, event-bus invalidation, and a live observability dashboard.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

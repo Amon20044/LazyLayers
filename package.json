@@ -100,10 +100,23 @@
     "opentelemetry",
     "telemetry",
     "diagnostics-channel",
-    "cache-dashboard"
+    "cache-dashboard",
+    "nats",
+    "jetstream",
+    "lz4",
+    "zstd",
+    "msgpack",
+    "stampede-protection",
+    "getOrSet",
+    "lazy-loading"
   ],
-  "author": "",
+  "author": "Amon20044",
   "license": "MIT",
+  "homepage": "https://lazy-layers-cache.vercel.app/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Amon20044/LazyLayers.git"
+  },
   "devDependencies": {
     "@types/node": "^26.2.0",
     "typescript": "^7.0.2"

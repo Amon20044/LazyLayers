@@ -8,6 +8,17 @@
     "dark": "#4338CA"
   },
   "favicon": "/docs/favicon.png",
+  "metadata": {
+    "title": "LazyLayers — Hybrid L1/L2 Cache for Node.js",
+    "description": "Documentation for lazy-layers-cache: a TypeScript hybrid L1/L2 cache with lazy loading, stampede protection, fail-open resilience, size-tiered compression (lz4, zstd), and distributed invalidation over Redis Pub/Sub, RabbitMQ, or NATS.",
+    "og:image": "https://lazy-layers-cache.vercel.app/og.png",
+    "og:title": "LazyLayers — Hybrid L1/L2 Cache for Node.js",
+    "og:description": "TypeScript cache with size-tiered compression, event-bus invalidation, and live observability dashboard.",
+    "twitter:card": "summary_large_image",
+    "twitter:title": "LazyLayers — Hybrid L1/L2 Cache for Node.js",
+    "twitter:description": "TypeScript cache with size-tiered compression, event-bus invalidation, and live observability dashboard.",
+    "twitter:image": "https://lazy-layers-cache.vercel.app/og.png"
+  },
   "navigation": {
     "pages": [
       {
