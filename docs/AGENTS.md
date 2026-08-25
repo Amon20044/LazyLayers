@@ -1,3 +1,25 @@
+# Writing for these docs
+
+> **`docs/CONTRACT.md` is the source of truth.** Read it before writing anything.
+> It carries the verified constants, the complete option surface, the exact bus
+> constructor signatures, and the accuracy rules. This file covers only the
+> conventions layered on top.
+
+## The three rules people get wrong
+
+1. **`getOrSet` everywhere.** `get` and `set` are documented only on
+   `docs/reference/api.mdx`. A plain `set` does not publish to the event bus, so
+   showing it elsewhere teaches the wrong habit.
+2. **JavaScript tab first, TypeScript second.** Every `<CodeGroup>`.
+3. **L1 has no configurable eviction policy.** It is LRU, with `maxEntries` and
+   `ttlMs` as the only dials. Never write "choose an eviction policy".
+
+## Production advice
+
+Tuning means changing numbers, not disabling safety. Never present
+`inflight: { enabled: false }`, `failSafe: { enabled: false }` or
+`broadcastSet: false` as production guidance.
+
 # Documentation project instructions
 
 ## About this project

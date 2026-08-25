@@ -1,196 +1,251 @@
 ---
 title: "NATS JetStream"
-description: "Run NATS with JetStream, give each instance a durable consumer, and get replay after a restart."
+description: "Durable invalidations with explicit acks, for when missing one is not acceptable."
+icon: "hard-drive"
 ---
 
-JetStream is persistence layered on the same NATS server. The subject and the client stay the same. What changes is that the server writes each invalidation to a stream and tracks, per instance, which messages that instance has acknowledged.
+JetStream is NATS with persistence bolted on. The stream keeps every invalidation for as long as you tell it to, and each server acknowledges what it has applied. A server that was down during a deploy gets the events it missed the moment it reconnects.
 
-That buys you three things core mode cannot give you:
-
-- **Durability.** An instance that is down while a key is deleted receives that invalidation when it comes back.
-- **Explicit acknowledgement.** A message is only considered delivered once your handler returns without throwing.
-- **Redelivery.** A handler that fails gets the message again rather than losing it.
-
-The cost is disk, a stream to size, and a per-instance identity you have to get right.
+That is the whole reason to pick it. You pay for it in broker state and in one piece of configuration you cannot get wrong.
 
 ## Run NATS with JetStream
 
-<Tabs>
-<Tab title="Docker">
+JetStream is off unless you ask for it.
+
+<CodeGroup>
+```bash docker
+docker run -p 4222:4222 nats:latest --jetstream
+```
+
+```bash cli
+nats-server --jetstream --store_dir /var/lib/nats
+```
+</CodeGroup>
+
+## Install
+
 ```bash
-docker run -d --name nats -p 4222:4222 nats:latest -js
-```
-</Tab>
-
-<Tab title="Binary">
-```bash
-nats-server -js
-```
-</Tab>
-
-<Tab title="Managed">
-| Provider | Notes |
-| --- | --- |
-| [Synadia Cloud](https://www.synadia.com/cloud) | From the creators of NATS, JetStream enabled by default |
-</Tab>
-</Tabs>
-
-<Warning>
-The `-js` flag is the thing people forget. Without it the server starts perfectly, accepts your connection, and then fails every stream operation — so the failure surfaces as a confusing error from `healthCheck()` rather than as a server that would not start. If `ok` is false and the error mentions JetStream not being enabled, this is why.
-</Warning>
-
-```bash .env
-NATS_URL="nats://localhost:4222"
+npm install @nats-io/transport-node @nats-io/jetstream
 ```
 
-## Connect
+<Note>
+  These are the modular v3 packages. The older single `nats` package is deprecated and is not what LazyLayers builds against.
+</Note>
 
-```ts
-import { NatsEventBus } from 'lazy-layers-cache';
+## Set it up
 
-const eventBus = new NatsEventBus({
+<CodeGroup>
+```js src/cache/bus.js
+import { NatsEventBus } from 'lazy-layers-cache'
+
+export const bus = new NatsEventBus({
   mode: 'jetstream',
-  subject: 'cache.invalidations',
-  connectionOptions: {
-    servers: process.env.NATS_URL,
-    name: process.env.INSTANCE_ID,
-  },
+  connectionOptions: { servers: process.env.NATS_URL },
+  subject: 'lazylayers.invalidate',
+
   jetstream: {
-    stream: 'CACHE_INVALIDATIONS',
-    durableName: `cache-${process.env.INSTANCE_ID}`,
+    stream: 'LAZYLAYERS',
+
+    // Unique per server. See the warning below, this one matters.
+    durableName: process.env.INSTANCE_ID,
+
+    // 'file' survives a broker restart. 'memory' does not.
     storage: 'file',
+
+    // An invalidation older than this is not worth replaying, because the
+    // value it refers to has already expired everywhere.
     maxAgeMs: 60 * 60 * 1000,
     maxMsgs: 100_000,
-    ackWaitMs: 30_000,
-    maxDeliver: 10,
+
+    // How long the broker waits for an ack before redelivering.
+    ackWaitMs: 5000,
+    maxDeliver: 3,
+
+    // Create the stream and consumer at startup if they do not exist.
     ensureStream: true,
     ensureConsumer: true,
   },
-  retryQueue: { enabled: true, maxSize: 10_000 },
-  logging: { env: 'production' },
-});
+})
 
-const health = await eventBus.healthCheck();
-if (!health.ok) throw new Error(`cache bus unhealthy: ${JSON.stringify(health)}`);
+await bus.connect()
 ```
 
-`healthCheck()` connects, creates the stream and the consumer if they are missing, and returns `{ ok: false, error }` rather than throwing. Run it before you accept traffic and a bad `durableName` or a server started without `-js` becomes a failed startup instead of a cache that silently never invalidates.
+```ts src/cache/bus.ts
+import { NatsEventBus } from 'lazy-layers-cache'
 
-The stream is created with `Limits` retention, which means acknowledging a message does not remove it. Messages leave the stream when they age out of `maxAgeMs` or push it past `maxMsgs`. This is what makes replay possible for an instance that was down, and it is why both limits are worth setting.
+export const bus = new NatsEventBus({
+  mode: 'jetstream',
+  connectionOptions: { servers: process.env.NATS_URL },
+  subject: 'lazylayers.invalidate',
 
-## durableName must be unique per instance
+  jetstream: {
+    stream: 'LAZYLAYERS',
+
+    // Unique per server. See the warning below, this one matters.
+    durableName: process.env.INSTANCE_ID,
+
+    // 'file' survives a broker restart. 'memory' does not.
+    storage: 'file',
+
+    // An invalidation older than this is not worth replaying, because the
+    // value it refers to has already expired everywhere.
+    maxAgeMs: 60 * 60 * 1000,
+    maxMsgs: 100_000,
+
+    // How long the broker waits for an ack before redelivering.
+    ackWaitMs: 5000,
+    maxDeliver: 3,
+
+    // Create the stream and consumer at startup if they do not exist.
+    ensureStream: true,
+    ensureConsumer: true,
+  },
+})
+
+await bus.connect()
+```
+</CodeGroup>
 
 <Warning>
-`durableName` names a server-side cursor. JetStream resumes delivery from wherever that cursor last acknowledged, and it delivers each message to **one** consumer of that name. Two instances sharing a `durableName` do not both get the invalidation — they split the stream between them and each one misses roughly half. The bus reports healthy the whole time, and you find out through stale reads.
+  **`durableName` must be unique per server.** A durable consumer is a queue group. Two servers sharing one name split the stream between them, so each invalidation is delivered to exactly one of them and the other keeps serving a stale value.
+
+  This fails quietly. Nothing errors, nothing logs, and your cache is simply wrong on half your fleet. Under Node clustering, every worker needs its own name too:
+
+  ```js
+  durableName: `${process.env.INSTANCE_ID}-${cluster.worker.id}`
+  ```
 </Warning>
 
-Derive it from the same identity you pass to `source`.
+## Wire it into the cache
 
-```ts
-durableName: `cache-${process.env.INSTANCE_ID}`,
+Identical to every other transport, which is the point of the interface.
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 60 * 1000 },
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+  l2: new RedisStore(redis, { prefix: 'app:cache:', deleteStrategy: 'unlink' }),
+  eventBus: bus,
+  source: process.env.INSTANCE_ID,
+  broadcastSetMaxBytes: 32 * 1024,
+})
 ```
 
-On Kubernetes, `$HOSTNAME` gives you the pod name. Names must be stable across restarts — that stability is the whole mechanism, because a new name is a new cursor that starts from the beginning of the stream.
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
 
-`durableName` has no default and is required in JetStream mode. `connect()` throws before it opens a connection if it is missing.
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 60 * 1000 },
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+  l2: new RedisStore<User>(redis, { prefix: 'app:cache:', deleteStrategy: 'unlink' }),
+  eventBus: bus,
+  source: process.env.INSTANCE_ID,
+  broadcastSetMaxBytes: 32 * 1024,
+}
 
-## JetStream options
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
 
-<ParamField path="jetstream.durableName" type="string" required>
-  Per-instance durable consumer identity. Required, and unique per instance.
-</ParamField>
+Reads and invalidations look the same as everywhere else:
 
-<ParamField path="jetstream.stream" type="string" default="CACHE_INVALIDATIONS">
-  Stream name. Shared by every instance, unlike `durableName`.
-</ParamField>
-
-<ParamField path="jetstream.storage" type="'file' | 'memory'" default="file">
-  File storage survives a NATS restart. Memory is faster and loses the stream with the server, which removes most of the reason to use JetStream.
-</ParamField>
-
-<ParamField path="jetstream.maxAgeMs" type="number">
-  Drop messages older than this. Unset means messages are only bounded by `maxMsgs`. Set it to the longest outage you want an instance to be able to catch up from.
-</ParamField>
-
-<ParamField path="jetstream.maxMsgs" type="number" default="-1">
-  Hard cap on stored messages. `-1` is unlimited, which on file storage means the stream grows until the disk does not.
-</ParamField>
-
-<ParamField path="jetstream.ackWaitMs" type="number" default="30000">
-  How long the server waits for an acknowledgement before redelivering the message.
-</ParamField>
-
-<ParamField path="jetstream.maxDeliver" type="number" default="10">
-  Maximum delivery attempts before the server stops redelivering a message.
-</ParamField>
-
-<ParamField path="jetstream.ensureStream" type="boolean" default="true">
-  Create the stream if it does not already exist.
-</ParamField>
-
-<ParamField path="jetstream.ensureConsumer" type="boolean" default="true">
-  Create the durable consumer if it does not already exist.
-</ParamField>
-
-Core-mode options — `subject`, `connectionOptions`, `connection`, `retryQueue` and `logging` — behave identically here and are documented on the [NATS Core](/docs/guides/buses/nats-core) page.
-
-## Letting the bus provision, or not
-
-With `ensureStream` and `ensureConsumer` left at `true`, the bus checks for the stream and the consumer on every `connect()` and creates whichever is missing. That is what you want in development and in most deployments — a fresh instance brings up its own consumer with no operational step.
-
-Set them to `false` when the stream and consumers are provisioned outside the application, by Terraform, a NATS CLI script, or your platform team. Two reasons to do that:
-
-- The application's credentials do not include stream management permissions, so the create call fails and takes startup down with it.
-- Your stream configuration is owned elsewhere and must not drift. An existing stream is never modified — the bus creates a stream only when it finds none — but turning the flags off removes the ambiguity entirely.
-
-With `ensureConsumer: false`, the consumer named by `durableName` must already exist. If it does not, `connect()` fails when it tries to bind.
-
-## The ack model
-
-The bus consumes a message, decodes it, runs your handler, and acknowledges only after the handler returns. Nothing is acknowledged in advance.
-
-Three outcomes:
-
-| Outcome | What the bus does | What the server does |
-| --- | --- | --- |
-| Handler returns | Acknowledges the message | Advances the cursor |
-| Handler throws | Negatively acknowledges | Redelivers immediately |
-| Message does not decode | Terminates the message | Never redelivers it |
-
-A handler that throws every time is a poison message. It is redelivered up to `maxDeliver` times and then the server stops, leaving it in the stream until retention removes it. With the default of 10 that costs you ten runs of a failing handler, which is why `maxDeliver` exists as a bound rather than being unlimited.
-
-`ackWaitMs` is a timeout on your handler, not just on the network. If a handler takes longer than `ackWaitMs` to return, the server assumes the delivery failed and sends the message again while the first attempt is still running. Invalidation handlers are normally fast enough that 30 seconds is generous, but if yours does anything slow, raise `ackWaitMs` rather than discovering duplicate deliveries.
-
-A message with a corrupt or unrecognised payload is terminated rather than negatively acknowledged, because redelivering it would fail identically ten more times.
-
-## Verify it works
-
-The point of JetStream is what happens across a restart, so test that rather than the happy path.
-
-<Steps>
-<Step title="Start two instances">
-Confirm normal fanout first. Delete a key on instance A and watch instance B log `invalidation:received`. If this does not work, durability is not your problem.
-</Step>
-
-<Step title="Stop instance B">
-Shut it down properly so `disconnect()` runs. Its consumer stays on the server with its cursor where it left off.
-</Step>
-
-<Step title="Delete keys on instance A">
-Delete several keys while B is down. Each publish goes into the stream.
-</Step>
-
-<Step title="Check the backlog">
-```bash
-nats consumer info CACHE_INVALIDATIONS cache-instance-b
+```js
+const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id))
+await cache.delete(`user:${id}`)
 ```
 
-`Unprocessed Messages` should equal the number of invalidations you published while B was down.
-</Step>
+## Share a connection you already have
 
-<Step title="Start instance B again">
-It logs an `invalidation:received` for each missed delete within a moment of connecting, and the unprocessed count drops to zero. That catch-up is the behaviour core mode and Redis Pub/Sub cannot give you.
-</Step>
-</Steps>
+If NATS is already in your process, hand the connection over instead of opening a second one. LazyLayers will not close a connection it did not create.
 
-If B comes back and receives nothing, the usual cause is a `durableName` that changed with the restart. A generated or hostname-derived name that differs from the previous run is a new consumer, and a new consumer has no record of what the old one missed.
+```js
+import { connect } from '@nats-io/transport-node'
+import { NatsEventBus } from 'lazy-layers-cache'
+
+const connection = await connect({ servers: process.env.NATS_URL })
+
+export const bus = new NatsEventBus({
+  mode: 'jetstream',
+  connection,
+  subject: 'lazylayers.invalidate',
+  jetstream: { stream: 'LAZYLAYERS', durableName: process.env.INSTANCE_ID },
+})
+```
+
+## Every option
+
+| Option | Type | Default | What it does |
+|---|---|---|---|
+| `mode` | `'core' \| 'jetstream'` | `'core'` | Must be `'jetstream'` here |
+| `connection` | `NatsConnection` | none | Reuse an existing connection |
+| `connectionOptions` | `NodeConnectionOptions` | none | Used when `connection` is absent |
+| `subject` | `string` | see source | Subject invalidations publish to |
+| `retryQueue` | `{ enabled?, maxSize? }` | disabled | Buffers failed publishes |
+| `jetstream.stream` | `string` | see source | Stream name |
+| `jetstream.durableName` | `string` | none | **Unique per server** |
+| `jetstream.storage` | `'file' \| 'memory'` | see source | `file` survives broker restart |
+| `jetstream.maxAgeMs` | `number` | none | Age limit for retained events |
+| `jetstream.maxMsgs` | `number` | none | Message count limit |
+| `jetstream.ackWaitMs` | `number` | none | Wait before redelivering |
+| `jetstream.maxDeliver` | `number` | none | Redelivery attempts before giving up |
+| `jetstream.ensureStream` | `boolean` | see source | Create the stream at startup |
+| `jetstream.ensureConsumer` | `boolean` | see source | Create the consumer at startup |
+
+## Failure modes
+
+**The broker is unreachable at startup.** `connect()` rejects. Decide deliberately whether that should stop your process from booting. A cache that works without a bus is still a cache, just one with a TTL-sized staleness window.
+
+**The broker dies while running.** Publishes fail and the cache fails open. Invalidations for that window are lost unless the retry queue holds them, and peers stay stale until their L1 TTL expires.
+
+**A server is down during a deploy.** This is the case JetStream exists for. The stream holds the events and redelivers them on reconnect, up to `maxAgeMs` and `maxMsgs`.
+
+**Redelivery after a slow handler.** If a handler takes longer than `ackWaitMs`, the broker redelivers. Event dedupe by ID absorbs this, so a duplicate is applied once. Generation counters stop a redelivered older event from undoing a newer one.
+
+<Warning>
+  The event bus circuit breaker and the retry queue do not compose. When the breaker is open, `publishInvalidation` returns before it reaches `eventBus.publish`, so the retry queue never sees the event and cannot buffer it. Events dropped while the breaker is open are gone.
+</Warning>
+
+## Operational notes
+
+**Stream sizing.** Bound the stream with both `maxAgeMs` and `maxMsgs`. An invalidation from an hour ago is worthless if your TTLs are measured in minutes, and an unbounded stream is a disk that fills up on a quiet Sunday.
+
+**Consumer cleanup.** Every unique `durableName` leaves a consumer behind on the broker. If your names include an instance ID that changes on every deploy, you will accumulate dead consumers. Either reuse stable names per server slot, or prune them on a schedule.
+
+**File storage costs latency.** `storage: 'file'` writes to disk before acknowledging. That is the price of durability. If your invalidations are advisory rather than critical, NATS Core is faster and simpler.
+
+## When to choose it
+
+Pick JetStream when a missed invalidation is a correctness problem rather than an annoyance: permissions, billing state, feature flags that gate access, anything where serving a stale value for a full TTL is unacceptable.
+
+Stay on NATS Core or Redis when a missed invalidation just means one server reloads a key sooner than it otherwise would. Most caches are in this category, and durability you do not need is only overhead.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="NATS Core" icon="share-nodes" href="/docs/guides/buses/nats-core">
+    The same client without the stream, when at-most-once is enough.
+  </Card>
+  <Card title="Event ordering" icon="clock-rotate-left" href="/docs/architecture/event-ordering">
+    Why a redelivered event cannot resurrect something you deleted.
+  </Card>
+  <Card title="Production checklist" icon="clipboard-check" href="/docs/setups/production">
+    Unique source values, clustering, and sizing.
+  </Card>
+  <Card title="Bus reference" icon="book" href="/docs/reference/event-buses">
+    Every option of every transport in one table.
+  </Card>
+</CardGroup>

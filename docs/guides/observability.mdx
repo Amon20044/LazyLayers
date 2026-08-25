@@ -1,107 +1,344 @@
 ---
 title: "Observe the cache"
-description: "Turn on the dashboard, expose Prometheus metrics, and stream cache events to your APM."
+description: "Stream cache events, run the dashboard, and expose Prometheus metrics without blowing up your cardinality."
 ---
 
-Three ways to see what the cache is doing, from most to least interactive.
+A cache you cannot measure is a cache you cannot tune. Worse, it is a cache you cannot debug, because every symptom looks the same from outside: the response was slow, or the response was wrong, and nothing in your application code says which layer decided that.
 
-## Cache events
+Three ways to see inside, from cheapest to most interactive.
 
-The cheapest and always available. Subscribe with `on`, which returns an unsubscribe function.
+## The event stream
 
-```ts
+Everything the cache does emits an event, and `cache.on()` is how you receive them. It costs nothing when nobody subscribes and it is always available, with no configuration and no extra process.
+
+`on` returns an unsubscribe function. Call it on shutdown, or in tests, so handlers do not accumulate.
+
+<CodeGroup>
+```js src/cache/metrics.js
+import { cache } from './index.js'
+
 const off = cache.on((event) => {
-  if (event.type === 'hit') metrics.increment('cache.hit', { level: event.level });
-  if (event.type === 'miss') metrics.increment('cache.miss', { level: event.level });
-});
+  switch (event.type) {
+    case 'hit':
+      // level is 'L1' or 'L2'. That distinction is the whole point of two layers.
+      metrics.increment('cache.hit', { level: event.level })
+      break
+    case 'miss':
+      // level is 'L1', 'L2' or 'negative'.
+      metrics.increment('cache.miss', { level: event.level })
+      break
+    case 'loader:success':
+      metrics.timing('cache.loader.duration', event.durationMs)
+      break
+    case 'inflight:reuse':
+      metrics.increment('cache.inflight.reuse')
+      break
+    case 'set:received':
+      // A peer's broadcast warmed this server's L1 for free.
+      metrics.increment('cache.set.received')
+      break
+  }
+})
+
+process.on('SIGTERM', () => off())
 ```
 
-Events carry the key. If you forward them to a metrics backend, use the level or type as the label and leave the key out, or you will create one time series per cache key.
+```ts src/cache/metrics.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+import { cache } from './index.js'
+
+const off = cache.on((event: CacheEvent) => {
+  switch (event.type) {
+    case 'hit':
+      // level is 'L1' or 'L2'. That distinction is the whole point of two layers.
+      metrics.increment('cache.hit', { level: event.level })
+      break
+    case 'miss':
+      // level is 'L1', 'L2' or 'negative'.
+      metrics.increment('cache.miss', { level: event.level })
+      break
+    case 'loader:success':
+      metrics.timing('cache.loader.duration', event.durationMs)
+      break
+    case 'inflight:reuse':
+      metrics.increment('cache.inflight.reuse')
+      break
+    case 'set:received':
+      // A peer's broadcast warmed this server's L1 for free.
+      metrics.increment('cache.set.received')
+      break
+  }
+})
+
+process.on('SIGTERM', () => off())
+```
+</CodeGroup>
+
+<Warning>
+  **Never use a cache key as a metric label.** Events carry `event.key`, and forwarding it to a metrics backend creates one time series per distinct key. Your keyspace is unbounded by design, so that label is unbounded too, and a cardinality explosion will take down your metrics backend long before it takes down your cache. Label with `level`, `kind`, `result`, or `reason`. Put the key in a log line if you need it, never in a label.
+</Warning>
+
+The four numbers worth deriving from this stream first are your hit ratio, your L1 to L2 hit split, your loader duration distribution, and your in-flight reuse count. Together they tell you whether L1 is sized right, whether L2 is earning its network hop, and whether herds are collapsing.
 
 ## The dashboard
 
-Opt-in, and off by default so it costs nothing when unused.
+A live view of counters, an L1 and L2 key explorer with per-key serialized versus decoded sizes, an event feed over server sent events, and the resolved configuration.
 
-```ts
-const cache = new LazyLayersCache({
-  l2,
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+  l2: new RedisStore(redis, { prefix: 'app:cache:' }),
+
   observability: true,
-});
+})
 ```
 
-That starts a standalone server on `127.0.0.1:7077` and serves the dashboard at `/observelazyily`, with basic auth credentials `lazydev` / `lazydev`.
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
 
-It shows live counters, an L1 and L2 key explorer with per-key serialized-versus-decoded sizes, a live event feed over SSE, and the resolved configuration.
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+  l2: new RedisStore<User>(redis, { prefix: 'app:cache:' }),
+
+  observability: true,
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+That starts a standalone server bound to `127.0.0.1` on port `7077` and serves the dashboard at `/observelazyily`, behind basic auth with the default credentials `lazydev` and `lazydev`. So the URL you open is:
+
+```txt
+http://127.0.0.1:7077/observelazyily
+```
+
+Turning it on prints a one time warning to `console.warn`, deliberately outside the gated logger, because production is exactly where you do not want this left running.
 
 <Warning>
-The default credentials are `lazydev` / `lazydev` and the default bind is localhost. This is a development and staging tool. Do not expose it publicly without changing the credentials, and prefer mounting it behind your own authentication.
+  This is a development and staging tool. It exposes cache contents and live activity, it ships with well known default credentials, and it binds to localhost precisely so that forgetting about it is not immediately fatal. Do not expose it publicly. In production, prefer the event stream and Prometheus, and if you must have the dashboard, mount it behind your own authentication.
 </Warning>
 
 ### Configuring it
 
-```ts
-const cache = new LazyLayersCache({
-  l2,
+<CodeGroup>
+```js src/cache/index.js
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+  l2: new RedisStore(redis, { prefix: 'app:cache:' }),
+
   observability: {
+    enabled: true,
     route: '/internal/cache',
+    // Ring buffer for the live feed. Held in memory, never written to Redis or disk.
     maxEvents: 5_000,
+    // Decoded values larger than this are truncated in the UI.
     maxValueBytes: 64 * 1024,
-    auth: { username: 'ops', password: process.env.CACHE_DASH_PASSWORD },
+    auth: {
+      username: 'ops',
+      password: process.env.CACHE_DASH_PASSWORD,
+    },
     server: { host: '127.0.0.1', port: 7077 },
+    // Silence the one-time startup notice once you have read it.
     quiet: true,
   },
-});
+})
 ```
 
-The event feed is an in-memory ring buffer bounded by `maxEvents`. It is never written to Redis or disk.
+```ts src/cache/index.ts
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+  l2: new RedisStore<User>(redis, { prefix: 'app:cache:' }),
+
+  observability: {
+    enabled: true,
+    route: '/internal/cache',
+    // Ring buffer for the live feed. Held in memory, never written to Redis or disk.
+    maxEvents: 5_000,
+    // Decoded values larger than this are truncated in the UI.
+    maxValueBytes: 64 * 1024,
+    auth: {
+      username: 'ops',
+      password: process.env.CACHE_DASH_PASSWORD,
+    },
+    server: { host: '127.0.0.1', port: 7077 },
+    // Silence the one-time startup notice once you have read it.
+    quiet: true,
+  },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+### Credentials from the environment
+
+Every dashboard setting also reads an environment variable, so you can run it in staging without a code change. Precedence is option, then environment variable, then default.
+
+```bash .env.staging
+LAZY_OBS_ENABLED=1
+LAZY_OBS_ROUTE=/internal/cache
+LAZY_OBS_HOST=127.0.0.1
+LAZY_OBS_PORT=7077
+LAZY_OBS_USER=ops
+LAZY_OBS_PASSWORD=$CACHE_DASH_PASSWORD
+LAZY_OBS_MAX_EVENTS=5000
+LAZY_OBS_QUIET=1
+```
+
+<Warning>
+  The username variable is **`LAZY_OBS_USER`**. It is not `LAZY_OBS_USERNAME`. The code option is `auth.username`, so the two names differ on purpose, and setting the wrong variable leaves you on the default `lazydev` account without any error to tell you so.
+</Warning>
+
+The rest of the surface, including `LAZY_OBS_TOKEN`, `LAZY_OBS_NO_SERVER`, and `LAZY_OBS_MAX_VALUE_BYTES`, is in the [environment variables reference](/docs/reference/environment-variables#observability).
 
 ### Mounting it in your own server
 
-Set `server: false` and mount the handler on a route you already authenticate.
+Set `server: false` and mount the handler on a route your own middleware already protects. This is the only shape worth considering outside development, because it inherits your real authentication rather than adding a second, weaker one.
 
-```ts
-const cache = new LazyLayersCache({
-  l2,
-  observability: { server: false, route: '/internal/cache' },
-});
+<CodeGroup>
+```js src/server.js
+import express from 'express'
+import { cache } from './cache/index.js'
+import { requireAdmin } from './auth.js'
 
-const handler = cache.getObservabilityHandler();
+const app = express()
+const handler = cache.getObservabilityHandler()
 
-app.use('/internal/cache', requireAdmin, (req, res) => handler?.(req, res));
+app.use('/internal/cache', requireAdmin, (req, res, next) => {
+  // The handler returns true when it answered the request.
+  if (!handler?.(req, res)) next()
+})
+
+process.on('SIGTERM', async () => {
+  await cache.closeObservability()
+})
 ```
 
-Close it on shutdown with `await cache.closeObservability()`.
+```ts src/server.ts
+import express from 'express'
+import { cache } from './cache/index.js'
+import { requireAdmin } from './auth.js'
+
+const app = express()
+const handler = cache.getObservabilityHandler()
+
+app.use('/internal/cache', requireAdmin, (req, res, next) => {
+  // The handler returns true when it answered the request.
+  if (!handler?.(req, res)) next()
+})
+
+process.on('SIGTERM', async () => {
+  await cache.closeObservability()
+})
+```
+</CodeGroup>
+
+`getObservabilityHandler` returns `undefined` when observability is off, which is why the call is optional chained.
 
 ## Prometheus
 
-```ts
-const cache = new LazyLayersCache({
-  l2,
+The dashboard is for a human looking at one process. Prometheus is for the fleet.
+
+<CodeGroup>
+```js src/cache/index.js
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+  l2: new RedisStore(redis, { prefix: 'app:cache:' }),
+
   observability: {
-    prometheus: true,
+    enabled: true,
+    route: '/internal/cache',
     auth: { username: 'ops', password: process.env.CACHE_DASH_PASSWORD },
+    prometheus: {
+      enabled: true,
+      prefix: 'lazycache',
+    },
   },
-});
+})
 ```
 
-Metrics are served at `{route}/metrics`. Series are labelled by level, kind and result only, never by cache key, which keeps cardinality bounded.
+```ts src/cache/index.ts
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+  l2: new RedisStore<User>(redis, { prefix: 'app:cache:' }),
 
-If your scraper cannot authenticate, set `prometheus: { public: true }` to leave the metrics endpoint unauthenticated while the dashboard stays protected.
+  observability: {
+    enabled: true,
+    route: '/internal/cache',
+    auth: { username: 'ops', password: process.env.CACHE_DASH_PASSWORD },
+    prometheus: {
+      enabled: true,
+      prefix: 'lazycache',
+    },
+  },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+Metrics are exposed at `{route}/metrics`, so with the route above that is `/internal/cache/metrics`. The prefix defaults to `lazycache`.
+
+| Metric | Type | Labels |
+| --- | --- | --- |
+| `lazycache_hits_total` | counter | `level` = `l1`, `l2` |
+| `lazycache_misses_total` | counter | `level` = `l1`, `l2`, `negative` |
+| `lazycache_loader_total` | counter | `result` = `success`, `error`, `timeout` |
+| `lazycache_inflight_total` | counter | `kind` = `reuse`, `bypass` |
+| `lazycache_l2_total` | counter | `kind` = `error`, `skipped` |
+| `lazycache_eventbus_total` | counter | `kind` = `publish_error`, `publish_skipped`, `received`, `duplicate`, `stale` |
+| `lazycache_set_broadcast_total` | counter | `kind` = `sent`, `skipped`, `received` |
+| `lazycache_stale_hits_total` | counter | none |
+| `lazycache_hit_ratio` | gauge | none |
+| `lazycache_l1_entries` | gauge | none |
+
+Every series is labelled by `level`, `kind`, or `result` only. No exported metric carries a cache key, which is what keeps the cardinality of this endpoint fixed no matter how many keys you cache.
+
+If your scraper cannot present basic auth, `prometheus: { public: true }` leaves the metrics endpoint unauthenticated while the dashboard itself stays behind credentials. Reach for that only when the endpoint is already inside a network your scraper and nothing else can reach.
 
 ## OpenTelemetry and APM
 
-Raw events are published to a `node:diagnostics_channel` named `lazycache:cache:event`.
+Raw events are published to a `node:diagnostics_channel` named `lazycache:cache:event`, which is the seam to attach a tracer to.
 
-```ts
-import { subscribeTelemetry } from 'lazy-layers-cache';
+<CodeGroup>
+```js src/cache/telemetry.js
+import { subscribeTelemetry } from 'lazy-layers-cache'
 
 const unsubscribe = subscribeTelemetry((event) => {
-  span.addEvent(event.type, { key: String(event.key ?? '') });
-});
+  // Span attributes, not metric labels. A span attribute may carry the key.
+  span.addEvent(event.type, { 'cache.level': String(event.level ?? '') })
+})
 ```
 
-The publish path is guarded by a `hasSubscribers` check, so with nothing attached it costs a single boolean test on the hot path.
+```ts src/cache/telemetry.ts
+import { subscribeTelemetry, type CacheEvent } from 'lazy-layers-cache'
 
-## Configuring by environment
+const unsubscribe = subscribeTelemetry((event: CacheEvent) => {
+  // Span attributes, not metric labels. A span attribute may carry the key.
+  span.addEvent(event.type, { 'cache.level': String(event.level ?? '') })
+})
+```
+</CodeGroup>
 
-Every dashboard setting has an environment variable, which is useful when you want it on in staging and off in production without changing code. Precedence is option, then environment, then default. See [environment variables](/docs/reference/environment-variables).
+The publish path is guarded by a `hasSubscribers` check, so with nothing attached it costs one boolean test on the hot path.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Cache events" icon="list" href="/docs/reference/cache-events">
+    Every event type and its exact payload, which is what these handlers switch on.
+  </Card>
+  <Card title="Environment variables" icon="terminal" href="/docs/reference/environment-variables#observability">
+    The full `LAZY_OBS_*` surface, with defaults, for configuring staging without a deploy.
+  </Card>
+  <Card title="Production checklist" icon="clipboard-check" href="/docs/setups/production#what-to-alert-on">
+    Which of these numbers deserves a page, and which is just a graph.
+  </Card>
+</CardGroup>

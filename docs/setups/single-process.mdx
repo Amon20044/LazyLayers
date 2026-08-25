@@ -1,90 +1,316 @@
 ---
 title: "Single process"
-description: "A recommended L1-only configuration for one instance, with TTL guidance."
+description: "L1 only, no Redis and no event bus. The smallest configuration that is still worth having."
 ---
 
-Use this when you run one process, or when each process may hold its own view of the data. No Redis, no broker.
+One process, one cache, nothing to operate. No Redis, no broker, no event bus.
 
-## Recommended configuration
+This is the right setup when exactly one process reads and writes the data, or when each process is allowed to hold its own view of it for a bounded window.
 
-```ts
-import { LazyLayersCache } from 'lazy-layers-cache';
+## What you get for free
 
-export const cache = new LazyLayersCache<string, User>({
-  l2: false,                                    // explicit: no shared tier
-  ttlMs: 60_000,
+You are not switching any of this on. It is already running.
+
+<Columns cols={2}>
+  <Card title="In-flight dedupe" icon="layer-group">
+    A thousand concurrent callers for one cold key produce **one** loader call. The rest wait on the same promise.
+  </Card>
+  <Card title="An L1 cache" icon="bolt">
+    Created for you when you do not pass `l1`. It is an LRU with two dials and nothing else to decide.
+  </Card>
+</Columns>
+
+## The whole setup
+
+There is no `src/cache/redis.js` and no `src/cache/bus.js` here. Those two files exist only once you have infrastructure to talk to. You write one file.
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache } from 'lazy-layers-cache'
+
+export const cache = new LazyLayersCache({
+  // Explicit, so the next reader knows the shared tier is off on purpose
+  // rather than forgotten.
+  l2: false,
+
+  // Fallback lifetime for anything that does not set its own.
+  ttlMs: 60 * 1000,
+
   levels: {
-    L1: { maxEntries: 10_000, ttlMs: 30_000 },
+    // The only two dials L1 has. How many entries it holds, and how long
+    // each one lives.
+    L1: { maxEntries: 10_000, ttlMs: 30 * 1000 },
   },
-  inflight: { enabled: true, ttlMs: 5_000 },
-  negativeCache: { enabled: true, ttlMs: 5_000, maxEntries: 10_000 },
-  logging: { env: process.env.NODE_ENV === 'production' ? 'production' : 'development' },
-});
+
+  // Remember "this does not exist" briefly, so a missing row is not a free
+  // pass to hammer the database.
+  negativeCache: { ttlMs: 10 * 1000, maxEntries: 5_000 },
+
+  // Give up on a loader that has stopped making progress.
+  timeouts: { softMs: 800, hardMs: 5000 },
+
+  // Serve the last known value while the origin is down.
+  failSafe: { enabled: true, staleTtlMs: 30 * 1000 },
+})
 ```
 
-Writing `l2: false` rather than leaving it out is worth the keystrokes. It says the shared tier is off on purpose, which stops the next person wondering whether it was forgotten.
+```ts src/cache/index.ts
+import { LazyLayersCache, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
 
-## Why these values
+// Naming the options type checks the whole config in one place, and makes
+// getOrSet return User | undefined instead of unknown.
+const options: LazyLayersCacheOptions<string, User> = {
+  // Explicit, so the next reader knows the shared tier is off on purpose
+  // rather than forgotten.
+  l2: false,
+
+  // Fallback lifetime for anything that does not set its own.
+  ttlMs: 60 * 1000,
+
+  levels: {
+    // The only two dials L1 has. How many entries it holds, and how long
+    // each one lives.
+    L1: { maxEntries: 10_000, ttlMs: 30 * 1000 },
+  },
+
+  // Remember "this does not exist" briefly, so a missing row is not a free
+  // pass to hammer the database.
+  negativeCache: { ttlMs: 10 * 1000, maxEntries: 5_000 },
+
+  // Give up on a loader that has stopped making progress.
+  timeouts: { softMs: 800, hardMs: 5000 },
+
+  // Serve the last known value while the origin is down.
+  failSafe: { enabled: true, staleTtlMs: 30 * 1000 },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+TypeScript users also want the value type in its own file, exactly as the quickstart lays it out.
+
+```ts src/types/user.ts
+export interface User {
+  id: string
+  email: string
+  plan: 'free' | 'pro' | 'enterprise'
+  updatedAt: string
+}
+```
+
+## Reading through it
+
+`getOrSet` is the whole API surface you need. It checks L1 and then runs your loader.
+
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined   // undefined records a negative entry
+  })
+}
+
+export async function updateUser(id, patch) {
+  const updated = await db.users.update(id, patch)
+
+  // After the write commits, never before. Until it commits the cached
+  // value is still the truth.
+  await cache.delete(`user:${id}`)
+
+  return updated
+}
+```
+
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+import { db } from '../db.js'
+
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined   // undefined records a negative entry
+  })
+}
+
+export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
+  const updated = await db.users.update(id, patch)
+
+  // After the write commits, never before. Until it commits the cached
+  // value is still the truth.
+  await cache.delete(`user:${id}`)
+
+  return updated
+}
+```
+</CodeGroup>
+
+The loader receives an `AbortSignal` that your `timeouts` actually fire. Pass it to your I/O or the timeout only stops the waiting, not the work.
+
+## Why these numbers
 
 <ParamField path="levels.L1.maxEntries" type="10_000">
-  The default is 1,000, which is low for most services. Entries are live objects, so the real cost is your average value size times this number. Start at 10,000 and raise it if your hit rate is poor and you have the headroom.
+  The default is 1,000, which is low for most services. Entries are live objects in your heap, so the real cost is your average value size times this number. Start here and raise it if your hit rate is poor and you have the headroom.
 </ParamField>
 
 <ParamField path="levels.L1.ttlMs" type="30_000">
-  Short, because with one layer this is your only staleness control. Thirty seconds bounds how wrong a cached value can be.
+  With one layer and no bus, this is your only staleness control. Thirty seconds bounds how wrong a cached value can be for anyone who is not the process that wrote it.
 </ParamField>
 
-<ParamField path="inflight.ttlMs" type="5_000">
-  Set it above your slowest normal loader and below your request timeout. A loader still running past this stops being joined by new callers.
-</ParamField>
-
-<ParamField path="negativeCache.ttlMs" type="5_000">
+<ParamField path="negativeCache.ttlMs" type="10_000">
   Short on purpose. This is the window in which a newly created record still looks absent.
+</ParamField>
+
+<ParamField path="failSafe.staleTtlMs" type="30_000">
+  How long a value stays servable after its TTL, for use when the loader fails or times out. Longer than this and a broken origin looks like a working one for too long.
 </ParamField>
 
 ## Choosing a TTL
 
-The question is not "how long can I cache this" but "how wrong can this be before someone notices".
+The question is not how long you can cache something. It is how wrong it can be before someone notices.
 
 | Data | Suggested TTL | Reasoning |
 | --- | --- | --- |
-| Reference data (countries, currencies) | Hours | Changes rarely, and a stale value is harmless |
-| User profiles | 30–60s | Visible to the user who edited it, so keep it tight |
-| Permissions and entitlements | Do not cache, or seconds | Stale means wrong access |
-| Aggregates and counters | 10–60s | Approximate by nature |
+| Reference data such as countries and currencies | Hours | Changes rarely, and a stale value is harmless |
+| User profiles | 30 to 60 seconds | Visible to the person who just edited it, so keep it tight |
+| Permissions and entitlements | Do not cache, or a few seconds | Stale means wrong access |
+| Aggregates and counters | 10 to 60 seconds | Approximate by nature |
 | Product catalogue | Minutes | Editors expect a short delay |
-| Session lookups | Match session lifetime | Invalidate explicitly on logout |
-
-<Warning>
-Without an event bus, a delete only affects the process that made it. If two processes share a database, the second keeps serving its own L1 until the entry expires. That is the point at which you want [multi-instance](/docs/setups/multi-instance).
-</Warning>
+| Session lookups | Match the session lifetime | Invalidate explicitly on logout |
 
 ## Sizing L1
 
-`maxEntries` counts entries, not bytes. To reason about memory, multiply by your typical value size and add object overhead.
+`maxEntries` counts entries, not bytes. L1 is an LRU and that is not configurable, so the only thing you decide is how many entries fit in your heap.
 
-```ts
-// 10,000 entries × roughly 2 KB per user object ≈ 20 MB
-levels: { L1: { maxEntries: 10_000 } }
-```
+Multiply the entry count by a typical decoded value size. A decoded JavaScript object usually costs more heap than its JSON byte length, so budget roughly twice the wire size plus per-entry bookkeeping.
 
-If you cache values of wildly different sizes, either cap the large ones with a separate cache instance or keep `maxEntries` conservative.
+| Typical value | Wire size | Budget per entry | 10,000 entries |
+| --- | --- | --- | --- |
+| Session or feature flag | ~200 B | ~800 B | ~8 MB |
+| User record | ~2 KB | ~6 KB | ~60 MB |
+| Rendered list page | ~20 KB | ~56 KB | ~560 MB |
+
+<Note>
+  These are estimates, not measurements. There is no byte-based limit on L1, so one unexpectedly large value can blow past your estimate. If your values vary wildly in size, keep `maxEntries` conservative or give the large ones their own cache instance.
+</Note>
 
 ## Measuring it
 
-```ts
-let hits = 0, misses = 0;
+A cache you cannot measure is a cache you cannot tune.
+
+<CodeGroup>
+```js src/cache/metrics.js
+import { cache } from './index.js'
+
+let hits = 0
+let misses = 0
 
 cache.on((event) => {
-  if (event.type === 'hit') hits++;
-  if (event.type === 'miss' && event.level === 'L1') misses++;
-});
+  if (event.type === 'hit') hits++
+  if (event.type === 'miss') misses++
+})
 
 setInterval(() => {
-  const rate = hits / (hits + misses || 1);
-  metrics.gauge('cache.hit_rate', rate);
-  hits = 0; misses = 0;
-}, 10_000);
+  const total = hits + misses
+  if (total > 0) {
+    console.log(`hit rate ${((hits / total) * 100).toFixed(1)}%`)
+  }
+  hits = 0
+  misses = 0
+}, 60_000)
 ```
 
-A hit rate below roughly 0.5 usually means one of three things: `maxEntries` is too small and you are evicting hot keys, the TTL is shorter than your traffic pattern, or the keyspace is genuinely too wide to cache.
+```ts src/cache/metrics.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+import { cache } from './index.js'
+
+let hits = 0
+let misses = 0
+
+cache.on((event: CacheEvent) => {
+  if (event.type === 'hit') hits++
+  if (event.type === 'miss') misses++
+})
+
+setInterval(() => {
+  const total = hits + misses
+  if (total > 0) {
+    console.log(`hit rate ${((hits / total) * 100).toFixed(1)}%`)
+  }
+  hits = 0
+  misses = 0
+}, 60_000)
+```
+</CodeGroup>
+
+A hit rate below roughly 50% usually means one of three things. `maxEntries` is too small and you are evicting hot keys, the TTL is shorter than your traffic pattern, or the keyspace is genuinely too wide to cache.
+
+<Warning>
+  Never use a cache key as a metric label. Keys are unbounded, and one high-cardinality label will take down your metrics backend before it takes down your cache.
+</Warning>
+
+## What you give up
+
+Everything on this page costs you nothing to run, and here is the bill.
+
+<AccordionGroup>
+<Accordion title="A restart starts cold">
+  L1 lives in the process heap. A deploy, a crash or a scale-in event throws away every entry, and the next wave of traffic goes straight to your origin. In-flight dedupe still collapses concurrent callers for the same key, so the herd is one request per key rather than one per caller, but it is still a cold start for every key.
+</Accordion>
+
+<Accordion title="A delete is local only">
+  `cache.delete` drops the key from this process. With no event bus there is nobody to tell. If a second process exists and shares the database, it keeps serving its own copy until that entry's TTL runs out.
+</Accordion>
+
+<Accordion title="No lazy fan-out">
+  With an event bus, a resolved `getOrSet` publishes the loaded value so every peer warms its own L1 for free. One server pays for the query and the rest do not. With a single process there is no fan-out, so every key costs one loader call per process.
+</Accordion>
+
+<Accordion title="No shared tier to absorb misses">
+  L1 is the only layer. Every miss and every eviction lands on your origin directly, with nothing in between.
+</Accordion>
+</AccordionGroup>
+
+## When you have outgrown it
+
+Move on when any one of these is true.
+
+<Steps>
+<Step title="You run more than one process against the same data">
+Two processes with independent L1s will disagree, and the length of the disagreement is your L1 TTL. This includes running under a process manager or Node.js clustering, because every worker is a separate process with its own heap and its own L1.
+</Step>
+
+<Step title="Your L1 TTL has to be shorter than your traffic can afford">
+If you are shrinking `ttlMs` to control staleness and watching your origin load climb, you need event-driven invalidation instead of expiry. That is the bus.
+</Step>
+
+<Step title="Cold starts are visible to users">
+If deploy time correlates with a latency spike or a database load spike, you need a tier that survives the restart. That is L2.
+</Step>
+
+<Step title="One key is expensive enough that duplicating the work across processes matters">
+Per-process dedupe stops N callers becoming N queries. It does not stop N processes becoming N queries. Fan-out over the bus does.
+</Step>
+</Steps>
+
+Each of these is solved by adding a shared L2 and an event bus, which is one Redis connection and two more files.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Multiple instances" icon="server" href="/docs/setups/multi-instance">
+    The exact step up from this page. Add L2 and the bus, and see what the staleness window becomes.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/docs/quickstart">
+    The full four-file layout with a bus and a shared tier, built one file at a time.
+  </Card>
+  <Card title="Configuration reference" icon="sliders" href="/docs/reference/configuration">
+    Every option on this page, its default, and what it costs you.
+  </Card>
+</CardGroup>
