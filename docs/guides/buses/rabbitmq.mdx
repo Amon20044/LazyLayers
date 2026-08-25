@@ -97,6 +97,9 @@ export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
   durable: true,
   persistent: true,
   durableInvalidationMode: true,
+  // Required. The queue is asserted durable only when it is named,
+  // so without this you get a transient, broker-named queue.
+  queueName: `lazylayers.${process.env.INSTANCE_ID}`,
   // Stable per server. An unnamed queue is never durable.
   queueName: `${process.env.INSTANCE_ID}-cache`,
   exclusiveQueue: false,
@@ -119,6 +122,9 @@ export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
   durable: true,
   persistent: true,
   durableInvalidationMode: true,
+  // Required. The queue is asserted durable only when it is named,
+  // so without this you get a transient, broker-named queue.
+  queueName: `lazylayers.${process.env.INSTANCE_ID}`,
   // Stable per server. An unnamed queue is never durable.
   queueName: `${process.env.INSTANCE_ID}-cache`,
   exclusiveQueue: false,
