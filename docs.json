@@ -129,7 +129,8 @@
       "view",
       "chatgpt",
       "claude",
-      "mcp"
+      "mcp",
+      "assistant"
     ]
   },
   "footer": {
@@ -142,5 +143,8 @@
       "source": "/",
       "destination": "/docs"
     }
-  ]
+  ],
+  "markdown": {
+    "schema": true
+  }
 }
