@@ -99,7 +99,7 @@ export const bus = new NatsEventBus({
     name: process.env.INSTANCE_ID,
   },
   subject: 'lazylayers.invalidate',
-  retryQueue: { enabled: true, maxSize: 1000 },
+  retryQueue: { maxSize: 1000 },
   logging: { env: 'production' },
 })
 
@@ -118,7 +118,7 @@ export const bus = new NatsEventBus({
     name: process.env.INSTANCE_ID,
   },
   subject: 'lazylayers.invalidate',
-  retryQueue: { enabled: true, maxSize: 1000 },
+  retryQueue: { maxSize: 1000 },
   logging: { env: 'production' },
 })
 

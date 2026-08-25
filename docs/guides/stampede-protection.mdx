@@ -130,7 +130,6 @@ export const cache = new LazyLayersCache({
   source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
 
   distributedLock: {
-    enabled: true,
     // Above your slowest realistic loader, or a second server acquires the lock
     // while the first is still working.
     ttlMs: 10_000,
@@ -154,7 +153,6 @@ const options: LazyLayersCacheOptions<string, Product> = {
   source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
 
   distributedLock: {
-    enabled: true,
     // Above your slowest realistic loader, or a second server acquires the lock
     // while the first is still working.
     ttlMs: 10_000,

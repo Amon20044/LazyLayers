@@ -113,7 +113,7 @@ One file, four ways to fill it. The rest of your configuration does not change, 
     // The bus duplicates this client internally, because a Redis connection in
     // subscriber mode cannot run normal commands.
     export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
-      retryQueue: { enabled: true, maxSize: 1000 },
+      retryQueue: { maxSize: 1000 },
       handlerConcurrency: 16,
     })
 
@@ -127,7 +127,7 @@ One file, four ways to fill it. The rest of your configuration does not change, 
     // The bus duplicates this client internally, because a Redis connection in
     // subscriber mode cannot run normal commands.
     export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
-      retryQueue: { enabled: true, maxSize: 1000 },
+      retryQueue: { maxSize: 1000 },
       handlerConcurrency: 16,
     })
 
@@ -157,7 +157,7 @@ One file, four ways to fill it. The rest of your configuration does not change, 
       queueName: `${process.env.INSTANCE_ID}-cache`,
       // No default. Without it one slow handler lets the queue run away.
       prefetch: 32,
-      retryQueue: { enabled: true, maxSize: 1000 },
+      retryQueue: { maxSize: 1000 },
     })
 
     await bus.connect()
@@ -178,7 +178,7 @@ One file, four ways to fill it. The rest of your configuration does not change, 
       queueName: `${process.env.INSTANCE_ID}-cache`,
       // No default. Without it one slow handler lets the queue run away.
       prefetch: 32,
-      retryQueue: { enabled: true, maxSize: 1000 },
+      retryQueue: { maxSize: 1000 },
     })
 
     await bus.connect()
@@ -199,7 +199,7 @@ One file, four ways to fill it. The rest of your configuration does not change, 
       mode: 'core',
       connectionOptions: { servers: process.env.NATS_URL },
       subject: 'lazylayers.invalidate',
-      retryQueue: { enabled: true, maxSize: 1000 },
+      retryQueue: { maxSize: 1000 },
     })
 
     await bus.connect()
@@ -212,7 +212,7 @@ One file, four ways to fill it. The rest of your configuration does not change, 
       mode: 'core',
       connectionOptions: { servers: process.env.NATS_URL },
       subject: 'lazylayers.invalidate',
-      retryQueue: { enabled: true, maxSize: 1000 },
+      retryQueue: { maxSize: 1000 },
     })
 
     await bus.connect()

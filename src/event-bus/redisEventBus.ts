@@ -27,6 +27,7 @@ export class RedisEventBus implements EventBus {
   private readonly channel: string;
   private readonly retryQueue: EventBusRetryQueue;
   private subscribed = false;
+  private messageListener: ((channel: Buffer, message: Buffer) => void) | null = null;
 
   constructor(redis: RedisClient, channel: string, private readonly options: RedisEventBusOptions = {}) {
     configureCacheLogger(options.logging);
@@ -88,10 +89,6 @@ export class RedisEventBus implements EventBus {
       return;
     }
 
-    await this.sub.subscribe(this.channel);
-    this.subscribed = true;
-    debugLog('redis event bus subscribed', { channel: this.channel });
-
     const handlerQueue = new EventBusHandlerQueue(handler, {
       concurrency: this.options.handlerConcurrency,
       onError: (error) => {
@@ -99,7 +96,7 @@ export class RedisEventBus implements EventBus {
       },
     });
 
-    this.sub.on('messageBuffer', (channel: Buffer, message: Buffer) => {
+    const messageListener = (channel: Buffer, message: Buffer): void => {
       if (channel.toString('utf8') !== this.channel) {
         return;
       }
@@ -111,17 +108,56 @@ export class RedisEventBus implements EventBus {
       } else {
         warnLog('redis event bus ignored invalid message', { channel: this.channel });
       }
-    });
+    };
+
+    // Attach before SUBSCRIBE so a message delivered between the command
+    // completing and the listener landing is not dropped. Keeping the reference
+    // also lets disconnect() detach it instead of leaking a listener per
+    // subscribe/disconnect cycle.
+    this.sub.on('messageBuffer', messageListener);
+    this.messageListener = messageListener;
+
+    try {
+      await this.sub.subscribe(this.channel);
+    } catch (error) {
+      this.sub.off('messageBuffer', messageListener);
+      this.messageListener = null;
+      throw error;
+    }
+
+    this.subscribed = true;
+    // ioredis re-issues SUBSCRIBE for every channel of a subscriber connection
+    // after a reconnect (autoResubscribe defaults to true), so this bus does not
+    // need its own resubscribe loop.
+    debugLog('redis event bus subscribed', { channel: this.channel });
   }
 
   async disconnect(): Promise<void> {
-    if (this.subscribed) {
-      await this.sub.unsubscribe(this.channel);
-      this.subscribed = false;
+    if (this.messageListener) {
+      this.sub.off('messageBuffer', this.messageListener);
+      this.messageListener = null;
     }
 
+    if (this.subscribed) {
+      this.subscribed = false;
+
+      try {
+        await this.sub.unsubscribe(this.channel);
+      } catch (error) {
+        // A connection that is already gone took the server side subscription
+        // with it. Surface it, but never let it block the rest of teardown.
+        warnLog('redis event bus unsubscribe failed during disconnect', {
+          channel: this.channel,
+          error,
+        });
+      }
+    }
+
+    // Only the subscriber belongs to this bus: it was created here with
+    // duplicate(). The publisher was handed in by the caller and is usually the
+    // very same client backing the L2 RedisStore, so disconnecting it here would
+    // take L2 down along with the bus.
     this.sub.disconnect();
-    this.pub.disconnect();
   }
 
   private async publishNow(event: InvalidationEvent): Promise<void> {

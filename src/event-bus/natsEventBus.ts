@@ -19,12 +19,17 @@ import {
 
 import type { InvalidationEvent } from '../types/event.types.js';
 import { configureCacheLogger, type CacheLoggerOptions } from '../utils/debugLog.js';
-import { debugLog, errorLog, warnLog } from '../utils/debugLog.js';
+import { debugLog, errorLog, infoLog, warnLog } from '../utils/debugLog.js';
 import { decodeInvalidationEvent, encodeInvalidationEvent } from './eventCodec.js';
 import type { EventBus, EventBusHealth } from './eventBus.interface.js';
 import { EventBusRetryQueue, type EventBusRetryQueueOptions } from './retryQueue.js';
 
 export type NatsEventBusMode = 'core' | 'jetstream';
+
+const RESUBSCRIBE_INITIAL_DELAY_MS = 200;
+const RESUBSCRIBE_MAX_DELAY_MS = 30_000;
+/** A subscription that survived this long counts as healthy, so the backoff resets. */
+const RESUBSCRIBE_STABLE_MS = 10_000;
 
 export interface NatsJetStreamOptions {
   stream?: string;
@@ -67,6 +72,12 @@ export class NatsEventBus implements EventBus {
   private consumerMessages: ConsumerMessages | null = null;
   private subscribing = false;
   private abortController: AbortController | null = null;
+  private handler: ((event: InvalidationEvent) => void | Promise<void>) | null = null;
+  private resubscribeTimer: NodeJS.Timeout | null = null;
+  private resubscribeAttempt = 0;
+  private subscribedAt = 0;
+  private subscriptionLost = false;
+  private closed = false;
 
   constructor(private readonly options: NatsEventBusOptions = {}) {
     configureCacheLogger(options.logging);
@@ -103,13 +114,18 @@ export class NatsEventBus implements EventBus {
       const connection = await this.getConnection();
 
       return {
-        ok: true,
+        // A lost subscription is not visible from the connection: publishing
+        // keeps working while this instance receives nothing at all.
+        ok: !this.subscriptionLost,
         transport: 'nats',
         mode: this.getMode(),
         subject: this.getSubject(),
         server: this.getServer(connection),
         stream: this.getMode() === 'jetstream' ? this.getStreamName() : undefined,
         durableName: this.getMode() === 'jetstream' ? this.getDurableName() : undefined,
+        error: this.subscriptionLost
+          ? new Error('NatsEventBus lost its subscription and is retrying. This instance is not receiving invalidations.')
+          : undefined,
       };
     } catch (error) {
       return {
@@ -141,6 +157,9 @@ export class NatsEventBus implements EventBus {
     }
 
     this.subscribing = true;
+    // Remembered so the subscription can be rebuilt if the iterator ends.
+    this.handler = handler;
+    this.closed = false;
 
     try {
       if (this.getMode() === 'jetstream') {
@@ -148,31 +167,140 @@ export class NatsEventBus implements EventBus {
       } else {
         await this.subscribeCore(handler);
       }
+
+      this.subscribedAt = Date.now();
+      this.subscriptionLost = false;
     } finally {
       this.subscribing = false;
     }
   }
 
   async disconnect(): Promise<void> {
+    this.closed = true;
+    this.handler = null;
+    this.subscriptionLost = false;
+
+    if (this.resubscribeTimer) {
+      clearTimeout(this.resubscribeTimer);
+      this.resubscribeTimer = null;
+    }
+
+    this.resubscribeAttempt = 0;
+
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;
     }
 
-    if (this.consumerMessages) {
-      await this.consumerMessages.close();
-      this.consumerMessages = null;
+    const messages = this.consumerMessages;
+    const subscription = this.subscription;
+    const connection = this.connection;
+
+    // Cleared up front so a throwing close leaves the bus consistent and a
+    // second disconnect() is a no-op.
+    this.consumerMessages = null;
+    this.subscription = null;
+
+    if (messages) {
+      await this.closeQuietly('close consumer', () => messages.close());
     }
 
-    if (this.subscription) {
-      await this.subscription.drain();
-      this.subscription = null;
+    if (subscription) {
+      await this.closeQuietly('drain subscription', () => subscription.drain());
     }
 
-    if (this.connection && this.ownsConnection) {
-      await this.connection.drain();
+    if (connection && this.ownsConnection) {
       this.connection = null;
+      await this.closeQuietly('drain connection', () => connection.drain());
     }
+  }
+
+  private async closeQuietly(step: string, close: () => Promise<unknown>): Promise<void> {
+    try {
+      await close();
+    } catch (error) {
+      // Teardown must never throw: a connection that is already gone rejects
+      // every close, and one rejection would skip the remaining steps.
+      warnLog('nats event bus teardown step failed', { subject: this.getSubject(), step, error });
+    }
+  }
+
+  /**
+   * The message iterator only ends when the subscription or the whole connection
+   * is gone. NATS reconnects and re-sends SUB on its own, and JetStream's
+   * consume() resets itself on reconnect, so this fires when recovery has given
+   * up (maxReconnectAttempts, default 10). Left alone the process would stay up
+   * publishing happily while receiving nothing, forever.
+   */
+  private handleSubscriptionEnded(
+    subscription: Subscription | null,
+    messages: ConsumerMessages | null,
+  ): void {
+    if (subscription && this.subscription !== subscription) {
+      return;
+    }
+
+    if (messages && this.consumerMessages !== messages) {
+      return;
+    }
+
+    this.subscription = null;
+    this.consumerMessages = null;
+
+    if (this.closed) {
+      return;
+    }
+
+    if (Date.now() - this.subscribedAt >= RESUBSCRIBE_STABLE_MS) {
+      this.resubscribeAttempt = 0;
+    }
+
+    this.subscriptionLost = true;
+    errorLog('nats event bus subscription ended unexpectedly', {
+      subject: this.getSubject(),
+      mode: this.getMode(),
+    });
+    this.scheduleResubscribe();
+  }
+
+  private scheduleResubscribe(): void {
+    if (this.closed || this.resubscribeTimer || !this.handler) {
+      return;
+    }
+
+    this.resubscribeAttempt += 1;
+
+    const delay = Math.min(
+      RESUBSCRIBE_MAX_DELAY_MS,
+      RESUBSCRIBE_INITIAL_DELAY_MS * 2 ** (this.resubscribeAttempt - 1),
+    );
+
+    warnLog('nats event bus scheduling resubscribe', {
+      subject: this.getSubject(),
+      attempt: this.resubscribeAttempt,
+      delay,
+    });
+
+    this.resubscribeTimer = setTimeout(() => {
+      this.resubscribeTimer = null;
+
+      const handler = this.handler;
+
+      if (this.closed || !handler) {
+        return;
+      }
+
+      void this.subscribe(handler)
+        .then(() => {
+          infoLog('nats event bus resubscribed', { subject: this.getSubject(), mode: this.getMode() });
+        })
+        .catch((error) => {
+          errorLog('nats event bus resubscribe failed', { subject: this.getSubject(), error });
+          this.scheduleResubscribe();
+        });
+    }, delay);
+    // A dead server must not keep the process alive on its own.
+    this.resubscribeTimer.unref?.();
   }
 
   private async publishNow(event: InvalidationEvent): Promise<void> {

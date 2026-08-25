@@ -276,3 +276,55 @@ test("sentinel buffers written by older versions still decode to null", async ()
 
   assert.equal(deserialize(legacy), null);
 });
+
+/* Compression backend selection. */
+
+test("gzip stays the default, so a mixed-version fleet keeps working", async () => {
+  const { serialize } = await import("../dist/index.js");
+  const big = { rows: Array.from({ length: 4_000 }, (_, i) => ({ i, name: `row-${i}`, tag: "repeatable" })) };
+
+  assert.equal(serialize(big).subarray(0, 4).toString(), "HC1G");
+});
+
+test("zstd is used once it is switched on, and round-trips", async () => {
+  const { serialize, deserialize, configureCompression, ZSTD_AVAILABLE } = await import("../dist/index.js");
+
+  if (!ZSTD_AVAILABLE) return; // Node 20 and early 22 have no zstd in node:zlib.
+
+  const big = { rows: Array.from({ length: 4_000 }, (_, i) => ({ i, name: `row-${i}`, tag: "repeatable" })) };
+
+  configureCompression("auto");
+  try {
+    const buffer = serialize(big);
+    assert.equal(buffer.subarray(0, 4).toString(), "HC1Z");
+    assert.deepEqual(deserialize(buffer), big);
+  } finally {
+    configureCompression("gzip");
+  }
+});
+
+test("gzip buffers still decode after switching to zstd", async () => {
+  const { serialize, deserialize, configureCompression, ZSTD_AVAILABLE } = await import("../dist/index.js");
+
+  if (!ZSTD_AVAILABLE) return;
+
+  const big = { rows: Array.from({ length: 4_000 }, (_, i) => ({ i, tag: "repeatable" })) };
+  const written = serialize(big);          // gzip, the default
+  assert.equal(written.subarray(0, 4).toString(), "HC1G");
+
+  configureCompression("auto");
+  try {
+    assert.deepEqual(deserialize(written), big, "reads must accept every format");
+  } finally {
+    configureCompression("gzip");
+  }
+});
+
+test("an unknown tag from a newer release reads as a miss", async () => {
+  const { deserialize } = await import("../dist/index.js");
+
+  // Falling through to the legacy decoder would read the tag bytes as data and
+  // return a plausible wrong value. A miss makes the caller reload instead.
+  assert.equal(deserialize(Buffer.concat([Buffer.from("HC1Q"), Buffer.from([0x01, 0x02])])), null);
+  assert.equal(deserialize(Buffer.concat([Buffer.from("HC1_"), Buffer.from([0x2a])])), null);
+});
