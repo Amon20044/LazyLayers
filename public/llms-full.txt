@@ -114,7 +114,7 @@ const eventBus = new RedisEventBus(redis, "cache:invalidations", {
 });
 ```
 
-At-most-once Pub/Sub. Fastest option. Zero extra infrastructure. Missed invalidations during disconnects recover naturally via TTL expiry.
+At-most-once Pub/Sub. Fastest option. Zero extra infrastructure.
 
 #### RabbitMQEventBus
 
@@ -129,7 +129,7 @@ const eventBus = new RabbitMQEventBus("cache.invalidations", {
 });
 ```
 
-Durable fanout with named per-instance durable queues. Every instance gets every invalidation even after reconnect.
+Durable fanout with named per-instance durable queues.
 
 #### NatsEventBus
 
@@ -167,19 +167,6 @@ const eventBus = new NatsEventBus({
 | Hard timeout | Aborts the loader entirely with AbortSignal. |
 | Distributed lock | Cross-instance getOrSet coordination via RedisStore lock methods. |
 
-```ts
-const cache = new LazyLayersCache({
-  failSafe: { enabled: true, staleTtlMs: 300_000 },
-  negativeCache: { enabled: true, ttlMs: 5_000, maxEntries: 10_000 },
-  timeouts: { softMs: 100, hardMs: 2_000 },
-  distributedLock: { enabled: true, ttlMs: 10_000, waitTimeoutMs: 2_000, pollMs: 50 },
-  resilience: {
-    l2CircuitBreaker: { failureThreshold: 3, cooldownMs: 30_000 },
-    eventBusCircuitBreaker: { failureThreshold: 3, cooldownMs: 30_000 },
-  },
-});
-```
-
 ## Serialization
 
 Size-tiered binary compression with 4-byte magic prefixes for O(1) decode.
@@ -202,53 +189,20 @@ Size-tiered binary compression with 4-byte magic prefixes for O(1) decode.
 | HC1G | gzip(msgpack) | Legacy, or when zstd unavailable on Node 20 |
 | HC1J | JSON | Debug mode (CACHE_FORMAT=json) |
 
-### Null Handling
-
-`null` and `undefined` are stored via a sentinel string (`__hybridcache_null__`) so a cached "the value is null" is preserved as a real cache hit, not a miss.
-
 ### Configuration
 
 ```ts
 import { configureCompression, getCompressionTiers } from "lazy-layers-cache";
 
-// Custom tiers
 configureCompression([
   { maxBytes: 256, codec: "none" },
   { maxBytes: 4096, codec: "lz4" },
   { codec: "zstd" },
 ]);
 
-// Shorthand
 configureCompression("auto");  // uses default tiers
 configureCompression("gzip");  // gzip for everything above 1 KB
 configureCompression("zstd");  // zstd for everything above 1 KB
-
-// Inspect current tiers
-const tiers = getCompressionTiers();
-```
-
-### Environment Variables
-
-| Variable | Effect |
-| --- | --- |
-| `CACHE_COMPRESSION=auto` | Use default size-tiered compression |
-| `CACHE_COMPRESSION=gzip` | Force gzip for all compressible payloads |
-| `CACHE_COMPRESSION=zstd` | Force zstd for all compressible payloads |
-| `CACHE_COMPRESSION=[...]` | JSON array of custom tier objects |
-| `CACHE_FORMAT=json` | Store all values as readable JSON in Redis (debug) |
-| `CACHE_DEBUG_SERIALIZATION=true` | Same as CACHE_FORMAT=json |
-
-### Programmatic API
-
-```ts
-import { serialize, deserialize, serializeWithStats } from "lazy-layers-cache";
-
-const buf = serialize(value);       // Buffer with HC1 prefix
-const value = deserialize(buf);     // back to JS
-
-const stats = serializeWithStats(largeObject);
-// { encoding: "msgpack-zstd", originalBytes: 14140, storedBytes: 3400,
-//   compressionRatio: 0.76, compressed: true }
 ```
 
 ## Observability
@@ -275,25 +229,6 @@ const cache = new LazyLayersCache({
     auth: { username: "lazydev", password: "lazydev" },
     prometheus: { enabled: true, prefix: "lazycache", public: false },
   },
-});
-```
-
-### Prometheus
-
-```ts
-// GET /observelazyily/metrics
-// lazycache_hits_total{level="l1"} 128
-// lazycache_hits_total{level="l2"} 17
-// lazycache_misses_total{level="l1"} 31
-// lazycache_hit_ratio 0.82
-```
-
-### OpenTelemetry
-
-```ts
-import { subscribeTelemetry } from "lazy-layers-cache";
-const unsub = subscribeTelemetry((event) => {
-  span.addEvent(event.type, event);
 });
 ```
 
@@ -333,12 +268,12 @@ const unsub = subscribeTelemetry((event) => {
 
 ### Serialization Speed
 
-- 845 → 2,670 ops/s (3.2x faster than previous serializer)
+- 845 -> 2,670 ops/s (3.2x faster than previous serializer)
 - 0.83x bentocache throughput (up from 0.25x)
 
 ### Storage (14 KB API list)
 
-- 14,140 B raw → 3,400 B stored (76% saved)
+- 14,140 B raw -> 3,400 B stored (76% saved)
 
 ### Small Payload Codec Selection (measured)
 
@@ -352,10 +287,12 @@ const unsub = subscribeTelemetry((event) => {
 
 ## Links
 
+- Landing page: https://lazy-layers-cache.vercel.app/
 - npm: https://www.npmjs.com/package/lazy-layers-cache
 - GitHub: https://github.com/Amon20044/LazyLayers
-- Docs: https://lazy-layers-cache.vercel.app/docs
+- Docs: https://lazylayers.mintlify.site/docs
 - Changelog: https://github.com/Amon20044/LazyLayers/blob/main/CHANGELOG.md
+- LLM summary: https://lazy-layers-cache.vercel.app/llms.txt
 
 ## License
 

@@ -2,38 +2,39 @@
 
 > A focused TypeScript hybrid L1/L2 cache for Node.js with lazy loading, stampede protection, fail-open resilience, size-tiered compression, and distributed invalidation over Redis Pub/Sub, RabbitMQ, or NATS.
 
-LazyLayers is a caching library for Node.js. It starts as an in-process LRU cache with no infrastructure, and grows into a distributed cache layer as you need one: a shared Redis tier, an event bus that keeps every instance in agreement, and a binary wire format that cuts what you store.
+## What is lazy-layers-cache?
+
+lazy-layers-cache is a Promise-based caching library for Node.js that provides a two-layer cache (L1 in-memory LRU + L2 Redis) with automatic distributed invalidation. It starts as an in-process LRU with no infrastructure and grows into a distributed cache layer as you need one.
 
 Two methods do almost all the work:
-
-- `getOrSet(key, loader)` — read through the layers, load once if nothing has it.
+- `getOrSet(key, loader)` — read through the layers, load once if nothing has it. Broadcasts result to peers.
 - `delete(key)` — invalidate everywhere. Every instance drops the key.
-
-## Core Concepts
-
-- L1 is an in-process LRU memory cache (via lru-cache). Holds live JavaScript objects. Nanosecond reads.
-- L2 is a shared Redis store (via ioredis). Holds MessagePack bytes. Millisecond reads.
-- The event bus carries invalidations between instances. Three event types: del, pattern, set.
-- The `set` event broadcasts getOrSet loader results so peers populate L1 without a second loader call.
 
 ## Key Features
 
-- Lazy loading with getOrSet(key, loader) — one loader call per key across all concurrent callers
-- In-flight promise deduplication prevents same-process dogpile (stampede protection)
+- Lazy loading with getOrSet — one loader call per key across all concurrent callers
+- In-flight promise deduplication prevents same-process stampede
 - Optional Redis-backed distributed lock for cross-instance stampede protection
 - Fail-open resilience: L2 and event-bus failures are logged and swallowed, local L1 continues serving
 - Stale fallback: last-known-good values returned on loader errors or timeouts
 - Negative caching: loader misses briefly cached to avoid hammering databases
-- Circuit breakers for L2 and event-bus publish, with configurable failure thresholds and cooldowns
-- Soft and hard timeouts: soft returns stale immediately, hard aborts the loader
-- Distributed invalidation over Redis Pub/Sub, RabbitMQ durable queues, NATS core, or NATS JetStream
-- Size-tiered binary compression: none (< 256 B), lz4 (256 B–4 KB), zstd (4 KB+) with automatic codec selection
+- Circuit breakers for L2 and event-bus publish
+- Soft and hard timeouts
+- Distributed invalidation over Redis Pub/Sub, RabbitMQ, NATS Core, or NATS JetStream
+- Size-tiered compression: none (< 256 B), lz4 (256 B–4 KB), zstd (4 KB+)
 - 20+ typed cache events for metrics, logs, and tracing
-- Live observability dashboard at /observelazyily (opt-in, zero-dependency)
-- Built-in Prometheus /metrics endpoint with bounded cardinality
-- OpenTelemetry/APM telemetry via node:diagnostics_channel
-- TypeScript native with ESM and CommonJS builds
-- Requires Node.js 20 or 22+
+- Live observability dashboard with Prometheus + OpenTelemetry
+- TypeScript native, ESM and CommonJS
+
+## Documentation Structure
+
+- **Get Started**: Installation, Quickstart, Learning path, Walkthrough
+- **Concepts**: Layers, Lazy loading, Invalidation, Serialization, Resilience
+- **Event Buses**: Redis Pub/Sub, RabbitMQ, NATS Core, NATS JetStream
+- **Guides**: Stampede protection, Failure handling, Observability
+- **Architecture**: Execution paths, Event ordering
+- **Reference**: Configuration, API, Stores, Event buses, Cache events, Environment variables
+- **Setups**: Single process, Multi-instance, Production
 
 ## Quick Start
 
@@ -46,9 +47,7 @@ import { LazyLayersCache } from "lazy-layers-cache";
 
 const cache = new LazyLayersCache<string, User>({
   ttlMs: 60_000,
-  levels: {
-    L1: { maxEntries: 1_000, ttlMs: 10_000 },
-  },
+  levels: { L1: { maxEntries: 1_000, ttlMs: 10_000 } },
   inflight: { enabled: true, ttlMs: 5_000 },
 });
 
@@ -57,28 +56,17 @@ const user = await cache.getOrSet(`user:${id}`, async () => {
 });
 ```
 
-## Event Buses
+## Serialization Tiers
 
-| Transport | Delivery | Use when |
-| --- | --- | --- |
-| Redis Pub/Sub | At-most-once, ephemeral | Fastest option, zero extra infra, missed invalidations recover via TTL |
-| RabbitMQ | Durable, retryable | Cannot afford to miss invalidations across reconnects |
-| NATS Core | At-most-once, fastest | Low-latency fanout, no replay needed |
-| NATS JetStream | Durable, replayable | Need durable delivery with ack, replay, and per-instance consumers |
+| Size | Codec | Wire prefix | Why |
+| --- | --- | --- | --- |
+| < 256 B | none | HC1M | Compression makes small payloads bigger |
+| 256 B – 4 KB | lz4 | HC1L | Smaller and ~5x faster than zstd at these sizes |
+| 4 KB+ | zstd | HC1Z | Best ratio at scale; falls back to lz4 on Node 20 |
 
-## Serialization
+## Links
 
-Size-tiered binary compression with 4-byte magic prefixes for O(1) decode:
-
-| Size | Codec | Why |
-| --- | --- | --- |
-| < 256 B | none | Compression makes small payloads bigger |
-| 256 B – 4 KB | lz4 | Smaller and ~5x faster than zstd at these sizes |
-| 4 KB+ | zstd | 767 B/µs savings at 256 KB; falls back to lz4 on Node 20 |
-
-## Documentation
-
-- Full docs: https://lazy-layers-cache.vercel.app/docs
+- Landing page: https://lazy-layers-cache.vercel.app/
 - GitHub: https://github.com/Amon20044/LazyLayers
 - npm: https://www.npmjs.com/package/lazy-layers-cache
-- Changelog: https://github.com/Amon20044/LazyLayers/blob/main/CHANGELOG.md
+- Full LLM context: https://lazy-layers-cache.vercel.app/llms-full.txt

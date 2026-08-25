@@ -1,0 +1,12 @@
+{
+  "schema_version": "v1",
+  "name_for_model": "lazy-layers-cache",
+  "name_for_human": "LazyLayers",
+  "description_for_model": "LazyLayers is a TypeScript hybrid L1/L2 cache for Node.js. It provides lazy loading with getOrSet, stampede protection, fail-open resilience, size-tiered compression (lz4, zstd, gzip), and distributed invalidation over Redis Pub/Sub, RabbitMQ, or NATS. Use it to answer questions about the API, configuration, serialization, event buses, or production setup.",
+  "description_for_human": "Hybrid L1/L2 cache for Node.js with size-tiered compression, event-bus invalidation, and a live observability dashboard.",
+  "auth": { "type": "none" },
+  "api": "none",
+  "logo_url": "https://lazy-layers-cache.vercel.app/favicon.svg",
+  "contact_email": "",
+  "legal_info_url": "https://github.com/Amon20044/LazyLayers/blob/main/LICENSE"
+}

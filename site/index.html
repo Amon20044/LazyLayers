@@ -5,9 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
 <title>LazyLayers — The distributed cache layer for Node.js</title>
-<meta name="description" content="LazyLayers is a distributed cache layer for Node.js. Size-tiered compression (lz4, zstd, gzip) stores 14–92% fewer bytes in Redis, measured against bentocache. Reproducible benchmarks included." />
+<meta name="description" content="LazyLayers is a TypeScript hybrid L1/L2 cache for Node.js. Size-tiered compression (lz4, zstd, gzip) stores 14-92% fewer bytes in Redis. Event buses keep every instance fresh. Reproducible benchmarks included." />
 <link rel="canonical" href="https://lazy-layers-cache.vercel.app/" />
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+<meta name="keywords" content="nodejs cache, typescript cache, hybrid cache, redis cache, distributed cache, l1 cache, l2 cache, cache invalidation, lazy loading, stampede protection, lz4, zstd, msgpack, event bus, pubsub, rabbitmq, nats, observability, prometheus, opentelemetry" />
+<meta name="author" content="Amon20044" />
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
 <meta name="color-scheme" content="light dark" />
@@ -17,16 +19,17 @@
 <meta property="og:site_name" content="LazyLayers" />
 <meta property="og:url" content="https://lazy-layers-cache.vercel.app/" />
 <meta property="og:title" content="LazyLayers — The distributed cache layer for Node.js" />
-<meta property="og:description" content="Event buses keep every instance fresh. Size-tiered compression (lz4, zstd) keeps the bill small — 14–92% fewer bytes, measured against bentocache." />
+<meta property="og:description" content="A TypeScript hybrid L1/L2 cache for Node.js. Size-tiered compression (lz4, zstd) keeps the bill small — 14-92% fewer bytes, measured against bentocache." />
 <meta property="og:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:image:alt" content="LazyLayers — hybrid L1/L2 cache with size-tiered compression" />
+<meta property="og:locale" content="en_US" />
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="LazyLayers — The distributed cache layer for Node.js" />
-<meta name="twitter:description" content="Event buses keep every instance fresh. Size-tiered compression (lz4, zstd) keeps the bill small — measured, not estimated." />
+<meta name="twitter:description" content="A TypeScript hybrid L1/L2 cache for Node.js. Size-tiered compression (lz4, zstd) keeps the bill small — measured, not estimated." />
 <meta name="twitter:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 
 <script>
@@ -60,13 +63,23 @@
   "alternateName": "lazy-layers-cache",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Node.js 20+",
-  "description": "A distributed cache layer for Node.js. Redis Pub/Sub, RabbitMQ and NATS event buses fan del, pattern and set events across every instance to keep in-process L1 caches fresh, while size-tiered compression (lz4, zstd, gzip) stores 14-92% fewer bytes in Redis than JSON-based caching.",
+  "description": "A TypeScript hybrid L1/L2 cache for Node.js. Redis Pub/Sub, RabbitMQ and NATS event buses fan del, pattern and set events across every instance to keep in-process L1 caches fresh, while size-tiered compression (lz4, zstd, gzip) stores 14-92% fewer bytes in Redis than JSON-based caching.",
   "url": "https://lazy-layers-cache.vercel.app/",
   "downloadUrl": "https://www.npmjs.com/package/lazy-layers-cache",
+  "installUrl": "https://www.npmjs.com/package/lazy-layers-cache",
   "softwareVersion": "0.5.0",
   "license": "https://opensource.org/licenses/MIT",
-  "programmingLanguage": "TypeScript",
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  "programmingLanguage": ["TypeScript", "JavaScript"],
+  "codeRepository": "https://github.com/Amon20044/LazyLayers",
+  "softwareHelp": { "@type": "WebSite", "url": "https://lazylayers.mintlify.site/docs" },
+  "about": { "@type": "Thing", "name": "distributed caching" },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": {
+    "@type": "Person",
+    "name": "Amon20044",
+    "url": "https://github.com/Amon20044",
+    "sameAs": ["https://github.com/Amon20044/LazyLayers", "https://www.npmjs.com/package/lazy-layers-cache"]
+  }
 }
 </script>
 <script type="application/ld+json"><!--@faq-jsonld--></script>

@@ -1,0 +1,51 @@
+# lazy-layers-cache — Documentation
+
+> Full documentation for lazy-layers-cache, a TypeScript hybrid L1/L2 cache for Node.js.
+
+## What is lazy-layers-cache?
+
+A Promise-based caching library for Node.js with a two-layer cache (L1 in-memory LRU + L2 Redis), automatic distributed invalidation, size-tiered compression (lz4, zstd), and live observability.
+
+## Documentation Pages
+
+- **Get Started**: /docs/installation, /docs/quickstart, /docs/learn, /docs/walkthrough
+- **Concepts**: /docs/concepts/layers, /docs/concepts/lazy-loading, /docs/concepts/invalidation, /docs/concepts/serialization, /docs/concepts/resilience
+- **Event Buses**: /docs/guides/event-buses, /docs/guides/buses/redis, /docs/guides/buses/rabbitmq, /docs/guides/buses/nats-core, /docs/guides/buses/nats-jetstream
+- **Guides**: /docs/guides/stampede-protection, /docs/guides/failure-handling, /docs/guides/observability
+- **Architecture**: /docs/architecture/execution-paths, /docs/architecture/event-ordering
+- **Reference**: /docs/reference/configuration, /docs/reference/api, /docs/reference/stores, /docs/reference/event-buses, /docs/reference/cache-events, /docs/reference/environment-variables
+- **Setups**: /docs/setups/single-process, /docs/setups/multi-instance, /docs/setups/production
+
+## Quick Start
+
+```bash
+npm install lazy-layers-cache
+```
+
+```ts
+import { LazyLayersCache } from "lazy-layers-cache";
+
+const cache = new LazyLayersCache<string, User>({
+  ttlMs: 60_000,
+  levels: { L1: { maxEntries: 1_000, ttlMs: 10_000 } },
+  inflight: { enabled: true, ttlMs: 5_000 },
+});
+
+const user = await cache.getOrSet(`user:${id}`, async () => {
+  return db.users.findById(id);
+});
+```
+
+## Core Concepts
+
+- **L1**: In-process LRU via lru-cache. Nanosecond reads.
+- **L2**: Shared Redis store via ioredis. MessagePack bytes. Millisecond reads.
+- **Event bus**: Carries del, pattern, set events between instances.
+- **Serialization**: Size-tiered compression — none (< 256 B), lz4 (256 B–4 KB), zstd (4 KB+).
+
+## Links
+
+- Landing page: https://lazy-layers-cache.vercel.app/
+- GitHub: https://github.com/Amon20044/LazyLayers
+- npm: https://www.npmjs.com/package/lazy-layers-cache
+- Full LLM context: https://lazy-layers-cache.vercel.app/llms-full.txt
