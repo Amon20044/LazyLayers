@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
 <title>LazyLayers — The distributed cache layer for Node.js</title>
-<meta name="description" content="LazyLayers is a distributed cache layer for Node.js. Event buses keep every instance fresh with del, pattern and set fanout, while MessagePack serialization stores 22–92% fewer bytes in Redis. Reproducible benchmarks included." />
+<meta name="description" content="LazyLayers is a distributed cache layer for Node.js. Size-tiered compression (lz4, zstd, gzip) stores 14–92% fewer bytes in Redis, measured against bentocache. Reproducible benchmarks included." />
 <link rel="canonical" href="https://lazy-layers-cache.vercel.app/" />
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
@@ -17,16 +17,16 @@
 <meta property="og:site_name" content="LazyLayers" />
 <meta property="og:url" content="https://lazy-layers-cache.vercel.app/" />
 <meta property="og:title" content="LazyLayers — The distributed cache layer for Node.js" />
-<meta property="og:description" content="Event buses keep every instance fresh. MessagePack keeps the bill small — 22–92% fewer bytes, measured against bentocache." />
+<meta property="og:description" content="Event buses keep every instance fresh. Size-tiered compression (lz4, zstd) keeps the bill small — 14–92% fewer bytes, measured against bentocache." />
 <meta property="og:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="LazyLayers — hybrid L1/L2 cache with advanced serialization" />
+<meta property="og:image:alt" content="LazyLayers — hybrid L1/L2 cache with size-tiered compression" />
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="LazyLayers — The distributed cache layer for Node.js" />
-<meta name="twitter:description" content="Event buses keep every instance fresh. MessagePack keeps the bill small — measured, not estimated." />
+<meta name="twitter:description" content="Event buses keep every instance fresh. Size-tiered compression (lz4, zstd) keeps the bill small — measured, not estimated." />
 <meta name="twitter:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 
 <script>
@@ -60,7 +60,7 @@
   "alternateName": "lazy-layers-cache",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Node.js 20+",
-  "description": "A distributed cache layer for Node.js. Redis Pub/Sub, RabbitMQ and NATS event buses fan del, pattern and set events across every instance to keep in-process L1 caches fresh, while MessagePack serialization stores 22-92% fewer bytes in Redis than JSON-based caching.",
+  "description": "A distributed cache layer for Node.js. Redis Pub/Sub, RabbitMQ and NATS event buses fan del, pattern and set events across every instance to keep in-process L1 caches fresh, while size-tiered compression (lz4, zstd, gzip) stores 14-92% fewer bytes in Redis than JSON-based caching.",
   "url": "https://lazy-layers-cache.vercel.app/",
   "downloadUrl": "https://www.npmjs.com/package/lazy-layers-cache",
   "softwareVersion": "0.5.0",
@@ -145,13 +145,13 @@
         <p class="hero__lead reveal" style="--reveal-delay:120ms">
           Every layer here refuses to work until it has to.
           <strong>Load a key once, keep it close, and let every other server hear about it.</strong>
-          Nothing gets fetched twice. Nothing travels bigger than it needs to.
+          Nothing gets fetched twice. Small payloads travel as packed binary. Large ones get compressed with size-tiered lz4 and zstd.
         </p>
 
         <ul class="lazy-laws reveal" style="--reveal-delay:150ms">
           <li><b>Load late.</b> Nothing is cached until somebody asks for it.</li>
           <li><b>Load once.</b> Ten thousand callers, one trip to the database.</li>
-          <li><b>Load small.</b> Values go over the wire as packed binary.</li>
+          <li><b>Load small.</b> Size-tiered compression picks the right codec per payload.</li>
         </ul>
 
         <div class="hero__actions reveal" style="--reveal-delay:180ms">
@@ -252,7 +252,7 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">Benchmarks</span>
-      <h2 class="sec-title">Measured against bentocache.<br />Including where we lose.</h2>
+      <h2 class="sec-title">Measured against bentocache.<br />Reproducible from the fixtures.</h2>
       <p class="sec-lead">
         Five payloads, run through what each library actually writes to Redis. The fixtures are seeded,
         so the byte counts come out the same on your machine. One caveat worth saying out loud. This
@@ -265,7 +265,7 @@
     <p class="mono dim reveal" style="margin-top:1rem;font-size:.75rem;line-height:1.7"><!--@bench-meta--></p>
 
     <div class="sec-head" style="margin-top:clamp(3rem,6vw,4.5rem);margin-bottom:1.5rem">
-      <h3 class="sec-title" style="font-size:var(--fs-h3)">Where we lose</h3>
+      <h3 class="sec-title" style="font-size:var(--fs-h3)">The trade-offs</h3>
     </div>
     <!--@tradeoff-->
   </div>
@@ -377,8 +377,8 @@
   ttlMs<span class="t-op">:</span> <span class="t-num">300_000</span>,
 });
 
-<span class="t-com">// msgpack on the way in. A Redis outage degrades</span>
-<span class="t-com">// to L1 instead of throwing.</span></code></pre>
+<span class="t-com">// size-tiered codec picks the right encoding.</span>
+<span class="t-com">// A Redis outage degrades to L1 instead of throwing.</span></code></pre>
           </div>
         </div>
 
