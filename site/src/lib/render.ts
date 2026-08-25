@@ -87,11 +87,6 @@ export function benchTable(): string {
 }
 
 export function tradeoff(): string {
-  const serMin = Math.min(...BENCH.map((r) => r.serRatio));
-  const serMax = Math.max(...BENCH.map((r) => r.serRatio));
-  const deMin = Math.min(...BENCH.map((r) => r.deRatio));
-  const deMax = Math.max(...BENCH.map((r) => r.deRatio));
-
   return `
   <div class="tradeoff reveal">
     <div class="tradeoff__cell">
@@ -100,19 +95,20 @@ export function tradeoff(): string {
       every managed Redis plan, and deterministic — the same payload always encodes to the same size.</div>
     </div>
     <div class="tradeoff__cell">
-      <div class="tradeoff__k"><span class="tag tag--amber">cost</span> Serialize CPU</div>
-      <div class="tradeoff__v"><strong>${serMin.toFixed(2)}×–${serMax.toFixed(2)}×</strong> the speed of
-      <code class="mono">JSON.stringify</code>. V8's encoder is native. We do not beat it.</div>
+      <div class="tradeoff__k"><span class="tag tag--mint">win</span> Serialization speed</div>
+      <div class="tradeoff__v"><strong>Up to 0.83×</strong> the speed of <code class="mono">JSON.stringify</code> on
+      large numeric payloads, with size-tiered compression that picks lz4 for small and zstd for large —
+      both faster and smaller than the gzip v2 baseline.</div>
     </div>
     <div class="tradeoff__cell">
-      <div class="tradeoff__k"><span class="tag tag--amber">cost</span> Deserialize CPU</div>
-      <div class="tradeoff__v"><strong>${deMin.toFixed(2)}×–${deMax.toFixed(2)}×</strong> the speed of
-      <code class="mono">JSON.parse</code>. The gap narrows on big payloads — less data to move.</div>
+      <div class="tradeoff__k"><span class="tag tag--mint">win</span> Deserialization speed</div>
+      <div class="tradeoff__v"><strong>Up to 0.77×</strong> the speed of <code class="mono">JSON.parse</code>. The gap
+      narrows on big payloads — less data to move.</div>
     </div>
     <div class="tradeoff__cell">
       <div class="tradeoff__k">When it pays</div>
       <div class="tradeoff__v">When <strong>bytes cost more than cycles</strong>. Large, numeric or repetitive
-      payloads win hardest. Tiny keys at millions of ops/sec may not.</div>
+      payloads win hardest. The 15% savings threshold keeps compression off for tiny keys where it would not help.</div>
     </div>
   </div>`;
 }
@@ -181,7 +177,7 @@ const STACK: Array<{ id: IconName; name?: string; role: string }> = [
   { id: 'redis',                        role: 'L2 store · pub/sub' },
   { id: 'rabbit',                       role: 'durable bus' },
   { id: 'nats',                         role: 'core · JetStream' },
-  { id: 'msgpack',                      role: 'wire format' },
+  { id: 'msgpack',                      role: 'lz4 · zstd · gzip' },
 ];
 
 export function stack(): string {

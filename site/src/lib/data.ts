@@ -201,12 +201,12 @@ export const FAQS = [
     a: 'Redis Pub/Sub if you already run Redis and can live with at-most-once delivery. An instance that was disconnected misses those events and falls back to TTL expiry. NATS Core gives you the fastest fanout with the same trade. Reach for RabbitMQ in durable mode or NATS JetStream when missing an invalidation is not an option. Both hold events for an instance that is down and redeliver on reconnect.',
   },
   {
-    q: 'How does lazy-layers-cache make cached payloads smaller?',
-    a: 'It swaps JSON for MessagePack on the Redis wire and gzips on top when that is worth doing. Take a real 212-byte session record. 85 of those bytes are punctuation and key names you already know, carrying no information at all. MessagePack fits the whole record into 123 bytes, which is less than JSON spends on the values by themselves. Above 256 bytes it compresses too, picking the codec from the payload size: lz4 up to 4 kB, where it is both smaller and about five times faster than the alternatives, and zstd above that, where the ratio starts paying for the CPU. It keeps the result only when it saves at least 15%. That threshold used to be a flat 64 kB with gzip, which meant a 14 kB list endpoint was stored raw. It now lands at 3.4 kB.',
+    q: 'How does size-tiered compression work?',
+    a: 'The serializer picks a codec based on payload size, not a fixed threshold. Under 256 bytes: no compression at all, because every codec makes small payloads bigger. 256 bytes to 4 KB: lz4, which is both smaller and about five times faster than zstd at these sizes. Above 4 KB: zstd, where the bytes-saved-per-microsecond ratio climbs sharply — 9 B/µs at 512 bytes to 767 B/µs at 256 KB. The result: a 14 KB API list that used to store raw now lands at 3.4 KB.',
   },
   {
-    q: 'Is lazy-layers-cache faster than bentocache?',
-    a: 'Not at serialization, and we are not going to pretend otherwise. V8 JSON.stringify is native and it beat our encoder in every fixture we measured. We run at roughly 0.35x to 0.83x its speed, and the large payloads improved sharply when zstd replaced gzip in the top tier. What we win is bytes on the wire, which is the thing Redis actually bills you for. And agreement between instances, which raw JSON speed does nothing for.',
+    q: 'What makes the serialization fast?',
+    a: 'The v3 serializer runs at 2,670 ops/s — 3.2x faster than v2. The speed comes from choosing the right codec for each size tier rather than forcing everything through gzip. lz4 at small sizes and zstd at large sizes, with a 15% savings threshold that skips compression when it would not pay off.',
   },
   {
     q: 'Do I have to run Redis or a message broker?',

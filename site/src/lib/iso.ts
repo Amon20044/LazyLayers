@@ -59,7 +59,7 @@ export function isoDiagram(): string {
   ${slab(l2, { kind: 'l2', glow: true })}
   ${markAt('redis', proj(l2.cx + l2.w / 2, l2.cy + l2.d / 2, l2.h)[0] + 20,
            proj(l2.cx + l2.w / 2, l2.cy + l2.d / 2, l2.h)[1] - 20, 34, BRAND.redis)}
-  ${isoLabel(proj(l2.cx + l2.w / 2, l2.cy + l2.d / 2, l2.h), 62, 6, 'L2 · SHARED STORE', 'msgpack + gzip on the wire', HERO_LABEL)}
+  ${isoLabel(proj(l2.cx + l2.w / 2, l2.cy + l2.d / 2, l2.h), 62, 6, 'L2 · SHARED STORE', 'msgpack + lz4/zstd on the wire', HERO_LABEL)}
 
   ${slab({ cx: 0, cy: 0, z: l2.h, w: 34, d: 34, h: 4 }, { kind: 'collar' })}
   ${spine}
