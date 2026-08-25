@@ -223,8 +223,8 @@
 
     <div class="reveal">
       <div class="tabs" role="tablist" aria-label="Quickstart examples">
-        <button class="tab" role="tab" aria-selected="true" aria-controls="p-1" id="t-1">1. Single Process (L1)</button>
-        <button class="tab" role="tab" aria-selected="false" aria-controls="p-2" id="t-2">2. Redis L2 (Fail-Open)</button>
+        <button class="tab" role="tab" aria-selected="true" aria-controls="p-1" id="t-1">1. Layered Hybrid Cache (L1 + L2)</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-2" id="t-2">2. In-Memory Only (L1 LRU)</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-3" id="t-3">3. Event Bus (Pub/Sub &amp; Priming)</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-4" id="t-4">4. Type-Safe Usage</button>
       </div>
@@ -233,12 +233,25 @@
         <div class="tabpanel" role="tabpanel" id="p-1" aria-labelledby="t-1">
           <div class="code">
             <div class="code__bar"><div class="code__dots"><i></i><i></i><i></i></div><span class="code__name">cache.ts</span></div>
-<pre><code><span class="t-key">import</span> { LazyLayersCache } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
+<pre><code><span class="t-key">import</span> Redis <span class="t-key">from</span> <span class="t-str">'ioredis'</span>;
+<span class="t-key">import</span> { LazyLayersCache, RedisStore } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
 
-<span class="t-com">// In-process LRU cache with zero external infrastructure.</span>
-<span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({ ttlMs<span class="t-op">:</span> <span class="t-num">60_000</span> });
+<span class="t-com">// Multi-tier cache: Sub-0.1ms L1 in-memory LRU + shared Redis L2</span>
+<span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({
+  ttlMs<span class="t-op">:</span> <span class="t-num">300_000</span>,
+  levels<span class="t-op">:</span> {
+    L1<span class="t-op">:</span> {
+      maxEntries<span class="t-op">:</span> <span class="t-num">25_000</span>, <span class="t-com">// Maximum in-memory capacity with LRU eviction</span>
+      ttlMs<span class="t-op">:</span> <span class="t-num">60_000</span>,      <span class="t-com">// Hot L1 memory TTL (1 min)</span>
+    },
+    L2<span class="t-op">:</span> {
+      ttlMs<span class="t-op">:</span> <span class="t-num">300_000</span>,     <span class="t-com">// Redis backing store TTL (5 mins)</span>
+    },
+  },
+  l2<span class="t-op">:</span> <span class="t-key">new</span> <span class="t-fn">RedisStore</span>(redis, { prefix<span class="t-op">:</span> <span class="t-str">'app:'</span> }),
+});
 
-<span class="t-com">// getOrSet collapses concurrent callers into a single loader execution.</span>
+<span class="t-com">// getOrSet collapses concurrent callers into a single database query</span>
 <span class="t-key">const</span> user <span class="t-op">=</span> <span class="t-key">await</span> cache.<span class="t-fn">getOrSet</span>(<span class="t-str">`user:</span><span class="t-op">${</span>id<span class="t-op">}</span><span class="t-str">`</span>, <span class="t-op">() =&gt;</span>
   db.users.<span class="t-fn">findById</span>(id)
 );</code></pre>
@@ -248,16 +261,23 @@
         <div class="tabpanel" role="tabpanel" id="p-2" aria-labelledby="t-2" hidden>
           <div class="code">
             <div class="code__bar"><div class="code__dots"><i></i><i></i><i></i></div><span class="code__name">cache.ts</span></div>
-<pre><code><span class="t-key">import</span> Redis <span class="t-key">from</span> <span class="t-str">'ioredis'</span>;
-<span class="t-key">import</span> { LazyLayersCache, RedisStore } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
+<pre><code><span class="t-key">import</span> { LazyLayersCache } <span class="t-key">from</span> <span class="t-str">'lazy-layers-cache'</span>;
 
+<span class="t-com">// In-process LRU cache with zero external infrastructure.</span>
 <span class="t-key">const</span> cache <span class="t-op">=</span> <span class="t-key">new</span> <span class="t-fn">LazyLayersCache</span>({
-  l2<span class="t-op">:</span> <span class="t-key">new</span> <span class="t-fn">RedisStore</span>(redis, { prefix<span class="t-op">:</span> <span class="t-str">'app:'</span> }),
-  ttlMs<span class="t-op">:</span> <span class="t-num">300_000</span>,
+  ttlMs<span class="t-op">:</span> <span class="t-num">60_000</span>,
+  levels<span class="t-op">:</span> {
+    L1<span class="t-op">:</span> {
+      maxEntries<span class="t-op">:</span> <span class="t-num">10_000</span>, <span class="t-com">// LRU eviction policy</span>
+      ttlMs<span class="t-op">:</span> <span class="t-num">60_000</span>,
+    },
+  },
 });
 
-<span class="t-com">// MessagePack + size-tiered LZ4/Zstd encodes data compactly into Redis.</span>
-<span class="t-com">// If Redis has an outage, reads fail open to L1 / loader instead of throwing.</span></code></pre>
+<span class="t-com">// Inflight mutex coalesces concurrent callers</span>
+<span class="t-key">const</span> user <span class="t-op">=</span> <span class="t-key">await</span> cache.<span class="t-fn">getOrSet</span>(<span class="t-str">`user:</span><span class="t-op">${</span>id<span class="t-op">}</span><span class="t-str">`</span>, <span class="t-op">() =&gt;</span>
+  db.users.<span class="t-fn">findById</span>(id)
+);</code></pre>
           </div>
         </div>
 
@@ -380,11 +400,6 @@
     <!--@bench-->
 
     <p class="mono dim reveal" style="margin-top:1rem;font-size:.75rem;line-height:1.7"><!--@bench-meta--></p>
-
-    <div class="sec-head" style="margin-top:clamp(3rem,6vw,4.5rem);margin-bottom:1.5rem">
-      <h3 class="sec-title" style="font-size:var(--fs-h3)">The engineering trade-offs</h3>
-    </div>
-    <!--@tradeoff-->
 
     <div class="sec-head" style="margin-top:clamp(3rem,6vw,4.5rem);margin-bottom:1.5rem">
       <span class="eyebrow">Wire encoding</span>

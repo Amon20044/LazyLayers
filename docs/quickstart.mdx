@@ -16,7 +16,7 @@ Every code block has a JavaScript tab and a TypeScript tab. Pick a lane and stay
 
 Most of what makes a cache safe under load is already running. You are not switching these on, and you should not switch them off.
 
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card title="In-flight dedupe" icon="layer-group">
     Ten thousand concurrent callers for one cold key produce **one** loader call. The rest wait on the same promise.
   </Card>
@@ -29,7 +29,7 @@ Most of what makes a cache safe under load is already running. You are not switc
   <Card title="Self-event filtering" icon="arrows-rotate">
     A server ignores its own broadcasts, so an invalidation cannot loop back and undo itself.
   </Card>
-</Columns>
+</CardGroup>
 
 Event dedupe by ID and per-key generation counters are also on, which is what stops a late redelivery from resurrecting a value you already deleted.
 

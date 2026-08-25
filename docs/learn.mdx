@@ -9,20 +9,20 @@ Caching looks like a one-line optimisation until you run a second server. Then i
 This page is the order to read things in. Each step names the system design concept, says what you will understand at the end of it, and links to the page that teaches it.
 
 <Note>
-  Every link here opens in a new tab, so you can walk the path and keep your place.
+  Every link here opens the referenced guide so you can walk the path and keep your place.
 </Note>
 
 ## If you only read three pages
 
 <CardGroup cols={3}>
-  <Card title="Laziness" icon="feather">
-    <a href="/docs/concepts/lazy-loading" target="_blank" rel="noopener">Lazy loading</a> is the principle the whole library is named for.
+  <Card title="Laziness" icon="feather" href="/docs/concepts/lazy-loading">
+    Lazy loading is the core principle the whole library is named for.
   </Card>
-  <Card title="Invalidation" icon="arrows-rotate">
-    <a href="/docs/concepts/invalidation" target="_blank" rel="noopener">Cache invalidation</a> is the part that is famously hard.
+  <Card title="Invalidation" icon="arrows-rotate" href="/docs/concepts/invalidation">
+    Cache invalidation is the part that is famously hard.
   </Card>
-  <Card title="Failure" icon="shield-halved">
-    <a href="/docs/concepts/resilience" target="_blank" rel="noopener">Resilience</a> decides what your cache does on its worst day.
+  <Card title="Failure" icon="shield-halved" href="/docs/concepts/resilience">
+    Resilience decides what your cache does on its worst day.
   </Card>
 </CardGroup>
 
@@ -35,7 +35,7 @@ This page is the order to read things in. Each step names the system design conc
 
   Put a cache in your process and it is fast and private. Run four servers and you have four private caches that drift apart the moment one of them writes. A user updates their profile, gets routed to a different server on the next request, and sees the old value looking back at them.
 
-  Read <a href="/docs/concepts/layers#one-layer-two-ways-to-be-unhappy" target="_blank" rel="noopener">One layer, two ways to be unhappy</a>.
+  Read [One layer, two ways to be unhappy](/docs/concepts/layers#one-layer-two-ways-to-be-unhappy).
 </Step>
 
 <Step title="Do the least work that still gives the right answer" icon="feather">
@@ -43,7 +43,7 @@ This page is the order to read things in. Each step names the system design conc
 
   Nothing is cached until somebody asks for it. That sounds obvious until you compare it with warming a cache up front, which spends memory on keys nobody reads and time on work nobody needed.
 
-  Read <a href="/docs/concepts/lazy-loading#the-problem-with-warming-up-front" target="_blank" rel="noopener">The problem with warming up front</a>.
+  Read [The problem with warming up front](/docs/concepts/lazy-loading#the-problem-with-warming-up-front).
 </Step>
 
 <Step title="Two layers, because near and shared are different jobs" icon="layer-group">
@@ -51,7 +51,7 @@ This page is the order to read things in. Each step names the system design conc
 
   L1 is in your process heap: nanoseconds away, lost on restart, private to one server. L2 is shared: a network hop away, survives deploys, seen by everyone. Neither one does both jobs, which is why there are two.
 
-  Read <a href="/docs/concepts/layers#what-each-layer-is-for" target="_blank" rel="noopener">What each layer is for</a>, then <a href="/docs/concepts/layers#sizing-l1-by-entry-count" target="_blank" rel="noopener">Sizing L1 by entry count</a>.
+  Read [What each layer is for](/docs/concepts/layers#what-each-layer-is-for), then [Sizing L1 by entry count](/docs/concepts/layers#sizing-l1-by-entry-count).
 </Step>
 
 <Step title="Ten thousand callers, one cold key" icon="users-line">
@@ -61,7 +61,7 @@ This page is the order to read things in. Each step names the system design conc
 
   The fix is in-flight dedupe: the first caller runs the loader, everyone else waits on the same promise. It is on by default.
 
-  Read <a href="/docs/guides/stampede-protection#the-thundering-herd" target="_blank" rel="noopener">The thundering herd</a>, then <a href="/docs/guides/stampede-protection#in-flight-dedupe" target="_blank" rel="noopener">In-flight dedupe</a>.
+  Read [The thundering herd](/docs/guides/stampede-protection#the-thundering-herd), then [In-flight dedupe](/docs/guides/stampede-protection#in-flight-dedupe).
 </Step>
 
 <Step title="One server pays, the whole fleet gets warm" icon="tower-broadcast">
@@ -69,7 +69,7 @@ This page is the order to read things in. Each step names the system design conc
 
   This is the part most caches do not do. When a loader resolves, the value itself goes out on the event bus, and every peer stores it lazily in its own L1. One database query warms every server.
 
-  Read <a href="/docs/concepts/lazy-loading#the-lazy-fan-out" target="_blank" rel="noopener">The lazy fan-out</a>. Pay attention to the two caveats: only `getOrSet` broadcasts, and `broadcastSetMaxBytes` has no default.
+  Read [The lazy fan-out](/docs/concepts/lazy-loading#the-lazy-fan-out). Pay attention to the two caveats: only `getOrSet` broadcasts, and `broadcastSetMaxBytes` has no default.
 </Step>
 
 <Step title="Telling everyone the value is wrong" icon="broom">
@@ -77,7 +77,7 @@ This page is the order to read things in. Each step names the system design conc
 
   Without a bus, your staleness window is your TTL. A one hour TTL means an hour of serving a value you know is wrong. With a bus, it is one network hop.
 
-  Read <a href="/docs/concepts/invalidation#living-on-ttls-alone" target="_blank" rel="noopener">Living on TTLs alone</a>, then <a href="/docs/concepts/invalidation#three-event-types-one-of-which-carries-a-value" target="_blank" rel="noopener">Three event types</a>.
+  Read [Living on TTLs alone](/docs/concepts/invalidation#living-on-ttls-alone), then [Three event types](/docs/concepts/invalidation#three-event-types-one-of-which-carries-a-value).
 </Step>
 
 <Step title="A late message must not undo a newer truth" icon="clock-rotate-left">
@@ -87,7 +87,7 @@ This page is the order to read things in. Each step names the system design conc
 
   Three mechanisms prevent it: dedupe by event ID, filter your own events by `source`, and compare per-key generation counters so anything older than what already landed is discarded.
 
-  Read <a href="/docs/architecture/event-ordering" target="_blank" rel="noopener">Event ordering</a>, and be honest with yourself about <a href="/docs/architecture/event-ordering#what-is-not-guaranteed" target="_blank" rel="noopener">what is not guaranteed</a>.
+  Read [Event ordering](/docs/architecture/event-ordering), and be honest with yourself about [what is not guaranteed](/docs/architecture/event-ordering#what-is-not-guaranteed).
 </Step>
 
 <Step title="What your transport actually promises" icon="network-wired">
@@ -97,7 +97,7 @@ This page is the order to read things in. Each step names the system design conc
 
   Neither is correct in the abstract. You are choosing which failure you can live with.
 
-  Read <a href="/docs/guides/event-buses#delivery-semantics" target="_blank" rel="noopener">Delivery semantics</a>, then <a href="/docs/guides/event-buses#pick-a-transport" target="_blank" rel="noopener">Pick a transport</a>.
+  Read [Delivery semantics](/docs/guides/event-buses#delivery-semantics), then [Pick a transport](/docs/guides/event-buses#pick-a-transport).
 </Step>
 
 <Step title="Degrade, do not collapse" icon="shield-halved">
@@ -107,7 +107,7 @@ This page is the order to read things in. Each step names the system design conc
 
   Circuit breakers stop you from queueing work against a dead dependency. Stale fallback serves the last known value while the origin is down. Negative caching stops a missing row from becoming a free pass to hammer the database.
 
-  Read <a href="/docs/concepts/resilience#fail-open" target="_blank" rel="noopener">Fail open</a>, then <a href="/docs/concepts/resilience#circuit-breakers" target="_blank" rel="noopener">Circuit breakers</a>.
+  Read [Fail open](/docs/concepts/resilience#fail-open), then [Circuit breakers](/docs/concepts/resilience#circuit-breakers).
 </Step>
 
 <Step title="What a value costs on the wire" icon="file-zipper">
@@ -117,7 +117,7 @@ This page is the order to read things in. Each step names the system design conc
 
   This costs CPU compared with plain JSON and buys smaller payloads. Know which one you are short of.
 
-  Read <a href="/docs/concepts/serialization#why-not-json" target="_blank" rel="noopener">Why not JSON</a>, then <a href="/docs/concepts/serialization#the-three-encodings" target="_blank" rel="noopener">The three encodings</a>.
+  Read [Why not JSON](/docs/concepts/serialization#why-not-json), then [The three encodings](/docs/concepts/serialization#the-three-encodings).
 </Step>
 
 <Step title="Put it in production" icon="rocket">
@@ -125,7 +125,7 @@ This page is the order to read things in. Each step names the system design conc
 
   Sizing L1 against the memory your instance actually has, giving every server and every cluster worker a unique `source`, and tuning numbers rather than turning safety features off.
 
-  Read the <a href="/docs/setups/production" target="_blank" rel="noopener">production checklist</a>.
+  Read the [production checklist](/docs/setups/production).
 </Step>
 
 </Steps>

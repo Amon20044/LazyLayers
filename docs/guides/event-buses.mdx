@@ -12,14 +12,14 @@ The event bus closes that window. A `delete` on A becomes a message that every p
 
 Three things, and they are the same on every transport.
 
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card title="Invalidations" icon="trash">
     `delete` and `deleteByPattern` publish, and every peer drops the same keys from L1, L2, the negative cache, the stale copy and any in-flight promise.
   </Card>
   <Card title="Primed values" icon="bolt">
     When a `getOrSet` loader resolves, the value itself is published. Every peer writes it straight into its own L1, so their first read of that key is already a local hit.
   </Card>
-</Columns>
+</CardGroup>
 
 That second one is the lazy fan-out, and it is where most of the value is. One server pays for the query. The rest get the result for free.
 

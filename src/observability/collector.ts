@@ -114,10 +114,23 @@ export class ObservabilityCollector {
     return events;
   }
 
+  /** Reset all live event counters and clear the circular buffer. */
+  reset(): void {
+    Object.assign(this.counters, emptyCounters());
+    this.buffer.fill(undefined);
+    this.buffered = 0;
+    this.writeIndex = 0;
+  }
+
   overview(): OverviewSnapshot {
     const hits = this.counters.hitsL1 + this.counters.hitsL2;
     const misses = this.counters.missesL1 + this.counters.missesL2 + this.counters.missesNegative;
     const lookups = hits + misses;
+
+    const inflight = this.counters.inflightReuse;
+    const dbQueries = this.counters.loaderSuccess;
+    const totalServiced = hits + inflight + dbQueries;
+    const originOffloadRatio = totalServiced > 0 ? (hits + inflight) / totalServiced : 0;
 
     return {
       startedAt: this.startedAt,
@@ -128,6 +141,7 @@ export class ObservabilityCollector {
       hits,
       misses,
       hitRatio: lookups === 0 ? 0 : hits / lookups,
+      originOffloadRatio,
       counters: { ...this.counters },
     };
   }

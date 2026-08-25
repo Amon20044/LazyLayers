@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LazyLayers Cache · Hono.js + Live Observability Demo</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Navbar / Header -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="logo-icon" style="background:transparent; padding:0; display:flex; align-items:center; justify-content:center;">
+          <svg viewBox="95 91 509 509" width="36" height="36" fill="none" role="img" aria-label="LazyLayers">
+            <path d="M131 443 L349 559 L568 443 L531 424 L351 520 L170 425 L131 443 Z" fill="#F2F3EC"/>
+            <path d="M570 443 L350 561 L129 444 L128 462 L350 584 L563 472 L570 443 Z" fill="#D3F15D"/>
+            <path d="M128 378 L349 496 L570 378 L566 405 L351 518 L128 399 L128 378 Z" fill="#D3F15D"/>
+            <path d="M207 139 L230 150 L230 349 L207 338 L207 139 Z" fill="#D3F15D"/>
+            <path d="M404 107 L426 118 L427 299 L404 287 L404 107 Z" fill="#D3F15D"/>
+            <path d="M326 328 L480 411 L447 416 L326 351 L326 328 Z" fill="#D3F15D"/>
+            <path d="M403 107 L326 146 L326 326 L481 413 L373 429 L208 341 L205 139 L129 178 L129 377 L347 493 L569 377 L403 288 L403 107 Z" fill="#F2F3EC"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>LazyLayers <span>Cache</span></h1>
+          <p class="tagline">Hono.js Fullstack Architecture Demo</p>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <div class="status-pill active">
+          <span class="pulse-dot"></span>
+          <span id="backendStatus">Hono Backend :3000 Active</span>
+        </div>
+        <a href="http://127.0.0.1:7077/__lazylayers" target="_blank" class="btn btn-primary glow-btn" id="openDashboardBtn">
+          <span>📊 Open Live Observability Dashboard</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+        </a>
+      </div>
+    </header>
+
+    <!-- Metrics Stat Cards -->
+    <section class="stats-grid">
+      <div class="stat-card stat-l1">
+        <div class="stat-header">
+          <span class="stat-label">L1 Memory Hits</span>
+          <span class="stat-badge fast">&lt; 0.1 ms</span>
+        </div>
+        <div class="stat-value" id="statL1Hits">0</div>
+        <div class="stat-desc">Sub-microsecond in-memory reads</div>
+      </div>
+
+      <div class="stat-card stat-ratio">
+        <div class="stat-header">
+          <span class="stat-label">Hit Ratio</span>
+          <span class="stat-badge ratio" id="hitRatioBadge">0.0%</span>
+        </div>
+        <div class="stat-value" id="statHitRatio">0.0%</div>
+        <div class="stat-desc">Overall cache efficiency</div>
+      </div>
+
+      <div class="stat-card stat-stampede">
+        <div class="stat-header">
+          <span class="stat-label">Herd Collapses</span>
+          <span class="stat-badge shield">In-Flight Lock</span>
+        </div>
+        <div class="stat-value" id="statHerdCollapses">0</div>
+        <div class="stat-desc">Concurrent requests coalesced</div>
+      </div>
+
+      <div class="stat-card stat-db">
+        <div class="stat-header">
+          <span class="stat-label">Origin DB Queries</span>
+          <span class="stat-badge db">120ms Latency</span>
+        </div>
+        <div class="stat-value" id="statDbQueries">0</div>
+        <div class="stat-desc">Cold fallback executions</div>
+      </div>
+    </section>
+
+    <!-- Main Workspace: 2-Column Grid -->
+    <main class="main-grid">
+      <!-- Left Column: User Cache Operations -->
+      <section class="panel glass-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="panel-icon">👤</span>
+            <h2>User Cache Query &amp; Invalidation</h2>
+          </div>
+          <button class="btn btn-outline-danger btn-sm" id="purgeAllCacheBtn">
+            <span>🗑️ Purge All Cache (`*`)</span>
+          </button>
+        </div>
+
+        <p class="panel-subtitle">Select a user to execute a cache-aside query through LazyLayers. First request hits simulated DB (120ms), subsequent requests return in &lt;0.1ms from L1 RAM.</p>
+
+        <!-- User Selection Cards -->
+        <div class="user-cards-grid" id="userCardsContainer">
+          <!-- Populated by main.js -->
+        </div>
+
+        <!-- Selected User Inspection & Latency Meter -->
+        <div class="user-inspector-card" id="userInspectorCard">
+          <div class="inspector-header">
+            <div class="inspector-title-group">
+              <span class="inspector-badge" id="cacheStatusBadge">READY</span>
+              <h3 id="inspectorUserName">Select a user above</h3>
+            </div>
+            <div class="latency-pill" id="latencyPill">-- ms</div>
+          </div>
+
+          <!-- Latency Comparison Bar -->
+          <div class="latency-comparison">
+            <div class="comp-labels">
+              <span>Database Query: <strong>120ms</strong></span>
+              <span id="speedupLabel">LazyLayers L1: <strong>&lt;0.1ms (1,300x faster)</strong></span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="latencyBarFill" style="width: 5%;"></div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="inspector-actions">
+            <button class="btn btn-primary" id="fetchUserBtn" disabled>
+              <span>⚡ Fetch User (Cache-Aside)</span>
+            </button>
+            <button class="btn btn-warning" id="updateUserBtn" disabled>
+              <span>✏️ Mutate &amp; Invalidate</span>
+            </button>
+            <button class="btn btn-danger" id="evictUserBtn" disabled>
+              <span>🗑️ Evict Key</span>
+            </button>
+          </div>
+
+          <!-- JSON Response Preview -->
+          <div class="code-preview">
+            <div class="code-header">
+              <span>Response Payload</span>
+              <span class="code-lang">JSON</span>
+            </div>
+            <pre><code id="jsonResponsePreview">// Click "Fetch User" above to test response</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Cache Stampede (Herd Collapse) Simulator & Live Telemetry -->
+      <section class="panel glass-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="panel-icon">🌪️</span>
+            <h2>Cache Stampede Simulator</h2>
+          </div>
+          <span class="badge badge-indigo">50 Simultaneous Callers</span>
+        </div>
+
+        <p class="panel-subtitle">Simulate what happens when 50 concurrent requests hit a cold key at the exact same millisecond. LazyLayers coalesces all 50 callers onto a <strong>single database loader promise</strong>.</p>
+
+        <div class="herd-simulator-box">
+          <div class="herd-controls">
+            <div class="herd-target-select">
+              <label for="herdTargetUser">Target User:</label>
+              <select id="herdTargetUser">
+                <option value="usr_1">usr_1 (Alex Rivera)</option>
+                <option value="usr_2">usr_2 (Sarah Chen)</option>
+                <option value="usr_3">usr_3 (Marcus Vance)</option>
+                <option value="usr_4">usr_4 (Elena Rostova)</option>
+              </select>
+            </div>
+            <button class="btn btn-accent btn-lg" id="launchHerdBtn">
+              <span>💥 Fire 50 Concurrent Requests</span>
+            </button>
+          </div>
+
+          <div class="herd-results-panel" id="herdResultsPanel" style="display: none;">
+            <div class="herd-metrics-row">
+              <div class="herd-stat-box green">
+                <span class="num" id="herdTotal">50</span>
+                <span class="lbl">Total Callers</span>
+              </div>
+              <div class="herd-stat-box blue">
+                <span class="num" id="herdDbQueries">1</span>
+                <span class="lbl">DB Query Executed</span>
+              </div>
+              <div class="herd-stat-box purple">
+                <span class="num" id="herdCollapsed">49</span>
+                <span class="lbl">Callers Collapsed</span>
+              </div>
+              <div class="herd-stat-box orange">
+                <span class="num" id="herdAvgLatency">2.4ms</span>
+                <span class="lbl">Avg Latency</span>
+              </div>
+            </div>
+            <p class="herd-verdict" id="herdVerdict">
+              🎉 <strong>49 database queries prevented!</strong> All 50 callers received the identical valid data concurrently.
+            </p>
+          </div>
+        </div>
+
+        <!-- Live Terminal Stream Preview -->
+        <div class="live-terminal-panel">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+            </div>
+            <span class="terminal-title">Live Cache Activity Log</span>
+            <button class="btn-clear-term" id="clearLogBtn">Clear</button>
+          </div>
+          <div class="terminal-body" id="terminalLogBody">
+            <div class="log-line info">[00:00:00] [SYSTEM] LazyLayers Hybrid Cache connected &amp; ready</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-info">
+        <p>LazyLayers Cache &bull; TypeScript Multi-Tiered L1/L2 Cache with Observability Dashboard &bull; MIT License</p>
+      </div>
+      <div class="footer-links">
+        <a href="http://127.0.0.1:7077/__lazylayers" target="_blank">Built-in Dashboard (Port 7077)</a>
+        <a href="http://127.0.0.1:7077/__lazylayers/metrics" target="_blank">Prometheus Metrics</a>
+        <a href="http://localhost:3000/api/users" target="_blank">Raw REST API</a>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

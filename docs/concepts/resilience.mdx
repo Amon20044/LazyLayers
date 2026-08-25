@@ -8,7 +8,7 @@ A cache is an optimisation. It sits in front of things that are slower than it, 
 
 So there is one rule underneath every mechanism on this page. **A cache failure degrades the request. It does not fail it.**
 
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card title="An L2 error is a miss" icon="shield-check">
     Redis being unreachable means your loader runs. It does not mean an exception reaches your handler.
   </Card>
@@ -21,7 +21,7 @@ So there is one rule underneath every mechanism on this page. **A cache failure 
   <Card title="A dead dependency stops being called" icon="bolt-slash">
     Breakers keep your request path from queueing work against something already struggling.
   </Card>
-</Columns>
+</CardGroup>
 
 ## Fail open
 

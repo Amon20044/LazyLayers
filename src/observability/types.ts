@@ -212,6 +212,8 @@ export interface OverviewSnapshot {
   misses: number;
   /** Hit ratio in [0, 1]; 0 when there have been no lookups yet. */
   hitRatio: number;
+  /** Total traffic offloaded from origin database (hits + inflight dedupe). */
+  originOffloadRatio: number;
   counters: ObservabilityCounters;
 }
 
