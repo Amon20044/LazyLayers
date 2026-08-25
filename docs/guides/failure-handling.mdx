@@ -1,103 +1,369 @@
 ---
 title: "Handle failure"
-description: "Serve stale data when a loader fails, cache known misses, and bound how long a loader may run."
+description: "Fail open, trip breakers, serve stale, cache known misses, and bound how long a loader may run."
 ---
 
-Three features that decide what your users see when something underneath is not working. All three are off by default.
+A cache sits between your users and everything slow. That position is also what makes it dangerous: a cache that throws when its store is sick has turned an optimisation into an outage. This page is about what your users see when something underneath stops answering.
+
+## Fail open is the stance
+
+An L2 error is treated as a miss, not an exception. The read falls through to the loader, the request completes, and the failure is reported as an event rather than raised into your handler. The same holds for the event bus: a publish that fails does not fail the write that triggered it.
+
+This applies to every L2 operation, including `get`, `set`, `delete`, pattern deletes, and lock acquisition. Each one emits `l2:error` carrying the operation and the breaker state, so a broken store is loud in your telemetry and invisible to your users.
+
+You do not configure this. It is the default posture of every store call in the library.
+
+<Warning>
+  Failing open trades consistency for availability, and you should know which one you just traded. While L2 is down, servers stop hearing invalidations that travelled through it and keep serving their own L1 until TTLs expire. Short L1 TTLs are what bound that window.
+</Warning>
+
+## Circuit breakers
+
+Failing open still means trying, and trying costs a connection, a socket timeout, and a slot in your request path. A circuit breaker stops you queueing work against a dependency that is already struggling.
+
+Two independent breakers exist, one for L2 and one for the event bus. Both take the same `CircuitBreakerOptions`, and both are constructed for every cache you build, so their defaults are already live: three consecutive failures to open, then a thirty second cooldown. Configuring them is how you replace those numbers with numbers that fit your dependency.
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+export const cache = new LazyLayersCache({
+  l2: new RedisStore(redis, { prefix: 'app:cache:' }),
+  eventBus: bus,
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+
+  resilience: {
+    l2CircuitBreaker: {
+      enabled: true,
+      // Consecutive failures before the breaker opens. Default 3.
+      failureThreshold: 5,
+      // How long calls are skipped before one probe is allowed through.
+      cooldownMs: 10_000,
+    },
+    eventBusCircuitBreaker: {
+      enabled: true,
+      failureThreshold: 3,
+      cooldownMs: 5_000,
+    },
+  },
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+const options: LazyLayersCacheOptions<string, User> = {
+  l2: new RedisStore<User>(redis, { prefix: 'app:cache:' }),
+  eventBus: bus,
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+
+  resilience: {
+    l2CircuitBreaker: {
+      enabled: true,
+      // Consecutive failures before the breaker opens. Default 3.
+      failureThreshold: 5,
+      // How long calls are skipped before one probe is allowed through.
+      cooldownMs: 10_000,
+    },
+    eventBusCircuitBreaker: {
+      enabled: true,
+      failureThreshold: 3,
+      cooldownMs: 5_000,
+    },
+  },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+The breaker has three states, which is the standard shape.
+
+| State | What it means | What happens next |
+| --- | --- | --- |
+| `closed` | Normal. Calls go through. | `failureThreshold` consecutive failures open it |
+| `open` | Calls are skipped, not attempted. | After `cooldownMs`, one probe is allowed and the state becomes `half-open` |
+| `half-open` | One call is being trusted. | Success closes it, a single failure reopens it and restarts the cooldown |
+
+A skipped call emits `l2:skipped` or `event-bus:publish-skipped` carrying the state, so the breaker opening is something you can alert on rather than infer from a latency graph.
+
+Tune with numbers. `failureThreshold` defaults to 3 and `cooldownMs` to 30,000. A low threshold trips on a single blip, and a long cooldown keeps you degraded after the store has recovered. Five failures and ten seconds is a reasonable starting pair for Redis on the same network.
+
+<Warning>
+  **The event bus breaker and the retry queue do not compose.** `publishInvalidation` returns as soon as the breaker reports that it cannot call, which happens before `eventBus.publish` is ever reached, and the retry queue lives inside the bus. So every event skipped by an open breaker is dropped outright, never buffered, and never replayed when the bus recovers. If you are counting on the retry queue to carry you through a bus outage, raise `eventBusCircuitBreaker.failureThreshold` well above a transient blip and keep `cooldownMs` short, so the window in which events bypass the queue stays small. Then alert on `event-bus:publish-skipped`, because that event is your only signal that invalidations were lost.
+</Warning>
 
 ## Stale fallback
 
-When a loader fails, the cache can serve the previous value instead of propagating the error.
+When a loader fails, you often have a perfectly serviceable slightly older answer sitting in memory. Stale fallback returns it instead of propagating the error.
 
-```ts
-const cache = new LazyLayersCache({
-  failSafe: { enabled: true, staleTtlMs: 60_000 },
-});
+It needs two things set, not one: `enabled: true`, and a positive `staleTtlMs`. With only the TTL, values are never remembered as stale.
+
+<CodeGroup>
+```js src/cache/index.js
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+
+  failSafe: {
+    enabled: true,
+    // How long past normal expiry a value stays usable as a fallback.
+    staleTtlMs: 60_000,
+  },
+})
 ```
 
-Values are remembered as stale when they are read, and kept for `staleTtlMs` past their normal expiry. If a loader then throws, the stale value is returned and a `stale:hit` event is emitted with the reason.
+```ts src/cache/index.ts
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
 
-```ts
+  failSafe: {
+    enabled: true,
+    // How long past normal expiry a value stays usable as a fallback.
+    staleTtlMs: 60_000,
+  },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+Values are remembered as stale when they are written, and kept for `staleTtlMs` beyond their normal lifetime. If the loader then throws, the stale value is returned and `stale:hit` is emitted with a reason of `loader-error`, `soft-timeout`, or `hard-timeout`.
+
+<CodeGroup>
+```js src/cache/metrics.js
+import { cache } from './index.js'
+
 cache.on((event) => {
   if (event.type === 'stale:hit') {
-    logger.warn({ key: event.key, reason: event.reason }, 'served stale');
+    logger.warn({ key: event.key, reason: event.reason }, 'served stale')
   }
-});
+})
 ```
 
-The reason is `loader-error`, `soft-timeout` or `hard-timeout`.
+```ts src/cache/metrics.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+import { cache } from './index.js'
+
+cache.on((event: CacheEvent) => {
+  if (event.type === 'stale:hit') {
+    logger.warn({ key: event.key, reason: event.reason }, 'served stale')
+  }
+})
+```
+</CodeGroup>
 
 <Warning>
-Stale data is still stale. This is the right trade for a product page and the wrong trade for a permission check. Enable it per call rather than globally when only some reads can tolerate it.
+  Stale data is still stale. This is the right trade for a product page and the wrong trade for a permission check. Scope it per call rather than globally when only some reads can tolerate an old answer.
 </Warning>
+
+Stale fallback is also what makes a soft timeout meaningful, which is the next section.
 
 ## Loader timeouts
 
-A loader with no timeout can hold a request open indefinitely.
+A loader with no ceiling can hold a request open for as long as the origin is willing to keep the socket alive, which on a struggling database can be minutes. Two timeouts bound that, and they exist for different reasons.
 
-```ts
-const cache = new LazyLayersCache({
+<CodeGroup>
+```js src/cache/index.js
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+
   failSafe: { enabled: true, staleTtlMs: 60_000 },
-  timeouts: { softMs: 200, hardMs: 2_000 },
-});
+
+  timeouts: {
+    // Latency budget. Needs fail-safe on and a stale value present.
+    softMs: 200,
+    // Absolute ceiling. Always applies.
+    hardMs: 2_000,
+  },
+})
 ```
 
-The two behave differently:
+```ts src/cache/index.ts
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+
+  failSafe: { enabled: true, staleTtlMs: 60_000 },
+
+  timeouts: {
+    // Latency budget. Needs fail-safe on and a stale value present.
+    softMs: 200,
+    // Absolute ceiling. Always applies.
+    hardMs: 2_000,
+  },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
 
 | Timeout | Requires | Effect |
 | --- | --- | --- |
-| `softMs` | Fail-safe on **and** a stale value available | Stop waiting and serve stale |
+| `softMs` | Fail-safe on **and** a stale value available | Stop waiting, serve the stale value |
 | `hardMs` | Nothing | Give up on the loader entirely |
 
-The soft timeout is for latency. You already have an answer that is slightly old, so you return it rather than making the user wait. The hard timeout is for a loader that is not coming back.
+The soft timeout is a latency budget. You already hold an answer that is slightly old, so you return it rather than making the user wait for a fresher one. The hard timeout is for a loader that is not coming back. When the soft path applies it takes precedence, so a request never waits `hardMs` when a stale answer was available at `softMs`.
 
-Both abort the loader's `AbortSignal`, so work you pass the signal to is cancelled rather than left running:
+### Pass the signal to your I/O
 
-```ts
-await cache.getOrSet('user:42', async ({ signal } = {}) => {
-  const res = await fetch(url, { signal });
-  return res.json();
-});
+Both timeouts abort the loader's `AbortSignal`. That is the only lever the cache has, because it cannot reach inside your database client and cancel a query it never issued.
+
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    // Passing the signal is what makes the timeout cancel work rather than
+    // just stop waiting for it.
+    const res = await fetch(`${process.env.USER_API}/users/${id}`, { signal })
+    return res.ok ? res.json() : undefined
+  })
+}
 ```
+
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    // Passing the signal is what makes the timeout cancel work rather than
+    // just stop waiting for it.
+    const res = await fetch(`${process.env.USER_API}/users/${id}`, { signal })
+    return res.ok ? (res.json() as Promise<User>) : undefined
+  })
+}
+```
+</CodeGroup>
+
+<Warning>
+  A loader that ignores its signal keeps running after the timeout fires. Under sustained pressure you accumulate abandoned queries that still hold connections, which is the failure mode the timeout was supposed to prevent.
+</Warning>
 
 ## Negative caching
 
-Repeatedly asking for something that does not exist means repeatedly running the loader. Negative caching records the miss.
+Asking repeatedly for something that does not exist means running the loader repeatedly. A crawler walking deleted IDs, or a client retrying a 404, will happily push full origin load through a cache that only remembers hits.
 
-```ts
-const cache = new LazyLayersCache({
-  negativeCache: { enabled: true, ttlMs: 10_000, maxEntries: 1_000 },
-});
+Negative caching records the absence. A loader that resolves to `undefined` writes a short lived negative entry, and later reads for that key return `undefined` without calling the loader, emitting `miss` with level `negative`.
+
+<CodeGroup>
+```js src/cache/index.js
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+
+  negativeCache: {
+    // Keep it short. This is the window in which a newly created record
+    // still looks absent.
+    ttlMs: 10_000,
+    maxEntries: 5_000,
+  },
+})
 ```
 
-A loader that returns `undefined` records a short-lived negative entry. Subsequent `get` and `getOrSet` calls for that key return `undefined` without calling the loader until it expires, and emit `miss` with level `negative`.
+```ts src/cache/index.ts
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
 
-Keep the TTL short. It is the window in which a newly created record still looks absent.
+  negativeCache: {
+    // Keep it short. This is the window in which a newly created record
+    // still looks absent.
+    ttlMs: 10_000,
+    maxEntries: 5_000,
+  },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+A positive `ttlMs` is required. Without one, nothing is recorded. `maxEntries` bounds the map, and the oldest entry is evicted when the cap is reached.
+
+Ten seconds is usually enough to absorb a retry storm while staying short enough that a just created record becomes visible quickly. A `delete` on the key clears the negative entry immediately, so writing through your own API stays consistent regardless of the TTL.
 
 ## Watching failures
 
 Every failure path emits an event. A reasonable production subscription:
 
-```ts
+<CodeGroup>
+```js src/cache/metrics.js
+import { cache } from './index.js'
+
 cache.on((event) => {
   switch (event.type) {
     case 'l2:error':
-      metrics.increment('cache.l2.error', { operation: event.operation });
-      break;
+      // Carries the breaker state, so you can alert on the transition to open.
+      metrics.increment('cache.l2.error', { operation: event.operation, state: event.state })
+      break
     case 'l2:skipped':
-      metrics.increment('cache.l2.skipped');
-      break;
+      metrics.increment('cache.l2.skipped', { state: event.state })
+      break
     case 'stale:hit':
-      metrics.increment('cache.stale', { reason: event.reason });
-      break;
+      metrics.increment('cache.stale', { reason: event.reason })
+      break
     case 'loader:timeout':
-      metrics.increment('cache.loader.timeout');
-      break;
+      metrics.increment('cache.loader.timeout')
+      break
     case 'event-bus:publish-error':
-      metrics.increment('cache.bus.error');
-      break;
+      metrics.increment('cache.bus.error')
+      break
+    case 'event-bus:publish-skipped':
+      // Remember: these events are dropped, not queued for retry.
+      metrics.increment('cache.bus.skipped')
+      break
   }
-});
+})
 ```
 
-The full list is in the [cache events reference](/docs/reference/cache-events).
+```ts src/cache/metrics.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+import { cache } from './index.js'
+
+cache.on((event: CacheEvent) => {
+  switch (event.type) {
+    case 'l2:error':
+      // Carries the breaker state, so you can alert on the transition to open.
+      metrics.increment('cache.l2.error', { operation: event.operation, state: event.state })
+      break
+    case 'l2:skipped':
+      metrics.increment('cache.l2.skipped', { state: event.state })
+      break
+    case 'stale:hit':
+      metrics.increment('cache.stale', { reason: event.reason })
+      break
+    case 'loader:timeout':
+      metrics.increment('cache.loader.timeout')
+      break
+    case 'event-bus:publish-error':
+      metrics.increment('cache.bus.error')
+      break
+    case 'event-bus:publish-skipped':
+      // Remember: these events are dropped, not queued for retry.
+      metrics.increment('cache.bus.skipped')
+      break
+  }
+})
+```
+</CodeGroup>
+
+<Warning>
+  Never label a metric with a cache key. Keys are unbounded, and one high cardinality label will take down your metrics backend before it takes down your cache.
+</Warning>
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Resilience" icon="shield-check" href="/docs/concepts/resilience">
+    The same behaviours as a concept, plus the full table of what is on by default.
+  </Card>
+  <Card title="Cache events" icon="list" href="/docs/reference/cache-events">
+    Every event these features emit, with its exact payload fields.
+  </Card>
+  <Card title="Event buses" icon="tower-broadcast" href="/docs/guides/event-buses#the-retry-queue">
+    How the retry queue buffers a failed publish, and why the breaker bypasses it.
+  </Card>
+</CardGroup>

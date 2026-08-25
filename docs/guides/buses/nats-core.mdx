@@ -1,36 +1,39 @@
 ---
 title: "NATS Core"
-description: "Run a NATS server, connect the bus in core mode, and understand what at-most-once fanout gives up."
+description: "One small binary, the fastest fan-out, and the same at-most-once trade as Redis."
+icon: "share-nodes"
 ---
 
-A single small binary with no dependencies, and the fastest fanout of the three transports. Nothing is stored, so there is nothing to size, prune or provision.
+A single binary with no dependencies and nothing on disk. Core mode stores nothing, so there is no stream to size, no queue to reap and no backlog to manage.
 
-**Delivery is at-most-once.** The server hands a message to whoever is subscribed at that moment and forgets it. An instance that is restarting, paused or briefly partitioned misses those invalidations and falls back to TTL expiry. There is no replay.
+Delivery is at-most-once, the same trade Redis Pub/Sub makes. The server hands a message to whoever is subscribed at that moment and forgets it. A server that is restarting, paused or briefly partitioned misses those invalidations and reloads each affected key on its next request.
+
+The bus subscribes to the subject directly, with no queue group, so every subscriber receives every message. That is what makes it fan-out rather than work distribution.
 
 ## Run NATS
 
 <Tabs>
-<Tab title="Docker">
-```bash
-docker run -d --name nats -p 4222:4222 nats:latest
-```
-</Tab>
+  <Tab title="Docker">
+    ```bash
+    docker run -d --name nats -p 4222:4222 nats:latest
+    ```
+  </Tab>
 
-<Tab title="Binary">
-Download a release for your platform from [github.com/nats-io/nats-server/releases](https://github.com/nats-io/nats-server/releases), then run it.
+  <Tab title="Binary">
+    Download a release from [github.com/nats-io/nats-server/releases](https://github.com/nats-io/nats-server/releases), then run it.
 
-```bash
-nats-server
-```
+    ```bash
+    nats-server
+    ```
 
-It listens on port 4222 and writes nothing to disk in this mode.
-</Tab>
+    It listens on port 4222 and writes nothing to disk in this mode.
+  </Tab>
 
-<Tab title="Managed">
-| Provider | Notes |
-| --- | --- |
-| [Synadia Cloud](https://www.synadia.com/cloud) | From the creators of NATS, global multi-region |
-</Tab>
+  <Tab title="Managed">
+    | Provider | Notes |
+    | --- | --- |
+    | [Synadia Cloud](https://www.synadia.com/cloud) | From the creators of NATS, global multi-region |
+  </Tab>
 </Tabs>
 
 ```bash .env
@@ -38,104 +41,330 @@ NATS_URL="nats://localhost:4222"
 ```
 
 <Warning>
-`nats://demo.nats.io` is a public server run for testing. Anyone can subscribe to any subject on it, so your cache keys and any values you broadcast are visible to strangers. Use it to check that a client connects, never for anything real.
+  `nats://demo.nats.io` is a public server run for testing. Anyone can subscribe to any subject on it, so your cache keys and every value the lazy fan-out broadcasts are visible to strangers. Use it to check that a client connects, never for anything real.
 </Warning>
 
-## Connect
+## Set it up
 
-```ts
-import Redis from 'ioredis';
-import { LazyLayersCache, RedisStore, NatsEventBus } from 'lazy-layers-cache';
+<Steps>
 
-const eventBus = new NatsEventBus({
+<Step title="Redis for L2">
+
+NATS carries the events. Redis still holds the shared values.
+
+<CodeGroup>
+```js src/cache/redis.js
+import Redis from 'ioredis'
+
+export const redis = new Redis(process.env.REDIS_URL, {
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  enableOfflineQueue: true,
+})
+
+redis.on('error', (err) => {
+  console.error('[redis]', err.message)
+})
+```
+
+```ts src/cache/redis.ts
+import Redis from 'ioredis'
+
+export const redis = new Redis(process.env.REDIS_URL!, {
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  enableOfflineQueue: true,
+})
+
+redis.on('error', (err: Error) => {
+  console.error('[redis]', err.message)
+})
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="The bus">
+
+<CodeGroup>
+```js src/cache/bus.js
+import { NatsEventBus } from 'lazy-layers-cache'
+
+export const bus = new NatsEventBus({
   mode: 'core',
-  subject: 'cache.invalidations',
   connectionOptions: {
     servers: process.env.NATS_URL,
+    // Only affects what the server reports, but it makes
+    // `nats server report connections` readable.
     name: process.env.INSTANCE_ID,
   },
-  retryQueue: { enabled: true, maxSize: 10_000 },
+  subject: 'lazylayers.invalidate',
+  retryQueue: { enabled: true, maxSize: 1000 },
   logging: { env: 'production' },
-});
+})
 
-const health = await eventBus.healthCheck();
-if (!health.ok) throw new Error(`cache bus unhealthy: ${JSON.stringify(health)}`);
+await bus.connect()
+```
+
+```ts src/cache/bus.ts
+import { NatsEventBus } from 'lazy-layers-cache'
+
+export const bus = new NatsEventBus({
+  mode: 'core',
+  connectionOptions: {
+    servers: process.env.NATS_URL,
+    // Only affects what the server reports, but it makes
+    // `nats server report connections` readable.
+    name: process.env.INSTANCE_ID,
+  },
+  subject: 'lazylayers.invalidate',
+  retryQueue: { enabled: true, maxSize: 1000 },
+  logging: { env: 'production' },
+})
+
+await bus.connect()
+```
+</CodeGroup>
+
+`connect()` opens the connection and flushes it, so a wrong URL or bad credentials fail at startup rather than on your first invalidation.
+
+</Step>
+
+<Step title="The cache">
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
 
 export const cache = new LazyLayersCache({
-  l2: new RedisStore(new Redis(process.env.REDIS_URL!), { prefix: 'app:' }),
-  eventBus,
-  source: process.env.INSTANCE_ID,
-});
+  ttlMs: 5 * 60 * 1000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 60 * 1000 },
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+  l2: new RedisStore(redis, { prefix: 'app:cache:', deleteStrategy: 'unlink' }),
+
+  eventBus: bus,
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+  broadcastSetMaxBytes: 32 * 1024,
+})
 ```
 
-`connectionOptions` is `NodeConnectionOptions` from `@nats-io/transport-node`, passed through untouched. Anything the driver accepts there — TLS material, credentials files, `token`, `reconnectTimeWait` — works.
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
 
-`name` is optional and only affects what the server reports in its connection list, but it makes `nats server report connections` readable when you are trying to work out which instance is misbehaving.
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 60 * 1000 },
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+  l2: new RedisStore<User>(redis, { prefix: 'app:cache:', deleteStrategy: 'unlink' }),
 
-Every instance must publish and subscribe on the **same subject**. Instances on different subjects will not see each other.
+  eventBus: bus,
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+  broadcastSetMaxBytes: 32 * 1024,
+}
 
-## Share an existing connection
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
 
-If your application already holds a NATS connection, hand it over instead of opening a second one.
+</Step>
 
-```ts
-import { connect } from '@nats-io/transport-node';
+<Step title="Read and invalidate">
 
-const nc = await connect({ servers: process.env.NATS_URL });
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
 
-const eventBus = new NatsEventBus({ connection: nc });
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+
+export async function updateUser(id, patch) {
+  const updated = await db.users.update(id, patch)
+  await cache.delete(`user:${id}`)
+  return updated
+}
 ```
 
-`disconnect()` then closes the subscription but leaves the connection open. The bus drains only a connection it opened itself, so your application keeps control of the one it created.
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+import { db } from '../db.js'
 
-## Options
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+
+export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
+  const updated = await db.users.update(id, patch)
+  await cache.delete(`user:${id}`)
+  return updated
+}
+```
+</CodeGroup>
+
+</Step>
+
+</Steps>
+
+Every server must publish and subscribe on the same subject. Servers on different subjects do not see each other and nothing warns you.
+
+## Share a connection you already have
+
+If your application already holds a NATS connection, hand it over rather than opening a second one.
+
+<CodeGroup>
+```js src/cache/bus.js
+import { connect } from '@nats-io/transport-node'
+import { NatsEventBus } from 'lazy-layers-cache'
+
+export const nats = await connect({ servers: process.env.NATS_URL })
+
+export const bus = new NatsEventBus({
+  mode: 'core',
+  connection: nats,
+  subject: 'lazylayers.invalidate',
+})
+
+await bus.connect()
+```
+
+```ts src/cache/bus.ts
+import { connect, type NatsConnection } from '@nats-io/transport-node'
+import { NatsEventBus } from 'lazy-layers-cache'
+
+export const nats: NatsConnection = await connect({ servers: process.env.NATS_URL })
+
+export const bus = new NatsEventBus({
+  mode: 'core',
+  connection: nats,
+  subject: 'lazylayers.invalidate',
+})
+
+await bus.connect()
+```
+</CodeGroup>
+
+The bus records that it did not create this connection. `disconnect()` then drains the subscription and leaves the connection open, so your application keeps control of the one it made. When you pass `connection`, `connectionOptions` is unused.
+
+## Every option
 
 <ParamField path="mode" type="'core' | 'jetstream'" default="core">
-  Core mode. Set to `jetstream` for durable delivery, covered in [NATS JetStream](/docs/guides/buses/nats-jetstream).
+  Core mode is at-most-once and stores nothing. Set it to `jetstream` for durable delivery, covered in [NATS JetStream](/docs/guides/buses/nats-jetstream).
 </ParamField>
 
 <ParamField path="subject" type="string" default="cache.invalidations">
-  Subject used to publish and subscribe. Identical across every instance sharing invalidation.
+  Subject used to publish and subscribe. Identical across every server sharing invalidation.
 </ParamField>
 
 <ParamField path="connectionOptions" type="NodeConnectionOptions">
-  Options for `connect()` from `@nats-io/transport-node`, such as `servers`, `name`, `token` and TLS settings. Ignored when you pass `connection`.
+  Passed straight to `connect()` from `@nats-io/transport-node`. Anything that driver accepts works here: `servers`, `name`, `token`, credentials files, TLS material, `reconnectTimeWait`. Unused when you pass `connection`.
 </ParamField>
 
 <ParamField path="connection" type="NatsConnection">
   An existing connection to share. The bus will not drain a connection it did not create.
 </ParamField>
 
+<ParamField path="jetstream" type="NatsJetStreamOptions">
+  Read only in `jetstream` mode. Setting it while `mode` is `core` has no effect.
+</ParamField>
+
 <ParamField path="retryQueue.enabled" type="boolean" default="true">
-  Buffer failed publishes and flush them on the next successful one. Core mode gives you no acknowledgement from the server, so without this a publish that fails while the connection is down is gone.
+  Buffer an event in memory when the publish fails, and flush the buffer ahead of the next successful publish. Core mode gets no acknowledgement from any subscriber, so without this a publish that fails while the connection is down is simply gone.
 </ParamField>
 
 <ParamField path="retryQueue.maxSize" type="number" default="10000">
-  Cap on buffered events. Oldest drops first with a warning.
+  Cap on buffered events. Past it, the oldest is dropped with a warning.
 </ParamField>
 
 <ParamField path="logging" type="CacheLoggerOptions">
-  `env` and `enabled`, matching the cache's logging options.
+  `{ env, enabled }`. `enabled` wins when set, otherwise output is on unless `env` is `'production'`.
 </ParamField>
 
-## Verify it works
+## Failure modes
 
-Run two processes against the same server and watch one react to the other.
+**A successful publish means the server took the message, not that anyone got it.** The bus publishes and then awaits a flush, which confirms the message reached the NATS server. Zero connected subscribers is still a successful publish.
 
-```ts
-cache.on((event) => {
-  if (event.type === 'invalidation:received') {
-    console.log('received', event.eventType, event.eventId);
-  }
-});
+**A disconnected subscriber misses everything sent while it was gone.** There is no backlog and no replay. On reconnect the server resumes from live traffic, and every key invalidated during the gap stays in its L1 until the L1 TTL expires it. Short L1 TTLs are how you bound that, which is why an L1 TTL of a minute against an L2 TTL of an hour is a sensible shape.
+
+**Handlers run one at a time.** The subscription loop awaits each handler before pulling the next message, so ordering is preserved as delivered, and one slow handler delays every event behind it. There is no concurrency option in core mode.
+
+**A handler that throws loses that event.** The error is logged and the loop continues to the next message. Nothing is retried, because there is nothing stored to retry from.
+
+**A message that does not decode is logged as a warning and skipped**, so an unrelated publisher on the same subject cannot corrupt your cache.
+
+**Repeated publish failures trip the cache's circuit breaker, and then the retry queue stops helping.** Once the breaker is open the cache returns before it calls `eventBus.publish`, so nothing reaches the retry queue to be buffered. See [the sharp edges](/docs/guides/event-buses#two-sharp-edges).
+
+## Operational notes
+
+If the connection has closed, the next publish opens a new one from `connectionOptions`. A bus you constructed with a shared `connection` that has since closed will reconnect using `connectionOptions` instead, so set both if you share a connection and expect long uptime.
+
+The [NATS CLI](https://github.com/nats-io/natscli) is the fastest way to tell whether the problem is your code or your connection. Subscribe to the subject with no application involved:
+
+```bash
+nats sub 'lazylayers.invalidate'
 ```
 
-Delete a key on instance A. Instance B should log an `invalidation:received` within milliseconds. If it does not, check that both use the same subject and that their `source` values differ.
+Delete a key on one server and you should see the event print immediately. If the CLI sees it and a peer does not, the problem is on the peer: check that it uses the same subject, and that its `source` differs from the publisher's.
 
-<Note>
-The [NATS CLI](https://github.com/nats-io/natscli) is the fastest way to tell whether the problem is your code or your connection. `nats sub 'cache.invalidations'` prints every invalidation as it is published, with no application involved.
-</Note>
+From inside the application, watch the cache's own event stream:
 
-## When to move on
+<CodeGroup>
+```js src/cache/watch.js
+import { cache } from './index.js'
 
-Core mode is the right answer while a missed invalidation costs you staleness rather than correctness. Once an instance restarting during a deploy must not come back serving a value that was deleted while it was down, switch to [NATS JetStream](/docs/guides/buses/nats-jetstream). The same server handles both, so the move is a configuration change and a `-js` flag rather than new infrastructure.
+cache.on((event) => {
+  if (event.type === 'invalidation:received') {
+    console.log('received', event.eventType, event.eventId)
+  }
+})
+```
+
+```ts src/cache/watch.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+import { cache } from './index.js'
+
+cache.on((event: CacheEvent) => {
+  if (event.type === 'invalidation:received') {
+    console.log('received', event.eventType, event.eventId)
+  }
+})
+```
+</CodeGroup>
+
+## When to choose it
+
+Choose NATS Core when you want fan-out on infrastructure built for it, you are happy with the at-most-once trade, and you would rather not put invalidation traffic through the same Redis that serves your L2.
+
+Choose [Redis Pub/Sub](/docs/guides/buses/redis) instead if you do not already run NATS. The delivery semantics are the same and it is one fewer component.
+
+Move to [NATS JetStream](/docs/guides/buses/nats-jetstream) when a server coming back from a restart must not serve a value that was deleted while it was down. The same server handles both, so it is a `-js` flag and a configuration change rather than new infrastructure.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="NATS JetStream" icon="bolt" href="/docs/guides/buses/nats-jetstream">
+    Durable delivery on the server you are already running, with one flag.
+  </Card>
+  <Card title="Event bus reference" icon="sliders" href="/docs/reference/event-buses">
+    The full NATS option table with defaults, core and JetStream together.
+  </Card>
+  <Card title="Event buses" icon="tower-broadcast" href="/docs/guides/event-buses">
+    What at-most-once actually costs, and how the four transports compare.
+  </Card>
+</CardGroup>

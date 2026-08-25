@@ -1,0 +1,148 @@
+---
+title: "Learn the system design"
+description: "A reading path from the problem caches create to the machinery that solves it."
+icon: "graduation-cap"
+---
+
+Caching looks like a one-line optimisation until you run a second server. Then it becomes a distributed systems problem, and the questions get harder: which copy is right, what happens when a message is lost, and who pays when the cache is cold.
+
+This page is the order to read things in. Each step names the system design concept, says what you will understand at the end of it, and links to the page that teaches it.
+
+<Note>
+  Every link here opens in a new tab, so you can walk the path and keep your place.
+</Note>
+
+## If you only read three pages
+
+<CardGroup cols={3}>
+  <Card title="Laziness" icon="feather">
+    <a href="/docs/concepts/lazy-loading" target="_blank" rel="noopener">Lazy loading</a> is the principle the whole library is named for.
+  </Card>
+  <Card title="Invalidation" icon="arrows-rotate">
+    <a href="/docs/concepts/invalidation" target="_blank" rel="noopener">Cache invalidation</a> is the part that is famously hard.
+  </Card>
+  <Card title="Failure" icon="shield-halved">
+    <a href="/docs/concepts/resilience" target="_blank" rel="noopener">Resilience</a> decides what your cache does on its worst day.
+  </Card>
+</CardGroup>
+
+## The path
+
+<Steps>
+
+<Step title="Every server keeps its own cache, and they disagree" icon="server">
+  **Concept: cache coherence**
+
+  Put a cache in your process and it is fast and private. Run four servers and you have four private caches that drift apart the moment one of them writes. A user updates their profile, gets routed to a different server on the next request, and sees the old value looking back at them.
+
+  Read <a href="/docs/concepts/layers#one-layer-two-ways-to-be-unhappy" target="_blank" rel="noopener">One layer, two ways to be unhappy</a>.
+</Step>
+
+<Step title="Do the least work that still gives the right answer" icon="feather">
+  **Concept: lazy evaluation**
+
+  Nothing is cached until somebody asks for it. That sounds obvious until you compare it with warming a cache up front, which spends memory on keys nobody reads and time on work nobody needed.
+
+  Read <a href="/docs/concepts/lazy-loading#the-problem-with-warming-up-front" target="_blank" rel="noopener">The problem with warming up front</a>.
+</Step>
+
+<Step title="Two layers, because near and shared are different jobs" icon="layer-group">
+  **Concept: memory hierarchy**
+
+  L1 is in your process heap: nanoseconds away, lost on restart, private to one server. L2 is shared: a network hop away, survives deploys, seen by everyone. Neither one does both jobs, which is why there are two.
+
+  Read <a href="/docs/concepts/layers#what-each-layer-is-for" target="_blank" rel="noopener">What each layer is for</a>, then <a href="/docs/concepts/layers#sizing-l1-by-entry-count" target="_blank" rel="noopener">Sizing L1 by entry count</a>.
+</Step>
+
+<Step title="Ten thousand callers, one cold key" icon="users-line">
+  **Concept: the thundering herd**
+
+  A popular key expires. Every in-flight request misses at the same instant and every one of them calls your database. The cache did not protect you, it synchronised the stampede.
+
+  The fix is in-flight dedupe: the first caller runs the loader, everyone else waits on the same promise. It is on by default.
+
+  Read <a href="/docs/guides/stampede-protection#the-thundering-herd" target="_blank" rel="noopener">The thundering herd</a>, then <a href="/docs/guides/stampede-protection#in-flight-dedupe" target="_blank" rel="noopener">In-flight dedupe</a>.
+</Step>
+
+<Step title="One server pays, the whole fleet gets warm" icon="tower-broadcast">
+  **Concept: write propagation**
+
+  This is the part most caches do not do. When a loader resolves, the value itself goes out on the event bus, and every peer stores it lazily in its own L1. One database query warms every server.
+
+  Read <a href="/docs/concepts/lazy-loading#the-lazy-fan-out" target="_blank" rel="noopener">The lazy fan-out</a>. Pay attention to the two caveats: only `getOrSet` broadcasts, and `broadcastSetMaxBytes` has no default.
+</Step>
+
+<Step title="Telling everyone the value is wrong" icon="broom">
+  **Concept: cache invalidation**
+
+  Without a bus, your staleness window is your TTL. A one hour TTL means an hour of serving a value you know is wrong. With a bus, it is one network hop.
+
+  Read <a href="/docs/concepts/invalidation#living-on-ttls-alone" target="_blank" rel="noopener">Living on TTLs alone</a>, then <a href="/docs/concepts/invalidation#three-event-types-one-of-which-carries-a-value" target="_blank" rel="noopener">Three event types</a>.
+</Step>
+
+<Step title="A late message must not undo a newer truth" icon="clock-rotate-left">
+  **Concept: causal ordering and idempotency**
+
+  Networks reorder. Durable transports redeliver. If a delete from one second ago arrives after a write from now, a naive cache resurrects deleted data.
+
+  Three mechanisms prevent it: dedupe by event ID, filter your own events by `source`, and compare per-key generation counters so anything older than what already landed is discarded.
+
+  Read <a href="/docs/architecture/event-ordering" target="_blank" rel="noopener">Event ordering</a>, and be honest with yourself about <a href="/docs/architecture/event-ordering#what-is-not-guaranteed" target="_blank" rel="noopener">what is not guaranteed</a>.
+</Step>
+
+<Step title="What your transport actually promises" icon="network-wired">
+  **Concept: delivery semantics**
+
+  Redis Pub/Sub and NATS Core are at-most-once: a server that is offline misses the event entirely and reloads on its next request. RabbitMQ and NATS JetStream are durable: events are held and redelivered, and you pay in broker state per server.
+
+  Neither is correct in the abstract. You are choosing which failure you can live with.
+
+  Read <a href="/docs/guides/event-buses#delivery-semantics" target="_blank" rel="noopener">Delivery semantics</a>, then <a href="/docs/guides/event-buses#pick-a-transport" target="_blank" rel="noopener">Pick a transport</a>.
+</Step>
+
+<Step title="Degrade, do not collapse" icon="shield-halved">
+  **Concept: fail-open and circuit breaking**
+
+  A cache that throws when Redis is slow has turned an optimisation into an outage. Failing open means an L2 or bus failure degrades to the layers that still work.
+
+  Circuit breakers stop you from queueing work against a dead dependency. Stale fallback serves the last known value while the origin is down. Negative caching stops a missing row from becoming a free pass to hammer the database.
+
+  Read <a href="/docs/concepts/resilience#fail-open" target="_blank" rel="noopener">Fail open</a>, then <a href="/docs/concepts/resilience#circuit-breakers" target="_blank" rel="noopener">Circuit breakers</a>.
+</Step>
+
+<Step title="What a value costs on the wire" icon="file-zipper">
+  **Concept: serialization tradeoffs**
+
+  MessagePack by default, gzip on top only when it earns at least 15 percent, and a 4-byte tag so a reader never has to guess how a value was written. That tag is what makes rolling deploys safe when the encoding changes underneath you.
+
+  This costs CPU compared with plain JSON and buys smaller payloads. Know which one you are short of.
+
+  Read <a href="/docs/concepts/serialization#why-not-json" target="_blank" rel="noopener">Why not JSON</a>, then <a href="/docs/concepts/serialization#the-three-encodings" target="_blank" rel="noopener">The three encodings</a>.
+</Step>
+
+<Step title="Put it in production" icon="rocket">
+  **Concept: capacity planning**
+
+  Sizing L1 against the memory your instance actually has, giving every server and every cluster worker a unique `source`, and tuning numbers rather than turning safety features off.
+
+  Read the <a href="/docs/setups/production" target="_blank" rel="noopener">production checklist</a>.
+</Step>
+
+</Steps>
+
+## The one rule that outlives everything here
+
+When you tune this for production, change **numbers**, not **booleans**.
+
+Entry counts, TTLs, byte ceilings, failure thresholds and cooldowns are all meant to be moved, and moving them is how you fit the cache to your infrastructure. In-flight dedupe, fail-open and event filtering are load-bearing. Turning one off to chase a benchmark trades a problem you can see for one you will meet at 3am.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Walkthrough" icon="route" href="/docs/walkthrough">
+    Follow a single key through every layer, out over the bus, and into a peer.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/docs/quickstart">
+    Build it, one file at a time, in JavaScript or TypeScript.
+  </Card>
+</CardGroup>

@@ -20,6 +20,10 @@ await cache.delete(`user:${id}`);
 
 `getOrSet` is the read path. `delete` is the write path. Everything else on this site is about what happens between them.
 
+<Note>
+  The name is the design principle. LazyLayers does the least work that still returns the right answer: **load late** so nothing is cached until somebody asks, **load once** so ten thousand concurrent callers produce one loader call, and **load small** so values travel as packed binary. New to this? Start with <a href="/docs/learn">the reading path</a>.
+</Note>
+
 ## Why it exists
 
 A single-process cache is easy. `Map` will do.
@@ -130,8 +134,8 @@ flowchart LR
   <Card title="Quickstart" icon="rocket" href="/docs/quickstart">
     A full production configuration, every option explained.
   </Card>
-  <Card title="Walkthrough" icon="route" href="/docs/walkthrough">
-    Take one service from a single process to a synchronised cluster.
+  <Card title="Learn the system design" icon="graduation-cap" href="/docs/learn">
+    The reading path, from why caches disagree to how this one keeps them honest.
   </Card>
   <Card title="Recommended setups" icon="sliders" href="/docs/setups/multi-instance">
     Copyable configurations with TTL guidance.

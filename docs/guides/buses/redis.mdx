@@ -1,45 +1,45 @@
 ---
 title: "Redis Pub/Sub"
-description: "Run Redis, connect the bus, and understand what at-most-once delivery costs you."
+description: "The default transport: no new infrastructure, at-most-once delivery."
+icon: "layer-group"
 ---
 
-The lowest-friction transport. If you already run Redis as your L2, this adds no new infrastructure.
+The lowest-friction bus in the package. Redis is already your L2, so this adds a channel and nothing else. It is the right default, and the reason it is the default is that it costs you no new component to run.
 
-**Delivery is at-most-once.** A subscriber receives messages only while connected. An instance that was restarting misses those invalidations and falls back to TTL expiry.
+Delivery is at-most-once. A subscriber receives a message only while it is connected. A server that was restarting misses those invalidations and reloads each affected key on its next request.
 
 ## Run Redis
 
 <Tabs>
-<Tab title="Docker">
-```bash
-docker run -d --name redis -p 6379:6379 redis:7-alpine
-```
-</Tab>
+  <Tab title="Docker">
+    ```bash
+    docker run -d --name redis -p 6379:6379 redis:7-alpine
+    ```
+  </Tab>
 
-<Tab title="macOS">
-```bash
-brew install redis
-brew services start redis
-```
-</Tab>
+  <Tab title="macOS">
+    ```bash
+    brew install redis
+    brew services start redis
+    ```
+  </Tab>
 
-<Tab title="Linux">
-```bash
-sudo apt install redis-server
-sudo systemctl enable --now redis-server
-```
-</Tab>
+  <Tab title="Linux">
+    ```bash
+    sudo apt install redis-server
+    sudo systemctl enable --now redis-server
+    ```
+  </Tab>
 
-<Tab title="Managed">
-No install. Create an instance and take the connection URL.
+  <Tab title="Managed">
+    No install. Create an instance and take the connection URL.
 
-| Provider | Notes |
-| --- | --- |
-| [Upstash](https://upstash.com) | Serverless, per-request pricing, generous free tier |
-| [Redis Cloud](https://redis.io/cloud/) | From the maintainers of Redis |
-| [AWS ElastiCache](https://aws.amazon.com/elasticache/) | Inside your VPC |
-| [DigitalOcean Managed Redis](https://www.digitalocean.com/products/managed-databases-redis) | Straightforward pricing |
-</Tab>
+    | Provider | Notes |
+    | --- | --- |
+    | [Upstash](https://upstash.com) | Serverless, per-request pricing |
+    | [Redis Cloud](https://redis.io/cloud/) | From the maintainers of Redis |
+    | [AWS ElastiCache](https://aws.amazon.com/elasticache/) | Inside your VPC |
+  </Tab>
 </Tabs>
 
 ```bash .env
@@ -48,70 +48,287 @@ REDIS_URL="redis://localhost:6379"
 
 Managed providers usually issue a `rediss://` URL. The extra `s` means TLS, and `ioredis` handles it from the URL alone.
 
-## Connect
+## Set it up
 
-```ts
-import Redis from 'ioredis';
-import { LazyLayersCache, RedisStore, RedisEventBus } from 'lazy-layers-cache';
+<Steps>
 
-const redis = new Redis(process.env.REDIS_URL!);
+<Step title="One Redis connection">
 
-const eventBus = new RedisEventBus(redis, 'cache:invalidations', {
-  retryQueue: { enabled: true, maxSize: 10_000 },
-  handlerConcurrency: 1,
-  logging: { env: 'production' },
-});
+The bus reuses this client, so keep it in its own file.
 
-const health = await eventBus.healthCheck();
-if (!health.ok) throw new Error(`cache bus unhealthy: ${JSON.stringify(health)}`);
+<CodeGroup>
+```js src/cache/redis.js
+import Redis from 'ioredis'
 
-export const cache = new LazyLayersCache({
-  l2: new RedisStore(redis, { prefix: 'app:' }),
-  eventBus,
-  source: process.env.INSTANCE_ID,
-});
+export const redis = new Redis(process.env.REDIS_URL, {
+  // Fail a command rather than queueing it forever when Redis is unreachable.
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  // Commands issued before the socket is ready wait instead of throwing.
+  enableOfflineQueue: true,
+})
+
+redis.on('error', (err) => {
+  // Never rethrow here. LazyLayers already degrades to L1 on its own.
+  console.error('[redis]', err.message)
+})
 ```
 
-You pass one client. The bus calls `.duplicate()` internally for the subscriber, because a Redis connection in subscriber mode cannot issue other commands. Reusing your L2 client here is correct and intended.
+```ts src/cache/redis.ts
+import Redis from 'ioredis'
 
-Every instance must use the **same channel name**. Instances on different channels will not see each other.
+export const redis = new Redis(process.env.REDIS_URL!, {
+  // Fail a command rather than queueing it forever when Redis is unreachable.
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  // Commands issued before the socket is ready wait instead of throwing.
+  enableOfflineQueue: true,
+})
 
-## Options
+redis.on('error', (err: Error) => {
+  // Never rethrow here. LazyLayers already degrades to L1 on its own.
+  console.error('[redis]', err.message)
+})
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="The bus">
+
+<CodeGroup>
+```js src/cache/bus.js
+import { RedisEventBus } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+
+// The bus duplicates this client internally, because a Redis connection in
+// subscriber mode cannot run normal commands.
+export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+  retryQueue: { enabled: true, maxSize: 1000 },
+  handlerConcurrency: 16,
+  logging: { env: 'production' },
+})
+
+await bus.connect()
+```
+
+```ts src/cache/bus.ts
+import { RedisEventBus } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+
+// The bus duplicates this client internally, because a Redis connection in
+// subscriber mode cannot run normal commands.
+export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+  retryQueue: { enabled: true, maxSize: 1000 },
+  handlerConcurrency: 16,
+  logging: { env: 'production' },
+})
+
+await bus.connect()
+```
+</CodeGroup>
+
+`connect()` pings both the publisher and the duplicated subscriber, so a bad URL or a Redis that is not up yet fails here rather than on your first invalidation.
+
+</Step>
+
+<Step title="The cache">
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 60 * 1000 },
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+  l2: new RedisStore(redis, { prefix: 'app:cache:', deleteStrategy: 'unlink' }),
+
+  eventBus: bus,
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+  broadcastSetMaxBytes: 32 * 1024,
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 60 * 1000 },
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+  l2: new RedisStore<User>(redis, { prefix: 'app:cache:', deleteStrategy: 'unlink' }),
+
+  eventBus: bus,
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+  broadcastSetMaxBytes: 32 * 1024,
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="Read and invalidate">
+
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+
+export async function updateUser(id, patch) {
+  const updated = await db.users.update(id, patch)
+  await cache.delete(`user:${id}`)
+  return updated
+}
+```
+
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+import { db } from '../db.js'
+
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+
+export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
+  const updated = await db.users.update(id, patch)
+  await cache.delete(`user:${id}`)
+  return updated
+}
+```
+</CodeGroup>
+
+</Step>
+
+</Steps>
+
+## One client, two connections
+
+You hand the bus one `ioredis` client. It keeps that one as the publisher and calls `.duplicate()` for the subscriber, because a Redis connection in subscriber mode cannot issue ordinary commands. Passing your L2 client here is intended, not a shortcut.
+
+The publisher shares its connection with your L2 traffic. A long-running L2 command in front of a `PUBLISH` delays the invalidation, which is one more reason to keep `deleteByPattern` prefixes narrow.
+
+## Every option
 
 <ParamField path="redis" type="Redis" required>
-  An existing `ioredis` client.
+  Constructor argument. An existing `ioredis` client, duplicated internally for the subscriber.
 </ParamField>
 
 <ParamField path="channel" type="string" required>
-  Pub/Sub channel. Identical across every instance sharing invalidation.
+  Constructor argument. The Pub/Sub channel. Every server sharing invalidation must use the identical string. Servers on different channels do not see each other and nothing warns you.
 </ParamField>
 
 <ParamField path="handlerConcurrency" type="number" default="1">
-  Concurrent handler executions. The default preserves approximate ordering. Raise it for throughput and give that up.
+  How many received events are applied at once. The default of 1 applies events one at a time, which preserves approximate arrival order. A value that is not finite or is zero or below falls back to 1, and fractional values are floored. Raise it when a burst of invalidations is arriving faster than they are applied.
 </ParamField>
 
 <ParamField path="retryQueue.enabled" type="boolean" default="true">
-  Buffer failed publishes and flush on the next success. Pub/Sub is fire-and-forget, so without this a single network blip loses the event.
+  Buffer an event in memory when the publish fails, and flush the buffer ahead of the next successful publish. Pub/Sub is fire and forget, so without this a single network blip loses the event outright.
 </ParamField>
 
 <ParamField path="retryQueue.maxSize" type="number" default="10000">
-  Cap on buffered events. Oldest drops first with a warning.
+  Cap on buffered events. Past it, the oldest is dropped with a warning. A value of zero or below drops every event with a warning.
 </ParamField>
 
-## Verify it works
+<ParamField path="logging" type="CacheLoggerOptions">
+  `{ env, enabled }`. `enabled` wins when set, otherwise output is on unless `env` is `'production'`.
+</ParamField>
 
-Run two processes against the same Redis and watch one react to the other.
+## Failure modes
 
-```ts
-cache.on((event) => {
-  if (event.type === 'invalidation:received') {
-    console.log('received', event.eventType, event.eventId);
-  }
-});
+**A `PUBLISH` that succeeds tells you nothing about delivery.** Redis returns the number of subscribers that received the message and the bus does not inspect it. Zero connected servers is a successful publish that reached nobody.
+
+**A disconnected subscriber misses everything sent while it was gone.** There is no backlog and no replay. On reconnect the server resumes from live traffic, and every key invalidated during the gap is still in its L1 until the L1 TTL expires it. Short L1 TTLs are how you bound that, which is why an L1 TTL of a minute against an L2 TTL of an hour is a sensible shape.
+
+**A publish failure is not silent, but it is not fatal either.** The bus buffers the event in the retry queue and rethrows. The cache logs it, emits `event-bus:publish-error`, and continues. Your write already committed to L1 and L2.
+
+**Repeated failures trip the cache's circuit breaker, and then the retry queue stops helping.** Once the breaker is open, the cache returns before it calls `eventBus.publish`, so nothing reaches the retry queue to be buffered. See [the sharp edges](/docs/guides/event-buses#two-sharp-edges).
+
+**A malformed message is ignored.** Anything on the channel that does not decode into a valid invalidation event is logged as a warning and dropped, so an unrelated publisher on the same channel cannot corrupt your cache.
+
+## Operational notes
+
+`disconnect()` unsubscribes, then disconnects the subscriber **and the client you passed in**. If that client also serves your L2, call `disconnect()` only during shutdown.
+
+The bus uses ordinary `SUBSCRIBE`, not sharded Pub/Sub. On Redis Cluster that means every server sees every message regardless of which shard owns the keys, which is what you want for invalidation.
+
+Watch it work from either side. Subscribe to the channel directly with `redis-cli`:
+
+```bash
+redis-cli subscribe lazylayers.invalidate
 ```
 
-Delete a key on instance A. Instance B should log an `invalidation:received` within milliseconds. If it does not, check that both use the same channel and that their `source` values differ.
+Or from the cache's own event stream, which is where you find out whether a peer's event actually landed:
 
-## When to move on
+<CodeGroup>
+```js src/cache/watch.js
+import { cache } from './index.js'
 
-Redis Pub/Sub is the right answer until a missed invalidation becomes a correctness problem rather than a staleness one. If a deploy, a network partition or a restart must not leave an instance serving old data, use [RabbitMQ](/docs/guides/buses/rabbitmq) or [NATS JetStream](/docs/guides/buses/nats-jetstream).
+cache.on((event) => {
+  if (event.type === 'invalidation:received') {
+    console.log('received', event.eventType, event.eventId)
+  }
+  if (event.type === 'event-bus:publish-skipped') {
+    console.warn('breaker open, invalidation dropped', event.eventType, event.state)
+  }
+})
+```
+
+```ts src/cache/watch.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+import { cache } from './index.js'
+
+cache.on((event: CacheEvent) => {
+  if (event.type === 'invalidation:received') {
+    console.log('received', event.eventType, event.eventId)
+  }
+  if (event.type === 'event-bus:publish-skipped') {
+    console.warn('breaker open, invalidation dropped', event.eventType, event.state)
+  }
+})
+```
+</CodeGroup>
+
+Delete a key on one server and the other should log `invalidation:received` within milliseconds. If it does not, check that both use the same channel and that their `source` values differ.
+
+## When to choose it
+
+Choose Redis Pub/Sub when Redis is already in your stack and a missed invalidation costs you a reload rather than a wrong answer. That covers most read-heavy applications.
+
+Move off it when a server coming back from a restart must not serve a value that was deleted while it was down. That is a correctness requirement, and at-most-once cannot meet it.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="RabbitMQ" icon="envelope" href="/docs/guides/buses/rabbitmq">
+    The durable option when a missed invalidation is a correctness problem.
+  </Card>
+  <Card title="Event bus reference" icon="sliders" href="/docs/reference/event-buses">
+    The Redis constructor signature and its defaults, next to the other three.
+  </Card>
+  <Card title="Event buses" icon="tower-broadcast" href="/docs/guides/event-buses">
+    How the four transports compare, and the two sharp edges that apply to all of them.
+  </Card>
+</CardGroup>
