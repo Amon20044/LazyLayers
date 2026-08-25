@@ -50,7 +50,7 @@ export const cache = new LazyLayersCache({
   timeouts: { softMs: 800, hardMs: 5000 },
 
   // Serve the last known value while the origin is down.
-  failSafe: { enabled: true, staleTtlMs: 30 * 1000 },
+  failSafe: { staleTtlMs: 30 * 1000 },
 })
 ```
 
@@ -82,7 +82,7 @@ const options: LazyLayersCacheOptions<string, User> = {
   timeouts: { softMs: 800, hardMs: 5000 },
 
   // Serve the last known value while the origin is down.
-  failSafe: { enabled: true, staleTtlMs: 30 * 1000 },
+  failSafe: { staleTtlMs: 30 * 1000 },
 }
 
 export const cache = new LazyLayersCache<string, User>(options)

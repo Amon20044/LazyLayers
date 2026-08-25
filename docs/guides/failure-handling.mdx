@@ -36,14 +36,12 @@ export const cache = new LazyLayersCache({
 
   resilience: {
     l2CircuitBreaker: {
-      enabled: true,
       // Consecutive failures before the breaker opens. Default 3.
       failureThreshold: 5,
       // How long calls are skipped before one probe is allowed through.
       cooldownMs: 10_000,
     },
     eventBusCircuitBreaker: {
-      enabled: true,
       failureThreshold: 3,
       cooldownMs: 5_000,
     },
@@ -64,14 +62,12 @@ const options: LazyLayersCacheOptions<string, User> = {
 
   resilience: {
     l2CircuitBreaker: {
-      enabled: true,
       // Consecutive failures before the breaker opens. Default 3.
       failureThreshold: 5,
       // How long calls are skipped before one probe is allowed through.
       cooldownMs: 10_000,
     },
     eventBusCircuitBreaker: {
-      enabled: true,
       failureThreshold: 3,
       cooldownMs: 5_000,
     },
@@ -102,7 +98,7 @@ Tune with numbers. `failureThreshold` defaults to 3 and `cooldownMs` to 30,000. 
 
 When a loader fails, you often have a perfectly serviceable slightly older answer sitting in memory. Stale fallback returns it instead of propagating the error.
 
-It needs two things set, not one: `enabled: true`, and a positive `staleTtlMs`. With only the TTL, values are never remembered as stale.
+It is on by default with a 30,000 ms window. Set `staleTtlMs` when you want a different one, and `enabled: false` when you would rather an outage surface as an error than as a slightly old value.
 
 <CodeGroup>
 ```js src/cache/index.js
@@ -110,7 +106,6 @@ export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
 
   failSafe: {
-    enabled: true,
     // How long past normal expiry a value stays usable as a fallback.
     staleTtlMs: 60_000,
   },
@@ -122,7 +117,6 @@ const options: LazyLayersCacheOptions<string, User> = {
   ttlMs: 5 * 60 * 1000,
 
   failSafe: {
-    enabled: true,
     // How long past normal expiry a value stays usable as a fallback.
     staleTtlMs: 60_000,
   },
@@ -172,7 +166,7 @@ A loader with no ceiling can hold a request open for as long as the origin is wi
 export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
 
-  failSafe: { enabled: true, staleTtlMs: 60_000 },
+  failSafe: { staleTtlMs: 60_000 },
 
   timeouts: {
     // Latency budget. Needs fail-safe on and a stale value present.
@@ -187,7 +181,7 @@ export const cache = new LazyLayersCache({
 const options: LazyLayersCacheOptions<string, User> = {
   ttlMs: 5 * 60 * 1000,
 
-  failSafe: { enabled: true, staleTtlMs: 60_000 },
+  failSafe: { staleTtlMs: 60_000 },
 
   timeouts: {
     // Latency budget. Needs fail-safe on and a stale value present.

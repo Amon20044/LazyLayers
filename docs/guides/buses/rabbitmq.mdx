@@ -106,7 +106,7 @@ export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
   autoDeleteQueue: false,
   // No default. Without it, handlers run as fast as the broker delivers.
   prefetch: 32,
-  retryQueue: { enabled: true, maxSize: 1000 },
+  retryQueue: { maxSize: 1000 },
   logging: { env: 'production' },
 })
 
@@ -131,7 +131,7 @@ export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
   autoDeleteQueue: false,
   // No default. Without it, handlers run as fast as the broker delivers.
   prefetch: 32,
-  retryQueue: { enabled: true, maxSize: 1000 },
+  retryQueue: { maxSize: 1000 },
   logging: { env: 'production' },
 })
 

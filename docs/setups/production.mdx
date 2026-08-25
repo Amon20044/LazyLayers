@@ -151,7 +151,7 @@ Pick a transport. Everything after this file is identical whichever you choose, 
     export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
       // Buffers publishes that failed and replays them on reconnect.
       // Default maxSize is 10,000. Size it to what a short outage produces.
-      retryQueue: { enabled: true, maxSize: 5_000 },
+      retryQueue: { maxSize: 5_000 },
       // How many received events are applied concurrently.
       handlerConcurrency: 16,
       logging: { env: 'production' },
@@ -169,7 +169,7 @@ Pick a transport. Everything after this file is identical whichever you choose, 
     export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
       // Buffers publishes that failed and replays them on reconnect.
       // Default maxSize is 10,000. Size it to what a short outage produces.
-      retryQueue: { enabled: true, maxSize: 5_000 },
+      retryQueue: { maxSize: 5_000 },
       // How many received events are applied concurrently.
       handlerConcurrency: 16,
       logging: { env: 'production' },
@@ -203,7 +203,7 @@ Pick a transport. Everything after this file is identical whichever you choose, 
       // No default. The handler is not awaited, so this is the only thing
       // bounding how many events are in flight at once.
       prefetch: 32,
-      retryQueue: { enabled: true, maxSize: 5_000 },
+      retryQueue: { maxSize: 5_000 },
       logging: { env: 'production' },
     })
 
@@ -229,7 +229,7 @@ Pick a transport. Everything after this file is identical whichever you choose, 
       // No default. The handler is not awaited, so this is the only thing
       // bounding how many events are in flight at once.
       prefetch: 32,
-      retryQueue: { enabled: true, maxSize: 5_000 },
+      retryQueue: { maxSize: 5_000 },
       logging: { env: 'production' },
     })
 
@@ -249,7 +249,7 @@ Pick a transport. Everything after this file is identical whichever you choose, 
       mode: 'core',
       connectionOptions: { servers: process.env.NATS_URL },
       subject: 'lazylayers.invalidate',
-      retryQueue: { enabled: true, maxSize: 5_000 },
+      retryQueue: { maxSize: 5_000 },
       logging: { env: 'production' },
     })
 
@@ -263,7 +263,7 @@ Pick a transport. Everything after this file is identical whichever you choose, 
       mode: 'core',
       connectionOptions: { servers: process.env.NATS_URL },
       subject: 'lazylayers.invalidate',
-      retryQueue: { enabled: true, maxSize: 5_000 },
+      retryQueue: { maxSize: 5_000 },
       logging: { env: 'production' },
     })
 
@@ -397,7 +397,7 @@ export const cache = new LazyLayersCache({
   timeouts: { softMs: 800, hardMs: 5000 },
 
   // Serve the last known value while the origin is down.
-  failSafe: { enabled: true, staleTtlMs: 30 * 1000 },
+  failSafe: { staleTtlMs: 30 * 1000 },
 
   // Remember "this does not exist" briefly, so a missing row is not a free
   // pass to hammer the database.
@@ -465,7 +465,7 @@ const options: LazyLayersCacheOptions<string, User> = {
   timeouts: { softMs: 800, hardMs: 5000 },
 
   // Serve the last known value while the origin is down.
-  failSafe: { enabled: true, staleTtlMs: 30 * 1000 },
+  failSafe: { staleTtlMs: 30 * 1000 },
 
   // Remember "this does not exist" briefly, so a missing row is not a free
   // pass to hammer the database.

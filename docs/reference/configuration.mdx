@@ -169,7 +169,7 @@ Passed to the `RedisStore` constructor, not to the cache.
 </ParamField>
 
 <ParamField path="failSafe.staleTtlMs" type="number">
-  No default. How long a value stays usable as a stale fallback after it is remembered. **Fail-safe does nothing without a positive value here**, even with `enabled: true`, because no stale copy is ever kept.
+  Defaults to `30_000`. How long a value stays usable as a stale fallback past its normal expiry. Raise it when your origin takes a long time to recover, lower it when serving an old value is worse than serving an error.
 
   The stale copy lives in this process's memory, so it does not survive a restart and is not shared between servers.
 </ParamField>

@@ -1,4 +1,4 @@
-import { gunzipSync, gzipSync } from 'node:zlib';
+import zlib, { gunzipSync, gzipSync } from 'node:zlib';
 import { pack, unpack } from 'msgpackr';
 
 /**
@@ -44,6 +44,42 @@ const PREFIX_LEN = 4;
 export const HC1M = Buffer.from('HC1M', 'ascii'); // msgpack
 export const HC1G = Buffer.from('HC1G', 'ascii'); // gzip(msgpack)
 export const HC1J = Buffer.from('HC1J', 'ascii'); // JSON debug
+export const HC1Z = Buffer.from('HC1Z', 'ascii'); // zstd(msgpack)
+
+/** Shared first three bytes. Used to recognise a tag we do not know yet. */
+const PREFIX_FAMILY = Buffer.from('HC1', 'ascii');
+
+/**
+ * zstd landed in node:zlib in 22.15 and 23.8, and this package supports Node 20,
+ * so it has to be detected rather than assumed.
+ *
+ * On our own fixtures zstd matches gzip's ratio to within a percentage point
+ * while compressing roughly ten times faster, which matters because this runs
+ * synchronously on the write path.
+ */
+const zstdCompress = (zlib as Partial<typeof import('node:zlib')>).zstdCompressSync;
+const zstdDecompress = (zlib as Partial<typeof import('node:zlib')>).zstdDecompressSync;
+
+export const ZSTD_AVAILABLE = typeof zstdCompress === 'function' && typeof zstdDecompress === 'function';
+
+export type CompressionMode = 'gzip' | 'zstd' | 'auto';
+
+/**
+ * Which compressor new writes use. Reads always accept every format, so this
+ * only ever affects what you produce.
+ *
+ * Defaults to gzip. A server still running an older build cannot decode HC1Z,
+ * so switching is safe only once every reader in the fleet understands it.
+ */
+let compressionMode: CompressionMode = (process.env.CACHE_COMPRESSION as CompressionMode) ?? 'gzip';
+
+export function configureCompression(mode: CompressionMode): void {
+  compressionMode = mode;
+}
+
+function useZstd(): boolean {
+  return ZSTD_AVAILABLE && (compressionMode === 'zstd' || compressionMode === 'auto');
+}
 
 const PACKED_SENTINEL = pack(NULL_SENTINEL);
 const SENTINEL_BUFFER: Buffer = Buffer.concat([HC1M, Buffer.from(PACKED_SENTINEL)]);
@@ -53,7 +89,7 @@ export const GZIP_MIN_BYTES = 64 * 1024; // 64 KB
 /** Required minimum savings ratio for gzip to be worth it. */
 export const GZIP_SAVINGS_THRESHOLD = 0.15;
 
-export type CacheEncoding = 'msgpack' | 'msgpack-gzip' | 'json';
+export type CacheEncoding = 'msgpack' | 'msgpack-gzip' | 'msgpack-zstd' | 'json';
 
 export interface SerializedCacheValue {
   buffer: Buffer;
@@ -180,12 +216,15 @@ export function serializeWithStats(value: unknown): SerializedCacheValue {
   }
 
   if (packed.length >= GZIP_MIN_BYTES) {
-    const compressed = gzipSync(packed);
+    const zstd = useZstd();
+    const compressed = zstd ? zstdCompress!(packed) : gzipSync(packed);
+
+    // Same rule either way: compression has to earn its CPU before we keep it.
     if (shouldGzip(packed.length, compressed.length)) {
-      const buffer = withPrefix(HC1G, compressed);
+      const buffer = withPrefix(zstd ? HC1Z : HC1G, Buffer.from(compressed));
       return {
         buffer,
-        encoding: 'msgpack-gzip',
+        encoding: zstd ? 'msgpack-zstd' : 'msgpack-gzip',
         originalBytes: packed.length,
         storedBytes: buffer.length,
         compressionRatio: getCompressionSavings(packed.length, compressed.length),
@@ -301,6 +340,20 @@ export function deserialize(raw: unknown): unknown {
           return null;
         }
       }
+      if (hasPrefix(buffer, HC1Z)) {
+        try {
+          if (!zstdDecompress) {
+            // Written by a newer server than this one. Report a miss so the
+            // caller reloads, rather than handing back a wrong value.
+            return null;
+          }
+
+          return unpack(zstdDecompress(stripPrefix(buffer, HC1Z)));
+        } catch {
+          return null;
+        }
+      }
+
       if (hasPrefix(buffer, HC1M)) {
         // Compare the whole buffer rather than the decoded value. Unwrapping
         // after decode meant a caller who legitimately cached the sentinel
@@ -324,6 +377,16 @@ export function deserialize(raw: unknown): unknown {
           return null;
         }
       }
+    }
+
+    /*
+     * A tag in our own family that we do not recognise belongs to a format from
+     * a newer release. Falling through to the legacy decoder would let msgpack
+     * read the tag bytes as data and return a plausible wrong value, so treat
+     * it as a miss instead. This is what makes adding a fifth encoding safe.
+     */
+    if (buffer.length >= PREFIX_FAMILY.length && hasPrefix(buffer, PREFIX_FAMILY)) {
+      return null;
     }
 
     // Legacy: raw msgpack with no prefix.

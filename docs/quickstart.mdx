@@ -117,7 +117,7 @@ Pick your transport. The rest of the guide is identical whichever you choose, be
     // The bus duplicates this client internally, because a Redis connection in
     // subscriber mode cannot run normal commands.
     export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
-      retryQueue: { enabled: true, maxSize: 1000 },
+      retryQueue: { maxSize: 1000 },
       handlerConcurrency: 16,
     })
 
@@ -131,7 +131,7 @@ Pick your transport. The rest of the guide is identical whichever you choose, be
     // The bus duplicates this client internally, because a Redis connection in
     // subscriber mode cannot run normal commands.
     export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
-      retryQueue: { enabled: true, maxSize: 1000 },
+      retryQueue: { maxSize: 1000 },
       handlerConcurrency: 16,
     })
 
@@ -158,7 +158,7 @@ Pick your transport. The rest of the guide is identical whichever you choose, be
       queueName: `lazylayers.${process.env.INSTANCE_ID}`,
       // No default. Without it one slow handler lets the queue run away.
       prefetch: 32,
-      retryQueue: { enabled: true, maxSize: 1000 },
+      retryQueue: { maxSize: 1000 },
     })
 
     await bus.connect()
@@ -178,7 +178,7 @@ Pick your transport. The rest of the guide is identical whichever you choose, be
       queueName: `lazylayers.${process.env.INSTANCE_ID}`,
       // No default. Without it one slow handler lets the queue run away.
       prefetch: 32,
-      retryQueue: { enabled: true, maxSize: 1000 },
+      retryQueue: { maxSize: 1000 },
     })
 
     await bus.connect()
@@ -197,7 +197,7 @@ Pick your transport. The rest of the guide is identical whichever you choose, be
       mode: 'core',
       connectionOptions: { servers: process.env.NATS_URL },
       subject: 'lazylayers.invalidate',
-      retryQueue: { enabled: true, maxSize: 1000 },
+      retryQueue: { maxSize: 1000 },
     })
 
     await bus.connect()
@@ -210,7 +210,7 @@ Pick your transport. The rest of the guide is identical whichever you choose, be
       mode: 'core',
       connectionOptions: { servers: process.env.NATS_URL },
       subject: 'lazylayers.invalidate',
-      retryQueue: { enabled: true, maxSize: 1000 },
+      retryQueue: { maxSize: 1000 },
     })
 
     await bus.connect()
@@ -335,7 +335,7 @@ export const cache = new LazyLayersCache({
 
   // Serve the last known value while the origin is down. `enabled` is required:
   // a staleTtlMs on its own does nothing.
-  failSafe: { enabled: true, staleTtlMs: 30 * 1000 },
+  failSafe: { staleTtlMs: 30 * 1000 },
 
   // Remember "this does not exist" briefly, so a missing row is not a
   // free pass to hammer the database.
@@ -384,7 +384,7 @@ const options: LazyLayersCacheOptions<string, User> = {
 
   // Serve the last known value while the origin is down. `enabled` is required:
   // a staleTtlMs on its own does nothing.
-  failSafe: { enabled: true, staleTtlMs: 30 * 1000 },
+  failSafe: { staleTtlMs: 30 * 1000 },
 
   // Remember "this does not exist" briefly, so a missing row is not a
   // free pass to hammer the database.

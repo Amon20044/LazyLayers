@@ -48,7 +48,7 @@ const redis = new Redis(process.env.REDIS_URL!);
 
 // 1. The bus. Carries invalidations between instances.
 const eventBus = new RedisEventBus(redis, 'app:invalidations', {
-  retryQueue: { enabled: true, maxSize: 10_000 },
+  retryQueue: { maxSize: 10_000 },
 });
 
 const health = await eventBus.healthCheck();

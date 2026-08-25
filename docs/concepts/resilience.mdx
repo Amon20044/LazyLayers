@@ -141,7 +141,7 @@ When a loader fails you often have a perfectly serviceable slightly older answer
 Values are remembered as stale at write time, kept for `staleTtlMs` past their normal lifetime, and returned when the loader throws. Serving one emits `stale:hit` with a reason of `loader-error`, `soft-timeout` or `hard-timeout`.
 
 <Warning>
-  **`enabled: true` is required, and it is not implied by anything else.** The check is literally `failSafe.enabled === true`. A `staleTtlMs` on its own does nothing at all: no value is ever remembered as stale, no fallback ever fires, and nothing warns you. Always write both.
+  **This is opt-out.** Fail-safe runs with a 30,000 ms stale window unless you say otherwise. Earlier releases required an explicit `enabled: true` and silently did nothing without it, so if you are reading an older configuration, the flag in it is now redundant rather than load-bearing.
 </Warning>
 
 <CodeGroup>

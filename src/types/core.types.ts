@@ -107,7 +107,7 @@ export interface KeyInspection {
     /** Saved fraction of wire vs decoded size in [0, 1) — higher = more compact. */
     compressionRatio: number;
     /** Wire encoding (`legacy` = unprefixed buffer). */
-    encoding: 'msgpack' | 'msgpack-gzip' | 'json' | 'legacy';
+    encoding: 'msgpack' | 'msgpack-gzip' | 'msgpack-zstd' | 'json' | 'legacy';
     /** Decoded value (omitted when includeValues is false or value truncated). */
     value?: unknown;
     /** True when the value was omitted because it exceeded maxValueBytes. */
