@@ -1,36 +1,65 @@
 ---
 title: "Introduction"
-description: "LazyLayers is a hybrid L1/L2 cache for Node.js that keeps every instance in sync over an event bus and stores compact binary payloads in Redis."
+description: "LazyLayers is a high-performance TypeScript hybrid L1/L2 cache for Node.js that keeps every instance in sync over an event bus and stores compact binary payloads in Redis."
+icon: "rocket"
 ---
 
-LazyLayers is a caching library for Node.js. It starts as an in-process LRU cache with no infrastructure, and grows into a distributed cache layer as you need one: a shared Redis tier, an event bus that keeps every instance in agreement, and a binary wire format that cuts what you store.
+**LazyLayers** is a production-grade multi-tier caching engine for Node.js applications that bridges the gap between local in-memory speed (`<0.1ms`) and distributed consistency. It starts as an in-process LRU cache with zero external dependencies, and progressively scales into a fully synchronized distributed cache tier.
 
-Two methods do almost all the work.
+```bash
+npm install lazy-layers-cache
+```
+
+## Two methods do all the work
 
 ```ts
-// Read through the layers, load once if nothing has it.
+// Read through layers, load once if nothing has it.
 // The loader runs on one server. That server then broadcasts the value on the
-// event bus, so every other server stores it lazily in its own L1 without ever
-// touching the database.
+// event bus, so every other peer warms its L1 without touching the database.
 const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id));
 
-// Invalidate everywhere. Every instance drops the key.
+// Invalidate everywhere. Every server drops the key across all layers.
 await cache.delete(`user:${id}`);
 ```
 
-`getOrSet` is the read path. `delete` is the write path. Everything else on this site is about what happens between them.
+---
 
-<Note>
-  The name is the design principle. LazyLayers does the least work that still returns the right answer: **load late** so nothing is cached until somebody asks, **load once** so ten thousand concurrent callers produce one loader call, and **load small** so values travel as packed binary. New to this? Start with <a href="/docs/learn">the reading path</a>.
-</Note>
+## ✨ Key Features & Capabilities
 
-## Why it exists
+<CardGroup cols={2}>
+  <Card title="Multi-Tier Hybrid Caching" icon="layer-group">
+    Sub-0.1ms in-process L1 LRU memory + shared remote L2 Redis with automated promotion, TTL countdowns, and tiering.
+  </Card>
+  <Card title="Size-Tiered Binary Compression" icon="file-zipper">
+    Native MessagePack + dynamic LZ4/Zstd compression (33%–92% smaller wire payloads than raw JSON and metadata envelopes).
+  </Card>
+  <Card title="Thundering Herd Stampede Protection" icon="shield-check">
+    In-flight Promise deduplication (10,000 concurrent callers for a cold key = 1 database query) + Redis distributed locks.
+  </Card>
+  <Card title="Fleet Synchronization via Event Bus" icon="tower-broadcast">
+    Real-time cross-instance cache invalidation and lazy value priming over **Redis Pub/Sub**, **RabbitMQ**, **NATS Core**, or **NATS JetStream**.
+  </Card>
+  <Card title="Fail-Open Resilience & Circuit Breaking" icon="bolt-slash">
+    If Redis or message brokers degrade, traffic gracefully fails open to L1 RAM / DB without blocking threads or throwing 500 errors.
+  </Card>
+  <Card title="Grace Periods & Fail-Safe Stale Fallbacks" icon="clock-rotate-left">
+    Serves stale cached copies during upstream database outages to guarantee 100% application uptime.
+  </Card>
+  <Card title="Negative Caching (404 Protection)" icon="ban">
+    Automatically caches missing keys (`null`/`undefined`) with short TTLs to protect origin databases against penetration attacks.
+  </Card>
+  <Card title="Deterministic Causal Ordering" icon="arrow-down-1-9">
+    Instance identity (`source`), event deduplication, and per-key generation counters prevent out-of-order writes and loopback self-echos.
+  </Card>
+  <Card title="Real-Time Observability Suite" icon="chart-line">
+    Zero-dependency live dashboard at `/__lazylayers` with Light/Dark mode, interactive canvas Bezier sparklines, and L1/L2 memory inspectors.
+  </Card>
+  <Card title="Native Prometheus Metrics" icon="gauge">
+    Direct Prometheus exposition at `/__lazylayers/metrics` and `node:diagnostics_channel` telemetry event stream.
+  </Card>
+</CardGroup>
 
-A single-process cache is easy. `Map` will do.
-
-The difficulty starts when you run more than one instance. Each one keeps its own memory cache, so a write on one server is invisible to the others until their TTL expires. Your staleness window stops being a number you chose and becomes your TTL multiplied by the share of traffic that never touched the server that wrote.
-
-You can shorten the TTL, but that just trades staleness for load on your database. LazyLayers takes the other route: when one instance writes, it tells the others.
+---
 
 ## The three pieces
 
@@ -72,21 +101,7 @@ export const cache = new LazyLayersCache<string, User>({
 });
 ```
 
-Read through both layers:
-
-```ts
-// L1 miss falls to L2, L2 miss runs the loader. Whichever server does the work
-// publishes a `set` event carrying the value, and every peer writes it straight
-// into its own L1. One database read warms the entire fleet.
-const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id));
-```
-
-Invalidate across every instance:
-
-```ts
-await cache.delete(`user:${id}`);        // one key, everywhere
-await cache.deleteByPattern('users:*');  // a whole prefix, everywhere
-```
+---
 
 ## What the bus carries
 
@@ -100,6 +115,8 @@ Three event types travel between instances. Only one carries a value.
 
 That last one is the difference between peers *invalidating* and peers being *primed*. Invalidation makes every instance reload the key independently. Priming means one instance pays for the load and the rest take the result.
 
+---
+
 ## How a read walks the layers
 
 ```mermaid
@@ -110,6 +127,8 @@ flowchart LR
     C -->|yes| P[promote to L1] --> R
     C -->|no| L[loader runs once] --> W[write L1 + L2] --> BC[broadcast to peers] --> R
 ```
+
+---
 
 ## Core concepts
 
