@@ -259,12 +259,14 @@ function vizEncodings(): string {
       <rect x="112" y="42" width="${w}" height="4" rx="2" class="${tone}"/>
     </g>`;
 
+  // Four tags across the width, then the tier rule that picks between them.
   return `<svg viewBox="0 0 640 96" class="viz viz--wide" aria-hidden="true">
-    ${out(0, 'HC1M', 'MessagePack', '< 64 kB', 16, 'v-mint')}
-    ${out(164, 'HC1G', 'gzip(MessagePack)', '≥ 64 kB · saves ≥ 15%', 7, 'v-violet')}
-    ${out(328, 'HC1J', 'JSON passthrough', 'CACHE_FORMAT=json', 26, 'v-amber')}
-    <g transform="translate(492,0)">
-      <rect y="30" width="148" height="52" rx="10" fill="rgba(34,211,238,0.05)" stroke="rgba(34,211,238,0.28)"/>
+    ${out(0, 'HC1M', 'MessagePack', '< 256 B · raw', 16, 'v-mint')}
+    ${out(126, 'HC1L', 'lz4', '256 B - 4 kB · fastest', 10, 'v-amber')}
+    ${out(252, 'HC1Z', 'zstd', '≥ 4 kB · best ratio', 7, 'v-cyan')}
+    ${out(378, 'HC1G', 'gzip · snappy', 'available · not default', 8, 'v-violet')}
+    <g transform="translate(504,0)">
+      <rect y="30" width="136" height="52" rx="10" fill="rgba(34,211,238,0.05)" stroke="rgba(34,211,238,0.28)"/>
       <text x="14" y="52" font-family="Inter,sans-serif" font-size="10.5" font-weight="500" class="v-cyan">4-byte prefix</text>
       <text x="14" y="67" font-family="'JetBrains Mono',monospace" font-size="9" class="v-muted">decodes every format</text>
     </g>

@@ -260,16 +260,82 @@ Full constructor options for each transport are in the [event bus reference](/do
 
 ## Serialization
 
-There is nothing to configure. Values are packed with msgpack, then gzipped only when the payload is at least `GZIP_MIN_BYTES` (64 KB) **and** compression saves at least 15 percent. A four byte prefix records which encoding was used, so decoding never has to guess.
+Values are packed with msgpack, then compressed with a codec chosen from the payload's size. A four byte prefix records which encoding was used, so decoding never has to guess.
 
-Two environment variables force JSON encoding for debugging, at a real size and speed cost. Neither belongs in production.
+This is not a cache option. It is process-wide, set by `configureCompression` or by the `CACHE_COMPRESSION` environment variable, because the serializer is a module rather than a member of a cache instance. The last call wins for every cache in the process.
+
+<ParamField path="configureCompression(mode)" type="'gzip' | 'zstd' | 'auto' | CompressionTier[]" default="'gzip'">
+  Replaces the active tier list. Pass one of the three shorthands, or an explicit list of size bands.
+</ParamField>
+
+| Shorthand | Expands to |
+|---|---|
+| `'gzip'` | `none` under 1 KB, then `gzip`. The shipped default |
+| `'zstd'` | `none` under 1 KB, then `zstd` |
+| `'auto'` | `none` under 1 KB, the fastest installed codec up to 256 KB, then the densest installed codec |
+
+A `CompressionTier` is `{ maxBytes?: number, codec: CodecName }`, and `CodecName` is `'none'`, `'gzip'`, `'zstd'`, `'lz4'` or `'snappy'`.
+
+<CodeGroup>
+```js src/cache/compression.js
+import { configureCompression } from 'lazy-layers-cache'
+
+// Import this file once, before the cache is constructed.
+configureCompression([
+  { maxBytes: 1024, codec: 'none' },
+  { maxBytes: 262144, codec: 'lz4' },
+  { codec: 'zstd' },
+])
+```
+
+```ts src/cache/compression.ts
+import { configureCompression } from 'lazy-layers-cache'
+
+// Import this file once, before the cache is constructed.
+configureCompression([
+  { maxBytes: 1024, codec: 'none' },
+  { maxBytes: 262144, codec: 'lz4' },
+  { codec: 'zstd' },
+])
+```
+</CodeGroup>
+
+<ParamField path="maxBytes" type="number">
+  Exclusive upper bound for the tier, measured against the **packed msgpack** buffer rather than your object. Bounds must ascend, and only the last tier may omit this. Omitting it there means "and above". Anything else throws when you call `configureCompression`, not when a value is written.
+</ParamField>
+
+<ParamField path="codec" type="'none' | 'gzip' | 'zstd' | 'lz4' | 'snappy'">
+  The codec for that band. An unrecognised name throws. A recognised codec this process cannot run falls back to `gzip` at write time, so one list can ship to a mixed fleet.
+</ParamField>
+
+<Warning>
+  Keep `maxBytes` off the last tier. If every tier has a bound, payloads larger than the highest one fall off the end of the list and are stored uncompressed.
+</Warning>
+
+<ParamField path="getCompressionTiers()" type="readonly CompressionTier[]">
+  The list currently in effect. Read this rather than the configuration you believe you shipped.
+</ParamField>
+
+<ParamField path="ZSTD_AVAILABLE" type="boolean">
+  Whether `node:zlib` on this runtime exposes zstd. It arrived in Node 22.15 and 23.8, and this package supports Node 20, so it is detected rather than assumed. A constant, not a function.
+</ParamField>
+
+<ParamField path="LZ4_AVAILABLE() / SNAPPY_AVAILABLE()" type="() => boolean">
+  Whether the `lz4-napi` and `snappy` native modules resolved. Both are `optionalDependencies`, so the package installs cleanly without them. These are functions because the module is resolved lazily on first call.
+</ParamField>
+
+Compression still has to earn its place. Whatever codec a tier names, the compressed result is kept only when it saves at least 15 percent against the packed buffer. Otherwise the plain msgpack buffer is stored.
+
+Two environment variables force JSON encoding for debugging, at a real size and speed cost. They are checked before packing, so they bypass the tier list entirely. Neither belongs in production.
 
 | Variable | Effect |
 |---|---|
 | `CACHE_FORMAT=json` | Encodes with `JSON.stringify` under the `HC1J` prefix |
 | `CACHE_DEBUG_SERIALIZATION=true` | Same |
 
-`deserialize` returns `null` on corrupt input rather than throwing, so a poisoned key degrades to a miss instead of taking down the read path.
+`deserialize` returns `null` on corrupt input rather than throwing, so a poisoned key degrades to a miss instead of taking down the read path. The same applies to a prefix the reader does not recognise, which is what makes it safe to add codecs.
+
+Full tables of what each codec costs are in [serialization](/docs/concepts/serialization#choosing-a-codec).
 
 ## Observability
 

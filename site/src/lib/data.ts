@@ -2,7 +2,7 @@
  * Every number in this file was measured, not estimated.
  *
  * Harness: bench/run.mjs + bench/throughput.mjs (see /benchmark methodology).
- * Subject: lazy-layers-cache serializer (msgpackr + conditional gzip)
+ * Subject: lazy-layers-cache serializer (msgpackr + size-tiered compression)
  *          vs. bentocache 1.6.1's default L2 serializer (JSON.stringify),
  *          including bentocache's CacheEntry envelope, which is what actually
  *          lands in Redis.
@@ -18,7 +18,7 @@ export interface BenchRow {
   blurb: string;
   bentoBytes: number;
   llBytes: number;
-  encoding: 'msgpack' | 'msgpack-gzip';
+  encoding: 'msgpack' | 'msgpack-gzip' | 'msgpack-zstd' | 'msgpack-lz4' | 'msgpack-snappy';
   /** ll ops/s ÷ bentocache ops/s. Below 1.0 means we are slower. */
   serRatio: number;
   deRatio: number;
@@ -33,36 +33,36 @@ export const BENCH: BenchRow[] = [
     fixture: 'Session token',
     blurb: 'Small, hot, read on every request',
     bentoBytes: 212, llBytes: 123, encoding: 'msgpack',
-    serRatio: 0.52, deRatio: 0.99,
-    bentoSer: 3618542, llSer: 1864961, bentoDe: 2625025, llDe: 2603397,
+    serRatio: 0.54, deRatio: 0.77,
+    bentoSer: 3233598, llSer: 1733813, bentoDe: 2587723, llDe: 1992889,
   },
   {
     fixture: 'User profile',
     blurb: 'Nested objects, mixed types',
     bentoBytes: 424, llBytes: 284, encoding: 'msgpack',
-    serRatio: 0.69, deRatio: 0.75,
-    bentoSer: 1726378, llSer: 1188687, bentoDe: 1455683, llDe: 1097559,
+    serRatio: 0.35, deRatio: 0.67,
+    bentoSer: 1734527, llSer: 609091, bentoDe: 1455079, llDe: 970079,
   },
   {
     fixture: 'API list (50)',
     blurb: 'Paginated list endpoint',
-    bentoBytes: 18127, llBytes: 14140, encoding: 'msgpack',
-    serRatio: 0.76, deRatio: 0.72,
-    bentoSer: 46875, llSer: 35430, bentoDe: 35020, llDe: 25112,
+    bentoBytes: 18127, llBytes: 3516, encoding: 'msgpack-zstd',
+    serRatio: 0.46, deRatio: 0.58,
+    bentoSer: 48558, llSer: 22496, bentoDe: 35280, llDe: 20526,
   },
   {
     fixture: 'Metrics (24h @ 1m)',
     blurb: '1,440 numeric points — binary encoding territory',
-    bentoBytes: 119155, llBytes: 30393, encoding: 'msgpack-gzip',
-    serRatio: 0.21, deRatio: 0.61,
-    bentoSer: 3221, llSer: 683, bentoDe: 4336, llDe: 2639,
+    bentoBytes: 119155, llBytes: 31104, encoding: 'msgpack-zstd',
+    serRatio: 0.83, deRatio: 0.64,
+    bentoSer: 3202, llSer: 2670, bentoDe: 4014, llDe: 2580,
   },
   {
     fixture: 'Product catalog',
     blurb: '400 records with repeated boilerplate text',
-    bentoBytes: 125568, llBytes: 9903, encoding: 'msgpack-gzip',
-    serRatio: 0.23, deRatio: 0.60,
-    bentoSer: 9814, llSer: 2264, bentoDe: 7515, llDe: 4544,
+    bentoBytes: 125568, llBytes: 10015, encoding: 'msgpack-zstd',
+    serRatio: 0.51, deRatio: 0.62,
+    bentoSer: 8870, llSer: 4523, bentoDe: 7398, llDe: 4579,
   },
 ];
 
@@ -202,11 +202,11 @@ export const FAQS = [
   },
   {
     q: 'How does lazy-layers-cache make cached payloads smaller?',
-    a: 'It swaps JSON for MessagePack on the Redis wire and gzips on top when that is worth doing. Take a real 212-byte session record. 85 of those bytes are punctuation and key names you already know, carrying no information at all. MessagePack fits the whole record into 123 bytes, which is less than JSON spends on the values by themselves. Above 64 kB it tries gzip too, and keeps the result only when it saves at least 15%.',
+    a: 'It swaps JSON for MessagePack on the Redis wire and gzips on top when that is worth doing. Take a real 212-byte session record. 85 of those bytes are punctuation and key names you already know, carrying no information at all. MessagePack fits the whole record into 123 bytes, which is less than JSON spends on the values by themselves. Above 256 bytes it compresses too, picking the codec from the payload size: lz4 up to 4 kB, where it is both smaller and about five times faster than the alternatives, and zstd above that, where the ratio starts paying for the CPU. It keeps the result only when it saves at least 15%. That threshold used to be a flat 64 kB with gzip, which meant a 14 kB list endpoint was stored raw. It now lands at 3.4 kB.',
   },
   {
     q: 'Is lazy-layers-cache faster than bentocache?',
-    a: 'Not at serialization, and we are not going to pretend otherwise. V8 JSON.stringify is native and it beat our encoder in every fixture we measured. We run at roughly 0.2x to 0.8x its speed. What we win is bytes on the wire, which is the thing Redis actually bills you for. And agreement between instances, which raw JSON speed does nothing for.',
+    a: 'Not at serialization, and we are not going to pretend otherwise. V8 JSON.stringify is native and it beat our encoder in every fixture we measured. We run at roughly 0.35x to 0.83x its speed, and the large payloads improved sharply when zstd replaced gzip in the top tier. What we win is bytes on the wire, which is the thing Redis actually bills you for. And agreement between instances, which raw JSON speed does nothing for.',
   },
   {
     q: 'Do I have to run Redis or a message broker?',
