@@ -328,3 +328,79 @@ test("an unknown tag from a newer release reads as a miss", async () => {
   assert.equal(deserialize(Buffer.concat([Buffer.from("HC1Q"), Buffer.from([0x01, 0x02])])), null);
   assert.equal(deserialize(Buffer.concat([Buffer.from("HC1_"), Buffer.from([0x2a])])), null);
 });
+
+/* Size-tiered compression. */
+
+test("payloads under a kilobyte are never compressed", async () => {
+  const { serializeWithStats } = await import("../dist/index.js");
+
+  // Every codec we benchmarked makes a 119 byte value bigger, so the only
+  // correct choice down here is to leave it alone.
+  const small = { sid: "s_abc123", uid: 42, exp: 1740086400000 };
+  const stats = serializeWithStats(small);
+
+  assert.equal(stats.encoding, "msgpack");
+  assert.equal(stats.compressed, false);
+});
+
+test("mid-sized payloads are compressed, which the old 64 KB floor skipped", async () => {
+  const { serializeWithStats } = await import("../dist/index.js");
+
+  // ~14 KB, well under the old floor and previously stored raw.
+  const list = { items: Array.from({ length: 50 }, (_, i) => ({ id: i, name: `item-${i}`, status: "active" })) };
+  const stats = serializeWithStats(list);
+
+  assert.equal(stats.compressed, true);
+  assert.ok(stats.compressionRatio > 0.5, `expected real savings, got ${stats.compressionRatio}`);
+});
+
+test("a custom tier array is honoured", async () => {
+  const { serializeWithStats, configureCompression, getCompressionTiers } = await import("../dist/index.js");
+
+  configureCompression([
+    { maxBytes: 100, codec: "none" },
+    { codec: "gzip" },
+  ]);
+
+  try {
+    assert.equal(getCompressionTiers().length, 2);
+
+    const midsized = { rows: Array.from({ length: 400 }, (_, i) => ({ i, tag: "repeatable" })) };
+    assert.equal(serializeWithStats(midsized).compressed, true);
+  } finally {
+    configureCompression("gzip");
+  }
+});
+
+test("a malformed tier list is rejected at configuration time", async () => {
+  const { configureCompression } = await import("../dist/index.js");
+
+  assert.throws(() => configureCompression([]), /non-empty/);
+  assert.throws(() => configureCompression([{ codec: "brotli" }]), /Unknown compression codec/);
+  assert.throws(
+    () => configureCompression([{ maxBytes: 100, codec: "none" }, { maxBytes: 50, codec: "gzip" }]),
+    /greater than/,
+    "tiers must ascend",
+  );
+  assert.throws(
+    () => configureCompression([{ codec: "gzip" }, { maxBytes: 100, codec: "none" }]),
+    /Only the last/,
+  );
+});
+
+test("a tier naming an uninstalled codec falls back instead of throwing", async () => {
+  const { serializeWithStats, configureCompression, SNAPPY_AVAILABLE } = await import("../dist/index.js");
+
+  configureCompression([{ maxBytes: 100, codec: "none" }, { codec: "snappy" }]);
+
+  try {
+    const midsized = { rows: Array.from({ length: 400 }, (_, i) => ({ i, tag: "repeatable" })) };
+    const stats = serializeWithStats(midsized);
+
+    // Installed or not, the write must succeed and round-trip.
+    const expected = SNAPPY_AVAILABLE() ? "msgpack-snappy" : "msgpack-gzip";
+    assert.equal(stats.encoding, expected);
+  } finally {
+    configureCompression("gzip");
+  }
+});

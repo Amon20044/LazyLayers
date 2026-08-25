@@ -66,7 +66,7 @@ export interface NatsEventBusHealth extends EventBusHealth {
 
 export class NatsEventBus implements EventBus {
   private connection: NatsConnection | null = null;
-  private readonly ownsConnection: boolean;
+  private ownsConnection: boolean;
   private readonly retryQueue: EventBusRetryQueue;
   private subscription: Subscription | null = null;
   private consumerMessages: ConsumerMessages | null = null;
@@ -160,6 +160,11 @@ export class NatsEventBus implements EventBus {
     // Remembered so the subscription can be rebuilt if the iterator ends.
     this.handler = handler;
     this.closed = false;
+    // Cleared before the reader starts, not after: an iterator that ends
+    // immediately would otherwise have its "lost" flag overwritten right back
+    // to healthy by this same call.
+    this.subscribedAt = Date.now();
+    this.subscriptionLost = false;
 
     try {
       if (this.getMode() === 'jetstream') {
@@ -167,9 +172,6 @@ export class NatsEventBus implements EventBus {
       } else {
         await this.subscribeCore(handler);
       }
-
-      this.subscribedAt = Date.now();
-      this.subscriptionLost = false;
     } finally {
       this.subscribing = false;
     }
@@ -342,9 +344,13 @@ export class NatsEventBus implements EventBus {
           errorLog('nats event bus handler failed', { subject, error });
         }
       }
-    })().catch((error) => {
-      errorLog('nats event bus subscription failed', { subject, error });
-    });
+    })()
+      .catch((error) => {
+        errorLog('nats event bus subscription failed', { subject, error });
+      })
+      .finally(() => {
+        this.handleSubscriptionEnded(subscription, null);
+      });
   }
 
   private async subscribeJetStream(handler: (event: InvalidationEvent) => void | Promise<void>): Promise<void> {
@@ -388,11 +394,15 @@ export class NatsEventBus implements EventBus {
           message.nak();
         }
       }
-    })().catch((error) => {
-      if (!abortSignal.aborted) {
-        errorLog('nats event bus subscription failed', { subject, stream, error });
-      }
-    });
+    })()
+      .catch((error) => {
+        if (!abortSignal.aborted) {
+          errorLog('nats event bus subscription failed', { subject, stream, error });
+        }
+      })
+      .finally(() => {
+        this.handleSubscriptionEnded(null, messages);
+      });
   }
 
   private async ensureJetStreamResources(manager: JetStreamManager): Promise<void> {
@@ -412,8 +422,11 @@ export class NatsEventBus implements EventBus {
     try {
       await manager.streams.info(stream);
       return;
-    } catch {
+    } catch (error) {
       // Stream does not exist or is not visible to this client. Try creating it.
+      // Logged because a permissions failure looks identical here and would
+      // otherwise resurface as a confusing "create" error.
+      debugLog('nats event bus stream lookup failed, attempting to create', { stream, error });
     }
 
     await manager.streams.add({
@@ -432,8 +445,10 @@ export class NatsEventBus implements EventBus {
     try {
       await manager.consumers.info(stream, durableName);
       return;
-    } catch {
+    } catch (error) {
       // Consumer does not exist or is not visible to this client. Try creating it.
+      // Same reasoning as ensureStream: keep the original cause visible.
+      debugLog('nats event bus consumer lookup failed, attempting to create', { stream, durableName, error });
     }
 
     await manager.consumers.add(stream, {
@@ -453,6 +468,10 @@ export class NatsEventBus implements EventBus {
     }
 
     this.connection = await connectNats(this.options.connectionOptions);
+    // An injected connection that closed gets replaced by one this bus dialled,
+    // and the replacement is ours to drain. Without this the replacement would
+    // leak on every disconnect().
+    this.ownsConnection = true;
 
     return this.connection;
   }

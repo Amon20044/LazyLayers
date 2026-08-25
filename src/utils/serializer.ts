@@ -1,5 +1,14 @@
-import zlib, { gunzipSync, gzipSync } from 'node:zlib';
+
 import { pack, unpack } from 'msgpackr';
+import {
+  autoTiers,
+  codecByTag,
+  DEFAULT_TIERS,
+  selectCodec,
+  validateTiers,
+  ZSTD_AVAILABLE,
+  type CompressionTier,
+} from './codecs.js';
 
 /**
  * Intelligent hybrid cache serializer (v2).
@@ -45,41 +54,69 @@ export const HC1M = Buffer.from('HC1M', 'ascii'); // msgpack
 export const HC1G = Buffer.from('HC1G', 'ascii'); // gzip(msgpack)
 export const HC1J = Buffer.from('HC1J', 'ascii'); // JSON debug
 export const HC1Z = Buffer.from('HC1Z', 'ascii'); // zstd(msgpack)
+export const HC1L = Buffer.from('HC1L', 'ascii'); // lz4(msgpack)
+export const HC1S = Buffer.from('HC1S', 'ascii'); // snappy(msgpack)
 
 /** Shared first three bytes. Used to recognise a tag we do not know yet. */
 const PREFIX_FAMILY = Buffer.from('HC1', 'ascii');
 
-/**
- * zstd landed in node:zlib in 22.15 and 23.8, and this package supports Node 20,
- * so it has to be detected rather than assumed.
- *
- * On our own fixtures zstd matches gzip's ratio to within a percentage point
- * while compressing roughly ten times faster, which matters because this runs
- * synchronously on the write path.
- */
-const zstdCompress = (zlib as Partial<typeof import('node:zlib')>).zstdCompressSync;
-const zstdDecompress = (zlib as Partial<typeof import('node:zlib')>).zstdDecompressSync;
-
-export const ZSTD_AVAILABLE = typeof zstdCompress === 'function' && typeof zstdDecompress === 'function';
-
 export type CompressionMode = 'gzip' | 'zstd' | 'auto';
 
+/** Active tier list. Reads accept every format regardless of this. */
+let tiers: CompressionTier[] = DEFAULT_TIERS;
+
 /**
- * Which compressor new writes use. Reads always accept every format, so this
- * only ever affects what you produce.
+ * Choose how new writes are compressed.
  *
- * Defaults to gzip. A server still running an older build cannot decode HC1Z,
- * so switching is safe only once every reader in the fleet understands it.
+ * Pass a tier list to size-match the codec to the payload:
+ *
+ *   configureCompression([
+ *     { maxBytes: 1024, codec: 'none' },
+ *     { maxBytes: 262144, codec: 'lz4' },
+ *     { codec: 'zstd' },
+ *   ])
+ *
+ * Or pass a shorthand: 'gzip' for the conservative default, 'zstd' to use it
+ * above the small-payload floor, 'auto' to use the fastest codec installed.
  */
-let compressionMode: CompressionMode = (process.env.CACHE_COMPRESSION as CompressionMode) ?? 'gzip';
+export function configureCompression(mode: CompressionMode | CompressionTier[]): void {
+  if (Array.isArray(mode)) {
+    validateTiers(mode);
+    tiers = mode;
+    return;
+  }
 
-export function configureCompression(mode: CompressionMode): void {
-  compressionMode = mode;
+  if (mode === 'auto') {
+    tiers = autoTiers();
+    return;
+  }
+
+  tiers = [{ maxBytes: 1024, codec: 'none' }, { codec: mode }];
 }
 
-function useZstd(): boolean {
-  return ZSTD_AVAILABLE && (compressionMode === 'zstd' || compressionMode === 'auto');
+/** The tier list currently in effect, for diagnostics. */
+export function getCompressionTiers(): readonly CompressionTier[] {
+  return tiers;
 }
+
+function tiersFromEnv(): void {
+  const raw = process.env.CACHE_COMPRESSION;
+
+  if (!raw) return;
+
+  if (raw === 'auto' || raw === 'zstd' || raw === 'gzip') {
+    configureCompression(raw);
+    return;
+  }
+
+  try {
+    configureCompression(JSON.parse(raw) as CompressionTier[]);
+  } catch {
+    // A malformed value must not stop the process from starting.
+  }
+}
+
+tiersFromEnv();
 
 const PACKED_SENTINEL = pack(NULL_SENTINEL);
 const SENTINEL_BUFFER: Buffer = Buffer.concat([HC1M, Buffer.from(PACKED_SENTINEL)]);
@@ -89,7 +126,16 @@ export const GZIP_MIN_BYTES = 64 * 1024; // 64 KB
 /** Required minimum savings ratio for gzip to be worth it. */
 export const GZIP_SAVINGS_THRESHOLD = 0.15;
 
-export type CacheEncoding = 'msgpack' | 'msgpack-gzip' | 'msgpack-zstd' | 'json';
+export { ZSTD_AVAILABLE, LZ4_AVAILABLE, SNAPPY_AVAILABLE } from './codecs.js';
+export type { CompressionTier, CodecName } from './codecs.js';
+
+export type CacheEncoding =
+  | 'msgpack'
+  | 'msgpack-gzip'
+  | 'msgpack-zstd'
+  | 'msgpack-lz4'
+  | 'msgpack-snappy'
+  | 'json';
 
 export interface SerializedCacheValue {
   buffer: Buffer;
@@ -215,16 +261,18 @@ export function serializeWithStats(value: unknown): SerializedCacheValue {
     throw new CacheSerializationError(value, error);
   }
 
-  if (packed.length >= GZIP_MIN_BYTES) {
-    const zstd = useZstd();
-    const compressed = zstd ? zstdCompress!(packed) : gzipSync(packed);
+  const codec = selectCodec(tiers, packed.length);
 
-    // Same rule either way: compression has to earn its CPU before we keep it.
-    if (shouldGzip(packed.length, compressed.length)) {
-      const buffer = withPrefix(zstd ? HC1Z : HC1G, Buffer.from(compressed));
+  if (codec.tag !== null) {
+    const compressed = codec.compress(packed);
+
+    // Compression still has to earn its CPU. A payload that barely shrinks is
+    // stored raw so reads never pay to decompress for nothing.
+    if (getCompressionSavings(packed.length, compressed.length) >= GZIP_SAVINGS_THRESHOLD) {
+      const buffer = withPrefix(Buffer.from(codec.tag, 'ascii'), compressed);
       return {
         buffer,
-        encoding: zstd ? 'msgpack-zstd' : 'msgpack-gzip',
+        encoding: `msgpack-${codec.name}` as CacheEncoding,
         originalBytes: packed.length,
         storedBytes: buffer.length,
         compressionRatio: getCompressionSavings(packed.length, compressed.length),
@@ -331,24 +379,17 @@ export function deserialize(raw: unknown): unknown {
     const buffer = raw;
 
     if (buffer.length >= PREFIX_LEN) {
-      if (hasPrefix(buffer, HC1G)) {
-        try {
-          const body = stripPrefix(buffer, HC1G);
-          const unpacked = unpack(gunzipSync(body));
-          return unwrapSentinel(unpacked);
-        } catch {
-          return null;
-        }
-      }
-      if (hasPrefix(buffer, HC1Z)) {
-        try {
-          if (!zstdDecompress) {
-            // Written by a newer server than this one. Report a miss so the
-            // caller reloads, rather than handing back a wrong value.
-            return null;
-          }
+      /*
+       * One lookup covers every compressed format, present and future. A tag
+       * this build knows but cannot run (an optional native codec that is not
+       * installed) decodes to null, so the caller reloads rather than crashes.
+       */
+      const tag = buffer.subarray(0, PREFIX_LEN).toString('ascii');
+      const codec = codecByTag(tag);
 
-          return unpack(zstdDecompress(stripPrefix(buffer, HC1Z)));
+      if (codec && codec.tag !== null) {
+        try {
+          return unpack(codec.decompress(stripPrefix(buffer, Buffer.from(tag, 'ascii'))));
         } catch {
           return null;
         }
@@ -368,6 +409,7 @@ export function deserialize(raw: unknown): unknown {
           return null;
         }
       }
+
       if (hasPrefix(buffer, HC1J)) {
         // No sentinel unwrapping here. Reaching this branch with the sentinel
         // string means a caller stored it on purpose.

@@ -18,8 +18,17 @@ export function configureCacheLogger(options: CacheLoggerOptions = {}): void {
 
 export const isDebugEnabled = () => loggerOptions.enabled ?? loggerOptions.env !== 'production';
 
+/**
+ * Errors are never suppressed by the env switch. Production silences debug
+ * chatter, not the one line that tells an operator their event bus stopped
+ * consuming. `enabled: false` is still an explicit hard mute for everything.
+ */
+const isErrorEnabled = () => loggerOptions.enabled !== false;
+
 const log = (level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR', fn: (...a: unknown[]) => void, args: unknown[]) => {
-  if (isDebugEnabled()) {
+  const enabled = level === 'ERROR' ? isErrorEnabled() : isDebugEnabled();
+
+  if (enabled) {
     fn(`[${level}]`, ...args);
   }
 };
