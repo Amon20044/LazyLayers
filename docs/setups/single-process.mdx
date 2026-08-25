@@ -11,14 +11,14 @@ This is the right setup when exactly one process reads and writes the data, or w
 
 You are not switching any of this on. It is already running.
 
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card title="In-flight dedupe" icon="layer-group">
     A thousand concurrent callers for one cold key produce **one** loader call. The rest wait on the same promise.
   </Card>
   <Card title="An L1 cache" icon="bolt">
     Created for you when you do not pass `l1`. It is an LRU with two dials and nothing else to decide.
   </Card>
-</Columns>
+</CardGroup>
 
 ## The whole setup
 

@@ -7,7 +7,7 @@
  * Machine: Node v24.18.0.
  */
 
-import rawResults from '../../../benchmarks/results.json' with { type: 'json' };
+import rawResults from './results.json' with { type: 'json' };
 
 export interface BenchRow {
   fixture: string;
@@ -201,8 +201,17 @@ export const ADOPTION_STAGES: AdoptionStage[] = [
     stage: '01',
     scope: '1 Process',
     title: 'Zero Infrastructure',
-    detail: 'In-memory LRU with getOrSet() lazy loading and inflight deduplication. Zero dependencies to start.',
-    code: `const cache = new LazyLayersCache({ ttlMs: 60_000 });\nconst user = await cache.getOrSet('user:1', () => db.find(1));`,
+    detail: 'In-memory LRU with getOrSet() lazy loading, maxEntries key capacity, LRU eviction policies, and inflight herd deduplication.',
+    code: `const cache = new LazyLayersCache({
+  ttlMs: 60_000,
+  levels: {
+    L1: {
+      maxEntries: 10_000, // Maximum in-memory capacity with LRU eviction
+      ttlMs: 60_000,
+    },
+  },
+});
+const user = await cache.getOrSet('user:1', () => db.find(1));`,
   },
   {
     stage: '02',

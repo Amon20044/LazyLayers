@@ -302,6 +302,16 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   async getOrSet(key: K, loader: CacheLoader<V>, options: CacheOptions = {}): Promise<V | undefined> {
+    if (!this.inflightDisabled(options)) {
+      this.pruneInflight();
+      const existing = this.inflight.get(key);
+      if (existing && !this.isInflightExpired(existing)) {
+        this.emit({ type: 'inflight:reuse', key });
+        debugLog('cache inflight reuse', { key });
+        return existing.promise;
+      }
+    }
+
     const cached = await this.get(key);
 
     if (cached !== undefined) {

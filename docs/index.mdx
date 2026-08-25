@@ -113,8 +113,8 @@ flowchart LR
 
 ## Core concepts
 
-<Columns cols={2}>
-  <Card title="Layers" icon="layers" href="/docs/concepts/layers">
+<CardGroup cols={2}>
+  <Card title="Layers" icon="layer-group" href="/docs/concepts/layers">
     L1 holds live objects in memory. L2 is shared and holds encoded bytes.
   </Card>
   <Card title="Lazy loading" icon="download" href="/docs/concepts/lazy-loading">
@@ -123,14 +123,14 @@ flowchart LR
   <Card title="Invalidation" icon="radio" href="/docs/concepts/invalidation">
     Three event types travel between instances. Only one carries a value.
   </Card>
-  <Card title="Serialization" icon="binary" href="/docs/concepts/serialization">
+  <Card title="Serialization" icon="box" href="/docs/concepts/serialization">
     Three wire encodings, chosen per payload at write time.
   </Card>
-</Columns>
+</CardGroup>
 
 ## Where to go next
 
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/docs/quickstart">
     A full production configuration, every option explained.
   </Card>
@@ -143,4 +143,4 @@ flowchart LR
   <Card title="Event buses" icon="git-branch" href="/docs/guides/event-buses">
     Redis, RabbitMQ, NATS Core and NATS JetStream compared.
   </Card>
-</Columns>
+</CardGroup>

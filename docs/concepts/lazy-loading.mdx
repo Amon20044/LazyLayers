@@ -8,7 +8,7 @@ Every cache has to decide when a value gets produced. LazyLayers answers as late
 
 Three rules, and one consequence that falls out of them.
 
-<Columns cols={3}>
+<CardGroup cols={3}>
   <Card title="Load late" icon="hourglass-half">
     Nothing is cached until a request asks for it. The working set defines itself.
   </Card>
@@ -18,7 +18,7 @@ Three rules, and one consequence that falls out of them.
   <Card title="Load small" icon="file-zipper">
     Values cross the wire as MessagePack, gzipped only when that pays.
   </Card>
-</Columns>
+</CardGroup>
 
 ## The problem with warming up front
 

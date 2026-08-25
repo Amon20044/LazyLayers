@@ -43,7 +43,7 @@ export function createObservabilityHandler(
 
     const canonicalPath = isAlias ? path.replace(/^\/observelazyily/, base) : path;
 
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'POST') {
       sendJson(res, 405, { error: 'method not allowed' });
       return true;
     }
@@ -79,6 +79,10 @@ export function createObservabilityHandler(
       switch (pathname) {
         case `${base}/api/overview`:
           sendJson(res, 200, collector.overview());
+          return;
+        case `${base}/api/reset`:
+          collector.reset();
+          sendJson(res, 200, { message: 'metrics reset', ok: true });
           return;
         case `${base}/api/l1`:
           sendJson(res, 200, await inspector.inspectL1(inspectOptions(url)));

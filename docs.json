@@ -3,11 +3,11 @@
   "theme": "aspen",
   "name": "LazyLayers",
   "colors": {
-    "primary": "#4F46E5",
-    "light": "#818CF8",
-    "dark": "#4338CA"
+    "primary": "#0284C7",
+    "light": "#38BDF8",
+    "dark": "#0369A1"
   },
-  "favicon": "/docs/favicon.png",
+  "favicon": "/docs/favicon.svg",
   "metadata": {
     "title": "LazyLayers — Hybrid L1/L2 Cache for Node.js",
     "description": "Documentation for lazy-layers-cache: a TypeScript hybrid L1/L2 cache with lazy loading, stampede protection, fail-open resilience, size-tiered compression (lz4, zstd), and distributed invalidation over Redis Pub/Sub, RabbitMQ, or NATS.",
@@ -20,79 +20,99 @@
     "twitter:image": "https://lazy-layers-cache.vercel.app/og.png"
   },
   "navigation": {
-    "pages": [
+    "tabs": [
       {
-        "group": "Get started",
-        "pages": [
-          "docs/index",
-          "docs/installation",
-          "docs/quickstart",
-          "docs/learn",
-          "docs/walkthrough"
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "docs/index",
+              "docs/installation",
+              "docs/quickstart",
+              "docs/learn",
+              "docs/walkthrough"
+            ]
+          },
+          {
+            "group": "Recommended setups",
+            "pages": [
+              "docs/setups/single-process",
+              "docs/setups/multi-instance",
+              "docs/setups/production"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "docs/guides/stampede-protection",
+              "docs/guides/failure-handling",
+              "docs/guides/observability"
+            ]
+          }
         ]
       },
       {
-        "group": "Recommended setups",
-        "pages": [
-          "docs/setups/single-process",
-          "docs/setups/multi-instance",
-          "docs/setups/production"
+        "tab": "Concepts",
+        "groups": [
+          {
+            "group": "Core concepts",
+            "pages": [
+              "docs/concepts/layers",
+              "docs/concepts/lazy-loading",
+              "docs/concepts/invalidation",
+              "docs/concepts/serialization",
+              "docs/concepts/resilience"
+            ]
+          },
+          {
+            "group": "Event buses",
+            "pages": [
+              "docs/guides/event-buses",
+              "docs/guides/buses/redis",
+              "docs/guides/buses/rabbitmq",
+              "docs/guides/buses/nats-core",
+              "docs/guides/buses/nats-jetstream"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "docs/architecture/execution-paths",
+              "docs/architecture/event-ordering"
+            ]
+          }
         ]
       },
       {
-        "group": "Concepts",
-        "pages": [
-          "docs/concepts/layers",
-          "docs/concepts/lazy-loading",
-          "docs/concepts/invalidation",
-          "docs/concepts/serialization",
-          "docs/concepts/resilience"
-        ]
-      },
-      {
-        "group": "Event buses",
-        "pages": [
-          "docs/guides/event-buses",
-          "docs/guides/buses/redis",
-          "docs/guides/buses/rabbitmq",
-          "docs/guides/buses/nats-core",
-          "docs/guides/buses/nats-jetstream"
-        ]
-      },
-      {
-        "group": "Guides",
-        "pages": [
-          "docs/guides/stampede-protection",
-          "docs/guides/failure-handling",
-          "docs/guides/observability"
-        ]
-      },
-      {
-        "group": "Architecture",
-        "pages": [
-          "docs/architecture/execution-paths",
-          "docs/architecture/event-ordering"
-        ]
-      },
-      {
-        "group": "Reference",
-        "pages": [
-          "docs/reference/configuration",
-          "docs/reference/api",
-          "docs/reference/stores",
-          "docs/reference/event-buses",
-          "docs/reference/cache-events",
-          "docs/reference/environment-variables"
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Reference",
+            "pages": [
+              "docs/reference/configuration",
+              "docs/reference/api",
+              "docs/reference/stores",
+              "docs/reference/event-buses",
+              "docs/reference/cache-events",
+              "docs/reference/environment-variables"
+            ]
+          }
         ]
       }
     ]
   },
   "logo": {
     "light": "/docs/logo/lazylayers-light.svg",
-    "dark": "/docs/logo/lazylayers-dark.svg"
+    "dark": "/docs/logo/lazylayers-dark.svg",
+    "href": "https://lazy-layers-cache.vercel.app"
   },
   "navbar": {
     "links": [
+      {
+        "label": "Website",
+        "href": "https://lazy-layers-cache.vercel.app"
+      },
       {
         "label": "npm",
         "href": "https://www.npmjs.com/package/lazy-layers-cache"
@@ -122,6 +142,5 @@
       "source": "/",
       "destination": "/docs"
     }
-  ],
-  "styling": {}
+  ]
 }

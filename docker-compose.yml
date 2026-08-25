@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # ── 1. Redis 7 (L2 Cache, Distributed Mutex Locks & RedisEventBus) ──────
+  redis:
+    image: redis:7-alpine
+    container_name: lazylayers-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6389}:6379"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── 2. RabbitMQ 3 Management (Durable Fanout / Topic Exchanges) ────────
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: lazylayers-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "${RABBITMQ_PORT:-5673}:5672"      # AMQP protocol port
+      - "${RABBITMQ_MGMT_PORT:-15673}:15672" # Web Management UI (guest / guest)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── 3. NATS 2.10 (NATS Core Pub/Sub & JetStream Stream Broadcast) ───────
+  nats:
+    image: nats:2.10-alpine
+    container_name: lazylayers-nats
+    restart: unless-stopped
+    ports:
+      - "${NATS_PORT:-4223}:4222"          # NATS client port
+      - "${NATS_HTTP_PORT:-8223}:8222"      # NATS monitoring dashboard
+    command: ["-js", "-m", "8222"]         # Enable JetStream and HTTP monitoring
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8222/varz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
