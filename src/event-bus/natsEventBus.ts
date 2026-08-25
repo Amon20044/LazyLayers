@@ -208,12 +208,27 @@ export class NatsEventBus implements EventBus {
     }
 
     if (subscription) {
+      try {
+        subscription.unsubscribe();
+      } catch {
+        // ignore
+      }
       await this.closeQuietly('drain subscription', () => subscription.drain());
     }
 
     if (connection && this.ownsConnection) {
       this.connection = null;
-      await this.closeQuietly('drain connection', () => connection.drain());
+      await this.closeQuietly('close connection', async () => {
+        try {
+          await Promise.race([
+            connection.drain(),
+            new Promise((resolve) => setTimeout(resolve, 200)),
+          ]);
+        } catch {
+          // ignore
+        }
+        await connection.close();
+      });
     }
   }
 
