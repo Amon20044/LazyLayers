@@ -81,8 +81,8 @@ export function initCalculator(root: HTMLElement) {
     lastSaving = annual;
 
     sub.textContent =
-      `${fmtCount(nKeys)} keys shaped like "${row.fixture}", held across ${nRep} ` +
-      `${nRep === 1 ? 'node' : 'nodes'} at ${fmtMoney(perGb)}/GB/month.`;
+      `${fmtCount(nKeys)} keys shaped like "${row.fixture}", stored across ${nRep} ` +
+      `Redis ${nRep === 1 ? 'replica' : 'replicas'} at ${fmtMoney(perGb)}/GB/month.`;
 
     [keys, price, replicas].forEach(paintRange);
   }
