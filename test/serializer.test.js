@@ -235,3 +235,44 @@ test("sentinel decoded via deserialize never leaks the marker string", () => {
   const buffer = serialize(null);
   assert.equal(deserialize(buffer), null);
 });
+
+/* Regression tests for two silent-corruption bugs. */
+
+test("an unserializable value throws instead of storing garbage", async () => {
+  const { serialize, CacheSerializationError } = await import("../dist/index.js");
+  const circular = { name: "a" };
+  circular.self = circular;
+
+  // This used to store the literal string "[object Object]" and report success.
+  assert.throws(() => serialize(circular), CacheSerializationError);
+});
+
+test("an unserializable value does not fail the read path", async () => {
+  const { LazyLayersCache } = await import("../dist/index.js");
+  const cache = new LazyLayersCache({ ttlMs: 5_000 });
+
+  const circular = { id: 1 };
+  circular.self = circular;
+
+  const value = await cache.getOrSet("circ", async () => circular);
+
+  assert.equal(value.id, 1);
+  assert.equal(value.self, value, "L1 must still hold the real object");
+});
+
+test("a caller who caches the sentinel string gets it back", async () => {
+  const { serialize, deserialize, NULL_SENTINEL } = await import("../dist/index.js");
+
+  assert.equal(deserialize(serialize(NULL_SENTINEL)), NULL_SENTINEL);
+  assert.equal(deserialize(serialize(null)), null);
+});
+
+test("sentinel buffers written by older versions still decode to null", async () => {
+  const { deserialize } = await import("../dist/index.js");
+  const { pack } = await import("msgpackr");
+
+  // Exactly what every previous release wrote for a null value.
+  const legacy = Buffer.concat([Buffer.from("HC1M", "ascii"), Buffer.from(pack("__hybridcache_null__"))]);
+
+  assert.equal(deserialize(legacy), null);
+});

@@ -453,7 +453,21 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
         generation: this.getGeneration(String(key)),
       };
 
-      const encodedBytes = encodeInvalidationEvent(event).byteLength;
+      /*
+       * A value that cannot be encoded must not fail the read. The loader has
+       * already succeeded and L1 holds the real object, so the correct
+       * degradation is to skip the broadcast and let peers load it themselves.
+       */
+      let encodedBytes: number;
+
+      try {
+        encodedBytes = encodeInvalidationEvent(event).byteLength;
+      } catch (error) {
+        this.emit({ type: 'set:broadcast-skipped', key, reason: 'encode-failed' });
+        errorLog('cache set broadcast skipped because the value could not be encoded', { key, error });
+        return value;
+      }
+
       const maxBytes = this.options.broadcastSetMaxBytes;
 
       if (maxBytes !== undefined && encodedBytes > maxBytes) {

@@ -21,6 +21,25 @@ import { pack, unpack } from 'msgpackr';
 
 export const NULL_SENTINEL = '__hybridcache_null__';
 
+/**
+ * Thrown when a value cannot be represented on the wire. Carries the original
+ * msgpackr failure so the cause is not lost.
+ */
+export class CacheSerializationError extends Error {
+  readonly valueType: string;
+
+  constructor(value: unknown, readonly cause: unknown) {
+    const type = value === null ? 'null' : typeof value;
+    super(
+      `LazyLayers cannot serialize a value of type ${type}. `
+      + 'Common causes are circular references, functions and class instances '
+      + 'with custom prototypes. The value was not written to L2 or broadcast.',
+    );
+    this.name = 'CacheSerializationError';
+    this.valueType = type;
+  }
+}
+
 const PREFIX_LEN = 4;
 export const HC1M = Buffer.from('HC1M', 'ascii'); // msgpack
 export const HC1G = Buffer.from('HC1G', 'ascii'); // gzip(msgpack)
@@ -103,6 +122,29 @@ export function serializeWithStats(value: unknown): SerializedCacheValue {
     };
   }
 
+  /*
+   * A caller who genuinely caches the sentinel string would otherwise produce
+   * bytes identical to a cached null, and read back null instead of their own
+   * value. Route it through the JSON encoding instead.
+   *
+   * This is deliberately a write-side fix. Adding a fourth prefix would be
+   * cleaner but would break rolling deploys, because a server still running the
+   * old build would decode the unknown prefix as garbage. HC1J is understood by
+   * every version that has ever shipped.
+   */
+  if (value === NULL_SENTINEL) {
+    const jsonBuffer = Buffer.from(JSON.stringify(value), 'utf8');
+    const buffer = withPrefix(HC1J, jsonBuffer);
+    return {
+      buffer,
+      encoding: 'json',
+      originalBytes: jsonBuffer.length,
+      storedBytes: buffer.length,
+      compressionRatio: 0,
+      compressed: false,
+    };
+  }
+
   // JSON debug mode — readable values, larger size.
   if (isDebugJsonMode()) {
     const json = JSON.stringify(value);
@@ -122,9 +164,19 @@ export function serializeWithStats(value: unknown): SerializedCacheValue {
   let packed: Buffer;
   try {
     packed = Buffer.from(pack(value));
-  } catch {
-    // Last-resort: stringify, then pack — keeps serialize() total even for unsupported types.
-    packed = Buffer.from(pack(String(value)));
+  } catch (error) {
+    /*
+     * Previously this fell back to pack(String(value)), which turned a circular
+     * object into the literal string "[object Object]" and stored it as though
+     * the write had succeeded. The caller got garbage back with no error, no
+     * event, and no way to notice.
+     *
+     * Failing loudly is the safer trade. L1 holds the real object either way
+     * because it never serializes, and both the L2 write and the bus publish
+     * are already wrapped in fail-open guards, so an unserializable value
+     * degrades to "not shared" instead of "silently wrong everywhere".
+     */
+    throw new CacheSerializationError(value, error);
   }
 
   if (packed.length >= GZIP_MIN_BYTES) {
@@ -250,19 +302,24 @@ export function deserialize(raw: unknown): unknown {
         }
       }
       if (hasPrefix(buffer, HC1M)) {
+        // Compare the whole buffer rather than the decoded value. Unwrapping
+        // after decode meant a caller who legitimately cached the sentinel
+        // string got null back instead of their own value.
+        if (buffer.equals(SENTINEL_BUFFER)) {
+          return null;
+        }
+
         try {
-          const body = stripPrefix(buffer, HC1M);
-          const unpacked = unpack(body);
-          return unwrapSentinel(unpacked);
+          return unpack(stripPrefix(buffer, HC1M));
         } catch {
           return null;
         }
       }
       if (hasPrefix(buffer, HC1J)) {
+        // No sentinel unwrapping here. Reaching this branch with the sentinel
+        // string means a caller stored it on purpose.
         try {
-          const body = stripPrefix(buffer, HC1J);
-          const parsed = JSON.parse(body.toString('utf8'));
-          return unwrapSentinel(parsed);
+          return JSON.parse(stripPrefix(buffer, HC1J).toString('utf8'));
         } catch {
           return null;
         }
