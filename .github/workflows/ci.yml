@@ -8,13 +8,45 @@ on:
 
 jobs:
   test:
-    name: Node ${{ matrix.node }} on ${{ matrix.os }}
+    name: Node ${{ matrix.node }} (Live Redis, RabbitMQ, NATS)
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         node: [20, 22, 24]
         os: [ubuntu-latest]
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 2s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3-alpine
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      nats:
+        image: nats:2.10-alpine
+        ports:
+          - 4222:4222
+        options: -js
+
+    env:
+      REDIS_URL: redis://127.0.0.1:6379
+      RABBITMQ_URL: amqp://guest:guest@127.0.0.1:5672
+      NATS_URL: nats://127.0.0.1:4222
 
     steps:
       - name: Checkout repository
@@ -29,11 +61,44 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run CI pipeline (typecheck, build, test)
-        run: npm run ci
+      - name: Wait for live service containers (Redis, RabbitMQ, NATS)
+        run: |
+          node -e '
+            const net = require("net");
+            const checkPort = (host, port, timeout = 30000) => new Promise((resolve, reject) => {
+              const start = Date.now();
+              const tryConnect = () => {
+                const s = net.createConnection({ host, port });
+                s.on("connect", () => { s.destroy(); resolve(); });
+                s.on("error", () => {
+                  if (Date.now() - start > timeout) reject(new Error("Timeout waiting for " + host + ":" + port));
+                  else setTimeout(tryConnect, 500);
+                });
+              };
+              tryConnect();
+            });
+            Promise.all([
+              checkPort("127.0.0.1", 6379),
+              checkPort("127.0.0.1", 5672),
+              checkPort("127.0.0.1", 4222),
+            ]).then(() => console.log("✓ Live services ready on Redis:6379, RabbitMQ:5672, NATS:4222"))
+              .catch((err) => { console.error(err); process.exit(1); });
+          '
+
+      - name: Run Typecheck
+        run: npm run typecheck
+
+      - name: Build Library (ESM + CommonJS)
+        run: npm run build
+
+      - name: Run Full Test Suite (Unit, Concurrency, E2E, Live Services)
+        run: npm test
+
+      - name: Verify Benchmark Pipeline
+        run: node benchmarks/run.mjs
 
   site-build:
-    name: Build Website
+    name: Build Website & Validate Static Bundles
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -51,7 +116,7 @@ jobs:
       - name: Build library
         run: npm run build
 
-      - name: Install site dependencies & build
+      - name: Install site dependencies & build static site
         run: |
           cd site
           npm ci
