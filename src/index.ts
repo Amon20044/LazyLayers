@@ -58,7 +58,10 @@ export type { BufferInspection, CacheEncoding, SerializedCacheValue } from './ut
 export {
   CacheSerializationError,
   configureCompression,
+  getCompressionTiers,
+  LZ4_AVAILABLE,
   NULL_SENTINEL,
+  SNAPPY_AVAILABLE,
   ZSTD_AVAILABLE,
   GZIP_MIN_BYTES,
   GZIP_SAVINGS_THRESHOLD,

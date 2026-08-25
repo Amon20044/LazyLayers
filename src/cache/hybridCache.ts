@@ -126,17 +126,25 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
           this.emit({ type: 'invalidation:received', eventId, eventType: event.type });
           debugLog('event-bus invalidation received', event);
 
-          if (event.type === 'del') {
-            await this.applyRemoteDelete(event, eventId);
-            return;
-          }
+          try {
+            if (event.type === 'del') {
+              await this.applyRemoteDelete(event, eventId);
+              return;
+            }
 
-          if (event.type === 'set') {
-            await this.applyRemoteSet(event, eventId);
-            return;
-          }
+            if (event.type === 'set') {
+              await this.applyRemoteSet(event, eventId);
+              return;
+            }
 
-          await this.deleteByPatternLocal(event.pattern);
+            await this.deleteByPatternLocal(event.pattern);
+          } catch (error) {
+            // Forget the event so a redelivery can actually be retried. Left
+            // marked as seen, the redelivery a durable transport pays for would
+            // be dropped as a duplicate and the invalidation lost for good.
+            this.seenEvents.delete(eventId);
+            throw error;
+          }
         })
         .catch((error) => {
           errorLog('event-bus subscription failed', { error });

@@ -115,5 +115,9 @@
     "ioredis": "^6.0.0",
     "lru-cache": "^11.5.2",
     "msgpackr": "^2.0.5"
+  },
+  "optionalDependencies": {
+    "lz4-napi": "^2.9.0",
+    "snappy": "^7.2.2"
   }
 }

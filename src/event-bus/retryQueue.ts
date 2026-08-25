@@ -10,6 +10,7 @@ export const DEFAULT_EVENT_BUS_RETRY_QUEUE_MAX_SIZE = 10_000;
 
 export class EventBusRetryQueue {
   private readonly events: InvalidationEvent[] = [];
+  private flushing: Promise<void> | null = null;
 
   constructor(private readonly options: EventBusRetryQueueOptions = {}) {}
 
@@ -39,6 +40,20 @@ export class EventBusRetryQueue {
   }
 
   async flush(publish: (event: InvalidationEvent) => Promise<void>): Promise<void> {
+    // Concurrent publish() calls would otherwise each read events[0] and send
+    // the same backlog entry, so every peer gets duplicates of it.
+    if (this.flushing) {
+      return this.flushing;
+    }
+
+    this.flushing = this.drain(publish).finally(() => {
+      this.flushing = null;
+    });
+
+    return this.flushing;
+  }
+
+  private async drain(publish: (event: InvalidationEvent) => Promise<void>): Promise<void> {
     while (this.events.length > 0) {
       const event = this.events[0];
 
