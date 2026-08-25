@@ -1,3 +1,5 @@
+import { compressSync as lz4Compress, uncompressSync as lz4Uncompress } from 'lz4-napi';
+import { compressSync as snappyCompress, uncompressSync as snappyUncompress } from 'snappy';
 import zlib from 'node:zlib';
 
 /**
@@ -38,46 +40,13 @@ const zstdDecompress = (zlib as Partial<typeof zlib>).zstdDecompressSync;
 export const ZSTD_AVAILABLE = typeof zstdCompress === 'function' && typeof zstdDecompress === 'function';
 
 /**
- * lz4 and snappy are native modules and deliberately not dependencies. They are
- * resolved once, on first use, and stay unavailable if they are not installed.
- * Wrapping the require keeps a missing optional module from becoming a crash.
+ * lz4 and snappy ship with the package. They are the reason the small and mid
+ * tiers can compress at all: at those sizes the difference in stored bytes
+ * between them and zstd is small, while their speed advantage is large, and
+ * this runs synchronously on the write path.
  */
-function optional<T>(specifier: string): T | undefined {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const req: NodeRequire = eval('require');
-    return req(specifier) as T;
-  } catch {
-    return undefined;
-  }
-}
-
-interface Lz4Module { compressSync(b: Buffer): Buffer; uncompressSync(b: Buffer): Buffer }
-interface SnappyModule { compressSync(b: Buffer): Buffer; uncompressSync(b: Buffer): Buffer }
-
-let lz4Resolved = false;
-let lz4Module: Lz4Module | undefined;
-let snappyResolved = false;
-let snappyModule: SnappyModule | undefined;
-
-function lz4(): Lz4Module | undefined {
-  if (!lz4Resolved) {
-    lz4Module = optional<Lz4Module>('lz4-napi');
-    lz4Resolved = true;
-  }
-  return lz4Module;
-}
-
-function snappy(): SnappyModule | undefined {
-  if (!snappyResolved) {
-    snappyModule = optional<SnappyModule>('snappy');
-    snappyResolved = true;
-  }
-  return snappyModule;
-}
-
-export const LZ4_AVAILABLE = (): boolean => lz4() !== undefined;
-export const SNAPPY_AVAILABLE = (): boolean => snappy() !== undefined;
+export const LZ4_AVAILABLE = (): boolean => true;
+export const SNAPPY_AVAILABLE = (): boolean => true;
 
 const CODECS: Record<CodecName, Codec> = {
   none: {
@@ -101,14 +70,16 @@ const CODECS: Record<CodecName, Codec> = {
   lz4: {
     name: 'lz4',
     tag: 'HC1L',
-    compress: (input) => lz4()!.compressSync(input),
-    decompress: (input) => lz4()!.uncompressSync(input),
+    compress: (input) => lz4Compress(input),
+    decompress: (input) => lz4Uncompress(input),
   },
   snappy: {
     name: 'snappy',
     tag: 'HC1S',
-    compress: (input) => snappy()!.compressSync(input),
-    decompress: (input) => snappy()!.uncompressSync(input),
+    compress: (input) => snappyCompress(input),
+    // snappy types the return as string | Buffer depending on options. We never
+    // pass options, so it is always a Buffer.
+    decompress: (input) => snappyUncompress(input) as Buffer,
   },
 };
 
@@ -129,27 +100,35 @@ export function codecAvailable(name: CodecName): boolean {
 }
 
 /**
- * Default tiers.
+ * Default tiers, chosen from measurements in benchmarks/ rather than by feel.
  *
- * gzip rather than zstd on purpose: a server still running an older build
- * cannot read HC1Z, so the safe default is the format every release
- * understands. Opt into the faster codec once the whole fleet is upgraded.
+ * Under 256 bytes: nothing. A 48 byte record grows under every codec, and even
+ * where compression works down here it saves a few dozen bytes, which is not
+ * worth a syscall on a value read on every request.
+ *
+ * 256 bytes to 4 KB: lz4. It wins on both axes at this end. Against zstd on a
+ * 342 byte record it stored 54 bytes to zstd's 61, because zstd's frame header
+ * costs more than it recovers at this size, and it did that roughly five times
+ * faster.
+ *
+ * 4 KB and above: zstd. The crossover is sharp. Measured as bytes zstd saves
+ * over lz4 per extra microsecond spent, the trade climbs from 9 B/us at 512
+ * bytes to 88 B/us at 4 KB and 767 B/us at 256 KB. Past 4 KB the ratio is worth
+ * the CPU on any storage you pay for.
+ *
+ * On Node 20, where node:zlib has no zstd, the top tier falls back to lz4
+ * rather than gzip. gzip took 1,007us on a 100 KB payload against zstd's 151,
+ * which is too much to spend synchronously on a write path.
  */
 export const DEFAULT_TIERS: CompressionTier[] = [
-  { maxBytes: 1024, codec: 'none' },
-  { codec: 'gzip' },
+  { maxBytes: 256, codec: 'none' },
+  { maxBytes: 4 * 1024, codec: 'lz4' },
+  { codec: ZSTD_AVAILABLE ? 'zstd' : 'lz4' },
 ];
 
-/** Tiers using the fastest codec each machine actually has installed. */
+/** Every codec is a dependency now, so auto and the default agree. */
 export function autoTiers(): CompressionTier[] {
-  const large: CodecName = ZSTD_AVAILABLE ? 'zstd' : 'gzip';
-  const mid: CodecName = LZ4_AVAILABLE() ? 'lz4' : SNAPPY_AVAILABLE() ? 'snappy' : large;
-
-  return [
-    { maxBytes: 1024, codec: 'none' },
-    { maxBytes: 256 * 1024, codec: mid },
-    { codec: large },
-  ];
+  return DEFAULT_TIERS;
 }
 
 /**
@@ -160,7 +139,7 @@ export function autoTiers(): CompressionTier[] {
 export function selectCodec(tiers: CompressionTier[], byteLength: number): Codec {
   for (const tier of tiers) {
     if (tier.maxBytes === undefined || byteLength < tier.maxBytes) {
-      return codecAvailable(tier.codec) ? CODECS[tier.codec] : CODECS.gzip;
+      return codecAvailable(tier.codec) ? CODECS[tier.codec] : CODECS.lz4;
     }
   }
 

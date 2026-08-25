@@ -320,9 +320,18 @@ export function inspectBuffer(raw: Buffer | Uint8Array): BufferInspection {
   let encoding: CacheEncoding | 'legacy' = 'legacy';
 
   if (buffer.length >= PREFIX_LEN) {
-    if (hasPrefix(buffer, HC1G)) encoding = 'msgpack-gzip';
-    else if (hasPrefix(buffer, HC1M)) encoding = 'msgpack';
-    else if (hasPrefix(buffer, HC1J)) encoding = 'json';
+    // Ask the registry rather than testing tags by hand, so a codec added later
+    // cannot be reported as legacy just because this function was not updated.
+    const tag = buffer.subarray(0, PREFIX_LEN).toString('ascii');
+    const codec = codecByTag(tag);
+
+    if (codec && codec.tag !== null) {
+      encoding = `msgpack-${codec.name}` as CacheEncoding;
+    } else if (hasPrefix(buffer, HC1M)) {
+      encoding = 'msgpack';
+    } else if (hasPrefix(buffer, HC1J)) {
+      encoding = 'json';
+    }
   }
 
   return {

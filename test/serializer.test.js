@@ -16,6 +16,7 @@ const {
 
 const HC1M = Buffer.from("HC1M", "ascii");
 const HC1G = Buffer.from("HC1G", "ascii");
+const HC1Z = Buffer.from("HC1Z", "ascii");
 const HC1J = Buffer.from("HC1J", "ascii");
 
 // Mock player listing — nested arrays, objects, mixed types. The fixture is intentionally
@@ -100,13 +101,13 @@ test("small payload uses plain msgpack encoding", () => {
   assert.ok(hasPrefix(stats.buffer, HC1M));
 });
 
-test("large payload prefers gzip when savings >= 15%", () => {
+test("large payload is compressed by the top tier when savings >= 15%", () => {
   // Highly compressible: 200 KB of a repeating pattern.
   const value = { blob: "a".repeat(200 * 1024) };
   const stats = serializeWithStats(value);
-  assert.equal(stats.encoding, "msgpack-gzip");
+  assert.equal(stats.encoding, "msgpack-zstd", "the top default tier is zstd");
   assert.equal(stats.compressed, true);
-  assert.ok(hasPrefix(stats.buffer, HC1G));
+  assert.ok(hasPrefix(stats.buffer, HC1Z), "top tier is zstd");
   assert.ok(stats.compressionRatio >= 0.15);
   assert.deepEqual(deserialize(stats.buffer), value);
 });
@@ -122,7 +123,7 @@ test("large but incompressible payload falls back to msgpack", () => {
   // Either passes (extremely unlikely with random) or falls back — both are correct;
   // assert the buffer round-trips and respects the threshold rule.
   assert.deepEqual(deserialize(stats.buffer), value);
-  if (stats.encoding === "msgpack-gzip") {
+  if (stats.encoding === "msgpack-zstd") {
     assert.ok(stats.compressionRatio >= 0.15);
   } else {
     assert.equal(stats.encoding, "msgpack");
@@ -162,9 +163,9 @@ test("HC1M values decode correctly", () => {
   assert.deepEqual(deserialize(stats.buffer), { a: 1 });
 });
 
-test("HC1G values decode correctly", () => {
+test("compressed values decode correctly", () => {
   const stats = serializeWithStats({ blob: "x".repeat(GZIP_MIN_BYTES * 2) });
-  assert.equal(stats.encoding, "msgpack-gzip");
+  assert.equal(stats.encoding, "msgpack-zstd", "the top default tier is zstd");
   assert.deepEqual(deserialize(stats.buffer), {
     blob: "x".repeat(GZIP_MIN_BYTES * 2),
   });
@@ -279,11 +280,11 @@ test("sentinel buffers written by older versions still decode to null", async ()
 
 /* Compression backend selection. */
 
-test("gzip stays the default, so a mixed-version fleet keeps working", async () => {
+test("the default top tier is zstd, chosen by measurement", async () => {
   const { serialize } = await import("../dist/index.js");
   const big = { rows: Array.from({ length: 4_000 }, (_, i) => ({ i, name: `row-${i}`, tag: "repeatable" })) };
 
-  assert.equal(serialize(big).subarray(0, 4).toString(), "HC1G");
+  assert.equal(serialize(big).subarray(0, 4).toString(), "HC1Z");
 });
 
 test("zstd is used once it is switched on, and round-trips", async () => {
@@ -309,7 +310,8 @@ test("gzip buffers still decode after switching to zstd", async () => {
   if (!ZSTD_AVAILABLE) return;
 
   const big = { rows: Array.from({ length: 4_000 }, (_, i) => ({ i, tag: "repeatable" })) };
-  const written = serialize(big);          // gzip, the default
+  configureCompression("gzip");
+  const written = serialize(big);
   assert.equal(written.subarray(0, 4).toString(), "HC1G");
 
   configureCompression("auto");
@@ -331,7 +333,7 @@ test("an unknown tag from a newer release reads as a miss", async () => {
 
 /* Size-tiered compression. */
 
-test("payloads under a kilobyte are never compressed", async () => {
+test("payloads under the small-value floor are never compressed", async () => {
   const { serializeWithStats } = await import("../dist/index.js");
 
   // Every codec we benchmarked makes a 119 byte value bigger, so the only
@@ -398,7 +400,7 @@ test("a tier naming an uninstalled codec falls back instead of throwing", async 
     const stats = serializeWithStats(midsized);
 
     // Installed or not, the write must succeed and round-trip.
-    const expected = SNAPPY_AVAILABLE() ? "msgpack-snappy" : "msgpack-gzip";
+    const expected = SNAPPY_AVAILABLE() ? "msgpack-snappy" : "msgpack-lz4";
     assert.equal(stats.encoding, expected);
   } finally {
     configureCompression("gzip");

@@ -127,3 +127,5 @@ export type {
   RedisEventBusOptions,
 } from './event-bus/index.js';
 export { NatsEventBus, RabbitMQEventBus, RedisEventBus } from './event-bus/index.js';
+
+export type { CodecName, CompressionMode, CompressionTier } from './utils/serializer.js';

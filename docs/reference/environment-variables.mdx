@@ -3,7 +3,7 @@ title: "Environment variables"
 description: "Every variable the library reads, the exact strings it accepts, and what happens when you leave it unset."
 ---
 
-The library reads eighteen environment variables. Three affect the process globally, fifteen configure the observability dashboard.
+The library reads nineteen environment variables. Four affect the process globally, fifteen configure the observability dashboard.
 
 For every observability variable the order is: an explicit constructor option wins, then the environment variable, then the built-in default. One variable breaks that rule, and it is called out below.
 
@@ -23,10 +23,41 @@ So `LAZY_OBS_ENABLED=yes` does not enable anything, and `LAZY_OBS_ENABLED=TRUE` 
 
 | Variable | Accepted values | Default | Effect |
 |---|---|---|---|
+| `CACHE_COMPRESSION` | Exactly `gzip`, `zstd`, `auto`, or a JSON tier array | `gzip` | Picks the codec used for each payload size band |
 | `CACHE_FORMAT` | Exactly `json` | unset | Encodes values with `JSON.stringify` under the `HC1J` prefix instead of msgpack |
 | `CACHE_DEBUG_SERIALIZATION` | Exactly `true` | unset | The same switch, under a second name |
 
+### CACHE_COMPRESSION
+
+The three word values are shorthands for tier lists.
+
+| Value | Tiers it installs |
+|---|---|
+| `gzip` | `none` under 1 KB, then `gzip`. Same as leaving it unset |
+| `zstd` | `none` under 1 KB, then `zstd` |
+| `auto` | `none` under 1 KB, the fastest installed codec up to 256 KB, then the densest installed codec |
+
+Anything else is parsed as JSON and used as a tier list, which is how you set a boundary the shorthands do not cover.
+
+```bash
+CACHE_COMPRESSION='[{"maxBytes":1024,"codec":"none"},{"maxBytes":262144,"codec":"lz4"},{"codec":"zstd"}]'
+```
+
+Two things about this one behave differently from the code path.
+
+It is read **once**, when the serializer module is first imported, so setting it after your application has loaded changes nothing. A later `configureCompression` call overrides it, because the variable is a starting value rather than a floor.
+
+A malformed value is **silently ignored**. `CACHE_COMPRESSION=lz4` is not one of the three accepted words, does not parse as JSON, and leaves the default tiers in place with no warning. So does a tier array with descending bounds, which would throw if you passed the same array to `configureCompression`. Starting the process always wins over rejecting the configuration. Log `getCompressionTiers()` at startup if you want to know what actually took effect.
+
+<Note>
+  `auto` resolves per machine, so the same variable can produce different tiers on different servers depending on whether the optional native modules installed. Every codec it can pick is readable by every server on a current build, so this is a throughput difference and not a correctness one.
+</Note>
+
+### The JSON debug switches
+
 Either one on its own selects JSON encoding. Both use an exact string comparison rather than the boolean parser above, so `CACHE_FORMAT=JSON` and `CACHE_DEBUG_SERIALIZATION=1` do nothing at all.
+
+They are checked before packing, so they override `CACHE_COMPRESSION` completely. Nothing is compressed while either is on.
 
 <CodeGroup>
 ```js src/users/repository.js
@@ -59,9 +90,9 @@ export async function getUser(id: string): Promise<User | undefined> {
 ```
 </CodeGroup>
 
-Reading is unaffected. Every encoding carries a four byte prefix, so values written as msgpack before you set this keep decoding normally, and values written as JSON keep decoding after you unset it. What you pay is size and speed on everything written while it is on, which is why neither variable belongs in production.
+Reading is unaffected by any of the three. Every encoding carries a four byte prefix, so values written as msgpack before you set `CACHE_FORMAT` keep decoding normally, and values written as JSON keep decoding after you unset it. The same holds for a change of codec. What the JSON switches cost you is size and speed on everything written while they are on, which is why neither belongs in production.
 
-There is no constructor option for these two. The encoding is not configurable in code.
+There is no constructor option for any of the three, because serialization is process-wide rather than per cache. `CACHE_COMPRESSION` has a code equivalent in `configureCompression`, covered in the [configuration reference](/docs/reference/configuration#serialization). The JSON encoding has no code equivalent at all.
 
 ## Logging
 

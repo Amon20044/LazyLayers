@@ -13,6 +13,7 @@ const {
   subscribeTelemetry,
   TELEMETRY_CHANNEL_NAME,
   serialize,
+  configureCompression,
   MemoryStore,
 } = await import("../dist/index.js");
 
@@ -20,15 +21,29 @@ const HC1M = Buffer.from("HC1M", "ascii");
 const HC1G = Buffer.from("HC1G", "ascii");
 const HC1J = Buffer.from("HC1J", "ascii");
 
-test("inspectBuffer reports encoding for HC1M / HC1G / HC1J / legacy", () => {
+test("inspectBuffer labels every encoding, not just the ones it was written for", () => {
   const msgpack = serialize({ a: 1 });
   assert.equal(inspectBuffer(msgpack).encoding, "msgpack");
   assert.deepEqual(inspectBuffer(msgpack).value, { a: 1 });
 
   const big = { blob: "x".repeat(200 * 1024) };
+
+  // Every compressed codec must be labelled correctly. This used to report
+  // "legacy" for anything that was not gzip, which mislabelled the dashboard.
+  for (const [codec, expected] of [
+    ["gzip", "msgpack-gzip"],
+    ["zstd", "msgpack-zstd"],
+    ["lz4", "msgpack-lz4"],
+    ["snappy", "msgpack-snappy"],
+  ]) {
+    configureCompression([{ codec }]);
+    const buffer = serialize(big);
+    assert.equal(inspectBuffer(buffer).encoding, expected, `${codec} should be labelled ${expected}`);
+    assert.deepEqual(inspectBuffer(buffer).value, big);
+  }
+
+  configureCompression("gzip");
   const gz = serialize(big);
-  assert.equal(inspectBuffer(gz).encoding, "msgpack-gzip");
-  assert.deepEqual(inspectBuffer(gz).value, big);
 
   const json = Buffer.concat([HC1J, Buffer.from(JSON.stringify({ j: true }), "utf8")]);
   assert.equal(inspectBuffer(json).encoding, "json");

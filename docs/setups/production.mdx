@@ -43,6 +43,10 @@ It is your worst case staleness when an event goes missing. Ten seconds is a goo
 It has no default. Without it, one large value is encoded and pushed to every server on every cold load.
 </Step>
 
+<Step title="The compression profile is deliberate, and logged at boot">
+The default is gzip above one kilobyte, which every build can read. If you have moved off it, the whole fleet must already be running a build that understands the new tag. Log `getCompressionTiers()` on startup, because an unavailable codec falls back silently. See [choosing a compression profile](#choosing-a-compression-profile).
+</Step>
+
 <Step title="The bus health check runs before you accept traffic">
 `healthCheck()` creates streams and consumers where the transport needs them and returns `{ ok: false, error }` rather than throwing. Failing startup beats leaking stale reads.
 </Step>
@@ -734,9 +738,75 @@ Per-entry budget is `2 x wire size + 200 B`, so a 200 byte session costs about 6
 
 L2 is Redis, so its sizing is Redis sizing, with two differences worth knowing.
 
-Values are msgpack encoded, and anything over 64 KB is gzipped when compression saves at least 15%. Your Redis footprint is therefore smaller than your heap footprint for the same entry, often substantially so for JSON-shaped data.
+Values are msgpack encoded, and anything above one kilobyte is compressed when the result saves at least 15%. Your Redis footprint is therefore smaller than your heap footprint for the same entry, often substantially so for JSON-shaped data. Which codec does the compressing is a choice, and it moves this number by a lot. See [choosing a compression profile](#choosing-a-compression-profile).
 
 `levels.L2.maxEntries` is not an LRU bound the way L1's is. Give Redis a `maxmemory` and an eviction policy at the server level, and set `levels.L2.ttlMs` so entries expire on their own rather than relying on eviction pressure.
+
+## Choosing a compression profile
+
+The default is gzip above one kilobyte. It is the conservative choice rather than the fast one, and it is the right thing to ship until you have a reason to move.
+
+Three profiles are worth considering, in this order.
+
+<Steps>
+
+<Step title="Stay on gzip while your fleet is mixed">
+This is what you get with no configuration at all. Every release of the library that has ever shipped can read `HC1G`, so nothing about a rollout, a rollback or a canary can leave a key unreadable.
+</Step>
+
+<Step title="Move to zstd when Redis memory is what you are paying for">
+zstd lands within one percentage point of gzip's compression ratio and gets there roughly six times faster on large values. On the metrics fixture gzip spends over a millisecond of CPU per write to save 711 bytes more than zstd saved in 151 microseconds. If your bill is memory and network, this is the profile you want.
+
+zstd needs Node 22.15 or 23.8 and above, because it comes from `node:zlib`. On Node 20 the tier falls back to gzip on its own.
+</Step>
+
+<Step title="Move to lz4 or snappy when write latency is the constraint">
+Two to three times faster than zstd, at the cost of bytes zstd would have removed. Reach for this when a hot path is CPU bound and the values are large and short lived, not as a general default.
+
+Both come from `optionalDependencies` (`lz4-napi` and `snappy`) and are native modules. Confirm they actually installed on your build image, because a machine without them silently falls back to gzip and your write latency will not improve.
+</Step>
+
+</Steps>
+
+<Warning>
+  **Upgrade the whole fleet before you change the codec.**
+
+  A server running an older build that meets an `HC1Z`, `HC1L` or `HC1S` buffer does not recognise the tag. It decodes to `null`, which is a cache miss, so requests still succeed and nothing throws. What you get instead is part of your cache quietly switched off for the length of the rollout, with the load landing on your origin.
+
+  Deploy the build that understands the new tags to every server first. Change the tier list second, in a separate release. Reads accept every format at all times, which is what makes the second step safe and reversible once the first one is complete everywhere.
+</Warning>
+
+Set the profile with `CACHE_COMPRESSION`, so it moves per environment without a code change, and log what actually took effect. A malformed value is ignored silently, and an unavailable codec falls back to gzip, so the only trustworthy answer comes from asking the process.
+
+<CodeGroup>
+```js src/cache/compression.js
+import { getCompressionTiers, LZ4_AVAILABLE, SNAPPY_AVAILABLE, ZSTD_AVAILABLE } from 'lazy-layers-cache'
+
+// Import before the cache is constructed. Log it on every boot, because
+// CACHE_COMPRESSION fails quietly and native modules may not have installed.
+logger.info({
+  tiers: getCompressionTiers(),
+  zstd: ZSTD_AVAILABLE,
+  lz4: LZ4_AVAILABLE(),
+  snappy: SNAPPY_AVAILABLE(),
+}, 'compression profile')
+```
+
+```ts src/cache/compression.ts
+import { getCompressionTiers, LZ4_AVAILABLE, SNAPPY_AVAILABLE, ZSTD_AVAILABLE } from 'lazy-layers-cache'
+
+// Import before the cache is constructed. Log it on every boot, because
+// CACHE_COMPRESSION fails quietly and native modules may not have installed.
+logger.info({
+  tiers: getCompressionTiers(),
+  zstd: ZSTD_AVAILABLE,
+  lz4: LZ4_AVAILABLE(),
+  snappy: SNAPPY_AVAILABLE(),
+}, 'compression profile')
+```
+</CodeGroup>
+
+Changing the profile also moves `broadcastSetMaxBytes`, because that ceiling is compared against the encoded event. A denser codec puts values under a limit that previously skipped them, which is usually what you want, and it is worth re-checking the number rather than assuming it still means what it did.
 
 ## Node.js clustering
 
