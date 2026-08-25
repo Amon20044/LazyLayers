@@ -139,9 +139,15 @@ export class MemoryStore<K extends CacheKey, V> implements CacheStore<K, V>, Ins
       const overCap = deserializedBytes > maxValueBytes;
 
       if (!overCap) {
-        const stats = serializeWithStats(value);
-        serializedBytes = stats.storedBytes;
-        encoding = stats.encoding;
+        // Read-only introspection must never fail the page. A value the wire
+        // format cannot represent still deserves a row, just without sizes.
+        try {
+          const stats = serializeWithStats(value);
+          serializedBytes = stats.storedBytes;
+          encoding = stats.encoding;
+        } catch {
+          serializedBytes = 0;
+        }
       }
 
       const inspection: KeyInspection = {

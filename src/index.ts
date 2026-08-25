@@ -56,6 +56,7 @@ export {
 export type { CacheLoggerOptions, CacheRuntimeEnv } from './utils/debugLog.js';
 export type { BufferInspection, CacheEncoding, SerializedCacheValue } from './utils/serializer.js';
 export {
+  CacheSerializationError,
   NULL_SENTINEL,
   GZIP_MIN_BYTES,
   GZIP_SAVINGS_THRESHOLD,

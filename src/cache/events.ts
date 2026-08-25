@@ -33,9 +33,14 @@ export type CacheEvent =
   | {
     type: 'set:broadcast-skipped';
     key: CacheKey;
-    reason: 'max-bytes';
-    bytes: number;
-    maxBytes: number;
+    /**
+     * `max-bytes` when the encoded event exceeded `broadcastSetMaxBytes`.
+     * `encode-failed` when the value could not be represented on the wire, in
+     * which case there are no sizes to report.
+     */
+    reason: 'max-bytes' | 'encode-failed';
+    bytes?: number;
+    maxBytes?: number;
   }
   | { type: 'set:broadcast'; key: CacheKey };
 
