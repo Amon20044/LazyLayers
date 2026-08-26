@@ -262,28 +262,9 @@ export function Icon({ name, className }: { name?: string; className?: string })
   return resolveIcon(name) as React.ReactElement;
 }
 
-const CustomPre = (props: any) => {
-  const { title: rawTitle, 'data-title': dataTitle, name, value, label: rawLabel, ...rest } = props;
-  const title = rawTitle || dataTitle || name || value || rawLabel;
-  const PreComponent = defaultMdxComponents.pre;
-  return (
-    <div className="custom-code-block group my-4 rounded-xl border border-fd-border bg-[#08080B] overflow-hidden shadow-md">
-      {title && (
-        <div className="custom-code-block-header flex items-center gap-1.5 border-b border-fd-border/70 bg-[#0E0E12] px-3 py-2 text-xs font-mono font-medium text-fd-muted-foreground">
-          {title}
-        </div>
-      )}
-      <div className="p-0 [&_figure]:!border-0 [&_figure]:!rounded-none [&_figure]:!my-0 [&_figure]:!bg-transparent [&_pre]:!border-0 [&_pre]:!rounded-none [&_pre]:!my-0 [&_pre]:!bg-transparent [&_.fumadocs-ui-codeblock-title]:!hidden">
-        <PreComponent {...rest} />
-      </div>
-    </div>
-  );
-};
-
 export function getMDXComponents(components?: MDXComponents) {
   return {
     ...defaultMdxComponents,
-    pre: CustomPre,
     Callout,
     Note: (props: React.ComponentProps<typeof Callout>) => <Callout type="info" {...props} />,
     Tip: (props: React.ComponentProps<typeof Callout>) => <Callout type="info" {...props} />,
