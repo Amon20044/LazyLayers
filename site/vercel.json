@@ -3,6 +3,40 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/docs",
+      "destination": "https://documentation-liard-two.vercel.app/docs"
+    },
+    {
+      "source": "/docs/:path*",
+      "destination": "https://documentation-liard-two.vercel.app/docs/:path*"
+    },
+    {
+      "source": "/_next/:path*",
+      "destination": "https://documentation-liard-two.vercel.app/_next/:path*"
+    },
+    {
+      "source": "/api/search",
+      "destination": "https://documentation-liard-two.vercel.app/api/search"
+    },
+    {
+      "source": "/api/chat",
+      "destination": "https://documentation-liard-two.vercel.app/api/chat"
+    },
+    {
+      "source": "/og/:path*",
+      "destination": "https://documentation-liard-two.vercel.app/og/:path*"
+    },
+    {
+      "source": "/llms.txt",
+      "destination": "https://documentation-liard-two.vercel.app/llms.txt"
+    },
+    {
+      "source": "/llms-full.txt",
+      "destination": "https://documentation-liard-two.vercel.app/llms-full.txt"
+    }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",
