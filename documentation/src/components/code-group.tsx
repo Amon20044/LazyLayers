@@ -4,11 +4,14 @@ import React, { useState } from 'react';
 import { cn } from '@/lib/cn';
 
 export function CodeGroup({ children }: { children: React.ReactNode }) {
-  const childArray = React.Children.toArray(children).filter(Boolean) as React.ReactElement[];
+  const childArray = React.Children.toArray(children).filter(
+    (child) => React.isValidElement(child)
+  ) as React.ReactElement[];
   if (childArray.length === 0) return null;
 
   const tabs = childArray.map((child, index) => {
     const props = (child.props || {}) as Record<string, any>;
+    console.log("CODEGROUP CHILD PROPS:", Object.keys(props), props.title, props['data-title'], props.name, props.value);
     let label =
       props.title ||
       props['data-title'] ||
@@ -56,7 +59,7 @@ export function CodeGroup({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Code Block Panel */}
-      <div className="p-0 [&_figure]:!border-0 [&_figure]:!rounded-none [&_figure]:!my-0 [&_figure]:!bg-transparent [&_pre]:!border-0 [&_pre]:!rounded-none [&_pre]:!my-0 [&_pre]:!bg-transparent">
+      <div className="p-0 [&_figure]:!border-0 [&_figure]:!rounded-none [&_figure]:!my-0 [&_figure]:!bg-transparent [&_pre]:!border-0 [&_pre]:!rounded-none [&_pre]:!my-0 [&_pre]:!bg-transparent [&_.custom-code-block]:!my-0 [&_.custom-code-block]:!border-0 [&_.custom-code-block]:!rounded-none [&_.custom-code-block]:!shadow-none [&_.custom-code-block-header]:!hidden">
         {tabs[activeIndex]?.child}
       </div>
     </div>
