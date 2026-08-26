@@ -3,26 +3,13 @@
 import React, { useEffect, useId, useState, useRef } from 'react';
 import mermaid from 'mermaid';
 import { cn } from '@/lib/cn';
+import { extractTextFromNode } from '@/lib/extract-text';
 
 interface MermaidProps {
   chart?: string;
   children?: React.ReactNode;
   title?: string;
   className?: string;
-}
-
-export function extractTextFromNode(node: React.ReactNode): string {
-  if (!node) return '';
-  if (typeof node === 'string') return node;
-  if (typeof node === 'number') return String(node);
-  if (Array.isArray(node)) {
-    return node.map(extractTextFromNode).join('\n');
-  }
-  if (React.isValidElement(node)) {
-    const props = node.props as { children?: React.ReactNode };
-    return extractTextFromNode(props.children);
-  }
-  return '';
 }
 
 function normalizeMermaidCode(input: string, title?: string): string {
