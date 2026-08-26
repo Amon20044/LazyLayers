@@ -8,6 +8,151 @@ import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { File, Folder, Files } from 'fumadocs-ui/components/files';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
 import React from 'react';
+import {
+  Database,
+  Cpu,
+  Rocket,
+  Layers,
+  Zap,
+  ShieldCheck,
+  ShieldAlert,
+  Radio,
+  LineChart,
+  FileArchive,
+  Sliders,
+  GraduationCap,
+  Route,
+  RefreshCw,
+  Network,
+  Code2,
+  CheckSquare,
+  History,
+  Ban,
+  ArrowDown10,
+  Server,
+  Box,
+  Terminal,
+  FileText,
+  Sparkles,
+} from 'lucide-react';
+
+function resolveIcon(icon: React.ReactNode): React.ReactNode {
+  if (!icon || typeof icon !== 'string') return icon;
+
+  const key = icon.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  const iconProps = { className: 'size-5 shrink-0' };
+
+  switch (key) {
+    case 'database':
+    case 'redis':
+    case 'sql':
+      return <Database {...iconProps} className="size-5 shrink-0 text-cyan-400" />;
+    case 'node-js':
+    case 'nodejs':
+    case 'node':
+    case 'cpu':
+    case 'hardware':
+      return <Cpu {...iconProps} className="size-5 shrink-0 text-emerald-400" />;
+    case 'rocket':
+    case 'launch':
+    case 'start':
+      return <Rocket {...iconProps} className="size-5 shrink-0 text-amber-400" />;
+    case 'layer-group':
+    case 'layers':
+    case 'stack':
+      return <Layers {...iconProps} className="size-5 shrink-0 text-indigo-400" />;
+    case 'bolt':
+    case 'zap':
+    case 'feather':
+    case 'lightning':
+    case 'flash':
+      return <Zap {...iconProps} className="size-5 shrink-0 text-[#D3F15D]" />;
+    case 'shield-check':
+    case 'shield':
+    case 'shield-halved':
+    case 'security':
+      return <ShieldCheck {...iconProps} className="size-5 shrink-0 text-emerald-400" />;
+    case 'bolt-slash':
+    case 'shield-alert':
+      return <ShieldAlert {...iconProps} className="size-5 shrink-0 text-rose-400" />;
+    case 'tower-broadcast':
+    case 'radio':
+    case 'broadcast':
+    case 'event':
+      return <Radio {...iconProps} className="size-5 shrink-0 text-purple-400" />;
+    case 'chart-line':
+    case 'chart':
+    case 'gauge':
+    case 'metrics':
+      return <LineChart {...iconProps} className="size-5 shrink-0 text-cyan-400" />;
+    case 'file-zipper':
+    case 'archive':
+    case 'zip':
+      return <FileArchive {...iconProps} className="size-5 shrink-0 text-amber-400" />;
+    case 'box':
+    case 'boxes':
+    case 'package':
+      return <Box {...iconProps} className="size-5 shrink-0 text-orange-400" />;
+    case 'sliders':
+    case 'sliders-horizontal':
+    case 'tune':
+      return <Sliders {...iconProps} className="size-5 shrink-0 text-pink-400" />;
+    case 'graduation-cap':
+    case 'school':
+    case 'learn':
+    case 'book':
+      return <GraduationCap {...iconProps} className="size-5 shrink-0 text-lime-400" />;
+    case 'route':
+    case 'map':
+    case 'journey':
+      return <Route {...iconProps} className="size-5 shrink-0 text-teal-400" />;
+    case 'arrows-rotate':
+    case 'refresh':
+    case 'sync':
+    case 'cycle':
+      return <RefreshCw {...iconProps} className="size-5 shrink-0 text-cyan-400" />;
+    case 'network-wired':
+    case 'network':
+    case 'bus':
+      return <Network {...iconProps} className="size-5 shrink-0 text-indigo-400" />;
+    case 'code':
+    case 'code2':
+    case 'brackets':
+      return <Code2 {...iconProps} className="size-5 shrink-0 text-amber-300" />;
+    case 'terminal':
+    case 'cli':
+      return <Terminal {...iconProps} className="size-5 shrink-0 text-emerald-400" />;
+    case 'clipboard-check':
+    case 'checklist':
+    case 'tasks':
+      return <CheckSquare {...iconProps} className="size-5 shrink-0 text-emerald-400" />;
+    case 'clock-rotate-left':
+    case 'history':
+    case 'time':
+      return <History {...iconProps} className="size-5 shrink-0 text-amber-400" />;
+    case 'ban':
+    case 'circle-slash':
+    case 'block':
+      return <Ban {...iconProps} className="size-5 shrink-0 text-rose-400" />;
+    case 'arrow-down-1-9':
+    case 'sort':
+    case 'order':
+      return <ArrowDown10 {...iconProps} className="size-5 shrink-0 text-indigo-400" />;
+    case 'server':
+    case 'host':
+      return <Server {...iconProps} className="size-5 shrink-0 text-blue-400" />;
+    case 'file-text':
+    case 'doc':
+    case 'file':
+      return <FileText {...iconProps} className="size-5 shrink-0 text-cyan-400" />;
+    default:
+      return <Sparkles {...iconProps} className="size-5 shrink-0 text-indigo-400" />;
+  }
+}
+
+const CustomCard = ({ icon, ...props }: React.ComponentProps<typeof Card>) => {
+  return <Card icon={resolveIcon(icon)} {...props} />;
+};
 
 const CustomTab = ({ title, value, children, ...props }: React.ComponentProps<typeof Tab> & { title?: string }) => {
   const tabValue = value ?? title ?? 'Tab';
@@ -114,7 +259,7 @@ export function Tooltip({ children, tip }: { children?: React.ReactNode; tip?: s
 }
 
 export function Icon({ name, className }: { name?: string; className?: string }) {
-  return <span className={className} />;
+  return resolveIcon(name) as React.ReactElement;
 }
 
 export function getMDXComponents(components?: MDXComponents) {
@@ -126,7 +271,7 @@ export function getMDXComponents(components?: MDXComponents) {
     Info: (props: React.ComponentProps<typeof Callout>) => <Callout type="info" {...props} />,
     Warning: (props: React.ComponentProps<typeof Callout>) => <Callout type="warn" {...props} />,
     Check: (props: React.ComponentProps<typeof Callout>) => <Callout type="info" {...props} />,
-    Card,
+    Card: CustomCard,
     Cards,
     CardGroup: Cards,
     Columns: Cards,
