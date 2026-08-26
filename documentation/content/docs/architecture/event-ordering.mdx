@@ -79,7 +79,8 @@ Each server keeps a generation counter per key, in memory. Deleting a key advanc
 
 When an inbound `del` or `set` carries a generation **strictly lower** than the receiver's own counter for that key, the receiver drops it and emits `invalidation:stale` carrying both numbers.
 
-```mermaid title="sequenceDiagram"
+```mermaid title="Generation Guard Flow"
+sequenceDiagram
     participant A as Server A
     participant Bus as Event bus
     participant B as Server B
