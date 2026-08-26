@@ -8,6 +8,7 @@ import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { File, Folder, Files } from 'fumadocs-ui/components/files';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
 import { CodeGroup } from '@/components/code-group';
+import { Mermaid, extractTextFromNode } from '@/components/mermaid';
 import React from 'react';
 import {
   Database,
@@ -262,9 +263,32 @@ export function Icon({ name, className }: { name?: string; className?: string })
   return resolveIcon(name) as React.ReactElement;
 }
 
+function Pre(props: any) {
+  const isMermaid =
+    props.className?.includes('language-mermaid') ||
+    props.className?.includes('mermaid') ||
+    props['data-language'] === 'mermaid' ||
+    (props.children &&
+      typeof props.children === 'object' &&
+      (props.children.props?.className?.includes('language-mermaid') ||
+        props.children.props?.className?.includes('mermaid') ||
+        props.children.props?.['data-language'] === 'mermaid'));
+
+  if (isMermaid) {
+    const rawChart = extractTextFromNode(props.children);
+    const title = props.title || props['data-title'] || props.name;
+    return <Mermaid chart={rawChart} title={title} />;
+  }
+
+  const DefaultPre = defaultMdxComponents.pre;
+  return <DefaultPre {...props} />;
+}
+
 export function getMDXComponents(components?: MDXComponents) {
   return {
     ...defaultMdxComponents,
+    pre: Pre,
+    Mermaid,
     Callout,
     Note: (props: React.ComponentProps<typeof Callout>) => <Callout type="info" {...props} />,
     Tip: (props: React.ComponentProps<typeof Callout>) => <Callout type="info" {...props} />,

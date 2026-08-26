@@ -49,7 +49,8 @@ A TTL does not save you here. Nothing about "this value expires in 60 seconds" s
 
 The first caller for a key stores its promise in a map keyed by that key. Every caller that arrives while the promise is unsettled is handed the same promise. The loader body runs once, and everyone resolves from the one result.
 
-```mermaid title="sequenceDiagram"
+```mermaid title="In-flight Deduplication"
+sequenceDiagram
     participant C1 as Caller 1
     participant C2 as Callers 2 to 10000
     participant Cache as LazyLayers
@@ -129,7 +130,8 @@ Per-process dedupe solves the herd inside one server. It does nothing across a f
 
 So when a `getOrSet` loader resolves, the value does not just get stored. It gets published.
 
-```mermaid title="sequenceDiagram"
+```mermaid title="Lazy Invalidation Fan-Out"
+sequenceDiagram
     participant DB as Database
     participant A as Server A
     participant Bus as Event bus

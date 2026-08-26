@@ -139,7 +139,8 @@ Only now, and only when a bus is configured and `broadcastSet` is not `false`.
 
 The local write is fully awaited before the broadcast block is entered, and the publish itself is awaited too. Your `getOrSet` caller is still waiting while the event goes out.
 
-```mermaid title="sequenceDiagram"
+```mermaid title="Write and Broadcast Pipeline"
+sequenceDiagram
     participant C as Caller
     participant Cache as getOrSet
     participant DB as Loader
