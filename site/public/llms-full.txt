@@ -290,7 +290,7 @@ const cache = new LazyLayersCache({
 - Landing page: https://lazy-layers-cache.vercel.app/
 - npm: https://www.npmjs.com/package/lazy-layers-cache
 - GitHub: https://github.com/Amon20044/LazyLayers
-- Docs: https://lazylayers.mintlify.site/docs
+- Docs: /docs
 - Changelog: https://github.com/Amon20044/LazyLayers/blob/main/CHANGELOG.md
 - LLM summary: https://lazy-layers-cache.vercel.app/llms.txt
 

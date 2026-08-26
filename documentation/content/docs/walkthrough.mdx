@@ -1,0 +1,216 @@
+---
+title: "Walkthrough"
+description: "Follow one key from a cold miss, through both layers, out over the bus, and into a peer."
+icon: "route"
+---
+
+Three servers behind a load balancer, all running the configuration from the <a href="/docs/quickstart">quickstart</a>. A shared Redis holds L2, and a Redis Pub/Sub bus carries invalidations.
+
+We are going to follow one key, `user:42`, through its whole life. Nothing here is new API. It is the same `getOrSet` and `delete` you already have, watched closely.
+
+## The cast
+
+```
+        ┌────────────┐   ┌────────────┐   ┌────────────┐
+        │  Server A  │   │  Server B  │   │  Server C  │
+        │  L1 (LRU)  │   │  L1 (LRU)  │   │  L1 (LRU)  │
+        └─────┬──────┘   └─────┬──────┘   └─────┬──────┘
+              └────────────────┼────────────────┘
+                     event bus │ shared L2
+                        ┌──────┴──────┐
+                        │    Redis    │
+                        └──────┬──────┘
+                               │
+                        ┌──────┴──────┐
+                        │  Postgres   │
+                        └─────────────┘
+```
+
+Every server holds its own L1. They share L2 and the bus. Postgres is the only place the truth actually lives.
+
+## Moment 1: the cold miss
+
+A request lands on **Server A**. Nothing anywhere has `user:42`.
+
+<CodeGroup>
+```js src/users/repository.js
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+```
+
+```ts src/users/repository.ts
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+```
+</CodeGroup>
+
+In order:
+
+<Steps>
+<Step title="L1 is checked">
+  A `Map` lookup in this process. Miss.
+</Step>
+<Step title="An in-flight promise is registered">
+  Before anything slow happens, A records that `user:42` is being loaded. This is the step that matters in a moment.
+</Step>
+<Step title="L2 is checked">
+  One round trip to Redis. Miss, because nobody has ever loaded this key.
+</Step>
+<Step title="The loader runs">
+  Postgres is queried. It takes 40ms.
+</Step>
+<Step title="The value is written">
+  Into A's L1 and into the shared L2, encoded as MessagePack.
+</Step>
+<Step title="A `set` event goes out on the bus">
+  Carrying the key **and the value**.
+</Step>
+</Steps>
+
+## Moment 2: the herd that did not happen
+
+During those 40ms, **900 more requests for `user:42` arrive at Server A**.
+
+None of them query Postgres. Each one finds the in-flight promise from step 2 and waits on it. When the loader resolves, all 901 callers get the same object.
+
+```
+901 callers  ->  1 loader call  ->  900 in-flight reuses
+```
+
+This is the thundering herd, and the thing that prevented it is on by default. You did not configure it.
+
+<Note>
+  The repo's own benchmark pushes this to 10,000 concurrent callers against one cold key and measures 1 loader call with 9,999 in-flight reuses. Without dedupe, the same test produces 10,000 loader calls.
+</Note>
+
+## Moment 3: the fan-out
+
+The `set` event from step 6 reaches **Server B** and **Server C** roughly a millisecond later.
+
+Neither of them asked for `user:42`. Neither of them touches Redis or Postgres. Each one takes the value straight off the bus and writes it into its own L1, and clears that key's negative entry and any in-flight promise it might have had.
+
+```
+Server A  ──[ set user:42 + value ]──▶  Server B   L1 warm
+                                   └─▶  Server C   L1 warm
+```
+
+One database query, three warm caches. When a request for `user:42` next lands on C, it is already a local hit.
+
+<Warning>
+  Two things decide whether this happens.
+
+  **Only `getOrSet` broadcasts.** A direct `cache.set()` writes L1 and L2 and emits a local event, but never publishes to the bus. Peers will not learn about it.
+
+  **`broadcastSetMaxBytes` has no default.** Without it, a 5 MB value is broadcast in full to every server. Set a ceiling and oversized values fall back to invalidating peers instead of priming them.
+</Warning>
+
+Server A does not apply its own event. Every event carries a `source`, and a server returns early when the source is its own. Without that, A would immediately overwrite the value it just wrote.
+
+## Moment 4: the write
+
+Someone upgrades user 42 to the pro plan.
+
+<CodeGroup>
+```js src/users/repository.js
+export async function updateUser(id, patch) {
+  // The database first. Until this commits, the cached value is still the truth.
+  const updated = await db.users.update(id, patch)
+
+  await cache.delete(`user:${id}`)
+
+  return updated
+}
+```
+
+```ts src/users/repository.ts
+export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
+  // The database first. Until this commits, the cached value is still the truth.
+  const updated = await db.users.update(id, patch)
+
+  await cache.delete(`user:${id}`)
+
+  return updated
+}
+```
+</CodeGroup>
+
+`delete` does more than it looks like. On the local server and on every peer, it drops the key from L1, L2, the negative cache, the stale copy, and any in-flight promise. That last one matters: a loader that started before the write would otherwise resolve afterwards and put the old value back.
+
+The key's generation counter increments, and a `del` event goes out.
+
+<Note>
+  Order matters. Invalidate after the write commits, never before. Invalidate first and a concurrent read can reload the old row from the database and cache it again, leaving you worse off than if you had not invalidated at all.
+</Note>
+
+## Moment 5: the late event
+
+The network reorders things. A `set` event from **before** the update arrives at Server C **after** the `del`.
+
+A naive cache would apply it and resurrect the value you just deleted. Three mechanisms stop it:
+
+<Steps>
+<Step title="Dedupe by event ID">
+  If C has already seen this event ID, it is dropped. Durable transports redeliver, so this fires often.
+</Step>
+<Step title="Source filtering">
+  If the event came from C itself, it returns early.
+</Step>
+<Step title="Generation comparison">
+  The event carries the generation of the key when it was published. C compares it with what it already has. Older loses, and the event is discarded.
+</Step>
+</Steps>
+
+The stale `set` carries generation 7. C is already on generation 8 from the delete. It is thrown away.
+
+## Moment 6: Redis dies
+
+Someone fails over the Redis cluster. It is unreachable for 20 seconds.
+
+Nothing throws. The reads keep working:
+
+- **L1 hits still serve.** They never touched Redis anyway.
+- **L2 reads fail and are treated as misses.** After a few consecutive failures the circuit breaker opens, so subsequent reads skip Redis entirely instead of waiting for a timeout on every request.
+- **The loader runs more often.** Without L2 absorbing them, more requests reach Postgres, still collapsed by in-flight dedupe.
+- **Invalidations are lost.** The bus rode on the same Redis. Peers stay stale until their L1 TTL expires, which is why your L1 TTL is your real worst-case staleness window.
+
+When Redis returns, the breaker's cooldown elapses, a probe succeeds, and traffic flows again.
+
+This is what fail-open means: a dependency failure degrades what the cache can do, rather than turning it into an outage of its own.
+
+## What just happened
+
+| Moment | Concept | Cost |
+|---|---|---|
+| Cold miss | Read-through | 1 database query |
+| 901 callers | In-flight dedupe | 0 extra queries |
+| Fan-out | Write propagation | 1 bus message |
+| Write | Event-driven invalidation | 1 bus message |
+| Late event | Generation ordering | 0, discarded |
+| Redis down | Fail-open | Degraded, not broken |
+
+One database query served three servers and 901 callers, the update reached every server in about a millisecond, a reordered message could not corrupt anything, and an infrastructure failure did not become an application failure.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Learn the system design" icon="graduation-cap" href="/docs/learn">
+    The concepts behind each moment above, in reading order.
+  </Card>
+  <Card title="Production checklist" icon="clipboard-check" href="/docs/setups/production">
+    Sizing, clustering, and unique source values before you ship.
+  </Card>
+  <Card title="Event ordering" icon="clock-rotate-left" href="/docs/architecture/event-ordering">
+    The full rules for what a late or duplicate event can and cannot do.
+  </Card>
+  <Card title="Resilience" icon="shield-halved" href="/docs/concepts/resilience">
+    Circuit breakers, stale fallback, and timeouts in detail.
+  </Card>
+</CardGroup>

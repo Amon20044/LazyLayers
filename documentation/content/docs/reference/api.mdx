@@ -1,0 +1,474 @@
+---
+title: "API"
+description: "Every method on LazyLayersCache, the createCache helper, and the complete export surface."
+---
+
+`LazyLayersCache` is the only object most code touches. Nine methods, one constructor, and a module that exports the stores, buses and types behind them.
+
+<Note>
+  Tuning this API for production means changing **numbers**, not turning safety off. In-flight dedupe, fail-open behaviour and `broadcastSet` are on for a reason. Size the entry counts, TTLs, byte ceilings and thresholds instead.
+</Note>
+
+## Constructing a cache
+
+```ts
+class LazyLayersCache<K extends CacheKey = string, V = unknown> extends HybridCache<K, V> {
+  constructor(options?: LazyLayersCacheOptions<K, V>)
+}
+```
+
+`K` is the key type and must extend `CacheKey`, which is `string | number`. `V` is the value type. Both default to `string` and `unknown`, so an unparameterised cache hands you `unknown` back and you cast at every call site. Name the types once at construction and every method is typed from there.
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, createCache } from 'lazy-layers-cache'
+
+export const cache = new LazyLayersCache({ ttlMs: 5 * 60 * 1000 })
+
+// Identical object, built by the factory helper.
+export const same = createCache({ ttlMs: 5 * 60 * 1000 })
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, createCache } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+
+export const cache = new LazyLayersCache<string, User>({ ttlMs: 5 * 60 * 1000 })
+
+// Identical object, built by the factory helper.
+export const same = createCache<string, User>({ ttlMs: 5 * 60 * 1000 })
+```
+</CodeGroup>
+
+### createCache
+
+```ts
+function createCache<K extends CacheKey = string, V = unknown>(
+  options?: LazyLayersCacheOptions<K, V>,
+): LazyLayersCache<K, V>
+```
+
+`createCache(options)` is a one-line helper that returns `new LazyLayersCache(options)`. Same class, same options, same defaults, no extra behaviour. Use it when you prefer a function call to a `new` expression. Everything documented below applies to both.
+
+`HybridCache` is the base class and holds all the logic. `LazyLayersCache` extends it and only forwards the constructor, so the two are interchangeable. `LazyLayersCacheOptions<K, V>` is an alias of `HybridCacheOptions<K, V>`. Every option lives in the [configuration reference](/docs/reference/configuration).
+
+## Methods
+
+### getOrSet
+
+```ts
+getOrSet(key: K, loader: CacheLoader<V>, options?: CacheOptions): Promise<V | undefined>
+```
+
+The read-through path, and the method to reach for in almost all code. It checks L1, then L2, then runs your loader, then writes the result everywhere it belongs and broadcasts it to your other servers.
+
+<ParamField path="key" type="K" required>
+  The cache key. A `string` or `number`.
+</ParamField>
+
+<ParamField path="loader" type="(context?: { signal: AbortSignal }) => Promise<V | undefined>" required>
+  Runs only on a miss. Receives an `AbortSignal` that your `timeouts` actually fire, so pass it into your I/O. Returning `undefined` records a negative entry instead of caching a value.
+</ParamField>
+
+<ParamField path="options" type="CacheOptions">
+  Per-call overrides for `ttlMs`, `levels`, `inflight`, `negativeCache`, `failSafe`, `timeouts` and `distributedLock`. Falls back to the constructor options for anything you leave out.
+</ParamField>
+
+Returns the cached or freshly loaded value. It returns `undefined` when the loader resolves `undefined` and no stale copy is available, and short-circuits to `undefined` without calling the loader at all while a negative entry for that key is live.
+
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+```
+
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+import { db } from '../db.js'
+
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+```
+</CodeGroup>
+
+What happens on a miss, in order:
+
+<Steps>
+  <Step title="Dedupe">
+    Concurrent callers for the same key join the in-flight promise, so the loader body runs once. If `inflight.maxEntries` is already full the call runs unregistered and emits `inflight:bypass`.
+  </Step>
+  <Step title="Load">
+    The loader runs under your `timeouts` with an `AbortSignal`. A failure serves the stale copy when fail-safe is on and one exists, and rethrows otherwise.
+  </Step>
+  <Step title="Store">
+    The value is written to L1 and L2, remembered as the stale copy, and any negative entry for the key is cleared.
+  </Step>
+  <Step title="Broadcast">
+    With an event bus configured, the value is published as a `set` event. Every peer writes it into its own L1, so their first read of that key is already a local hit. One server pays for the query.
+  </Step>
+</Steps>
+
+<Note>
+  The broadcast is the reason `getOrSet` earns its place over a manual read-then-write. Only a `getOrSet` loader result is published. See [the difference between getOrSet, get and set](#choosing-between-getorset-get-and-set).
+</Note>
+
+<Warning>
+  `broadcastSetMaxBytes` has **no default**. Without it, a multi-megabyte loader result is broadcast in full to every server. Set a ceiling. Values over it are still stored locally and in L2, and the skip emits `set:broadcast-skipped` with `reason: 'max-bytes'`.
+</Warning>
+
+### get
+
+```ts
+get(key: K): Promise<V | undefined>
+```
+
+Reads what is already cached. Nothing more.
+
+<ParamField path="key" type="K" required>
+  The cache key.
+</ParamField>
+
+Checks the negative cache, then L1, then L2. A value found in L2 is written into L1 before it is returned, so the next read is local. Returns `undefined` for a negative-cached key, for a genuine miss, and when L2 fails or its circuit breaker is open, because L2 failures degrade rather than throw.
+
+`get` never runs a loader, never dedupes, and never publishes anything.
+
+<CodeGroup>
+```js src/users/warm-path.js
+import { cache } from '../cache/index.js'
+
+const cached = await cache.get(`user:${id}`)
+
+if (cached === undefined) {
+  // Nothing was loaded. You now own the miss.
+}
+```
+
+```ts src/users/warm-path.ts
+import { cache } from '../cache/index.js'
+
+const cached: User | undefined = await cache.get(`user:${id}`)
+
+if (cached === undefined) {
+  // Nothing was loaded. You now own the miss.
+}
+```
+</CodeGroup>
+
+### set
+
+```ts
+set(key: K, value: V, options?: CacheOptions): Promise<void>
+```
+
+Writes a value you already have.
+
+<ParamField path="key" type="K" required>
+  The cache key.
+</ParamField>
+
+<ParamField path="value" type="V" required>
+  The value to store. It is serialized on the way into L2.
+</ParamField>
+
+<ParamField path="options" type="CacheOptions">
+  Per-call overrides, same shape as `getOrSet`.
+</ParamField>
+
+Writes to L1 and to L2, remembers the value as the stale copy when fail-safe is on, clears any negative entry for the key, and emits a local `set` cache event for your `on` handlers.
+
+<Warning>
+  `set` writes to L1 and L2 but does **not** publish to the event bus. Only a `getOrSet` loader result is broadcast. Every peer keeps whatever its own L1 already holds until that entry expires or you `delete` the key, so a plain `set` will not prime peers and can leave them serving the old value for a full L1 TTL.
+</Warning>
+
+<CodeGroup>
+```js src/users/import.js
+import { cache } from '../cache/index.js'
+
+// Seeding a value you computed elsewhere. Local layers only.
+await cache.set(`user:${user.id}`, user, { ttlMs: 30 * 1000 })
+```
+
+```ts src/users/import.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+
+// Seeding a value you computed elsewhere. Local layers only.
+await cache.set(`user:${user.id}`, user, { ttlMs: 30 * 1000 })
+```
+</CodeGroup>
+
+### Choosing between getOrSet, get and set
+
+| | Runs a loader | Dedupes concurrent callers | Writes L1 and L2 | Primes peers |
+|---|---|---|---|---|
+| `getOrSet` | yes | yes | yes | yes |
+| `get` | no | no | promotes an L2 hit into L1 | no |
+| `set` | no | no | yes | no |
+
+Reach for `getOrSet` unless you have a specific reason not to. `get` is for the rare case where a miss is not yours to fill, such as a health probe or a debug endpoint. `set` is for a value that arrived from somewhere other than a loader, and it costs you the broadcast.
+
+<Note>
+  This is the only page in these docs that uses `get` and `set` in an example. Everywhere else, a read is `getOrSet` and an invalidation is `delete` or `deleteByPattern`.
+</Note>
+
+### has
+
+```ts
+has(key: K): Promise<boolean>
+```
+
+<ParamField path="key" type="K" required>
+  The cache key.
+</ParamField>
+
+Returns `false` immediately for a negative-cached key, without consulting either layer. Otherwise it asks L1, then L2. An L2 failure returns `false` rather than throwing.
+
+`has` does not decode the value, which makes it cheap on L2 but leaves you open to the usual race: the key can expire between your `has` and your read. Prefer `getOrSet` and check the result for `undefined`.
+
+```js src/cache/probe.js
+const warm = await cache.has(`user:${id}`)
+```
+
+### delete
+
+```ts
+delete(key: K): Promise<void>
+```
+
+<ParamField path="key" type="K" required>
+  The key to invalidate everywhere.
+</ParamField>
+
+Drops the key from L1, L2, the negative cache, the stale copy and any in-flight promise, advances that key's generation counter, then publishes a `del` event so every peer does the same. Call it after your write commits, not before.
+
+<CodeGroup>
+```js src/users/repository.js
+export async function updateUser(id, patch) {
+  const updated = await db.users.update(id, patch)
+  await cache.delete(`user:${id}`)
+  return updated
+}
+```
+
+```ts src/users/repository.ts
+export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
+  const updated = await db.users.update(id, patch)
+  await cache.delete(`user:${id}`)
+  return updated
+}
+```
+</CodeGroup>
+
+### deleteByPattern
+
+```ts
+deleteByPattern(pattern: string): Promise<void>
+```
+
+<ParamField path="pattern" type="string" required>
+  A glob pattern such as `user:42:sessions:*`.
+</ParamField>
+
+Removes every matching entry from L1, L2, and the in-flight, negative and stale maps, then publishes a `pattern` event so every peer repeats the scan locally.
+
+<Warning>
+  This walks the keyspace. L1 iterates every key it holds, and L2 scans Redis. `deleteByPattern('*')` does that on every server at once. Keep patterns tightly prefixed, and never build one from user input.
+</Warning>
+
+Unlike `delete`, a `pattern` event carries no generation counter, so the ordering guard that protects single keys does not apply to pattern invalidations.
+
+<CodeGroup>
+```js src/users/repository.js
+await cache.deleteByPattern(`user:${id}:sessions:*`)
+```
+
+```ts src/users/repository.ts
+await cache.deleteByPattern(`user:${id}:sessions:*`)
+```
+</CodeGroup>
+
+### clear
+
+```ts
+clear(): Promise<void>
+```
+
+Exactly `deleteByPattern('*')`. It empties this server's layers and publishes a pattern event that empties every peer's too, including the shared L2 you all read from.
+
+<Warning>
+  `clear` is a production incident waiting for a caller. It is a test and local-development tool. To drop a bounded set of keys, use `deleteByPattern` with a real prefix.
+</Warning>
+
+### size
+
+```ts
+size(): Promise<number>
+```
+
+Returns the L1 entry count when L1 exists. It only reports L2 when L1 is disabled, so with both layers configured this is the number of entries in **this process's memory**, not the total across the cache.
+
+L2 sizing is approximate. `RedisStore` returns the cardinality of its index when `useIndex` is on, and otherwise counts keys with a full scan, which is expensive on a large keyspace.
+
+```js src/cache/metrics.js
+const l1Entries = await cache.size()
+```
+
+### on
+
+```ts
+on(handler: CacheEventHandler): () => void
+```
+
+<ParamField path="handler" type="(event: CacheEvent) => void" required>
+  Called synchronously for every cache event. A handler that throws is caught and logged, so it cannot break a read.
+</ParamField>
+
+Returns an unsubscribe function. Passing handlers to the `events` constructor option is equivalent to calling `on` for each of them at startup.
+
+<CodeGroup>
+```js src/cache/metrics.js
+import { cache } from './index.js'
+
+const off = cache.on((event) => {
+  if (event.type === 'set:broadcast-skipped') {
+    console.warn('value too large to broadcast', event.bytes, event.maxBytes)
+  }
+})
+
+// Later, during shutdown.
+off()
+```
+
+```ts src/cache/metrics.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+import { cache } from './index.js'
+
+const off = cache.on((event: CacheEvent) => {
+  if (event.type === 'set:broadcast-skipped') {
+    console.warn('value too large to broadcast', event.bytes, event.maxBytes)
+  }
+})
+
+// Later, during shutdown.
+off()
+```
+</CodeGroup>
+
+The full event union is in the [cache events reference](/docs/reference/cache-events).
+
+<Warning>
+  Never use a cache key as a metric label. Keys are unbounded, and one high-cardinality label will take down your metrics backend before it takes down your cache.
+</Warning>
+
+### Observability methods
+
+```ts
+getObservabilityHandler(): ObservabilityRequestHandler | undefined
+getObservabilityServer(): ObservabilityServerHandle | undefined
+closeObservability(): Promise<void>
+```
+
+`getObservabilityHandler` returns a request handler you can mount on your own HTTP server. It answers the request and returns `true`, or returns `false` to pass through. Both getters return `undefined` when observability is off. `closeObservability` stops the standalone server and is safe to call when none was started.
+
+## Exported classes and values
+
+Everything below is a runtime export of `lazy-layers-cache`.
+
+<AccordionGroup>
+  <Accordion title="Cache and stores">
+    `LazyLayersCache`, `HybridCache`, `MemoryStore`, `RedisStore`, `CircuitBreaker`, and the `createCache` factory helper.
+
+    `MemoryStore` is the L1 implementation and is created for you when you do not pass `l1`. `RedisStore` is generic over the value type only, as `RedisStore<V>`, because its key type is fixed to `CacheKey`.
+  </Accordion>
+
+  <Accordion title="Event buses">
+    `RedisEventBus`, `RabbitMQEventBus`, `NatsEventBus`. Each satisfies the `EventBus` interface and each needs `await bus.connect()` before use. Constructor options are in the [event bus reference](/docs/reference/event-buses).
+  </Accordion>
+
+  <Accordion title="Defaults">
+    ```ts
+    DEFAULT_CACHE_TTL_MS      // 3_600_000
+    DEFAULT_L1_MAX_ENTRIES    // 1_000
+    DEFAULT_INFLIGHT_TTL_MS   // 5_000
+    GZIP_MIN_BYTES            // 65_536
+    GZIP_SAVINGS_THRESHOLD    // 0.15
+    NULL_SENTINEL             // '__hybridcache_null__'
+    ```
+  </Accordion>
+
+  <Accordion title="Serializer">
+    `serialize`, `serializeWithStats`, `deserialize`, `inspectBuffer`, `estimateValueBytes`, `getCompressionSavings`, `sizeSavings`, `shouldGzip`, `hasPrefix`, `stripPrefix`.
+
+    `serialize` returns a `Buffer`. `serializeWithStats` returns that buffer plus `encoding`, `originalBytes`, `storedBytes`, `compressionRatio` and `compressed`. `deserialize` accepts a `Buffer` or `Uint8Array` and returns `null` on corrupt input rather than throwing, so one poisoned key cannot take down a read path.
+  </Accordion>
+
+  <Accordion title="Observability and telemetry">
+    `ObservabilityCollector`, `ObservabilityInspector`, `createObservabilityHandler`, `startObservabilityServer`, `renderDashboard`, `renderPrometheus`, `resolveObservabilityOptions`, `normalizeRoute`, `isInspectableStore`.
+
+    Telemetry rides Node's `diagnostics_channel`: `subscribeTelemetry`, `publishTelemetry`, `hasTelemetrySubscribers`, and `TELEMETRY_CHANNEL_NAME`, which is `lazycache:cache:event`.
+
+    Constants: `DEFAULT_OBSERVABILITY_PORT` (`7077`), `DEFAULT_OBSERVABILITY_ROUTE` (`/observelazyily`), `DEFAULT_OBSERVABILITY_MAX_EVENTS` (`1000`), `DEFAULT_OBSERVABILITY_MAX_VALUE_BYTES` (`262_144`), `DEFAULT_OBSERVABILITY_USERNAME` and `DEFAULT_OBSERVABILITY_PASSWORD` (both `lazydev`).
+  </Accordion>
+</AccordionGroup>
+
+## Exported types
+
+<AccordionGroup>
+  <Accordion title="Cache and options">
+    `LazyLayersCacheOptions<K, V>`, `HybridCacheOptions<K, V>`, `HybridCacheResilienceOptions`, `CacheOptions`, `CacheLevelOptions`, `CacheLevel`, `CacheKey`, `CacheLayer<K, V>`, `CacheEntry<V>`, `CacheStore<K, V>`, `CacheLoader<V>`, `InflightEntry<K, V>`, `InflightOptions`, `InflightStore<K, V>`, `DistributedLock`, `DistributedLockOptions`, `CircuitBreakerOptions`, `CircuitBreakerState`, `RedisStoreOptions`, `CacheLoggerOptions`, `CacheRuntimeEnv`.
+
+    `CacheStore<K, V>` is the interface any custom layer must satisfy: `set`, `get`, `getOrSet`, `has`, `delete`, `deleteByPattern`, `clear` and `size`. `CacheLayer<K, V>` is `CacheStore<K, V> | false`, which is why `l1: false` and `l2: false` typecheck.
+  </Accordion>
+
+  <Accordion title="Events">
+    `CacheEvent` and `CacheEventHandler` are the local event stream that `on` gives you.
+
+    `InvalidationEvent` is what travels over the bus. It is a union of three variants keyed on `InvalidationType`, which is `'del' | 'pattern' | 'set'`. All three extend `BaseInvalidationEvent` with `id`, `type`, `source`, `ts` and `generation`.
+
+    | Variant | Type | Extra fields |
+    |---|---|---|
+    | `DeleteEvent` | `'del'` | `keys: string[]` |
+    | `PatternEvent` | `'pattern'` | `pattern: string` |
+    | `SetEvent` | `'set'` | `keys: string[]`, `value: unknown`, `ttlMs?: number` |
+
+    `SetEvent` is the one that carries a payload, which is what primes a peer's L1 and what `broadcastSetMaxBytes` measures.
+  </Accordion>
+
+  <Accordion title="Inspection">
+    `InspectableStore`, `StoreInspectOptions`, `StoreInspection`, `KeyInspection`, `BufferInspection`, `CacheEncoding`, `SerializedCacheValue`.
+
+    A store is inspectable when it exposes `inspect()`. Both `MemoryStore` and `RedisStore` do, and `isInspectableStore` is the type guard the dashboard uses. Inspection is read-only and cursor-paginated, and L1 inspection uses `peek` so browsing keys never changes eviction order.
+  </Accordion>
+
+  <Accordion title="Observability and buses">
+    `ObservabilityOptions`, `ResolvedObservabilityOptions`, `ObservabilityAuthOptions`, `ObservabilityServerOptions`, `ObservabilityPrometheusOptions`, `ObservabilityCounters`, `ObservabilityHandlerDeps`, `ObservabilityRequestHandler`, `ObservabilityServerHandle`, `StartObservabilityServerOptions`, `InspectorDeps`, `ConfigSnapshot`, `OverviewSnapshot`, `PrometheusGauges`, `RecordedEvent`.
+
+    `EventBus`, `EventBusHealth`, `EventBusRetryQueueOptions`, `RedisEventBusOptions`, `RedisEventBusHealth`, `RabbitMQEventBusOptions`, `RabbitMQEventBusHealth`, `NatsEventBusOptions`, `NatsEventBusMode`, `NatsEventBusHealth`, `NatsJetStreamOptions`.
+  </Accordion>
+</AccordionGroup>
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Configuration reference" icon="sliders" href="/docs/reference/configuration">
+    Every option these methods read, its default, and what it costs you when it is wrong.
+  </Card>
+  <Card title="Cache events" icon="signal" href="/docs/reference/cache-events">
+    The full union `on` delivers, so you can turn these methods into metrics.
+  </Card>
+  <Card title="Stores" icon="database" href="/docs/reference/stores">
+    What `MemoryStore` and `RedisStore` do behind `get`, `set` and `deleteByPattern`.
+  </Card>
+</CardGroup>

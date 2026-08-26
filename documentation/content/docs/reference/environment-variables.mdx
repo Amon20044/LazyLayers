@@ -1,0 +1,231 @@
+---
+title: "Environment variables"
+description: "Every variable the library reads, the exact strings it accepts, and what happens when you leave it unset."
+---
+
+The library reads nineteen environment variables. Four affect the process globally, fifteen configure the observability dashboard.
+
+For every observability variable the order is: an explicit constructor option wins, then the environment variable, then the built-in default. One variable breaks that rule, and it is called out below.
+
+## How values are parsed
+
+The parsing is strict. A variable that does not match is treated as unset, or as `false`, with no warning.
+
+| Kind | Accepted | Anything else |
+|---|---|---|
+| String | Any non-empty value | An empty string counts as unset, so the default applies |
+| Boolean | `1`, or `true` in any casing | Any other non-empty value is `false` |
+| Integer | Parsed base 10 | A value that does not parse to a finite number counts as unset |
+
+So `LAZY_OBS_ENABLED=yes` does not enable anything, and `LAZY_OBS_ENABLED=TRUE` does.
+
+## Serialization
+
+| Variable | Accepted values | Default | Effect |
+|---|---|---|---|
+| `CACHE_COMPRESSION` | Exactly `gzip`, `zstd`, `auto`, or a JSON tier array | `gzip` | Picks the codec used for each payload size band |
+| `CACHE_FORMAT` | Exactly `json` | unset | Encodes values with `JSON.stringify` under the `HC1J` prefix instead of msgpack |
+| `CACHE_DEBUG_SERIALIZATION` | Exactly `true` | unset | The same switch, under a second name |
+
+### CACHE_COMPRESSION
+
+The three word values are shorthands for tier lists.
+
+| Value | Tiers it installs |
+|---|---|
+| `gzip` | `none` under 1 KB, then `gzip`. Same as leaving it unset |
+| `zstd` | `none` under 1 KB, then `zstd` |
+| `auto` | `none` under 1 KB, the fastest installed codec up to 256 KB, then the densest installed codec |
+
+Anything else is parsed as JSON and used as a tier list, which is how you set a boundary the shorthands do not cover.
+
+```bash
+CACHE_COMPRESSION='[{"maxBytes":1024,"codec":"none"},{"maxBytes":262144,"codec":"lz4"},{"codec":"zstd"}]'
+```
+
+Two things about this one behave differently from the code path.
+
+It is read **once**, when the serializer module is first imported, so setting it after your application has loaded changes nothing. A later `configureCompression` call overrides it, because the variable is a starting value rather than a floor.
+
+A malformed value is **silently ignored**. `CACHE_COMPRESSION=lz4` is not one of the three accepted words, does not parse as JSON, and leaves the default tiers in place with no warning. So does a tier array with descending bounds, which would throw if you passed the same array to `configureCompression`. Starting the process always wins over rejecting the configuration. Log `getCompressionTiers()` at startup if you want to know what actually took effect.
+
+<Note>
+  `auto` resolves per machine, so the same variable can produce different tiers on different servers depending on whether the optional native modules installed. Every codec it can pick is readable by every server on a current build, so this is a throughput difference and not a correctness one.
+</Note>
+
+### The JSON debug switches
+
+Either one on its own selects JSON encoding. Both use an exact string comparison rather than the boolean parser above, so `CACHE_FORMAT=JSON` and `CACHE_DEBUG_SERIALIZATION=1` do nothing at all.
+
+They are checked before packing, so they override `CACHE_COMPRESSION` completely. Nothing is compressed while either is on.
+
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+// With CACHE_FORMAT=json set, the value this loader returns lands in Redis as
+// readable JSON, so you can inspect it with redis-cli while debugging.
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+```
+
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+import { db } from '../db.js'
+
+// With CACHE_FORMAT=json set, the value this loader returns lands in Redis as
+// readable JSON, so you can inspect it with redis-cli while debugging.
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+```
+</CodeGroup>
+
+Reading is unaffected by any of the three. Every encoding carries a four byte prefix, so values written as msgpack before you set `CACHE_FORMAT` keep decoding normally, and values written as JSON keep decoding after you unset it. The same holds for a change of codec. What the JSON switches cost you is size and speed on everything written while they are on, which is why neither belongs in production.
+
+There is no constructor option for any of the three, because serialization is process-wide rather than per cache. `CACHE_COMPRESSION` has a code equivalent in `configureCompression`, covered in the [configuration reference](/docs/reference/configuration#serialization). The JSON encoding has no code equivalent at all.
+
+## Logging
+
+| Variable | Accepted values | Default | Effect |
+|---|---|---|---|
+| `NODE_ENV` | Exactly `production` selects production | unset | Anything other than `production` prints debug lines on every hit, miss, set and delete |
+
+Two things about this one.
+
+It is read **once**, when the logging module is first imported. Mutating `process.env.NODE_ENV` after your application has loaded changes nothing.
+
+It is a default, not a floor. `logging.env` overrides it, and `logging.enabled` overrides both. That configuration is process-wide and applied by every cache and every event bus you construct, so the last one constructed wins for the whole process.
+
+## Observability
+
+Every dashboard setting has a variable, so you can turn the dashboard on in staging without shipping a code change.
+
+These are resolved in the cache constructor, so they have to be set before you construct the cache. Changing one at runtime does nothing.
+
+| Variable | Kind | Default | Effect |
+|---|---|---|---|
+| `LAZY_OBS_ENABLED` | boolean | `false` | Master switch for the dashboard |
+| `LAZY_OBS_ROUTE` | string | `/observelazyily` | Base route, normalised to a leading slash with no trailing slash |
+| `LAZY_OBS_HOST` | string | `127.0.0.1` | Interface the standalone server binds |
+| `LAZY_OBS_PORT` | integer | `7077` | Port the standalone server listens on |
+| `LAZY_OBS_NO_SERVER` | boolean | `false` | Skip the standalone server and expose only the mountable handler |
+| `LAZY_OBS_USER` | string | `lazydev` | Basic-auth username |
+| `LAZY_OBS_PASSWORD` | string | `lazydev` | Basic-auth password |
+| `LAZY_OBS_TOKEN` | string | unset | Shared token, accepted as `?token=` or as a bearer header |
+| `LAZY_OBS_NO_AUTH` | boolean | `false` | Remove authentication entirely |
+| `LAZY_OBS_MAX_EVENTS` | integer | `1000` | Size of the in-memory ring buffer for the live feed |
+| `LAZY_OBS_MAX_VALUE_BYTES` | integer | `262144` | Decoded values larger than this are truncated in the UI. 256 KB |
+| `LAZY_OBS_PROMETHEUS` | boolean | `false` | Expose an exposition endpoint at `{route}/metrics` |
+| `LAZY_OBS_PROMETHEUS_PREFIX` | string | `lazycache` | Metric name prefix |
+| `LAZY_OBS_PROMETHEUS_PUBLIC` | boolean | `false` | Allow unauthenticated scrapes of the metrics endpoint while the UI stays behind auth |
+| `LAZY_OBS_QUIET` | boolean | `false` | Suppress the one-time startup notice |
+
+<Note>
+  The username variable is **`LAZY_OBS_USER`**, not `LAZY_OBS_USERNAME`. The constructor option for the same value is `observability.auth.username`, so the two names differ on purpose. `LAZY_OBS_USERNAME` is read by nothing and will leave you on the default credentials while looking like you changed them.
+</Note>
+
+### The one exception to precedence
+
+`LAZY_OBS_NO_SERVER` is not overridden by an option. The standalone server is skipped when `observability.server === false` **or** the variable is true, so setting `LAZY_OBS_NO_SERVER=true` disables a server your code asked for.
+
+The reverse does not hold. `LAZY_OBS_NO_SERVER=false` cannot bring back a server that `server: false` turned off, because only the value `true` participates.
+
+### Settings with no variable
+
+`observability.server.autoStart` has no environment equivalent. Neither does `observability.enabled` at the level of a single cache instance: `LAZY_OBS_ENABLED` applies to every cache in the process that does not set `enabled` explicitly.
+
+### Precedence in practice
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+  l2: new RedisStore(redis, { prefix: 'app:cache:' }),
+
+  observability: {
+    // Left to LAZY_OBS_ENABLED, so staging can turn this on without a deploy.
+    // Pinned in code, so no environment can move the dashboard somewhere
+    // your reverse proxy is not expecting.
+    route: '/internal/cache',
+    // Credentials stay in the environment. Never in the repository.
+  },
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+  l2: new RedisStore<User>(redis, { prefix: 'app:cache:' }),
+
+  observability: {
+    // Left to LAZY_OBS_ENABLED, so staging can turn this on without a deploy.
+    // Pinned in code, so no environment can move the dashboard somewhere
+    // your reverse proxy is not expecting.
+    route: '/internal/cache',
+    // Credentials stay in the environment. Never in the repository.
+  },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+Anything you set in code is fixed for every environment. Anything you leave out is yours to move per environment. Credentials belong in the second group.
+
+<Warning>
+  The shipped defaults are `lazydev` and `lazydev`, on localhost. They are development credentials and nothing more. Set `LAZY_OBS_USER` and `LAZY_OBS_PASSWORD` before the dashboard is reachable by anything other than the host it runs on, and treat `LAZY_OBS_HOST` as the moment you have made it reachable.
+
+  `LAZY_OBS_NO_AUTH=true` removes authentication completely and publishes cached values to anyone who can reach the port. It has no place in any environment that is not your own machine.
+</Warning>
+
+## Variables the library does not read
+
+These appear throughout the documentation because they are the conventional place to keep connection details. Nothing in the library looks them up. You pass them yourself.
+
+| Variable | You pass it to |
+|---|---|
+| `REDIS_URL` | Your `ioredis` client constructor |
+| `RABBITMQ_URL` | `RabbitMQEventBus` as `url` |
+| `NATS_URL` | `NatsEventBus` as `connectionOptions.servers` |
+| `INSTANCE_ID` | The cache as `source`, and the bus as a durable queue or consumer name |
+
+`INSTANCE_ID` is the one worth wiring carefully, because three separate things break when two servers share a value.
+
+As `source`, it is how a server recognises its own broadcasts. Two servers sharing it means each ignores the other's invalidations, so deletes silently stop propagating between them.
+
+As a RabbitMQ `queueName` in durable mode, it names the queue that server consumes from. Two servers sharing it means they consume from one queue and each invalidation reaches only one of them.
+
+As a NATS JetStream `durableName`, the same thing happens through a shared durable consumer: the stream is split between the servers rather than delivered to both.
+
+Under Node clustering, every worker is a separate server for all three purposes. Derive the value from the worker id, not just the host.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Observability guide" icon="chart-line" href="/docs/guides/observability">
+    What the dashboard shows, how to mount it in your own server, and how to secure it properly.
+  </Card>
+  <Card title="Configuration reference" icon="sliders" href="/docs/reference/configuration#observability">
+    The constructor options each of these variables is a fallback for.
+  </Card>
+  <Card title="Production checklist" icon="clipboard-check" href="/docs/setups/production">
+    Where `INSTANCE_ID` comes from under clustering, and what else has to be unique per server.
+  </Card>
+</CardGroup>

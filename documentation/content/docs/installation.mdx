@@ -1,0 +1,200 @@
+---
+title: "Installation"
+description: "Install LazyLayers, wire up TypeScript, and confirm it runs."
+icon: "download"
+---
+
+## Requirements
+
+<CardGroup cols={2}>
+  <Card title="Node 20 or newer" icon="node-js">
+    The package ships ESM and CommonJS builds. Both are exercised in CI.
+  </Card>
+  <Card title="Redis, only if you want L2" icon="database">
+    LazyLayers runs happily with no infrastructure at all. Redis is what turns one process's cache into a shared one.
+  </Card>
+</CardGroup>
+
+## Install the package
+
+<CodeGroup>
+```bash npm
+npm install lazy-layers-cache
+```
+
+```bash pnpm
+pnpm add lazy-layers-cache
+```
+
+```bash yarn
+yarn add lazy-layers-cache
+```
+
+```bash bun
+bun add lazy-layers-cache
+```
+</CodeGroup>
+
+That is enough for an in-process cache. Nothing below is required until you want a second server to agree with the first.
+
+## Add a transport
+
+Install only the client you actually use. None of these are dependencies of the package, so an unused transport costs you nothing.
+
+<Tabs>
+  <Tab value="Redis (default)">
+    Covers both the L2 store and the event bus.
+
+    ```bash
+    npm install ioredis
+    ```
+  </Tab>
+  <Tab value="RabbitMQ">
+    Event bus only. You still need a store for L2.
+
+    ```bash
+    npm install amqplib
+    ```
+  </Tab>
+  <Tab value="NATS">
+    One install covers both Core and JetStream mode.
+
+    ```bash
+    npm install @nats-io/transport-node @nats-io/jetstream
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  The NATS clients are the modular v3 packages. The older single `nats` package is deprecated and is not what LazyLayers builds against.
+</Note>
+
+## TypeScript
+
+Types ship inside the package, so there is no `@types/lazy-layers-cache` to install and nothing to configure. Import the types you need alongside the values.
+
+```ts
+import {
+  LazyLayersCache,
+  RedisStore,
+  RedisEventBus,
+  type LazyLayersCacheOptions,
+  type CacheEvent,
+} from 'lazy-layers-cache'
+```
+
+### Make the cache generic over your value
+
+This is the one piece of setup worth doing properly. Naming the options type checks your whole configuration in one place, and it changes what reads give you back.
+
+```ts src/types/user.ts
+export interface User {
+  id: string
+  email: string
+  plan: 'free' | 'pro' | 'enterprise'
+  updatedAt: string
+}
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+  levels: { L1: { maxEntries: 10_000, ttlMs: 60 * 1000 } },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+
+Now the loader's return type is checked against `User`, and reads are typed for you:
+
+```ts
+// user is User | undefined, not unknown
+const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id))
+```
+
+Without the generic, values come back as `unknown` and you end up casting at every call site.
+
+### tsconfig
+
+Nothing special is required. If you are on TypeScript 7, note that `moduleResolution: "node10"` was removed, so a CommonJS project wants:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "strict": true
+  }
+}
+```
+
+ESM projects can use `"module": "NodeNext"` with `"moduleResolution": "NodeNext"`.
+
+## Confirm it runs
+
+No Redis needed for this. It exercises the loader, the L1 write, and the read back.
+
+<CodeGroup>
+```js check.js
+import { LazyLayersCache } from 'lazy-layers-cache'
+
+const cache = new LazyLayersCache({ ttlMs: 10_000 })
+
+let loaderCalls = 0
+const load = async () => {
+  loaderCalls++
+  await new Promise((r) => setTimeout(r, 50))
+  return { id: 42, plan: 'pro' }
+}
+
+// Fire a hundred concurrent reads at one cold key.
+const results = await Promise.all(
+  Array.from({ length: 100 }, () => cache.getOrSet('user:42', load)),
+)
+
+console.log('loader calls:', loaderCalls)        // 1
+console.log('all resolved:', results.length)     // 100
+console.log('value:', results[0])                // { id: 42, plan: 'pro' }
+```
+
+```ts check.ts
+import { LazyLayersCache } from 'lazy-layers-cache'
+
+interface User { id: number; plan: string }
+
+const cache = new LazyLayersCache<string, User>({ ttlMs: 10_000 })
+
+let loaderCalls = 0
+const load = async (): Promise<User> => {
+  loaderCalls++
+  await new Promise((r) => setTimeout(r, 50))
+  return { id: 42, plan: 'pro' }
+}
+
+// Fire a hundred concurrent reads at one cold key.
+const results = await Promise.all(
+  Array.from({ length: 100 }, () => cache.getOrSet('user:42', load)),
+)
+
+console.log('loader calls:', loaderCalls)        // 1
+console.log('all resolved:', results.length)     // 100
+console.log('value:', results[0])                // { id: 42, plan: 'pro' }
+```
+</CodeGroup>
+
+`loader calls: 1` is the whole point. A hundred callers arrived at a cold key and one of them did the work. You did not configure that, it is how `getOrSet` behaves.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/docs/quickstart">
+    Build the real thing, one file at a time, in JavaScript or TypeScript.
+  </Card>
+  <Card title="Learn the system design" icon="graduation-cap" href="/docs/learn">
+    The reading path, from why caches disagree to how this one keeps them honest.
+  </Card>
+</CardGroup>

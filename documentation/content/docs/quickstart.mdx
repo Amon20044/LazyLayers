@@ -1,0 +1,583 @@
+---
+title: "Quickstart"
+description: "Build a production cache one file at a time, in JavaScript or TypeScript."
+icon: "rocket"
+---
+
+<Frame caption="One server loads a key. Every peer's L1 warms from the broadcast, and the shared L2 keeps the value across restarts.">
+  <img src="/docs/images/lazylayers-architecture.webp" alt="LazyLayers architecture: application servers each holding an in-process L1 cache, connected through an invalidation event bus to a shared Redis L2 store" />
+</Frame>
+
+You will build four small files. Each one does a single job, and each step below adds exactly one of them.
+
+Every code block has a JavaScript tab and a TypeScript tab. Pick a lane and stay in it.
+
+## What you do not have to configure
+
+Most of what makes a cache safe under load is already running. You are not switching these on, and you should not switch them off.
+
+<CardGroup cols={2}>
+  <Card title="In-flight dedupe" icon="layer-group">
+    Ten thousand concurrent callers for one cold key produce **one** loader call. The rest wait on the same promise.
+  </Card>
+  <Card title="Fail open" icon="shield-check">
+    If Redis or the bus goes down, reads degrade to the layers that still work. They do not throw.
+  </Card>
+  <Card title="An L1 cache" icon="bolt">
+    Created for you when you do not pass `l1`. Every read tries memory first.
+  </Card>
+  <Card title="Self-event filtering" icon="arrows-rotate">
+    A server ignores its own broadcasts, so an invalidation cannot loop back and undo itself.
+  </Card>
+</CardGroup>
+
+Event dedupe by ID and per-key generation counters are also on, which is what stops a late redelivery from resurrecting a value you already deleted.
+
+<Note>
+  Your job in this guide is to pick **numbers**, not to flip switches. Entry counts, TTLs and byte ceilings, sized to the machine you run on.
+</Note>
+
+## Install
+
+<CodeGroup>
+```bash npm
+npm install lazy-layers-cache ioredis
+```
+
+```bash pnpm
+pnpm add lazy-layers-cache ioredis
+```
+
+```bash yarn
+yarn add lazy-layers-cache ioredis
+```
+</CodeGroup>
+
+TypeScript users need nothing else. Types ship with the package.
+
+<Steps>
+
+<Step title="Connect to Redis">
+
+One connection, one file, imported by everything else. Keeping it separate matters because the event bus will duplicate this client rather than open a second one from scratch.
+
+<CodeGroup>
+```js src/cache/redis.js
+import Redis from 'ioredis'
+
+export const redis = new Redis(process.env.REDIS_URL, {
+  // Fail a command rather than queueing it forever when Redis is unreachable.
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  // Commands issued before the socket is ready wait instead of throwing.
+  enableOfflineQueue: true,
+})
+
+redis.on('error', (err) => {
+  // Never rethrow here. LazyLayers already degrades to L1 on its own.
+  console.error('[redis]', err.message)
+})
+```
+
+```ts src/cache/redis.ts
+import Redis from 'ioredis'
+
+export const redis = new Redis(process.env.REDIS_URL!, {
+  // Fail a command rather than queueing it forever when Redis is unreachable.
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  // Commands issued before the socket is ready wait instead of throwing.
+  enableOfflineQueue: true,
+})
+
+redis.on('error', (err: Error) => {
+  // Never rethrow here. LazyLayers already degrades to L1 on its own.
+  console.error('[redis]', err.message)
+})
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="Create the event bus">
+
+The bus carries invalidations and primed values between servers. Redis Pub/Sub is the default because you already have Redis for L2.
+
+Pick your transport. The rest of the guide is identical whichever you choose, because every bus satisfies the same interface.
+
+<Tabs>
+  <Tab value="Redis (default)">
+    At-most-once delivery. A server that is offline misses the event and reloads on its next request.
+
+    <CodeGroup>
+    ```js src/cache/bus.js
+    import { RedisEventBus } from 'lazy-layers-cache'
+    import { redis } from './redis.js'
+
+    // The bus duplicates this client internally, because a Redis connection in
+    // subscriber mode cannot run normal commands.
+    export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+      retryQueue: { maxSize: 1000 },
+      handlerConcurrency: 16,
+    })
+
+    await bus.connect()
+    ```
+
+    ```ts src/cache/bus.ts
+    import { RedisEventBus } from 'lazy-layers-cache'
+    import { redis } from './redis.js'
+
+    // The bus duplicates this client internally, because a Redis connection in
+    // subscriber mode cannot run normal commands.
+    export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+      retryQueue: { maxSize: 1000 },
+      handlerConcurrency: 16,
+    })
+
+    await bus.connect()
+    ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab value="RabbitMQ">
+    Durable. Events survive a server being down and are redelivered on reconnect, at the cost of broker state per server.
+
+    <CodeGroup>
+    ```js src/cache/bus.js
+    import { RabbitMQEventBus } from 'lazy-layers-cache'
+
+    export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
+      url: process.env.RABBITMQ_URL,
+      exchangeType: 'fanout',
+      durable: true,
+      persistent: true,
+      durableInvalidationMode: true,
+      // Required. The queue is asserted durable only when it is named,
+      // so without this you get a transient, broker-named queue.
+      queueName: `lazylayers.${process.env.INSTANCE_ID}`,
+      // No default. Without it one slow handler lets the queue run away.
+      prefetch: 32,
+      retryQueue: { maxSize: 1000 },
+    })
+
+    await bus.connect()
+    ```
+
+    ```ts src/cache/bus.ts
+    import { RabbitMQEventBus } from 'lazy-layers-cache'
+
+    export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
+      url: process.env.RABBITMQ_URL,
+      exchangeType: 'fanout',
+      durable: true,
+      persistent: true,
+      durableInvalidationMode: true,
+      // Required. The queue is asserted durable only when it is named,
+      // so without this you get a transient, broker-named queue.
+      queueName: `lazylayers.${process.env.INSTANCE_ID}`,
+      // No default. Without it one slow handler lets the queue run away.
+      prefetch: 32,
+      retryQueue: { maxSize: 1000 },
+    })
+
+    await bus.connect()
+    ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab value="NATS Core">
+    At-most-once, like Redis, but on a cluster built for fan-out.
+
+    <CodeGroup>
+    ```js src/cache/bus.js
+    import { NatsEventBus } from 'lazy-layers-cache'
+
+    export const bus = new NatsEventBus({
+      mode: 'core',
+      connectionOptions: { servers: process.env.NATS_URL },
+      subject: 'lazylayers.invalidate',
+      retryQueue: { maxSize: 1000 },
+    })
+
+    await bus.connect()
+    ```
+
+    ```ts src/cache/bus.ts
+    import { NatsEventBus } from 'lazy-layers-cache'
+
+    export const bus = new NatsEventBus({
+      mode: 'core',
+      connectionOptions: { servers: process.env.NATS_URL },
+      subject: 'lazylayers.invalidate',
+      retryQueue: { maxSize: 1000 },
+    })
+
+    await bus.connect()
+    ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab value="NATS JetStream">
+    Durable with explicit acks. Use it when missing an invalidation is not acceptable.
+
+    <CodeGroup>
+    ```js src/cache/bus.js
+    import { NatsEventBus } from 'lazy-layers-cache'
+
+    export const bus = new NatsEventBus({
+      mode: 'jetstream',
+      connectionOptions: { servers: process.env.NATS_URL },
+      subject: 'lazylayers.invalidate',
+      jetstream: {
+        stream: 'LAZYLAYERS',
+        durableName: process.env.INSTANCE_ID,
+        storage: 'file',
+        maxAgeMs: 60 * 60 * 1000,
+        ackWaitMs: 5000,
+        maxDeliver: 3,
+        ensureStream: true,
+        ensureConsumer: true,
+      },
+    })
+
+    await bus.connect()
+    ```
+
+    ```ts src/cache/bus.ts
+    import { NatsEventBus } from 'lazy-layers-cache'
+
+    export const bus = new NatsEventBus({
+      mode: 'jetstream',
+      connectionOptions: { servers: process.env.NATS_URL },
+      subject: 'lazylayers.invalidate',
+      jetstream: {
+        stream: 'LAZYLAYERS',
+        durableName: process.env.INSTANCE_ID,
+        storage: 'file',
+        maxAgeMs: 60 * 60 * 1000,
+        ackWaitMs: 5000,
+        maxDeliver: 3,
+        ensureStream: true,
+        ensureConsumer: true,
+      },
+    })
+
+    await bus.connect()
+    ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+<Warning>
+  `durableName` must be **unique per server**. Two servers sharing one durable consumer split the stream between them, so each invalidation reaches only one of them.
+</Warning>
+
+</Step>
+
+<Step title="Describe your value (TypeScript only)">
+
+Skip this step if you are writing JavaScript.
+
+Keeping the type in its own file is what lets the cache be generic over it, so `getOrSet` returns `User | undefined` instead of `unknown`.
+
+```ts src/types/user.ts
+export interface User {
+  id: string
+  email: string
+  plan: 'free' | 'pro' | 'enterprise'
+  updatedAt: string
+}
+```
+
+</Step>
+
+<Step title="Build the cache">
+
+Now the two layers, wired to the connection and the bus you already made.
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+export const cache = new LazyLayersCache({
+  // Fallback lifetime for anything that does not set its own.
+  ttlMs: 5 * 60 * 1000,
+
+  levels: {
+    // L1 is an LRU in this process's heap. Two dials: how many entries it
+    // holds, and how long each one lives. See the sizing table below.
+    L1: { maxEntries: 10_000, ttlMs: 60 * 1000 },
+    // L2 is shared, so it holds the value far longer than any single server does.
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+
+  l2: new RedisStore(redis, {
+    prefix: 'app:cache:',
+    // UNLINK frees memory on a background thread, so a large delete does not
+    // block the Redis event loop.
+    deleteStrategy: 'unlink',
+    scanCount: 500,
+  }),
+
+  eventBus: bus,
+  // Identifies this server so it can ignore its own broadcasts. Must be unique.
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+
+  // A value larger than this invalidates peers instead of priming them. There
+  // is no default, so without this a 5 MB value goes to every server.
+  broadcastSetMaxBytes: 32 * 1024,
+
+  // Give up on a loader that has stopped making progress.
+  timeouts: { softMs: 800, hardMs: 5000 },
+
+  // Serve the last known value while the origin is down. `enabled` is required:
+  // a staleTtlMs on its own does nothing.
+  failSafe: { staleTtlMs: 30 * 1000 },
+
+  // Remember "this does not exist" briefly, so a missing row is not a
+  // free pass to hammer the database.
+  negativeCache: { ttlMs: 10 * 1000, maxEntries: 5_000 },
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+// Naming the options type checks the whole config in one place, and makes
+// getOrSet return User | undefined instead of unknown.
+const options: LazyLayersCacheOptions<string, User> = {
+  // Fallback lifetime for anything that does not set its own.
+  ttlMs: 5 * 60 * 1000,
+
+  levels: {
+    // L1 is an LRU in this process's heap. Two dials: how many entries it
+    // holds, and how long each one lives. See the sizing table below.
+    L1: { maxEntries: 10_000, ttlMs: 60 * 1000 },
+    // L2 is shared, so it holds the value far longer than any single server does.
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+
+  l2: new RedisStore<User>(redis, {
+    prefix: 'app:cache:',
+    // UNLINK frees memory on a background thread, so a large delete does not
+    // block the Redis event loop.
+    deleteStrategy: 'unlink',
+    scanCount: 500,
+  }),
+
+  eventBus: bus,
+  // Identifies this server so it can ignore its own broadcasts. Must be unique.
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+
+  // A value larger than this invalidates peers instead of priming them. There
+  // is no default, so without this a 5 MB value goes to every server.
+  broadcastSetMaxBytes: 32 * 1024,
+
+  // Give up on a loader that has stopped making progress.
+  timeouts: { softMs: 800, hardMs: 5000 },
+
+  // Serve the last known value while the origin is down. `enabled` is required:
+  // a staleTtlMs on its own does nothing.
+  failSafe: { staleTtlMs: 30 * 1000 },
+
+  // Remember "this does not exist" briefly, so a missing row is not a
+  // free pass to hammer the database.
+  negativeCache: { ttlMs: 10 * 1000, maxEntries: 5_000 },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="Read through it">
+
+`getOrSet` is the method you will use almost everywhere. It checks L1, then L2, then runs your loader.
+
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    // This body runs on exactly one server, for exactly one caller, even when a
+    // thousand arrive at once. The rest wait on the same promise.
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined   // undefined records a negative entry
+  })
+  // Once the loader resolves, the value is written to L1 and L2 here, then
+  // published on the event bus as a `set` event. Every other server stores it
+  // lazily in its own L1 on arrival, so their first read of this key is already
+  // a local hit. Nobody else pays for the query.
+}
+```
+
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+import { db } from '../db.js'
+
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    // This body runs on exactly one server, for exactly one caller, even when a
+    // thousand arrive at once. The rest wait on the same promise.
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined   // undefined records a negative entry
+  })
+  // Once the loader resolves, the value is written to L1 and L2 here, then
+  // published on the event bus as a `set` event. Every other server stores it
+  // lazily in its own L1 on arrival, so their first read of this key is already
+  // a local hit. Nobody else pays for the query.
+}
+```
+</CodeGroup>
+
+The loader receives an `AbortSignal` that your `timeouts` actually fire. Pass it to your I/O or the timeout only stops the waiting, not the work.
+
+</Step>
+
+<Step title="Invalidate on write">
+
+Call this after the write commits, not before. Until it commits, the cached value is still the truth.
+
+<CodeGroup>
+```js src/users/repository.js
+export async function updateUser(id, patch) {
+  const updated = await db.users.update(id, patch)
+
+  // Drops the key from L1, L2, the negative cache, the stale copy and any
+  // in-flight promise, on this server and every peer.
+  await cache.delete(`user:${id}`)
+
+  // A whole prefix at once. Keep the prefix narrow: this scans L2.
+  await cache.deleteByPattern(`user:${id}:sessions:*`)
+
+  return updated
+}
+```
+
+```ts src/users/repository.ts
+export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
+  const updated = await db.users.update(id, patch)
+
+  // Drops the key from L1, L2, the negative cache, the stale copy and any
+  // in-flight promise, on this server and every peer.
+  await cache.delete(`user:${id}`)
+
+  // A whole prefix at once. Keep the prefix narrow: this scans L2.
+  await cache.deleteByPattern(`user:${id}:sessions:*`)
+
+  return updated
+}
+```
+</CodeGroup>
+
+<Warning>
+  `deleteByPattern('*')` scans your entire keyspace on every server. Prefix patterns tightly, and never build one from user input.
+</Warning>
+
+</Step>
+
+</Steps>
+
+## Sizing L1
+
+L1 lives in your process heap, so its ceiling is your instance's memory. `maxEntries` is the only size dial, which means you have to translate entries into bytes yourself.
+
+Multiply your entry count by a typical decoded value size and keep the result to a fraction of the heap:
+
+| Typical value | Rough size | 10,000 entries | Reasonable ceiling |
+|---|---|---|---|
+| Session or flag | ~200 B | ~2 MB | 50,000+ |
+| User record | ~2 KB | ~20 MB | 10,000 |
+| Rendered list page | ~18 KB | ~180 MB | 1,000 |
+
+<Note>
+  These are estimates, not measurements. The eviction policy is LRU and is not configurable. There is no byte-based limit, so one unexpectedly large value can blow past your estimate.
+</Note>
+
+Under Node clustering, every worker keeps its **own** L1. Budget `maxEntries x workers`, not `maxEntries`.
+
+## Check that it is working
+
+A cache you cannot measure is a cache you cannot tune.
+
+<CodeGroup>
+```js src/cache/metrics.js
+import { cache } from './index.js'
+
+let hits = 0
+let misses = 0
+
+cache.on((event) => {
+  // One read that misses L1 and hits L2 emits BOTH a miss and a hit, so
+  // counting every event gives a layer rate, not a request rate. A loader
+  // only starts when neither layer had the value, which is the real miss.
+  if (event.type === 'hit') hits++
+  if (event.type === 'loader:start') misses++
+})
+
+setInterval(() => {
+  const total = hits + misses
+  if (total > 0) {
+    console.log(`hit rate ${((hits / total) * 100).toFixed(1)}%`)
+  }
+  hits = 0
+  misses = 0
+}, 60_000)
+```
+
+```ts src/cache/metrics.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+import { cache } from './index.js'
+
+let hits = 0
+let misses = 0
+
+cache.on((event: CacheEvent) => {
+  // One read that misses L1 and hits L2 emits BOTH a miss and a hit, so
+  // counting every event gives a layer rate, not a request rate. A loader
+  // only starts when neither layer had the value, which is the real miss.
+  if (event.type === 'hit') hits++
+  if (event.type === 'loader:start') misses++
+})
+
+setInterval(() => {
+  const total = hits + misses
+  if (total > 0) {
+    console.log(`hit rate ${((hits / total) * 100).toFixed(1)}%`)
+  }
+  hits = 0
+  misses = 0
+}, 60_000)
+```
+</CodeGroup>
+
+<Warning>
+  Never use a cache key as a metric label. Keys are unbounded, and one high-cardinality label will take down your metrics backend before it takes down your cache.
+</Warning>
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Production checklist" icon="clipboard-check" href="/docs/setups/production">
+    Instance sizing, clustering, and the full file layout in order.
+  </Card>
+  <Card title="Learn the system design" icon="graduation-cap" href="/docs/learn">
+    The reading path, from why caches go stale to how this one stays honest.
+  </Card>
+  <Card title="Configuration reference" icon="sliders" href="/docs/reference/configuration">
+    Every option, its default, and what it costs you.
+  </Card>
+  <Card title="Event buses" icon="tower-broadcast" href="/docs/guides/event-buses">
+    Delivery guarantees, and what each transport actually promises.
+  </Card>
+</CardGroup>

@@ -1,0 +1,307 @@
+---
+title: "Cache events"
+description: "Every event type the cache emits, the exact fields it carries, and the moment it fires."
+---
+
+The cache emits a typed event for every decision it makes: which layer served a read, whether a loader ran, whether a stale copy was used, whether an invalidation was dropped as a duplicate. Twenty three types in total, all of them below.
+
+## Subscribing
+
+`on` registers a handler and returns a function that removes it.
+
+<CodeGroup>
+```js src/cache/metrics.js
+import { cache } from './index.js'
+
+const off = cache.on((event) => {
+  metrics.increment(`cache.${event.type}`)
+})
+
+// Later, during shutdown.
+off()
+```
+
+```ts src/cache/metrics.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+import { cache } from './index.js'
+
+const off = cache.on((event: CacheEvent) => {
+  metrics.increment(`cache.${event.type}`)
+})
+
+// Later, during shutdown.
+off()
+```
+</CodeGroup>
+
+You can also pass handlers at construction with the `events` option, which is the only way to catch events emitted during startup before you would have had a chance to call `on`.
+
+Three things are true of every handler:
+
+- **Emission is synchronous.** Handlers run in registration order, inline, on the same tick as the operation that produced the event. A handler that blocks blocks the cache.
+- **A throwing handler cannot break the cache.** Each call is wrapped, and a throw is logged and swallowed.
+- **A returned promise is ignored.** `CacheEventHandler` is `(event: CacheEvent) => void`. Do your own error handling on anything asynchronous you kick off.
+
+<Warning>
+  **Never use a cache key as a metric label.** Keys are unbounded: one per user, per session, per URL, per report. Every distinct label value creates a new time series, so labelling by key turns a cache doing its job into millions of series and takes down your metrics backend long before it takes down your cache.
+
+  Label by `type`, `level`, `reason`, `operation` and `state`. Every one of those has a small fixed set of values. Keys belong in logs and traces, sampled, never in a counter label.
+</Warning>
+
+## Reads and writes
+
+| Event | Payload | Fires when |
+|---|---|---|
+| `hit` | `key`, `level` | A read is served. `level` is `'L1'` or `'L2'`. An `'L2'` hit also promotes the value into L1 before returning. |
+| `miss` | `key`, `level` | A layer had nothing. `level` is `'L1'`, `'L2'` or `'negative'`. |
+| `set` | `key`, `levels` | A value is written locally, including the write that follows a resolved loader. |
+| `delete` | `key` | A key is dropped locally, whether by your `delete` call or by an inbound `del` event from a peer. |
+| `delete-pattern` | `pattern` | A pattern delete runs locally, whether local or inbound. |
+
+Three details that change how you count these.
+
+**One read can emit two events.** A read that misses L1 and hits L2 emits `miss` with `level: 'L1'` and then `hit` with `level: 'L2'`. A read that misses both emits `miss` twice. Adding up all hits and all misses gives you a per-layer rate, not a per-request one. The hit-rate example below counts requests instead.
+
+**`level: 'negative'` short-circuits.** When a live negative entry exists, the read emits `miss` with `level: 'negative'` and returns immediately, so no L1 or L2 miss follows.
+
+**`levels` on `set` is the layers you configured, not the layers that were written.** It is built from which of L1 and L2 exist, so an L2 write that the circuit breaker skipped still shows `['L1', 'L2']`. The `l2:skipped` event is where you see that the write did not land.
+
+## Loader
+
+| Event | Payload | Fires when |
+|---|---|---|
+| `loader:start` | `key` | Immediately before your loader is invoked. Never fires for a caller that joined an in-flight load. |
+| `loader:success` | `key`, `durationMs` | The loader resolved, including when it resolved `undefined`. |
+| `loader:error` | `key`, `durationMs`, `error` | The loader rejected, **or** a timeout fired. |
+| `loader:timeout` | `key`, `timeoutMs` | A soft or hard timeout elapsed. `timeoutMs` is the limit that fired, so it tells you which one. |
+
+A timeout emits **both**. `loader:timeout` goes out first, then the timeout is thrown as an error and `loader:error` follows carrying it. Count timeouts from `loader:timeout` and you will not double count them.
+
+The soft timeout only runs when fail-safe is enabled and a stale copy already exists for that key. In that case `hardMs` is not consulted at all, so `timeoutMs` equals `softMs`. Everywhere else the hard timeout is the one that can fire.
+
+`durationMs` on `loader:success` is your loader latency, measured across the whole call including any awaited I/O. It is the cheapest p99 you will ever get, and it is what `timeouts.softMs` should be set against.
+
+## In-flight dedupe
+
+| Event | Payload | Fires when |
+|---|---|---|
+| `inflight:reuse` | `key` | A caller joined an existing, unexpired in-flight promise instead of starting its own load. |
+| `inflight:bypass` | `key`, `reason` | A load ran without being tracked. `reason` is `'maxEntries'`, the only value emitted. |
+
+A healthy `inflight:reuse` rate under load is dedupe doing exactly what you installed it for: each one is a loader call that did not happen. `inflight:bypass` means `inflight.maxEntries` is capping the tracking map, so those loads ran unprotected. Either raise the cap or find out why so many distinct cold keys are arriving at once.
+
+## Fallbacks
+
+| Event | Payload | Fires when |
+|---|---|---|
+| `stale:hit` | `key`, `reason` | A stale copy was served instead of an error. `reason` is `'loader-error'`, `'soft-timeout'` or `'hard-timeout'`. |
+| `negative:set` | `key`, `ttlMs` | A loader resolved `undefined` and a positive negative-cache TTL was in effect, so the miss was recorded. |
+
+`stale:hit` requires both a remembered stale value and `failSafe.enabled === true`. Without either one the loader error is rethrown to your caller.
+
+One gap worth knowing: when a loader resolves `undefined` and a stale copy exists, the stale copy is returned but **no `stale:hit` is emitted**. That path emits `loader:success` and, if negative caching is configured, `negative:set`. Only a rejected or timed-out loader produces `stale:hit`.
+
+`negative:set` fires only when a positive `negativeCache.ttlMs` is resolved. With no TTL set, nothing is ever recorded and this event never appears, which is the fastest way to confirm negative caching is inert.
+
+## L2 and the circuit breakers
+
+| Event | Payload | Fires when |
+|---|---|---|
+| `l2:error` | `operation`, `key`, `state`, `error` | An L2 call threw. The failure is counted against the L2 breaker and the read falls back. |
+| `l2:skipped` | `operation`, `key`, `state` | An L2 call was skipped because the L2 breaker is open. |
+| `event-bus:publish-error` | `eventType`, `state`, `error` | A publish threw. The failure is counted against the bus breaker. |
+| `event-bus:publish-skipped` | `eventType`, `state` | A publish was skipped because the bus breaker is open. |
+
+`state` is the breaker state at that moment: `'closed'`, `'open'` or `'half-open'`. It is the value **after** the failure is recorded, so the transition into `'open'` is visible on the event that caused it.
+
+`operation` is one of `'set'`, `'get'`, `'has'`, `'size'`, `'delete'`, `'deleteByPattern'`, `'acquireLock'` or `'releaseLock'`. For `'size'` the `key` field is `'*'`, since the call is not about one key.
+
+`eventType` is the invalidation type on the wire: `'del'`, `'pattern'` or `'set'`. It is not a `CacheEvent` type.
+
+<Warning>
+  **`event-bus:publish-skipped` means the invalidation is gone.** A skipped publish returns before it reaches the bus, so the bus retry queue never buffers it and it will not be replayed. Every peer keeps its stale copy until TTL. Alert on this event rather than filtering it out.
+</Warning>
+
+## Invalidation from peers
+
+| Event | Payload | Fires when |
+|---|---|---|
+| `invalidation:received` | `eventId`, `eventType` | An inbound event passed both duplicate suppression and the self-source filter, and is about to be applied. |
+| `invalidation:duplicate` | `eventId` | An inbound event carries an id already seen within `eventDedupeTtlMs`. Nothing is applied. |
+| `invalidation:stale` | `eventId`, `eventType`, `key`, `generation`, `localGeneration` | An inbound `del` or `set` carries a generation older than the one already applied to that key, so it is dropped. |
+| `set:received` | `key`, `level` | A peer's broadcast value was written into this server's L1. `level` is always `'L1'`. |
+| `set:broadcast` | `key` | A loader result is about to be published to peers. |
+| `set:broadcast-skipped` | `key`, `reason`, `bytes`, `maxBytes` | The encoded event exceeded `broadcastSetMaxBytes`. `reason` is `'max-bytes'`. |
+
+`invalidation:received` fires only for events from **other** servers. A server that receives its own broadcast marks the id as seen and returns silently, with no event at all, because `event.source === this.source`.
+
+That ordering matters for `invalidation:duplicate`, which is checked before the source filter. So a redelivery of a server's own event does emit `invalidation:duplicate` on that server. On RabbitMQ and JetStream, where redelivery is the point, a low steady rate here is the dedupe working. A sustained climb in `invalidation:stale` means events are arriving badly out of order.
+
+`generation` is optional on the wire, so it can be `undefined` on `invalidation:stale` when the event came from an older publisher. `localGeneration` is always present.
+
+`set:received` writes into **L1 only**. It never touches L2, because the server that ran the loader already wrote the shared copy.
+
+`set:broadcast-skipped` does not mean the value was lost. It was still written to this server's L1 and L2. Only the fan-out was skipped, so peers will load it themselves. With no `broadcastSetMaxBytes` set there is no ceiling, this event never fires, and every value goes out in full.
+
+## Narrowing by type
+
+`CacheEvent` is a discriminated union on `type`, so a `switch` gives you the exact payload in each branch and a field that does not exist on that member is a compile error.
+
+<CodeGroup>
+```js src/cache/handlers.js
+export function handle(event) {
+  switch (event.type) {
+    case 'hit':
+      return metrics.increment('cache.hit', { level: event.level })
+    case 'stale:hit':
+      return metrics.increment('cache.stale', { reason: event.reason })
+    case 'loader:timeout':
+      return metrics.increment('cache.loader_timeout', { limit_ms: event.timeoutMs })
+    case 'l2:error':
+      // The key belongs in the log line, never in a metric label.
+      return logger.warn({ operation: event.operation, err: event.error }, 'l2 failed')
+    default:
+      return undefined
+  }
+}
+```
+
+```ts src/cache/handlers.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+
+export function handle(event: CacheEvent): void {
+  switch (event.type) {
+    case 'hit':
+      return metrics.increment('cache.hit', { level: event.level })
+    case 'stale:hit':
+      return metrics.increment('cache.stale', { reason: event.reason })
+    case 'loader:timeout':
+      return metrics.increment('cache.loader_timeout', { limit_ms: event.timeoutMs })
+    case 'l2:error':
+      // The key belongs in the log line, never in a metric label.
+      return logger.warn({ operation: event.operation, err: event.error }, 'l2 failed')
+    default:
+      return undefined
+  }
+}
+```
+</CodeGroup>
+
+## A hit rate you can trust
+
+Because one read can emit two events, a per-request rate has to count the last layer's miss rather than every miss. With both layers configured, a read that reaches your loader is exactly one `miss` with `level: 'L2'`, and a read that was served is exactly one `hit` at either level.
+
+<CodeGroup>
+```js src/cache/hitRate.js
+import { cache } from './index.js'
+
+// Fixed label sets only. No keys, ever.
+let servedL1 = 0
+let servedL2 = 0
+let reachedLoader = 0
+let shortCircuited = 0
+
+cache.on((event) => {
+  if (event.type === 'hit') {
+    if (event.level === 'L1') servedL1 += 1
+    else servedL2 += 1
+    return
+  }
+
+  if (event.type !== 'miss') return
+
+  // L1 misses are not requests, they are layer transitions. Only the
+  // last layer's miss means the read actually fell through to the loader.
+  if (event.level === 'L2') reachedLoader += 1
+  if (event.level === 'negative') shortCircuited += 1
+})
+
+setInterval(() => {
+  const served = servedL1 + servedL2
+  const reads = served + reachedLoader + shortCircuited
+
+  if (reads > 0) {
+    metrics.gauge('cache.hit_rate', served / reads)
+    metrics.gauge('cache.l1_share', servedL1 / reads)
+    metrics.gauge('cache.negative_share', shortCircuited / reads)
+  }
+
+  servedL1 = 0
+  servedL2 = 0
+  reachedLoader = 0
+  shortCircuited = 0
+}, 60_000)
+```
+
+```ts src/cache/hitRate.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+import { cache } from './index.js'
+
+// Fixed label sets only. No keys, ever.
+let servedL1 = 0
+let servedL2 = 0
+let reachedLoader = 0
+let shortCircuited = 0
+
+cache.on((event: CacheEvent) => {
+  if (event.type === 'hit') {
+    if (event.level === 'L1') servedL1 += 1
+    else servedL2 += 1
+    return
+  }
+
+  if (event.type !== 'miss') return
+
+  // L1 misses are not requests, they are layer transitions. Only the
+  // last layer's miss means the read actually fell through to the loader.
+  if (event.level === 'L2') reachedLoader += 1
+  if (event.level === 'negative') shortCircuited += 1
+})
+
+setInterval(() => {
+  const served = servedL1 + servedL2
+  const reads = served + reachedLoader + shortCircuited
+
+  if (reads > 0) {
+    metrics.gauge('cache.hit_rate', served / reads)
+    metrics.gauge('cache.l1_share', servedL1 / reads)
+    metrics.gauge('cache.negative_share', shortCircuited / reads)
+  }
+
+  servedL1 = 0
+  servedL2 = 0
+  reachedLoader = 0
+  shortCircuited = 0
+}, 60_000)
+```
+</CodeGroup>
+
+Reading the result: `cache.hit_rate` is what fraction of reads never touched your origin. `cache.l1_share` is what fraction were answered without a network round trip, which is the number that tracks your L1 sizing. A falling `l1_share` with a steady `hit_rate` means `levels.L1.maxEntries` is too small for your working set.
+
+<Note>
+  The observability dashboard reports a **layer-level** ratio, counting L1 and L2 misses separately. Its number is legitimately lower than the request-level rate above. They measure different things, so do not try to reconcile them.
+</Note>
+
+Run this without an L2 and the formula changes: `miss` with `level: 'L2'` never fires, so count `level: 'L1'` as the loader miss instead.
+
+## Event volume
+
+Two paths generate more events than you would guess from your request rate.
+
+Every poll while a server waits on a distributed lock performs a real read through L1 and L2, so it emits a full set of `hit` or `miss` events. At `pollMs: 50` and a `waitTimeoutMs` of two seconds, one waiting caller can emit forty reads' worth.
+
+Enabling the observability dashboard adds one more handler to the same loop. It is O(1) per event and it is the only cost, but it runs on every event you emit.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Observability guide" icon="chart-line" href="/docs/guides/observability">
+    The dashboard, the Prometheus endpoint and the OpenTelemetry hook that consume this same stream.
+  </Card>
+  <Card title="Failure handling" icon="shield-check" href="/docs/guides/failure-handling">
+    What the breaker, stale and timeout events mean while your origin is actually down.
+  </Card>
+  <Card title="API reference" icon="code" href="/docs/reference/api#on">
+    The `on` signature, the `events` constructor option, and the methods that produce these events.
+  </Card>
+</CardGroup>

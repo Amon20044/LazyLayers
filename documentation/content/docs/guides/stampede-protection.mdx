@@ -1,0 +1,263 @@
+---
+title: "Prevent stampedes"
+description: "Collapse concurrent callers to one loader call inside a process, and to one across the cluster."
+---
+
+A cache is a load absorber, and a stampede is the moment it stops absorbing. This page covers the concept, the mechanism that already handles it, and the extra mechanism you add when one process is not the whole picture.
+
+## The thundering herd
+
+The thundering herd is a general system design failure, not a caching quirk. A single event wakes many waiters at once, all of them do the same work, and the resource they contend for collapses under a load spike it never sees during normal operation.
+
+In a cache it looks like this. A popular key expires. The next second brings 10,000 requests for it, every one of them misses, and every one of them calls your database with the identical query. Your steady state was one query per key per TTL. Your worst second is 10,000 queries, and it arrives precisely when the key is hottest.
+
+The damage is not linear. Those 10,000 queries take connections from a bounded pool, so unrelated requests queue behind them, and the slower the origin gets the longer each caller holds its slot. That is a feedback loop, which is why a stampede tends to show up as a full outage rather than a latency bump.
+
+<Note>
+  Expiry is only the most common trigger. A cold deploy, a flushed store, or a newly popular key produce the same shape: many concurrent callers, one missing value.
+</Note>
+
+## In-flight dedupe
+
+This is on by default. You are not switching it on, and you should not switch it off.
+
+The first caller for a key stores its promise. Every caller that arrives while that promise is unsettled receives the same promise instead of starting a second load. When it settles, all of them resolve from one result and the entry is removed.
+
+<CodeGroup>
+```js src/products/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+export async function getProduct(id) {
+  return cache.getOrSet(`product:${id}`, async ({ signal } = {}) => {
+    // Runs once per cold key, no matter how many callers are waiting.
+    return db.products.findById(id, { signal })
+  })
+}
+```
+
+```ts src/products/repository.ts
+import { cache } from '../cache/index.js'
+import type { Product } from '../types/product.js'
+import { db } from '../db.js'
+
+export async function getProduct(id: string): Promise<Product | undefined> {
+  return cache.getOrSet(`product:${id}`, async ({ signal } = {}) => {
+    // Runs once per cold key, no matter how many callers are waiting.
+    return db.products.findById(id, { signal })
+  })
+}
+```
+</CodeGroup>
+
+Nothing in that code asks for dedupe. The collapse is a property of `getOrSet`.
+
+### What the benchmark measured
+
+`benchmarks/herd.mjs` fires 10,000 concurrent `getOrSet` calls at one cold key, with a loader that sleeps 25 ms to stand in for a database round trip, and counts how many times the loader actually runs.
+
+| Run | Callers | Loader calls | In-flight reuses |
+| --- | --- | --- | --- |
+| Dedupe on, the default | 10,000 | 1 | 9,999 |
+| Dedupe off | 10,000 | 10,000 | 0 |
+
+Both runs assert that every caller received the correct value, so the collapse cannot come from dropping requests. Reproduce it yourself:
+
+```bash
+npm run build
+NODE_ENV=production node benchmarks/herd.mjs
+```
+
+The second row is there as a control, not as a configuration you should copy. It exists so the first row means something.
+
+### Tuning the dedupe window
+
+Tuning here means numbers. The two that matter are how long an in-flight entry stays reusable, and how many distinct keys can be tracked at once.
+
+<CodeGroup>
+```js src/cache/index.js
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+
+  inflight: {
+    // How long one loader's promise stays reusable. Set it above your slowest
+    // realistic loader, and below the point where waiting is worse than retrying.
+    ttlMs: 5_000,
+    // How many distinct keys can be tracked at once. Size it to your concurrent
+    // cold key count, not to your total keyspace.
+    maxEntries: 10_000,
+  },
+})
+```
+
+```ts src/cache/index.ts
+const options: LazyLayersCacheOptions<string, Product> = {
+  ttlMs: 5 * 60 * 1000,
+
+  inflight: {
+    // How long one loader's promise stays reusable. Set it above your slowest
+    // realistic loader, and below the point where waiting is worse than retrying.
+    ttlMs: 5_000,
+    // How many distinct keys can be tracked at once. Size it to your concurrent
+    // cold key count, not to your total keyspace.
+    maxEntries: 10_000,
+  },
+}
+
+export const cache = new LazyLayersCache<string, Product>(options)
+```
+</CodeGroup>
+
+`ttlMs` defaults to 5,000 ms and bounds how long an entry counts as live. A loader that hangs past it stops being reused, so one stuck load cannot pin every later caller to a promise that will never settle. Setting it too low reopens the herd for slow loaders, so measure your loader's p99 and stay above it.
+
+`maxEntries` caps the tracking map. Past the cap, a new load still runs and still returns the right value, it simply does not register for reuse, and it emits `inflight:bypass` with reason `maxEntries`. A steady stream of those means your cold key concurrency outgrew the cap.
+
+## When one process's dedupe is not enough
+
+In-flight dedupe is per process. Four servers each collapse their own callers to one loader call, which is four queries rather than one. Usually that is fine. It stops being fine when the loader is genuinely expensive, when it hits a rate limited third party, or when you have twenty servers rather than four.
+
+The distributed lock reduces the whole cluster to one loader call. It needs an L2 that supports locking, which `RedisStore` does.
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+export const cache = new LazyLayersCache({
+  l2: new RedisStore(redis, { prefix: 'app:cache:' }),
+  eventBus: bus,
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+
+  distributedLock: {
+    // Above your slowest realistic loader, or a second server acquires the lock
+    // while the first is still working.
+    ttlMs: 10_000,
+    // How long a loser waits before giving up and loading anyway.
+    waitTimeoutMs: 2_000,
+    // How often a loser rechecks the cache.
+    pollMs: 50,
+  },
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { Product } from '../types/product.js'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+const options: LazyLayersCacheOptions<string, Product> = {
+  l2: new RedisStore<Product>(redis, { prefix: 'app:cache:' }),
+  eventBus: bus,
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+
+  distributedLock: {
+    // Above your slowest realistic loader, or a second server acquires the lock
+    // while the first is still working.
+    ttlMs: 10_000,
+    // How long a loser waits before giving up and loading anyway.
+    waitTimeoutMs: 2_000,
+    // How often a loser rechecks the cache.
+    pollMs: 50,
+  },
+}
+
+export const cache = new LazyLayersCache<string, Product>(options)
+```
+</CodeGroup>
+
+### What happens on a cold key
+
+<Steps>
+
+<Step title="One server acquires the lock">
+It runs the loader and releases the lock when it finishes, whether the loader resolved or threw.
+</Step>
+
+<Step title="The others poll">
+Each loser sleeps `pollMs`, then rereads the layers. As soon as the winner's value lands in L2, they pick it up and return it without loading anything.
+</Step>
+
+<Step title="Waiting has a deadline">
+If nothing appears within `waitTimeoutMs`, the waiting server runs the loader itself.
+</Step>
+
+</Steps>
+
+That last step is deliberate. A lock holder that dies mid load would otherwise block every other server for the full lock TTL, and duplicating work is a much cheaper failure than hanging every request in the cluster.
+
+### Lock defaults
+
+| Option | Default | What it controls |
+| --- | --- | --- |
+| `ttlMs` | `10000` | How long the lock is held before expiring on its own |
+| `waitTimeoutMs` | `2000` | How long a loser waits before loading anyway |
+| `pollMs` | `50` | How often a loser rechecks the cache |
+
+Set `ttlMs` above your slowest realistic loader. If the lock expires while the holder is still working, a second server acquires it and starts a duplicate load, which is the exact thing you turned the lock on to avoid.
+
+<Warning>
+  The lock costs a Redis round trip on every cold load, and losers pay `pollMs` of added latency per poll. That is worth it for an expensive loader and wasteful for a cheap one.
+</Warning>
+
+## Choosing
+
+| Situation | Use |
+| --- | --- |
+| One server | In-flight dedupe alone |
+| Several servers, cheap loader | In-flight dedupe alone |
+| Several servers, expensive loader | Add the distributed lock |
+| Loader hits a rate limited third party | Add the distributed lock |
+| Many servers, hot shared keys | Add the lock, and keep `broadcastSetMaxBytes` set |
+
+There is a third mechanism working alongside these, and it is easy to miss. When a `getOrSet` loader resolves with an event bus configured, the value itself is published, and every peer writes it straight into its own L1. One server pays for the query and the rest are warm before they ever ask, which flattens the herd before it forms.
+
+## Watching the collapse
+
+Every reuse emits an event, so the collapse is measurable rather than assumed.
+
+<CodeGroup>
+```js src/cache/metrics.js
+import { cache } from './index.js'
+
+cache.on((event) => {
+  // The herd collapsing. High counts next to low loader:start counts is health.
+  if (event.type === 'inflight:reuse') metrics.increment('cache.inflight.reuse')
+  // Tracking capacity exceeded. A steady stream means raise inflight.maxEntries.
+  if (event.type === 'inflight:bypass') metrics.increment('cache.inflight.bypass')
+  if (event.type === 'loader:start') metrics.increment('cache.loader.start')
+})
+```
+
+```ts src/cache/metrics.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+import { cache } from './index.js'
+
+cache.on((event: CacheEvent) => {
+  // The herd collapsing. High counts next to low loader:start counts is health.
+  if (event.type === 'inflight:reuse') metrics.increment('cache.inflight.reuse')
+  // Tracking capacity exceeded. A steady stream means raise inflight.maxEntries.
+  if (event.type === 'inflight:bypass') metrics.increment('cache.inflight.bypass')
+  if (event.type === 'loader:start') metrics.increment('cache.loader.start')
+})
+```
+</CodeGroup>
+
+<Warning>
+  Never use a cache key as a metric label. Keys are unbounded, and one high cardinality label will take down your metrics backend before it takes down your cache.
+</Warning>
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Handle failure" icon="shield" href="/docs/guides/failure-handling">
+    What a collapsed herd should return when the one loader call fails.
+  </Card>
+  <Card title="Lazy loading" icon="bolt" href="/docs/concepts/lazy-loading#load-once-or-the-thundering-herd">
+    The same mechanism from the read path's point of view, step by step.
+  </Card>
+  <Card title="Observe the cache" icon="chart-line" href="/docs/guides/observability">
+    Turn the reuse and bypass events into a dashboard you can watch under load.
+  </Card>
+</CardGroup>

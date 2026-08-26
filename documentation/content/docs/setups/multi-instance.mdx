@@ -1,0 +1,376 @@
+---
+title: "Multiple instances"
+description: "Add a shared L2 and an event bus, give every server an identity, and bound the staleness window."
+---
+
+You have more than one server and they must agree on what is cached. That takes two things a single process does not need. A shared L2 so a miss does not always reach your origin, and an event bus so a delete on one server reaches the rest.
+
+Everything else you already had. In-flight dedupe, fail-open behaviour and L1 keep working exactly as before.
+
+## What changes
+
+<CardGroup cols={2}>
+  <Card title="A shared tier appears" icon="database">
+    L2 outlives any single process, so a restart no longer starts cold.
+  </Card>
+  <Card title="Deletes travel" icon="tower-broadcast">
+    `delete` and `deleteByPattern` publish to the bus, and every peer applies them to its own L1.
+  </Card>
+  <Card title="Loads fan out" icon="share-nodes">
+    A resolved `getOrSet` publishes the value itself. Peers warm their L1 without loading.
+  </Card>
+  <Card title="Identity starts mattering" icon="fingerprint">
+    Every server needs a unique `source`, or the fan-out silently stops working.
+  </Card>
+</CardGroup>
+
+## The files
+
+Same four-file layout as the quickstart. You are adding `src/cache/redis.js` and `src/cache/bus.js`, and rewiring `src/cache/index.js` to use them.
+
+<Steps>
+
+<Step title="Connect to Redis">
+
+One connection, one file, imported by everything else. Keeping it separate matters because the event bus duplicates this client rather than opening a second one from scratch.
+
+<CodeGroup>
+```js src/cache/redis.js
+import Redis from 'ioredis'
+
+export const redis = new Redis(process.env.REDIS_URL, {
+  // Fail a command rather than queueing it forever when Redis is unreachable.
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  enableOfflineQueue: true,
+})
+
+redis.on('error', (err) => {
+  // Never rethrow here. LazyLayers already degrades to L1 on its own.
+  console.error('[redis]', err.message)
+})
+```
+
+```ts src/cache/redis.ts
+import Redis from 'ioredis'
+
+export const redis = new Redis(process.env.REDIS_URL!, {
+  // Fail a command rather than queueing it forever when Redis is unreachable.
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  enableOfflineQueue: true,
+})
+
+redis.on('error', (err: Error) => {
+  // Never rethrow here. LazyLayers already degrades to L1 on its own.
+  console.error('[redis]', err.message)
+})
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="Create the event bus">
+
+Redis Pub/Sub is the default because you already have Redis for L2. It is at-most-once, so a server that is offline misses the event and reloads on its next request.
+
+<CodeGroup>
+```js src/cache/bus.js
+import { RedisEventBus } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+
+// The bus duplicates this client internally, because a Redis connection in
+// subscriber mode cannot run normal commands.
+export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+  retryQueue: { maxSize: 1000 },
+  handlerConcurrency: 16,
+})
+
+await bus.connect()
+```
+
+```ts src/cache/bus.ts
+import { RedisEventBus } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+
+// The bus duplicates this client internally, because a Redis connection in
+// subscriber mode cannot run normal commands.
+export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+  retryQueue: { maxSize: 1000 },
+  handlerConcurrency: 16,
+})
+
+await bus.connect()
+```
+</CodeGroup>
+
+If you cannot tolerate a missed event, the durable transports are laid out tab by tab on the [production checklist](/docs/setups/production#the-event-bus).
+
+</Step>
+
+<Step title="Describe your value (TypeScript only)">
+
+Skip this if you are writing JavaScript.
+
+```ts src/types/user.ts
+export interface User {
+  id: string
+  email: string
+  plan: 'free' | 'pro' | 'enterprise'
+  updatedAt: string
+}
+```
+
+</Step>
+
+<Step title="Build the cache">
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+
+  levels: {
+    // Short, because this is your staleness window if an event is missed.
+    L1: { maxEntries: 10_000, ttlMs: 10 * 1000 },
+    // Long, because L2 is invalidated directly rather than by expiry.
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+
+  l2: new RedisStore(redis, {
+    prefix: 'app:cache:',
+    // UNLINK frees memory on a background thread, so a large delete does not
+    // block the Redis event loop.
+    deleteStrategy: 'unlink',
+    scanCount: 500,
+  }),
+
+  eventBus: bus,
+  // Identifies this server so it can ignore its own broadcasts. Must be unique.
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+
+  // A value larger than this invalidates peers instead of priming them. There
+  // is no default, so without this a 5 MB value goes to every server.
+  broadcastSetMaxBytes: 32 * 1024,
+
+  timeouts: { softMs: 800, hardMs: 5000 },
+  failSafe: { staleTtlMs: 30 * 1000 },
+  negativeCache: { ttlMs: 10 * 1000, maxEntries: 5_000 },
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+
+  levels: {
+    // Short, because this is your staleness window if an event is missed.
+    L1: { maxEntries: 10_000, ttlMs: 10 * 1000 },
+    // Long, because L2 is invalidated directly rather than by expiry.
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+
+  l2: new RedisStore<User>(redis, {
+    prefix: 'app:cache:',
+    // UNLINK frees memory on a background thread, so a large delete does not
+    // block the Redis event loop.
+    deleteStrategy: 'unlink',
+    scanCount: 500,
+  }),
+
+  eventBus: bus,
+  // Identifies this server so it can ignore its own broadcasts. Must be unique.
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+
+  // A value larger than this invalidates peers instead of priming them. There
+  // is no default, so without this a 5 MB value goes to every server.
+  broadcastSetMaxBytes: 32 * 1024,
+
+  timeouts: { softMs: 800, hardMs: 5000 },
+  failSafe: { staleTtlMs: 30 * 1000 },
+  negativeCache: { ttlMs: 10 * 1000, maxEntries: 5_000 },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="Read and invalidate">
+
+Nothing about your call sites changes. The same `getOrSet` now fans out, and the same `delete` now travels.
+
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+  // On resolve: written to L1 and L2 here, then published as a `set` event.
+  // Every peer writes it into its own L1 on arrival, so their first read of
+  // this key is already a local hit.
+}
+
+export async function updateUser(id, patch) {
+  const updated = await db.users.update(id, patch)
+
+  // Drops the key from L1, L2, the negative cache, the stale copy and any
+  // in-flight promise, on this server and every peer.
+  await cache.delete(`user:${id}`)
+
+  return updated
+}
+```
+
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+import { db } from '../db.js'
+
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+  // On resolve: written to L1 and L2 here, then published as a `set` event.
+  // Every peer writes it into its own L1 on arrival, so their first read of
+  // this key is already a local hit.
+}
+
+export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
+  const updated = await db.users.update(id, patch)
+
+  // Drops the key from L1, L2, the negative cache, the stale copy and any
+  // in-flight promise, on this server and every peer.
+  await cache.delete(`user:${id}`)
+
+  return updated
+}
+```
+</CodeGroup>
+
+</Step>
+
+</Steps>
+
+## Why source must be unique
+
+A server ignores its own broadcasts. That is what stops an invalidation looping back and undoing itself, and it is implemented as a single check on arrival: if `event.source` equals this server's `source`, the handler returns before doing anything.
+
+Give two servers the same `source` and that check misfires. Each one sees the other's events as its own and drops them. The bus reports connected, publishes succeed, every metric looks healthy, and no invalidation ever crosses between them. You have paid for a bus that does nothing.
+
+<Warning>
+  `source` must be **unique per server** and stable across restarts. If you leave it unset, LazyLayers generates one from the process ID plus a timestamp and a random suffix, which is unique but changes on every restart. That is fine for local development and wrong for durable transports, where the name also identifies a queue or a consumer.
+</Warning>
+
+| Platform | Value |
+| --- | --- |
+| Kubernetes | `$HOSTNAME`, which is the pod name and already unique |
+| Docker Compose | `web-1`, `web-2`, set per service replica |
+| PM2 | `api-${NODE_APP_INSTANCE}` |
+| Node.js clustering | `${INSTANCE_ID}-${cluster.worker.id}`, because every worker is a separate cache |
+| Local development | `dev-local` |
+
+Running under Node.js clustering makes this sharper, because a single machine now hosts several caches that must not be confused with each other. The [production checklist](/docs/setups/production#node-js-clustering) works through it.
+
+## The staleness window
+
+With one process, staleness was simply your L1 TTL. With several, it becomes a question about the bus.
+
+When the bus delivers, the window is however long the event takes to arrive. Milliseconds on Redis Pub/Sub. Your L1 TTL never enters into it, because the entry is gone before it expires.
+
+When the bus does not deliver, the window is your L1 TTL, and nothing else. That is the number that matters.
+
+<Note>
+  **L1 TTL is your worst case staleness when an event goes missing.** Pick the largest number you could comfortably explain to whoever reports the bug. Ten seconds is a reasonable starting point.
+</Note>
+
+L2 works the other way around. It is shared, and it is invalidated directly rather than by expiry, so it can be long. An hour is normal. Its job is to absorb the misses that L1 no longer covers, which is what keeps your origin quiet.
+
+That pairing, short L1 and long L2, is what makes a two tier cache worth having.
+
+## Health-check the bus before serving traffic
+
+`healthCheck()` connects, creates streams and consumers where the transport needs them, and returns `{ ok: false, error }` rather than throwing. Running it before you accept traffic turns a configuration mistake into a failed startup instead of a slow leak of stale reads.
+
+<CodeGroup>
+```js src/server.js
+import { bus } from './cache/bus.js'
+import { app } from './app.js'
+
+const health = await bus.healthCheck()
+
+if (!health.ok) {
+  console.error('[cache] bus unavailable', health)
+  process.exit(1)
+}
+
+app.listen(3000)
+```
+
+```ts src/server.ts
+import { bus } from './cache/bus.js'
+import { app } from './app.js'
+
+const health = await bus.healthCheck()
+
+if (!health.ok) {
+  console.error('[cache] bus unavailable', health)
+  process.exit(1)
+}
+
+app.listen(3000)
+```
+</CodeGroup>
+
+## Cap the fan-out
+
+A `set` event carries the loaded value so peers can fill their L1 without loading it themselves. That is excellent for a user record and wasteful for a large report.
+
+`broadcastSetMaxBytes` has no default. Without it, a 5 MB value is encoded and pushed to every server on every cold load.
+
+Over the limit, the broadcast is skipped and `set:broadcast-skipped` is emitted with `reason: 'max-bytes'` and the size that triggered it. The value is still written to L1 and L2 normally. Peers simply fetch it from L2 instead of being handed it.
+
+<Warning>
+  Only `getOrSet` broadcasts a value. `cache.set()` writes L1 and L2 and emits a local event, but never publishes to the bus, so peers will not learn about it. Load through `getOrSet` and invalidate with `delete` or `deleteByPattern`.
+</Warning>
+
+## Versioned keys
+
+Under high-frequency updates, a write that was already in flight when a delete happened can land after it and repopulate the key.
+
+```ts
+versioning: { enabled: true }
+```
+
+With versioning on, the storage key becomes `key::v{generation}` and the generation advances on delete. A late write lands on the previous version, which nothing reads any more, so it cannot resurrect the value.
+
+The cost is that old versions stay in L2 until their TTL expires, so the keyspace grows with your delete rate. Turn it on for hot keys that are updated and deleted frequently, not everywhere.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Production checklist" icon="clipboard-check" href="/docs/setups/production">
+    Instance sizing, Node.js clustering, graceful shutdown, and the transport tabs in full.
+  </Card>
+  <Card title="Event buses" icon="tower-broadcast" href="/docs/guides/event-buses">
+    What each transport actually promises, and when at-most-once stops being enough.
+  </Card>
+  <Card title="Invalidation" icon="arrows-rotate" href="/docs/concepts/invalidation">
+    How an event reaches every L1, and what stops a late redelivery undoing a delete.
+  </Card>
+</CardGroup>

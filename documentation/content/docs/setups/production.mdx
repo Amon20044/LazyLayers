@@ -1,0 +1,1046 @@
+---
+title: "Production checklist"
+description: "Instance sizing, Node.js clustering, graceful shutdown, and the complete setup one file at a time."
+---
+
+Everything on this page assumes you have read the [quickstart](/docs/quickstart) and have the four files it builds. What follows is what changes when the thing has to survive real traffic on real machines.
+
+Work the checklist first. The file walkthrough, the sizing tables and the clustering section fill in the numbers it asks for.
+
+## The tuning rule
+
+<Warning>
+  **Never turn a safety feature off to tune for production.**
+
+  Do not write `inflight: { enabled: false }`, `failSafe: { enabled: false }` or `broadcastSet: false`. Every one of those is on by default because production is exactly where you need it. Turning off in-flight dedupe is how a cold key becomes ten thousand database queries. Turning off fail-safe is how a slow origin becomes an outage instead of a stale page.
+
+  Production tuning means changing **numbers**, not **booleans**. Entry counts, TTLs, byte ceilings, breaker thresholds and cooldowns, sized to the instance the process actually runs on.
+</Warning>
+
+Every recommendation below is a number. If you find yourself reaching for a `false`, the answer you want is a different number.
+
+## Before you ship
+
+<Steps>
+
+<Step title="Every server has a unique, stable source">
+`source` must differ per server and survive a restart. Two servers sharing one value will filter out each other's events as their own, and the bus will look perfectly healthy while doing nothing. Under Node.js clustering, unique means **per worker**, not per machine.
+</Step>
+
+<Step title="L1 maxEntries is derived from the instance, not copied from a guide">
+Multiply your entry count by a realistic per-entry heap cost and check it against the heap you actually gave Node. The [sizing tables](#infrastructure-sizing) do the arithmetic for common instance classes.
+</Step>
+
+<Step title="maxEntries is divided by the worker count">
+Each cluster worker holds its own separate L1. Total memory is `maxEntries x workers`, so the per-worker number has to be the instance budget divided by `os.cpus().length`.
+</Step>
+
+<Step title="L1 ttlMs is a number you could defend in an incident review">
+It is your worst case staleness when an event goes missing. Ten seconds is a good starting point. L2 can be an hour, because it is invalidated directly rather than by expiry.
+</Step>
+
+<Step title="broadcastSetMaxBytes is set">
+It has no default. Without it, one large value is encoded and pushed to every server on every cold load.
+</Step>
+
+<Step title="The compression profile is deliberate, and logged at boot">
+The default is gzip above one kilobyte, which every build can read. If you have moved off it, the whole fleet must already be running a build that understands the new tag. Log `getCompressionTiers()` on startup, because an unavailable codec falls back silently. See [choosing a compression profile](#choosing-a-compression-profile).
+</Step>
+
+<Step title="The bus health check runs before you accept traffic">
+`healthCheck()` creates streams and consumers where the transport needs them and returns `{ ok: false, error }` rather than throwing. Failing startup beats leaking stale reads.
+</Step>
+
+<Step title="Durable consumers have per-server names">
+RabbitMQ `queueName` and NATS `jetstream.durableName` must be unique per server. Two servers on one durable consumer split the stream, so each invalidation reaches only one of them.
+</Step>
+
+<Step title="RabbitMQ prefetch is set explicitly">
+It has no default, and the RabbitMQ handler does not await your handler. Without a prefetch there is nothing bounding how many events are in flight at once.
+</Step>
+
+<Step title="Loaders are idempotent and accept the AbortSignal">
+A loader can run more than once. In-flight caps, lock timeouts and retries all allow it. Pass the signal to your I/O or a timed-out load keeps running with nobody waiting for it.
+</Step>
+
+<Step title="logging.env is production">
+Set it explicitly rather than trusting `NODE_ENV` to be what you assume. It gates all debug output.
+</Step>
+
+<Step title="Metrics are labelled by type and level, never by key">
+Cache keys are unbounded. One key-labelled metric will take down your metrics backend before it takes down your cache.
+</Step>
+
+<Step title="Shutdown closes the bus and Redis in the right order">
+`RedisEventBus.disconnect()` drops the client you passed into it, which is the same client your L2 store uses. Order matters. See [graceful shutdown](#graceful-shutdown).
+</Step>
+
+<Step title="The observability dashboard is off">
+It exposes cache contents and live activity on port `7077` at `/observelazyily`. It is disabled by default. Leave it that way in production, or bind it to localhost behind auth.
+</Step>
+
+</Steps>
+
+## The setup, file by file
+
+Same layout as the quickstart, in the order you would create the files.
+
+<Steps>
+
+<Step title="src/cache/redis.js">
+
+One connection, one file. The event bus duplicates this client rather than opening a second one from scratch, which is why it lives on its own.
+
+<CodeGroup>
+```js src/cache/redis.js
+import Redis from 'ioredis'
+
+export const redis = new Redis(process.env.REDIS_URL, {
+  // Fail a command rather than queueing it forever when Redis is unreachable.
+  // LazyLayers treats the failure as an L2 miss and serves from L1.
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  // Commands issued before the socket is ready wait instead of throwing.
+  enableOfflineQueue: true,
+  // Bounded reconnect backoff, so a Redis restart does not turn into a
+  // reconnect storm from every server at once.
+  retryStrategy: (attempt) => Math.min(attempt * 200, 2000),
+})
+
+redis.on('error', (err) => {
+  // Never rethrow here. LazyLayers already degrades to L1 on its own.
+  console.error('[redis]', err.message)
+})
+```
+
+```ts src/cache/redis.ts
+import Redis from 'ioredis'
+
+export const redis = new Redis(process.env.REDIS_URL!, {
+  // Fail a command rather than queueing it forever when Redis is unreachable.
+  // LazyLayers treats the failure as an L2 miss and serves from L1.
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  // Commands issued before the socket is ready wait instead of throwing.
+  enableOfflineQueue: true,
+  // Bounded reconnect backoff, so a Redis restart does not turn into a
+  // reconnect storm from every server at once.
+  retryStrategy: (attempt: number) => Math.min(attempt * 200, 2000),
+})
+
+redis.on('error', (err: Error) => {
+  // Never rethrow here. LazyLayers already degrades to L1 on its own.
+  console.error('[redis]', err.message)
+})
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="src/cache/bus.js">
+
+Pick a transport. Everything after this file is identical whichever you choose, because every bus satisfies the same interface.
+
+<Tabs>
+  <Tab value="Redis (default)">
+    At-most-once delivery. A server that is offline misses the event and reloads on its next request. The right default when you already run Redis for L2 and your L1 TTL is short enough to bound a missed event.
+
+    <CodeGroup>
+    ```js src/cache/bus.js
+    import { RedisEventBus } from 'lazy-layers-cache'
+    import { redis } from './redis.js'
+
+    // The bus duplicates this client internally, because a Redis connection in
+    // subscriber mode cannot run normal commands.
+    export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+      // Buffers publishes that failed and replays them on reconnect.
+      // Default maxSize is 10,000. Size it to what a short outage produces.
+      retryQueue: { maxSize: 5_000 },
+      // How many received events are applied concurrently.
+      handlerConcurrency: 16,
+      logging: { env: 'production' },
+    })
+
+    await bus.connect()
+    ```
+
+    ```ts src/cache/bus.ts
+    import { RedisEventBus } from 'lazy-layers-cache'
+    import { redis } from './redis.js'
+
+    // The bus duplicates this client internally, because a Redis connection in
+    // subscriber mode cannot run normal commands.
+    export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+      // Buffers publishes that failed and replays them on reconnect.
+      // Default maxSize is 10,000. Size it to what a short outage produces.
+      retryQueue: { maxSize: 5_000 },
+      // How many received events are applied concurrently.
+      handlerConcurrency: 16,
+      logging: { env: 'production' },
+    })
+
+    await bus.connect()
+    ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab value="RabbitMQ">
+    Durable. Events survive a server being down and are redelivered on reconnect, at the cost of broker state per server.
+
+    <CodeGroup>
+    ```js src/cache/bus.js
+    import { RabbitMQEventBus } from 'lazy-layers-cache'
+
+    const instanceId = process.env.INSTANCE_ID ?? process.env.HOSTNAME
+
+    export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
+      url: process.env.RABBITMQ_URL,
+      exchangeType: 'fanout',
+      durable: true,
+      persistent: true,
+      durableInvalidationMode: true,
+      // Required. The queue is asserted durable only when it is named,
+      // so without this you get a transient, broker-named queue.
+      queueName: `lazylayers.${process.env.INSTANCE_ID}`,
+      // Unique per server. A shared queue splits the fan-out.
+      queueName: `lazylayers.${instanceId}`,
+      // No default. The handler is not awaited, so this is the only thing
+      // bounding how many events are in flight at once.
+      prefetch: 32,
+      retryQueue: { maxSize: 5_000 },
+      logging: { env: 'production' },
+    })
+
+    await bus.connect()
+    ```
+
+    ```ts src/cache/bus.ts
+    import { RabbitMQEventBus } from 'lazy-layers-cache'
+
+    const instanceId = process.env.INSTANCE_ID ?? process.env.HOSTNAME
+
+    export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
+      url: process.env.RABBITMQ_URL,
+      exchangeType: 'fanout',
+      durable: true,
+      persistent: true,
+      durableInvalidationMode: true,
+      // Required. The queue is asserted durable only when it is named,
+      // so without this you get a transient, broker-named queue.
+      queueName: `lazylayers.${process.env.INSTANCE_ID}`,
+      // Unique per server. A shared queue splits the fan-out.
+      queueName: `lazylayers.${instanceId}`,
+      // No default. The handler is not awaited, so this is the only thing
+      // bounding how many events are in flight at once.
+      prefetch: 32,
+      retryQueue: { maxSize: 5_000 },
+      logging: { env: 'production' },
+    })
+
+    await bus.connect()
+    ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab value="NATS Core">
+    At-most-once, like Redis, but on a cluster built for fan-out. Use it when your event rate is high enough that Redis Pub/Sub is competing with your L2 traffic on the same connection.
+
+    <CodeGroup>
+    ```js src/cache/bus.js
+    import { NatsEventBus } from 'lazy-layers-cache'
+
+    export const bus = new NatsEventBus({
+      mode: 'core',
+      connectionOptions: { servers: process.env.NATS_URL },
+      subject: 'lazylayers.invalidate',
+      retryQueue: { maxSize: 5_000 },
+      logging: { env: 'production' },
+    })
+
+    await bus.connect()
+    ```
+
+    ```ts src/cache/bus.ts
+    import { NatsEventBus } from 'lazy-layers-cache'
+
+    export const bus = new NatsEventBus({
+      mode: 'core',
+      connectionOptions: { servers: process.env.NATS_URL },
+      subject: 'lazylayers.invalidate',
+      retryQueue: { maxSize: 5_000 },
+      logging: { env: 'production' },
+    })
+
+    await bus.connect()
+    ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab value="NATS JetStream">
+    Durable with explicit acks. Use it when missing an invalidation is not acceptable.
+
+    <CodeGroup>
+    ```js src/cache/bus.js
+    import { NatsEventBus } from 'lazy-layers-cache'
+
+    export const bus = new NatsEventBus({
+      mode: 'jetstream',
+      connectionOptions: { servers: process.env.NATS_URL },
+      subject: 'lazylayers.invalidate',
+      jetstream: {
+        stream: 'LAZYLAYERS',
+        // Unique per server. Two servers on one durable name split the stream.
+        durableName: process.env.INSTANCE_ID,
+        storage: 'file',
+        // Keep the backlog bounded. An hour of invalidations is plenty to
+        // catch up a server that was rolling.
+        maxAgeMs: 60 * 60 * 1000,
+        ackWaitMs: 5000,
+        maxDeliver: 3,
+        ensureStream: true,
+        ensureConsumer: true,
+      },
+      logging: { env: 'production' },
+    })
+
+    await bus.connect()
+    ```
+
+    ```ts src/cache/bus.ts
+    import { NatsEventBus } from 'lazy-layers-cache'
+
+    export const bus = new NatsEventBus({
+      mode: 'jetstream',
+      connectionOptions: { servers: process.env.NATS_URL },
+      subject: 'lazylayers.invalidate',
+      jetstream: {
+        stream: 'LAZYLAYERS',
+        // Unique per server. Two servers on one durable name split the stream.
+        durableName: process.env.INSTANCE_ID,
+        storage: 'file',
+        // Keep the backlog bounded. An hour of invalidations is plenty to
+        // catch up a server that was rolling.
+        maxAgeMs: 60 * 60 * 1000,
+        ackWaitMs: 5000,
+        maxDeliver: 3,
+        ensureStream: true,
+        ensureConsumer: true,
+      },
+      logging: { env: 'production' },
+    })
+
+    await bus.connect()
+    ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+</Step>
+
+<Step title="src/types/user.ts (TypeScript only)">
+
+Skip this file if you are writing JavaScript. Keeping the type separate is what lets the cache be generic over it, so `getOrSet` returns `User | undefined` instead of `unknown`.
+
+```ts src/types/user.ts
+export interface User {
+  id: string
+  email: string
+  plan: 'free' | 'pro' | 'enterprise'
+  updatedAt: string
+}
+```
+
+</Step>
+
+<Step title="src/cache/index.js">
+
+The layers, wired to the connection and the bus you just built. Every value here is a number you chose, and the sections below are where the numbers come from.
+
+<CodeGroup>
+```js src/cache/index.js
+import cluster from 'node:cluster'
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+const instanceId = process.env.INSTANCE_ID ?? process.env.HOSTNAME ?? `host-${process.pid}`
+
+// Every cluster worker is a separate cache with its own L1 and its own
+// published events, so the worker id has to be part of the identity.
+const source = cluster.isWorker ? `${instanceId}-w${cluster.worker.id}` : instanceId
+
+export const cache = new LazyLayersCache({
+  // Fallback lifetime for anything that does not set its own.
+  ttlMs: 5 * 60 * 1000,
+
+  levels: {
+    // Per worker. Divide your instance budget by the worker count.
+    L1: { maxEntries: 25_000, ttlMs: 10 * 1000 },
+    // Shared and invalidated directly, so it can be far longer.
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+
+  l2: new RedisStore(redis, {
+    prefix: 'app:cache:',
+    // UNLINK frees memory on a background thread, so a large delete does not
+    // block the Redis event loop.
+    deleteStrategy: 'unlink',
+    scanCount: 500,
+    batchSize: 500,
+  }),
+
+  eventBus: bus,
+  source,
+
+  // No default. Without it a large value is pushed to every server on every
+  // cold load. Over the limit, peers are invalidated instead of primed.
+  broadcastSetMaxBytes: 32 * 1024,
+
+  // Give up on a loader that has stopped making progress. softMs only applies
+  // when a stale value exists to serve in its place.
+  timeouts: { softMs: 800, hardMs: 5000 },
+
+  // Serve the last known value while the origin is down.
+  failSafe: { staleTtlMs: 30 * 1000 },
+
+  // Remember "this does not exist" briefly, so a missing row is not a free
+  // pass to hammer the database.
+  negativeCache: { ttlMs: 10 * 1000, maxEntries: 5_000 },
+
+  // How long a duplicate event ID is remembered. Longer than your slowest
+  // redelivery, or a durable transport will reapply an event you already saw.
+  eventDedupeMaxEntries: 10_000,
+  eventDedupeTtlMs: 5 * 60 * 1000,
+
+  resilience: {
+    // Stop calling a Redis that is failing, and retry after the cooldown.
+    l2CircuitBreaker: { failureThreshold: 5, cooldownMs: 15_000 },
+    eventBusCircuitBreaker: { failureThreshold: 5, cooldownMs: 15_000 },
+  },
+
+  logging: { env: 'production' },
+})
+```
+
+```ts src/cache/index.ts
+import cluster from 'node:cluster'
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+const instanceId = process.env.INSTANCE_ID ?? process.env.HOSTNAME ?? `host-${process.pid}`
+
+// Every cluster worker is a separate cache with its own L1 and its own
+// published events, so the worker id has to be part of the identity.
+const source = cluster.isWorker ? `${instanceId}-w${cluster.worker!.id}` : instanceId
+
+// Naming the options type checks the whole config in one place, and makes
+// getOrSet return User | undefined instead of unknown.
+const options: LazyLayersCacheOptions<string, User> = {
+  // Fallback lifetime for anything that does not set its own.
+  ttlMs: 5 * 60 * 1000,
+
+  levels: {
+    // Per worker. Divide your instance budget by the worker count.
+    L1: { maxEntries: 25_000, ttlMs: 10 * 1000 },
+    // Shared and invalidated directly, so it can be far longer.
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+
+  l2: new RedisStore<User>(redis, {
+    prefix: 'app:cache:',
+    // UNLINK frees memory on a background thread, so a large delete does not
+    // block the Redis event loop.
+    deleteStrategy: 'unlink',
+    scanCount: 500,
+    batchSize: 500,
+  }),
+
+  eventBus: bus,
+  source,
+
+  // No default. Without it a large value is pushed to every server on every
+  // cold load. Over the limit, peers are invalidated instead of primed.
+  broadcastSetMaxBytes: 32 * 1024,
+
+  // Give up on a loader that has stopped making progress. softMs only applies
+  // when a stale value exists to serve in its place.
+  timeouts: { softMs: 800, hardMs: 5000 },
+
+  // Serve the last known value while the origin is down.
+  failSafe: { staleTtlMs: 30 * 1000 },
+
+  // Remember "this does not exist" briefly, so a missing row is not a free
+  // pass to hammer the database.
+  negativeCache: { ttlMs: 10 * 1000, maxEntries: 5_000 },
+
+  // How long a duplicate event ID is remembered. Longer than your slowest
+  // redelivery, or a durable transport will reapply an event you already saw.
+  eventDedupeMaxEntries: 10_000,
+  eventDedupeTtlMs: 5 * 60 * 1000,
+
+  resilience: {
+    // Stop calling a Redis that is failing, and retry after the cooldown.
+    l2CircuitBreaker: { failureThreshold: 5, cooldownMs: 15_000 },
+    eventBusCircuitBreaker: { failureThreshold: 5, cooldownMs: 15_000 },
+  },
+
+  logging: { env: 'production' },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="src/cache/shutdown.js">
+
+One place that closes everything, in the order that works. The next section explains why the order is what it is.
+
+<CodeGroup>
+```js src/cache/shutdown.js
+import { cache } from './index.js'
+import { bus } from './bus.js'
+import { redis } from './redis.js'
+
+export async function shutdownCache() {
+  // If you enabled the dashboard, this is the open HTTP server holding the
+  // process alive. It is a no-op when observability is off.
+  await cache.closeObservability()
+
+  // Unsubscribes from the channel, then drops both the subscriber connection
+  // and the client you handed in. Nothing may touch L2 after this.
+  await bus.disconnect()
+
+  // With the Redis bus the client above is already gone, so this rejects and
+  // the catch swallows it. With RabbitMQ or NATS this is what closes L2.
+  await redis.quit().catch(() => {})
+}
+```
+
+```ts src/cache/shutdown.ts
+import { cache } from './index.js'
+import { bus } from './bus.js'
+import { redis } from './redis.js'
+
+export async function shutdownCache(): Promise<void> {
+  // If you enabled the dashboard, this is the open HTTP server holding the
+  // process alive. It is a no-op when observability is off.
+  await cache.closeObservability()
+
+  // Unsubscribes from the channel, then drops both the subscriber connection
+  // and the client you handed in. Nothing may touch L2 after this.
+  await bus.disconnect()
+
+  // With the Redis bus the client above is already gone, so this rejects and
+  // the catch swallows it. With RabbitMQ or NATS this is what closes L2.
+  await redis.quit().catch(() => {})
+}
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="src/server.js">
+
+Health-check the bus, serve traffic, then unwind in the reverse order.
+
+<CodeGroup>
+```js src/server.js
+import { bus } from './cache/bus.js'
+import { shutdownCache } from './cache/shutdown.js'
+import { app } from './app.js'
+
+// Creates streams and consumers where the transport needs them, and returns
+// { ok: false, error } rather than throwing. A misconfiguration should fail
+// the deploy, not leak stale reads for a week.
+const health = await bus.healthCheck()
+
+if (!health.ok) {
+  console.error('[cache] bus unavailable', health)
+  process.exit(1)
+}
+
+const server = app.listen(3000)
+
+async function shutdown() {
+  // 1. Stop taking new requests, and let in-flight ones finish.
+  await new Promise((resolve) => server.close(resolve))
+  // 2. Now nothing can touch the cache, so it is safe to close.
+  await shutdownCache()
+  process.exit(0)
+}
+
+process.on('SIGTERM', shutdown)
+process.on('SIGINT', shutdown)
+```
+
+```ts src/server.ts
+import { bus } from './cache/bus.js'
+import { shutdownCache } from './cache/shutdown.js'
+import { app } from './app.js'
+
+// Creates streams and consumers where the transport needs them, and returns
+// { ok: false, error } rather than throwing. A misconfiguration should fail
+// the deploy, not leak stale reads for a week.
+const health = await bus.healthCheck()
+
+if (!health.ok) {
+  console.error('[cache] bus unavailable', health)
+  process.exit(1)
+}
+
+const server = app.listen(3000)
+
+async function shutdown(): Promise<void> {
+  // 1. Stop taking new requests, and let in-flight ones finish.
+  await new Promise<void>((resolve) => server.close(() => resolve()))
+  // 2. Now nothing can touch the cache, so it is safe to close.
+  await shutdownCache()
+  process.exit(0)
+}
+
+process.on('SIGTERM', shutdown)
+process.on('SIGINT', shutdown)
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="src/users/repository.js">
+
+Nothing exotic. `getOrSet` on the read path, `delete` after the write commits.
+
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    // Runs on exactly one server, for exactly one caller, even when a
+    // thousand arrive at once. Pass the signal or the timeout only stops
+    // the waiting, not the work.
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined   // undefined records a negative entry
+  })
+  // On resolve: written to L1 and L2, then published as a `set` event that
+  // primes every peer's L1. Nobody else pays for the query.
+}
+
+export async function updateUser(id, patch) {
+  const updated = await db.users.update(id, patch)
+
+  // After the write commits, never before.
+  await cache.delete(`user:${id}`)
+  await cache.deleteByPattern(`user:${id}:sessions:*`)
+
+  return updated
+}
+```
+
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+import { db } from '../db.js'
+
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    // Runs on exactly one server, for exactly one caller, even when a
+    // thousand arrive at once. Pass the signal or the timeout only stops
+    // the waiting, not the work.
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined   // undefined records a negative entry
+  })
+  // On resolve: written to L1 and L2, then published as a `set` event that
+  // primes every peer's L1. Nobody else pays for the query.
+}
+
+export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
+  const updated = await db.users.update(id, patch)
+
+  // After the write commits, never before.
+  await cache.delete(`user:${id}`)
+  await cache.deleteByPattern(`user:${id}:sessions:*`)
+
+  return updated
+}
+```
+</CodeGroup>
+
+<Warning>
+  `deleteByPattern('*')` scans your entire keyspace and drops every L1 entry on every server at once, which produces a thundering herd on the next request wave. Prefix patterns tightly, and never build one from user input.
+</Warning>
+
+</Step>
+
+</Steps>
+
+## Infrastructure sizing
+
+L1 lives in your process heap. `maxEntries` is the only size dial, and there is no byte-based limit, so translating entries into memory is your job.
+
+### The assumptions
+
+Every number below comes out of these four. Change any of them and the tables change with them.
+
+<Steps>
+<Step title="Node gets about 75% of instance RAM">
+`--max-old-space-size` set to roughly three quarters of the instance memory, leaving room for the operating system, the container runtime and Node's non-heap regions.
+</Step>
+
+<Step title="L1 gets about 25% of that heap">
+The other three quarters are your request path, your ORM, your buffers and the slack a generational collector needs to not thrash. A cache that owns half the heap will spend your latency budget on garbage collection.
+</Step>
+
+<Step title="An entry costs about twice its wire size, plus 200 bytes">
+A decoded JavaScript object is bigger in the heap than its JSON byte length, because of object headers, property maps and string overhead. The 200 bytes is the LRU node and entry wrapper.
+</Step>
+
+<Step title="One Node.js process per instance">
+The tables are per process. If you cluster, divide by the worker count. That is the next section.
+</Step>
+</Steps>
+
+### Heap budget per instance class
+
+| Instance | vCPU | RAM | `--max-old-space-size` | L1 budget |
+| --- | --- | --- | --- | --- |
+| t3.small | 2 | 2 GiB | `1536` | ~384 MB |
+| t3.medium | 2 | 4 GiB | `3072` | ~768 MB |
+| m5.large | 2 | 8 GiB | `6144` | ~1.5 GB |
+| m5.xlarge | 4 | 16 GiB | `12288` | ~3 GB |
+| c5.2xlarge | 8 | 16 GiB | `12288` | ~3 GB |
+
+### Recommended maxEntries, per process
+
+Per-entry budget is `2 x wire size + 200 B`, so a 200 byte session costs about 600 bytes, a 2 KB user record about 4.3 KB, and a 20 KB rendered page about 41 KB. Each cell is the L1 budget divided by that, rounded down for headroom.
+
+| Instance | Session or flag (~200 B) | User record (~2 KB) | Rendered page (~20 KB) |
+| --- | --- | --- | --- |
+| t3.small | `500_000` | `75_000` | `7_500` |
+| t3.medium | `1_000_000` | `150_000` | `15_000` |
+| m5.large | `2_000_000` | `300_000` | `30_000` |
+| m5.xlarge | `4_000_000` | `600_000` | `60_000` |
+| c5.2xlarge | `4_000_000` | `600_000` | `60_000` |
+
+<Note>
+  These are **starting points to measure from, not guarantees.** They are arithmetic on four assumptions, and your values are not exactly 200 bytes. Deploy with the number from the table, watch process RSS and major garbage collection pause times under real traffic for a day, and move it.
+</Note>
+
+<Warning>
+  Byte budget is not the only ceiling. An LRU holds every entry strongly reachable in old space, so major garbage collection pause times grow with the **count** of live objects, not just their size. Past roughly a million entries you will feel it in tail latency even when the bytes fit comfortably. Treat the top-left cells of that table as an upper bound you probably do not want to reach.
+</Warning>
+
+### Sizing L2
+
+L2 is Redis, so its sizing is Redis sizing, with two differences worth knowing.
+
+Values are msgpack encoded, and anything above one kilobyte is compressed when the result saves at least 15%. Your Redis footprint is therefore smaller than your heap footprint for the same entry, often substantially so for JSON-shaped data. Which codec does the compressing is a choice, and it moves this number by a lot. See [choosing a compression profile](#choosing-a-compression-profile).
+
+`levels.L2.maxEntries` is not an LRU bound the way L1's is. Give Redis a `maxmemory` and an eviction policy at the server level, and set `levels.L2.ttlMs` so entries expire on their own rather than relying on eviction pressure.
+
+## Choosing a compression profile
+
+The default is gzip above one kilobyte. It is the conservative choice rather than the fast one, and it is the right thing to ship until you have a reason to move.
+
+Three profiles are worth considering, in this order.
+
+<Steps>
+
+<Step title="Stay on gzip while your fleet is mixed">
+This is what you get with no configuration at all. Every release of the library that has ever shipped can read `HC1G`, so nothing about a rollout, a rollback or a canary can leave a key unreadable.
+</Step>
+
+<Step title="Move to zstd when Redis memory is what you are paying for">
+zstd lands within one percentage point of gzip's compression ratio and gets there roughly six times faster on large values. On the metrics fixture gzip spends over a millisecond of CPU per write to save 711 bytes more than zstd saved in 151 microseconds. If your bill is memory and network, this is the profile you want.
+
+zstd needs Node 22.15 or 23.8 and above, because it comes from `node:zlib`. On Node 20 the tier falls back to gzip on its own.
+</Step>
+
+<Step title="Move to lz4 or snappy when write latency is the constraint">
+Two to three times faster than zstd, at the cost of bytes zstd would have removed. Reach for this when a hot path is CPU bound and the values are large and short lived, not as a general default.
+
+Both come from `optionalDependencies` (`lz4-napi` and `snappy`) and are native modules. Confirm they actually installed on your build image, because a machine without them silently falls back to gzip and your write latency will not improve.
+</Step>
+
+</Steps>
+
+<Warning>
+  **Upgrade the whole fleet before you change the codec.**
+
+  A server running an older build that meets an `HC1Z`, `HC1L` or `HC1S` buffer does not recognise the tag. It decodes to `null`, which is a cache miss, so requests still succeed and nothing throws. What you get instead is part of your cache quietly switched off for the length of the rollout, with the load landing on your origin.
+
+  Deploy the build that understands the new tags to every server first. Change the tier list second, in a separate release. Reads accept every format at all times, which is what makes the second step safe and reversible once the first one is complete everywhere.
+</Warning>
+
+Set the profile with `CACHE_COMPRESSION`, so it moves per environment without a code change, and log what actually took effect. A malformed value is ignored silently, and an unavailable codec falls back to gzip, so the only trustworthy answer comes from asking the process.
+
+<CodeGroup>
+```js src/cache/compression.js
+import { getCompressionTiers, LZ4_AVAILABLE, SNAPPY_AVAILABLE, ZSTD_AVAILABLE } from 'lazy-layers-cache'
+
+// Import before the cache is constructed. Log it on every boot, because
+// CACHE_COMPRESSION fails quietly and native modules may not have installed.
+logger.info({
+  tiers: getCompressionTiers(),
+  zstd: ZSTD_AVAILABLE,
+  lz4: LZ4_AVAILABLE(),
+  snappy: SNAPPY_AVAILABLE(),
+}, 'compression profile')
+```
+
+```ts src/cache/compression.ts
+import { getCompressionTiers, LZ4_AVAILABLE, SNAPPY_AVAILABLE, ZSTD_AVAILABLE } from 'lazy-layers-cache'
+
+// Import before the cache is constructed. Log it on every boot, because
+// CACHE_COMPRESSION fails quietly and native modules may not have installed.
+logger.info({
+  tiers: getCompressionTiers(),
+  zstd: ZSTD_AVAILABLE,
+  lz4: LZ4_AVAILABLE(),
+  snappy: SNAPPY_AVAILABLE(),
+}, 'compression profile')
+```
+</CodeGroup>
+
+Changing the profile also moves `broadcastSetMaxBytes`, because that ceiling is compared against the encoded event. A denser codec puts values under a limit that previously skipped them, which is usually what you want, and it is worth re-checking the number rather than assuming it still means what it did.
+
+## Node.js clustering
+
+Under `node:cluster`, the primary process forks one worker per core and each worker is a **separate operating system process with a separate V8 heap**. That has two consequences, and both of them bite.
+
+### Every worker holds its own L1
+
+There is no shared memory between workers. Eight workers with `maxEntries: 100_000` is eight hundred thousand entries resident on that machine, not a hundred thousand.
+
+Total L1 memory is `maxEntries x workers`. Take the per-process number from the table above and divide.
+
+<CodeGroup>
+```js src/cache/index.js
+import os from 'node:os'
+
+// The instance budget from the sizing table, split across workers.
+const INSTANCE_MAX_ENTRIES = 600_000   // c5.2xlarge, ~2 KB values
+const workers = Number(process.env.WEB_CONCURRENCY) || os.cpus().length
+
+const maxEntries = Math.floor(INSTANCE_MAX_ENTRIES / workers)
+// 8 workers on a c5.2xlarge: 75,000 entries each.
+
+// ...then pass it in:
+//   levels: { L1: { maxEntries, ttlMs: 10 * 1000 } }
+```
+
+```ts src/cache/index.ts
+import os from 'node:os'
+
+// The instance budget from the sizing table, split across workers.
+const INSTANCE_MAX_ENTRIES = 600_000   // c5.2xlarge, ~2 KB values
+const workers = Number(process.env.WEB_CONCURRENCY) || os.cpus().length
+
+const maxEntries = Math.floor(INSTANCE_MAX_ENTRIES / workers)
+// 8 workers on a c5.2xlarge: 75,000 entries each.
+
+// ...then pass it in:
+//   levels: { L1: { maxEntries, ttlMs: 10 * 1000 } }
+```
+</CodeGroup>
+
+A c5.2xlarge running eight workers ends up with the same per-worker L1 as a single-process t3.small. The extra cores bought you throughput, not cache capacity.
+
+Duplication across workers also costs you hit rate. Eight workers each caching the same hot key hold eight copies of it, and a request routed to a cold worker misses even though seven of its siblings have the value. The bus mitigates this, because a `set` broadcast from one worker primes the other seven, but only if each worker has a distinct identity.
+
+### Every worker needs its own source
+
+<Warning>
+  **Give each worker a unique `source` or your workers will silently ignore each other.**
+
+  A server drops any event whose `source` matches its own. That is a single equality check, and it is what stops an invalidation looping back and undoing itself. It has no idea whether the match is genuinely this process or a sibling worker that was configured identically.
+
+  Set `source` from `process.env.INSTANCE_ID` alone and every worker on the machine shares one value. Each worker then treats its siblings' invalidations as its own echo and returns early. Deletes stop crossing between workers on the same box, and a value primed by one worker never reaches the others. Nothing errors, nothing is logged, and every metric stays green. You find out when a user reports that a change took effect on some requests and not others.
+
+  Include the worker id: `` `${process.env.INSTANCE_ID}-${cluster.worker.id}` ``.
+</Warning>
+
+The bootstrap that produces those identities:
+
+<CodeGroup>
+```js src/index.js
+import cluster from 'node:cluster'
+import os from 'node:os'
+
+const workers = Number(process.env.WEB_CONCURRENCY) || os.cpus().length
+
+if (cluster.isPrimary) {
+  for (let i = 0; i < workers; i++) cluster.fork()
+
+  cluster.on('exit', (worker) => {
+    console.error(`[cluster] worker ${worker.id} exited, replacing`)
+    cluster.fork()
+  })
+} else {
+  // Each worker builds its own cache, its own L1 and its own bus
+  // subscription, under an identity that includes cluster.worker.id.
+  await import('./server.js')
+}
+```
+
+```ts src/index.ts
+import cluster from 'node:cluster'
+import os from 'node:os'
+
+const workers = Number(process.env.WEB_CONCURRENCY) || os.cpus().length
+
+if (cluster.isPrimary) {
+  for (let i = 0; i < workers; i++) cluster.fork()
+
+  cluster.on('exit', (worker) => {
+    console.error(`[cluster] worker ${worker.id} exited, replacing`)
+    cluster.fork()
+  })
+} else {
+  // Each worker builds its own cache, its own L1 and its own bus
+  // subscription, under an identity that includes cluster.worker.id.
+  await import('./server.js')
+}
+```
+</CodeGroup>
+
+<Note>
+  `cluster.worker.id` counts up from 1 and is reassigned when a worker is replaced, so it is unique among live workers but not stable across a crash. That is fine for `source`, which only needs to be distinct right now. It is **not** fine for a durable consumer name, where a restarted worker claiming a fresh id orphans the old queue. On RabbitMQ or JetStream, derive the durable name from a stable slot number you pass into the worker's environment rather than from `cluster.worker.id`.
+</Note>
+
+### Connections multiply too
+
+Every worker opens its own Redis client, and the Redis bus duplicates that client for its subscriber. Eight workers on ten instances is 160 Redis connections before your application opens any of its own. Check it against your Redis `maxclients` and against the connection limit on a managed instance, which is often lower than you expect.
+
+## Graceful shutdown
+
+There is no `cache.close()`. The cache itself holds no sockets. What you close is the bus, the Redis connection and the observability server if you enabled it, and the order is not arbitrary.
+
+<Warning>
+  `RedisEventBus.disconnect()` unsubscribes, then disconnects **both** its duplicated subscriber connection and the publisher, which is the exact client you passed into the constructor and handed to `RedisStore`. Calling it drops your L2 connection as a side effect.
+
+  So: stop taking traffic first, then close the bus, and treat L2 as gone from that moment. Calling `redis.quit()` afterwards on an already-disconnected client rejects, which is why the example catches it.
+</Warning>
+
+The sequence, in order:
+
+<Steps>
+<Step title="Stop accepting requests">
+`server.close()` and wait for it. In-flight requests finish, new ones are refused. Your load balancer should already have been drained by the time SIGTERM arrives, but do not rely on it.
+</Step>
+
+<Step title="Close observability">
+`await cache.closeObservability()`. A no-op when the dashboard is off, and the thing holding the event loop open when it is on.
+</Step>
+
+<Step title="Disconnect the bus">
+`await bus.disconnect()`. On Redis this also takes L2 down with it. On RabbitMQ it closes both channels and the connection. On NATS it closes the consumer subscription and drains.
+</Step>
+
+<Step title="Quit Redis">
+`await redis.quit().catch(() => {})`. Redundant with the Redis bus, load-bearing with any other transport, harmless either way.
+</Step>
+</Steps>
+
+<Note>
+  Anything still in the retry queue when you disconnect is lost. It lives in process memory and is not persisted. Draining the queue is not something you can force, so keep `retryQueue.maxSize` modest and treat a missed invalidation as bounded by your L1 TTL rather than as something shutdown will rescue.
+</Note>
+
+## Sharp edges
+
+Two behaviours that will not show up in your metrics and will confuse you when they bite.
+
+<AccordionGroup>
+
+<Accordion title="The circuit breaker and the retry queue do not compose">
+  These look like two layers of the same protection. They are not, and the outer one cancels the inner one.
+
+  `publishInvalidation` checks the event bus breaker **first**. When the breaker is open it emits `event-bus:publish-skipped` and returns immediately, before `eventBus.publish` is ever called. The retry queue lives inside the bus, so it never sees the event and never buffers it.
+
+  The practical consequence: during the exact outage the retry queue exists for, once enough failures have tripped the breaker, invalidations are dropped rather than queued. When the breaker closes again there is nothing to replay.
+
+  What to do about it. Do not set `eventBusCircuitBreaker.failureThreshold` low. Three failures is enough to trip on a transient blip and start dropping. Five with a short `cooldownMs` around 15 seconds keeps the window narrow. And size your L1 `ttlMs` on the assumption that some invalidations will be lost outright, because during a breaker-open window they are.
+</Accordion>
+
+<Accordion title="RabbitMQ prefetch has no default, and the handler is not awaited">
+  The RabbitMQ consumer does `void Promise.resolve(handler(event))`. It does not await. The handler returns immediately and the next message is delivered whether or not the previous one has finished applying.
+
+  Nothing in the library bounds that. `prefetch` is the only backpressure available, and it has no default. Leave it unset and the broker will push its whole backlog at you as fast as the socket allows, which after a reconnect is a queue that has been accumulating.
+
+  Set it explicitly. Something like 32 is a reasonable starting point. The right value is roughly how many invalidations you can apply concurrently without the event loop starving your request path.
+
+  Redis and NATS Core do not have this problem in the same way, because their received events go through a handler queue bounded by `handlerConcurrency`.
+</Accordion>
+
+</AccordionGroup>
+
+## More things that bite
+
+<AccordionGroup>
+<Accordion title="Distributed locks on cheap loaders">
+  The lock costs a Redis round trip on every cold load. If your loader takes 5 ms, the lock is more expensive than the duplicate work it prevents.
+
+  Enable it when the loader is expensive, hits a rate-limited third party, or does work you cannot afford to run twice. In-flight dedupe already handles the within-process case for free.
+</Accordion>
+
+<Accordion title="Soft timeouts with no stale value to serve">
+  `timeouts.softMs` only fires when fail-safe is on **and** a stale value for that key exists. With no stale copy there is nothing to serve instead, so the soft deadline does nothing and the load runs to `hardMs`.
+
+  If you want an unconditional deadline, that is `hardMs`. `softMs` is specifically "give up waiting and serve what we had".
+</Accordion>
+
+<Accordion title="Negative cache TTLs that are too long">
+  A negative entry is the window in which a record that was just created still looks absent. Seconds, not minutes. Ten seconds is a reasonable ceiling for anything a user can create and then immediately look at.
+</Accordion>
+
+<Accordion title="Event dedupe TTL shorter than your redelivery window">
+  Duplicate events are recognised by ID for `eventDedupeTtlMs`. On a durable transport with `maxDeliver: 3` and a 5 second ack wait, a redelivery can arrive well after the original. If the dedupe entry has already expired, the event is applied a second time.
+
+  Per-key generation counters catch most of what that would otherwise break, but keep `eventDedupeTtlMs` comfortably longer than your worst redelivery delay anyway.
+</Accordion>
+
+<Accordion title="The observability dashboard left on">
+  It serves cache contents and live activity on port `7077` at `/observelazyily`, and it prints a warning to `console.warn` on startup when it is enabled precisely because production is where you do not want it. It is off by default. The credential environment variable is `LAZY_OBS_USER`, not `LAZY_OBS_USERNAME`.
+</Accordion>
+</AccordionGroup>
+
+## What to alert on
+
+Subscribe with `cache.on` and label by `type` and `level`.
+
+| Signal | Event | What it means |
+| --- | --- | --- |
+| L2 error rate | `l2:error` | Redis is unhealthy |
+| Breaker open | `l2:skipped`, `event-bus:publish-skipped` | Calls are being skipped and staleness is growing |
+| Stale served | `stale:hit` | Loaders are failing or timing out |
+| Publish failures | `event-bus:publish-error` | Servers are drifting apart |
+| Reordering | `invalidation:stale` | Events arriving badly out of order |
+| Dedupe bypass | `inflight:bypass` | `inflight.maxEntries` is too low |
+| Broadcast skipped | `set:broadcast-skipped` | Values are exceeding `broadcastSetMaxBytes` more than you expected |
+
+`invalidation:duplicate` is normal on durable transports and is not worth alerting on.
+
+<Warning>
+  Never use a cache key as a metric label. Keys are unbounded, and one high-cardinality label will take down your metrics backend before it takes down your cache. Keep the key in logs where it belongs.
+</Warning>
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Configuration reference" icon="sliders" href="/docs/reference/configuration">
+    Every option named on this page, with its default and what it costs you.
+  </Card>
+  <Card title="Failure handling" icon="shield-check" href="/docs/guides/failure-handling">
+    What fail-open actually does when Redis or the bus is down, and how the breakers behave.
+  </Card>
+  <Card title="Event buses" icon="tower-broadcast" href="/docs/guides/event-buses">
+    Delivery guarantees per transport, for deciding whether at-most-once is enough for you.
+  </Card>
+  <Card title="Observability" icon="chart-line" href="/docs/guides/observability">
+    Wiring the cache event stream into your metrics backend without exposing the dashboard.
+  </Card>
+</CardGroup>
