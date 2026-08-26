@@ -2,6 +2,55 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
+@theme {
+  --color-fd-background: #FFFFFF;
+  --color-fd-foreground: #0B0B10;
+  --color-fd-muted: #F6F6F8;
+  --color-fd-muted-foreground: #64646F;
+  --color-fd-popover: #FFFFFF;
+  --color-fd-popover-foreground: #0B0B10;
+  --color-fd-card: #FBFBFC;
+  --color-fd-card-foreground: #0B0B10;
+  --color-fd-border: rgba(9, 9, 14, 0.10);
+  --color-fd-primary: #4F46E5;
+  --color-fd-primary-foreground: #FFFFFF;
+  --color-fd-secondary: #EFEFF3;
+  --color-fd-secondary-foreground: #0B0B10;
+  --color-fd-accent: #E7E7ED;
+  --color-fd-accent-foreground: #0B0B10;
+  --color-fd-ring: rgba(79, 70, 229, 0.4);
+}
+
+.dark {
+  --color-fd-background: #000000;
+  --color-fd-foreground: #F2F2F4;
+  --color-fd-muted: #0A0A0E;
+  --color-fd-muted-foreground: #8C8D9C;
+  --color-fd-popover: #0E0E12;
+  --color-fd-popover-foreground: #F2F2F4;
+  --color-fd-card: #0A0A0C;
+  --color-fd-card-foreground: #F2F2F4;
+  --color-fd-border: rgba(255, 255, 255, 0.08);
+  --color-fd-primary: #D3F15D;
+  --color-fd-primary-foreground: #08080A;
+  --color-fd-secondary: #141419;
+  --color-fd-secondary-foreground: #F2F2F4;
+  --color-fd-accent: #181822;
+  --color-fd-accent-foreground: #FFFFFF;
+  --color-fd-ring: rgba(99, 102, 241, 0.5);
+}
+
+/* Active TOC & Sidebar glow */
+.dark [data-active='true'] {
+  color: #D3F15D !important;
+}
+
+/* Code block dark ground styling matching site aesthetic */
+pre {
+  background-color: #08080B !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+}
+
 html {
   scrollbar-gutter: stable;
 }
