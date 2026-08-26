@@ -11,7 +11,6 @@ export function CodeGroup({ children }: { children: React.ReactNode }) {
 
   const tabs = childArray.map((child, index) => {
     const props = (child.props || {}) as Record<string, any>;
-    console.log("CODEGROUP CHILD PROPS:", Object.keys(props), props.title, props['data-title'], props.name, props.value);
     let label =
       props.title ||
       props['data-title'] ||
@@ -26,7 +25,7 @@ export function CodeGroup({ children }: { children: React.ReactNode }) {
     }
 
     if (!label) {
-      label = `Option ${index + 1}`;
+      label = `Tab ${index + 1}`;
     }
 
     return { label: String(label), child };
@@ -35,7 +34,7 @@ export function CodeGroup({ children }: { children: React.ReactNode }) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   return (
-    <div className="my-4 rounded-xl border border-fd-border bg-[#08080B] overflow-hidden shadow-md">
+    <div className="my-4 rounded-xl border border-fd-border bg-fd-card overflow-hidden shadow-sm not-prose">
       {/* Switchable Tab Bar */}
       <div className="flex items-center gap-1.5 border-b border-fd-border/70 bg-[#0E0E12] px-2.5 py-1.5 overflow-x-auto scrollbar-none">
         {tabs.map((tab, idx) => {
@@ -58,8 +57,8 @@ export function CodeGroup({ children }: { children: React.ReactNode }) {
         })}
       </div>
 
-      {/* Code Block Panel */}
-      <div className="p-0 [&_figure]:!border-0 [&_figure]:!rounded-none [&_figure]:!my-0 [&_figure]:!bg-transparent [&_pre]:!border-0 [&_pre]:!rounded-none [&_pre]:!my-0 [&_pre]:!bg-transparent [&_.custom-code-block]:!my-0 [&_.custom-code-block]:!border-0 [&_.custom-code-block]:!rounded-none [&_.custom-code-block]:!shadow-none [&_.custom-code-block-header]:!hidden">
+      {/* Active Code Block Container */}
+      <div className="p-0 [&_figure]:!my-0 [&_figure]:!border-0 [&_figure]:!rounded-none [&_figure]:!bg-transparent [&_figure]:!shadow-none [&_figure_>_div:first-child]:!hidden">
         {tabs[activeIndex]?.child}
       </div>
     </div>
