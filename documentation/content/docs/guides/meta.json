@@ -1,0 +1,10 @@
+{
+  "title": "Guides",
+  "pages": [
+    "stampede-protection",
+    "failure-handling",
+    "observability",
+    "event-buses",
+    "buses"
+  ]
+}

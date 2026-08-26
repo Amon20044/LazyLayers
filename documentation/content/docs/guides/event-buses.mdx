@@ -1,0 +1,486 @@
+---
+title: "Event buses"
+description: "Why the bus exists, what each transport promises, and how to wire one in."
+icon: "tower-broadcast"
+---
+
+L1 lives in one process heap. A write handled by server A does nothing to the L1 on server B, so B keeps serving its own copy of that key until the copy expires on its own. Without a bus, every server goes stale independently and your staleness window is your L1 TTL, on every key, on every server that did not handle the write.
+
+The event bus closes that window. A `delete` on A becomes a message that every peer applies to its own L1, so the window is one network hop instead of a TTL.
+
+## What crosses the bus
+
+Three things, and they are the same on every transport.
+
+<CardGroup cols={2}>
+  <Card title="Invalidations" icon="trash">
+    `delete` and `deleteByPattern` publish, and every peer drops the same keys from L1, L2, the negative cache, the stale copy and any in-flight promise.
+  </Card>
+  <Card title="Primed values" icon="bolt">
+    When a `getOrSet` loader resolves, the value itself is published. Every peer writes it straight into its own L1, so their first read of that key is already a local hit.
+  </Card>
+</CardGroup>
+
+That second one is the lazy fan-out, and it is where most of the value is. One server pays for the query. The rest get the result for free.
+
+Two things to know about it before you rely on it:
+
+1. Only `getOrSet` broadcasts a value. A direct write emits a local event but never publishes to the bus.
+2. `broadcastSetMaxBytes` has no default. Without it, a large value is broadcast in full to every server. Set a ceiling so that a 5 MB row invalidates your peers instead of shipping itself to all of them.
+
+<Note>
+  Over the ceiling, the event is skipped and `set:broadcast-skipped` is emitted with `reason: 'max-bytes'`. The value is still written to this server's L1 and L2 exactly as normal.
+</Note>
+
+## The three event types
+
+<ParamField path="del" type="InvalidationEvent">
+  Published by `delete`. Carries `keys` and a per-key `generation`. A peer drops each key from L1, L2, the negative cache, the stale copy and any in-flight promise.
+</ParamField>
+
+<ParamField path="pattern" type="InvalidationEvent">
+  Published by `deleteByPattern`. Carries `pattern`. A peer drops every local key matching it. No `generation` is attached, so a pattern event cannot be ordered against per-key generations the way a `del` can.
+</ParamField>
+
+<ParamField path="set" type="InvalidationEvent">
+  Published when a `getOrSet` loader resolves. Carries `keys`, `value`, `ttlMs` and `generation`. A peer writes the value into its own L1 and clears that key's negative entry and in-flight promise.
+</ParamField>
+
+Only `set` carries a value. `del` and `pattern` carry key names, which is why they are cheap regardless of how large the underlying values are.
+
+Every event also carries `id`, `source` and `ts`. The `id` is what event dedupe matches on, so a redelivery is recognised and dropped rather than applied twice.
+
+## Give every server a unique source
+
+`source` is this server's identity. The cache stamps it on every event it publishes, and on receipt it compares the incoming `source` against its own and returns early when they match. That is what stops a server applying its own broadcast and undoing the write it just made.
+
+<Warning>
+  `source` must be unique per server, and under Node clustering unique per worker. Two processes sharing one `source` each treat the other's events as their own and drop them, so neither one ever invalidates. Nothing errors. You find out through stale reads.
+</Warning>
+
+Read it from the environment and include the worker identity.
+
+<CodeGroup>
+```js src/cache/source.js
+import cluster from 'node:cluster'
+
+const host = process.env.INSTANCE_ID ?? process.env.HOSTNAME ?? 'local'
+const worker = cluster.worker?.id ?? process.pid
+
+export const source = `${host}-w${worker}`
+```
+
+```ts src/cache/source.ts
+import cluster from 'node:cluster'
+
+const host = process.env.INSTANCE_ID ?? process.env.HOSTNAME ?? 'local'
+const worker = cluster.worker?.id ?? process.pid
+
+export const source: string = `${host}-w${worker}`
+```
+</CodeGroup>
+
+Leave `source` unset and the cache generates a random identifier for the process. Self-filtering still works, but the value changes on every restart, which makes it useless for naming a durable queue or a JetStream consumer and hard to follow in logs.
+
+## Delivery semantics
+
+The transports differ in exactly one way that matters: what happens to a server that was not connected when an event was published.
+
+| Transport | Delivery | A server that was offline | Cost |
+| --- | --- | --- | --- |
+| Redis Pub/Sub | At-most-once | Misses the event and reloads that key on its next request | None beyond the Redis you already run for L2 |
+| NATS Core | At-most-once | Misses the event and reloads that key on its next request | A NATS server |
+| RabbitMQ | Durable | Its named queue holds the events and delivers them on reconnect | A broker, plus one queue of broker state per server |
+| NATS JetStream | Durable | Its durable consumer replays from the last acknowledged message | A JetStream stream on disk, plus one consumer per server |
+
+At-most-once is not a bug, it is a trade. A missed event costs you one reload of that key. The question is whether it also costs you correctness. A product description that is 60 seconds stale is staleness. A revoked session, a deleted record, or a key whose TTL is measured in hours is a correctness problem, and durable delivery is what fixes it.
+
+Durable delivery has a real price: per-server state in the broker. A queue or a consumer is created for every server and it accumulates messages while that server is gone. If your servers are ephemeral, that state has to be reaped or it grows without bound.
+
+## Pick a transport
+
+One file, four ways to fill it. The rest of your configuration does not change, because every bus satisfies the same interface.
+
+<Tabs>
+  <Tab value="Redis (default)">
+    At-most-once. Nothing new to run when Redis is already your L2.
+
+    <CodeGroup>
+    ```js src/cache/bus.js
+    import { RedisEventBus } from 'lazy-layers-cache'
+    import { redis } from './redis.js'
+
+    // The bus duplicates this client internally, because a Redis connection in
+    // subscriber mode cannot run normal commands.
+    export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+      retryQueue: { maxSize: 1000 },
+      handlerConcurrency: 16,
+    })
+
+    await bus.connect()
+    ```
+
+    ```ts src/cache/bus.ts
+    import { RedisEventBus } from 'lazy-layers-cache'
+    import { redis } from './redis.js'
+
+    // The bus duplicates this client internally, because a Redis connection in
+    // subscriber mode cannot run normal commands.
+    export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+      retryQueue: { maxSize: 1000 },
+      handlerConcurrency: 16,
+    })
+
+    await bus.connect()
+    ```
+    </CodeGroup>
+
+    Full setup in [Redis Pub/Sub](/docs/guides/buses/redis).
+  </Tab>
+
+  <Tab value="RabbitMQ">
+    Durable. Events survive a server being down and are redelivered on reconnect, at the cost of broker state per server.
+
+    <CodeGroup>
+    ```js src/cache/bus.js
+    import { RabbitMQEventBus } from 'lazy-layers-cache'
+
+    export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
+      url: process.env.RABBITMQ_URL,
+      exchangeType: 'fanout',
+      durable: true,
+      persistent: true,
+      durableInvalidationMode: true,
+      // Required. The queue is asserted durable only when it is named,
+      // so without this you get a transient, broker-named queue.
+      queueName: `lazylayers.${process.env.INSTANCE_ID}`,
+      queueName: `${process.env.INSTANCE_ID}-cache`,
+      // No default. Without it one slow handler lets the queue run away.
+      prefetch: 32,
+      retryQueue: { maxSize: 1000 },
+    })
+
+    await bus.connect()
+    ```
+
+    ```ts src/cache/bus.ts
+    import { RabbitMQEventBus } from 'lazy-layers-cache'
+
+    export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
+      url: process.env.RABBITMQ_URL,
+      exchangeType: 'fanout',
+      durable: true,
+      persistent: true,
+      durableInvalidationMode: true,
+      // Required. The queue is asserted durable only when it is named,
+      // so without this you get a transient, broker-named queue.
+      queueName: `lazylayers.${process.env.INSTANCE_ID}`,
+      queueName: `${process.env.INSTANCE_ID}-cache`,
+      // No default. Without it one slow handler lets the queue run away.
+      prefetch: 32,
+      retryQueue: { maxSize: 1000 },
+    })
+
+    await bus.connect()
+    ```
+    </CodeGroup>
+
+    Full setup in [RabbitMQ](/docs/guides/buses/rabbitmq).
+  </Tab>
+
+  <Tab value="NATS Core">
+    At-most-once, like Redis, but on a cluster built for fan-out.
+
+    <CodeGroup>
+    ```js src/cache/bus.js
+    import { NatsEventBus } from 'lazy-layers-cache'
+
+    export const bus = new NatsEventBus({
+      mode: 'core',
+      connectionOptions: { servers: process.env.NATS_URL },
+      subject: 'lazylayers.invalidate',
+      retryQueue: { maxSize: 1000 },
+    })
+
+    await bus.connect()
+    ```
+
+    ```ts src/cache/bus.ts
+    import { NatsEventBus } from 'lazy-layers-cache'
+
+    export const bus = new NatsEventBus({
+      mode: 'core',
+      connectionOptions: { servers: process.env.NATS_URL },
+      subject: 'lazylayers.invalidate',
+      retryQueue: { maxSize: 1000 },
+    })
+
+    await bus.connect()
+    ```
+    </CodeGroup>
+
+    Full setup in [NATS Core](/docs/guides/buses/nats-core).
+  </Tab>
+
+  <Tab value="NATS JetStream">
+    Durable with explicit acknowledgement. Use it when missing an invalidation is not acceptable.
+
+    <CodeGroup>
+    ```js src/cache/bus.js
+    import { NatsEventBus } from 'lazy-layers-cache'
+
+    export const bus = new NatsEventBus({
+      mode: 'jetstream',
+      connectionOptions: { servers: process.env.NATS_URL },
+      subject: 'lazylayers.invalidate',
+      jetstream: {
+        stream: 'LAZYLAYERS',
+        durableName: process.env.INSTANCE_ID,
+        storage: 'file',
+        maxAgeMs: 60 * 60 * 1000,
+        maxMsgs: 100_000,
+        ackWaitMs: 5000,
+        maxDeliver: 3,
+        ensureStream: true,
+        ensureConsumer: true,
+      },
+    })
+
+    await bus.connect()
+    ```
+
+    ```ts src/cache/bus.ts
+    import { NatsEventBus } from 'lazy-layers-cache'
+
+    export const bus = new NatsEventBus({
+      mode: 'jetstream',
+      connectionOptions: { servers: process.env.NATS_URL },
+      subject: 'lazylayers.invalidate',
+      jetstream: {
+        stream: 'LAZYLAYERS',
+        durableName: process.env.INSTANCE_ID,
+        storage: 'file',
+        maxAgeMs: 60 * 60 * 1000,
+        maxMsgs: 100_000,
+        ackWaitMs: 5000,
+        maxDeliver: 3,
+        ensureStream: true,
+        ensureConsumer: true,
+      },
+    })
+
+    await bus.connect()
+    ```
+    </CodeGroup>
+
+    Full setup in [NATS JetStream](/docs/guides/buses/nats-jetstream).
+  </Tab>
+</Tabs>
+
+<Warning>
+  JetStream's `durableName` must be **unique per server**. Two servers sharing one durable consumer split the stream between them, so each invalidation reaches only one of them.
+</Warning>
+
+Every bus needs `await bus.connect()` before use.
+
+## Wire it into the cache
+
+The bus and the identity go in as two options. Nothing else about the configuration depends on which transport you picked.
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+import { source } from './source.js'
+
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 60 * 1000 },
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+  l2: new RedisStore(redis, { prefix: 'app:cache:', deleteStrategy: 'unlink' }),
+
+  eventBus: bus,
+  // Identifies this server so it can ignore its own broadcasts.
+  source,
+
+  // A value larger than this invalidates peers instead of priming them. There
+  // is no default, so without this a 5 MB value goes to every server.
+  broadcastSetMaxBytes: 32 * 1024,
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+import { source } from './source.js'
+
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 60 * 1000 },
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+  l2: new RedisStore<User>(redis, { prefix: 'app:cache:', deleteStrategy: 'unlink' }),
+
+  eventBus: bus,
+  // Identifies this server so it can ignore its own broadcasts.
+  source,
+
+  // A value larger than this invalidates peers instead of priming them. There
+  // is no default, so without this a 5 MB value goes to every server.
+  broadcastSetMaxBytes: 32 * 1024,
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+From here the bus is invisible. `getOrSet` primes your peers, and `delete` invalidates them.
+
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+  // The resolved value is published as a `set` event. Every peer writes it into
+  // its own L1, so nobody else pays for this query.
+}
+
+export async function updateUser(id, patch) {
+  const updated = await db.users.update(id, patch)
+
+  // Publishes a `del` event after the write commits, not before.
+  await cache.delete(`user:${id}`)
+
+  return updated
+}
+```
+
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+import { db } from '../db.js'
+
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+  // The resolved value is published as a `set` event. Every peer writes it into
+  // its own L1, so nobody else pays for this query.
+}
+
+export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
+  const updated = await db.users.update(id, patch)
+
+  // Publishes a `del` event after the write commits, not before.
+  await cache.delete(`user:${id}`)
+
+  return updated
+}
+```
+</CodeGroup>
+
+## Check the bus before you serve traffic
+
+A bus that never connected fails quietly. The cache keeps answering from its own L1 and simply never hears about anyone else's writes, so you get stale data rather than an error. Every bus exposes `healthCheck()`, which returns a result object instead of throwing.
+
+<CodeGroup>
+```js src/server.js
+import { bus } from './cache/bus.js'
+import { app } from './app.js'
+
+const health = await bus.healthCheck()
+
+if (!health.ok) {
+  console.error('[cache] event bus unhealthy', health)
+  process.exit(1)
+}
+
+app.listen(3000)
+```
+
+```ts src/server.ts
+import { bus } from './cache/bus.js'
+import { app } from './app.js'
+
+const health = await bus.healthCheck()
+
+if (!health.ok) {
+  console.error('[cache] event bus unhealthy', health)
+  process.exit(1)
+}
+
+app.listen(3000)
+```
+</CodeGroup>
+
+The check connects, and on the transports that need it asserts the exchange or creates the stream and consumer. A wrong URL, missing credentials, a JetStream mode with no `durableName`, or a broker that is not up yet all surface here. Exiting before `listen` turns a configuration mistake into a failed startup your orchestrator can retry or roll back.
+
+## Two sharp edges
+
+These are real, they are in the code, and neither one announces itself at runtime.
+
+### The circuit breaker and the retry queue do not compose
+
+Two independent mechanisms protect a publish, and they do not chain.
+
+The cache's event-bus circuit breaker opens after `failureThreshold` publish failures, three by default, and stays open for `cooldownMs`, thirty seconds by default. While it is open, `publishInvalidation` emits `event-bus:publish-skipped` and **returns before calling `eventBus.publish`**.
+
+The bus retry queue lives inside `eventBus.publish`. It buffers an event when the publish itself fails and flushes the buffer ahead of the next successful publish.
+
+<Warning>
+  Because the breaker returns early, an event skipped by an open breaker never reaches the bus, so the retry queue never buffers it. Those invalidations are gone. Peers keep their copies until the TTL expires.
+</Warning>
+
+The retry queue covers short failures that get through to the transport. The breaker covers a broker that is failing every call, and it protects local reads at the cost of those invalidations. If a broker outage must not lose invalidations, raise `failureThreshold` so the breaker tolerates more failures before it starts shedding, and size `retryQueue.maxSize` to the number of events you write during an outage you expect to survive.
+
+### RabbitMQ does not await your handler
+
+The RabbitMQ consumer calls `void Promise.resolve(handler(event))` and attaches `.then(ack)`. It does not await before taking the next message.
+
+<Warning>
+  `prefetch` has **no default**. Without it, RabbitMQ keeps handing over messages and every one of them starts a handler immediately, so a burst of invalidations runs as many concurrent handlers as the broker can deliver.
+</Warning>
+
+Setting `prefetch` is what bounds that. It caps unacknowledged messages on the channel, and since the acknowledgement happens when the handler settles, the cap becomes your concurrency limit. Redis bounds this with `handlerConcurrency`, which defaults to 1, and both NATS modes await each handler in the message loop. RabbitMQ is the only transport where you have to supply the number yourself.
+
+## The retry queue
+
+Every transport takes the same two options.
+
+<ParamField path="retryQueue.enabled" type="boolean" default="true">
+  Buffer an event in memory when publishing it fails, and flush the buffer ahead of the next successful publish.
+</ParamField>
+
+<ParamField path="retryQueue.maxSize" type="number" default="10000">
+  Cap on buffered events. Past it, the oldest event is dropped with a warning.
+</ParamField>
+
+The bound is deliberate. During a long broker outage an unbounded queue would grow for as long as the server keeps writing, holding every buffered value in memory until the heap runs out. Dropping the oldest invalidations costs you staleness on those keys. Growing without a limit costs you the process, and with it every entry in L1.
+
+The queue is in process memory, so a restart discards it. It covers a broker blip, not an outage that outlasts your deploy.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Event bus reference" icon="sliders" href="/docs/reference/event-buses">
+    Every option of every transport with its default, in one table per bus.
+  </Card>
+  <Card title="Event ordering" icon="arrow-down-1-9" href="/docs/architecture/event-ordering">
+    Why dedupe by ID and per-key generations make a late redelivery safe.
+  </Card>
+  <Card title="Invalidation" icon="trash" href="/docs/concepts/invalidation">
+    What each event does to a peer, key by key.
+  </Card>
+</CardGroup>

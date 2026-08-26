@@ -1,0 +1,453 @@
+---
+title: "Configuration"
+description: "Every option, its exact type, its real default, and what it costs you when it is wrong."
+---
+
+Everything here goes to the `LazyLayersCache` constructor. The subset that also exists on `CacheOptions` can be overridden per call on `getOrSet`.
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache } from 'lazy-layers-cache'
+
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+<Warning>
+  **Tuning for production means changing numbers, not disabling safety.** In-flight dedupe, fail-open L2 behaviour and `broadcastSet` are load-bearing. `inflight: { enabled: false }`, `failSafe: { enabled: false }` and `broadcastSet: false` are not production advice, they are ways to reintroduce the failures this library exists to prevent. What you tune is entry counts, TTLs, byte ceilings, thresholds and cooldowns, sized to the instance the process runs on.
+</Warning>
+
+## Lifetime and layers
+
+<ParamField path="ttlMs" type="number" default="3600000">
+  Fallback lifetime for every entry, in milliseconds. One hour. Set too high, you serve stale data between invalidations. Set too low, your hit rate collapses and the origin absorbs the difference.
+</ParamField>
+
+<ParamField path="levels.L1" type="{ maxEntries?: number; ttlMs?: number }">
+  The in-process layer. `maxEntries` defaults to `1000`. `ttlMs` falls back to the cache-wide `ttlMs`, then to one hour.
+
+  These are the **only two dials L1 has**. Eviction is LRU and is not configurable, and there is no byte-based limit.
+</ParamField>
+
+<ParamField path="levels.L2" type="{ maxEntries?: number; ttlMs?: number }">
+  The shared layer. `ttlMs` falls back to the cache-wide `ttlMs`, then to one hour. Keep it well above L1's, because L2 is what survives a deploy.
+
+  `maxEntries` has no default. When set, `RedisStore` trims its index on write, dropping the oldest keys past the limit. It does nothing unless `useIndex` is on.
+</ParamField>
+
+<ParamField path="l1" type="CacheStore<K, V> | false">
+  A custom in-process store, or `false` to run without one. Defaults to a `MemoryStore` built from your options.
+
+  Disabling L1 costs you a network round trip on every single read, which is most of what you came here for. The one honest reason is a process where a stale local copy is unacceptable for the length of an L1 TTL.
+</ParamField>
+
+<ParamField path="l2" type="CacheStore<K, V> | false">
+  The shared store, usually a `RedisStore`. There is no default, so without it the cache is L1 only: nothing survives a restart and nothing is shared between servers.
+</ParamField>
+
+<ParamField path="versioning.enabled" type="boolean" default="false">
+  Appends `::v{generation}` to the storage key, so a delete moves the whole key to a new namespace instead of racing a redelivered write.
+
+  It costs you: after every delete the old versioned entry is orphaned in L2 until its TTL expires, so your L2 holds more keys than your logical keyspace. This is read from the constructor options only, so a per-call `versioning` is ignored.
+</ParamField>
+
+TTL resolution runs most specific to least: per-call level, per-call `ttlMs`, constructor level, constructor `ttlMs`, then the one hour default.
+
+### Sizing L1
+
+`maxEntries` is a count, and your instance's limit is bytes. Multiply the count by a typical decoded value size and keep the result to a fraction of the heap. These are estimates, not measurements, and one unexpectedly large value can blow straight past them.
+
+| Typical value | Rough size | 10,000 entries | Reasonable ceiling |
+|---|---|---|---|
+| Session or flag | ~200 B | ~2 MB | 50,000+ |
+| User record | ~2 KB | ~20 MB | 10,000 |
+| Rendered list page | ~18 KB | ~180 MB | 1,000 |
+
+Under Node clustering, every worker keeps its own L1. Budget `maxEntries x workers`.
+
+### RedisStore options
+
+Passed to the `RedisStore` constructor, not to the cache.
+
+<ParamField path="prefix" type="string" default="cache:">
+  Prepended to every Redis key. Two applications sharing a Redis instance with the same prefix will invalidate each other's keys.
+</ParamField>
+
+<ParamField path="indexKey" type="string" default="{prefix}__index">
+  The sorted set that tracks live keys. Change it only if it collides with something you already store.
+</ParamField>
+
+<ParamField path="useIndex" type="boolean" default="true">
+  Maintain the index so pattern deletes and `size` use `ZSCAN` instead of scanning the whole keyspace. Turning it off costs one `ZADD` less per write and buys you a full `SCAN` on every pattern delete, and it disables `levels.L2.maxEntries` trimming.
+</ParamField>
+
+<ParamField path="scanCount" type="number" default="1000">
+  Keys per scan step. Higher finishes sooner and blocks the Redis event loop for longer per step.
+</ParamField>
+
+<ParamField path="batchSize" type="number" default="500">
+  Keys per delete pipeline. Raising it makes a large invalidation one long stall instead of several short ones.
+</ParamField>
+
+<ParamField path="deleteStrategy" type="'unlink' | 'del'" default="unlink">
+  `unlink` frees memory on a background thread, so a large delete does not block the Redis event loop. Choose `del` only for a Redis older than 4.0.
+</ParamField>
+
+## Stampede protection
+
+<ParamField path="inflight.enabled" type="boolean" default="true">
+  Collapses concurrent callers for one key into a single loader call. Ten thousand simultaneous requests for a cold key produce one query.
+
+  Already on. Setting it to `false` hands every concurrent caller its own loader call, which is the exact thundering herd this library was built to stop.
+</ParamField>
+
+<ParamField path="inflight.ttlMs" type="number" default="5000">
+  How long an in-flight promise stays joinable. Past it, a new caller starts a fresh load rather than waiting on a loader that may never settle.
+
+  Set below your p99 loader latency and you get duplicate loads under normal conditions. Set it far above and one wedged loader parks every caller for that key until it expires.
+</ParamField>
+
+<ParamField path="inflight.maxEntries" type="number">
+  No default, so the number of tracked keys is unbounded. Cap it if a burst across many distinct cold keys could grow the map faster than loaders drain it.
+
+  Past the cap, loads still run, just without dedupe, and each one emits `inflight:bypass`. Setting it to `0` bypasses tracking for every load, which disables dedupe entirely.
+</ParamField>
+
+<ParamField path="negativeCache.enabled" type="boolean" default="true">
+  Remembers that a loader returned `undefined`, so a missing row is not a free pass to hammer the origin on every retry.
+
+  On by default, but inert until you give it a `ttlMs`.
+</ParamField>
+
+<ParamField path="negativeCache.ttlMs" type="number">
+  No default. Without a positive value **nothing is ever recorded**, so negative caching does nothing at all. How long a recorded miss suppresses the loader.
+
+  Too long and a row created a second after the miss stays invisible for the rest of that window. Seconds, not minutes.
+</ParamField>
+
+<ParamField path="negativeCache.maxEntries" type="number">
+  No default, so remembered misses are unbounded. Cap it when a scan of nonexistent keys is reachable from user input. Eviction here is oldest-inserted, not LRU.
+</ParamField>
+
+<ParamField path="distributedLock.enabled" type="boolean" default="false">
+  Serializes cold loads for one key across **servers**, not just within a process. In-flight dedupe already covers one process. This covers the case where fifty servers all miss the same key at the same instant.
+
+  Requires an L2 that implements `acquireLock` and `releaseLock`, which `RedisStore` does. Without one, this option is silently ignored. It costs a Redis round trip on every cold load, so turn it on for genuinely expensive loaders, not for every key.
+</ParamField>
+
+<ParamField path="distributedLock.ttlMs" type="number" default="10000">
+  Lock lifetime. Set it below your slowest realistic loader and a second server starts loading while the first is still working, which defeats the point.
+</ParamField>
+
+<ParamField path="distributedLock.waitTimeoutMs" type="number" default="2000">
+  How long a server that lost the lock polls for the winner's result before giving up and running the loader itself. Too short and you get the duplicate load anyway. Too long and a stuck lock holder adds this much latency to every waiter.
+</ParamField>
+
+<ParamField path="distributedLock.pollMs" type="number" default="50">
+  Interval between polls while waiting. Each poll is a real read through L1 and L2, so a small value multiplies L2 traffic across every waiting server.
+</ParamField>
+
+## Resilience
+
+<ParamField path="failSafe.enabled" type="boolean" default="false">
+  Serves the last known value when the loader fails or times out, instead of propagating the error.
+
+  Off unless you set it to exactly `true`. This is the one safety feature you have to opt into, and it is the difference between a degraded page and a 500 while your origin is down.
+</ParamField>
+
+<ParamField path="failSafe.staleTtlMs" type="number">
+  Defaults to `30_000`. How long a value stays usable as a stale fallback past its normal expiry. Raise it when your origin takes a long time to recover, lower it when serving an old value is worse than serving an error.
+
+  The stale copy lives in this process's memory, so it does not survive a restart and is not shared between servers.
+</ParamField>
+
+<ParamField path="timeouts.softMs" type="number">
+  No default. Stop waiting on the loader and serve the stale copy.
+
+  It applies **only** when fail-safe is enabled and a stale value exists for that key. In that case the soft timeout is the one that runs and `hardMs` is not consulted at all. Set it near your p99 loader latency, since anything lower trades freshness for latency on every slow load.
+</ParamField>
+
+<ParamField path="timeouts.hardMs" type="number">
+  No default, which means a hung loader waits forever. Gives up on the loader entirely and rethrows, unless a stale copy is available to fall back on.
+
+  Applies whenever the soft path above does not, so it is your only protection on a cold key that has never been loaded.
+</ParamField>
+
+Both timeouts abort the `AbortSignal` handed to your loader. If you do not pass that signal into your I/O, the timeout only stops the waiting, not the work.
+
+<ParamField path="resilience.l2CircuitBreaker" type="{ enabled?: boolean; failureThreshold?: number; cooldownMs?: number }">
+  Stops calling L2 after repeated failures. `enabled` defaults to `true`, `failureThreshold` to `3`, `cooldownMs` to `30000`.
+
+  While open, every L2 operation is skipped and emits `l2:skipped`, and reads fall through to L1 alone. A threshold of `1` opens on a single blip. A long cooldown keeps you off a recovered Redis. After the cooldown one probe is allowed through, and a single failure reopens the breaker.
+</ParamField>
+
+<ParamField path="resilience.eventBusCircuitBreaker" type="{ enabled?: boolean; failureThreshold?: number; cooldownMs?: number }">
+  The same, for bus publishes. Skips emit `event-bus:publish-skipped`.
+</ParamField>
+
+<Warning>
+  **Sharp edge.** The event-bus circuit breaker and the bus retry queue do not compose. When the breaker is open, publishing returns before it reaches the bus, so the retry queue never buffers that event and it is gone. Peers keep their stale copies until TTL. Keep `cooldownMs` short here, and treat `event-bus:publish-skipped` as a real signal rather than noise.
+</Warning>
+
+## Event bus
+
+<ParamField path="eventBus" type="EventBus">
+  The transport that carries invalidations and primed values between servers. No default. Without it, a `delete` on one server is invisible to every other one until their entries expire.
+
+  Every bus needs `await bus.connect()` before you hand it to the cache.
+</ParamField>
+
+<ParamField path="source" type="string">
+  Identity stamped on published events, and how a server recognises and ignores its own broadcasts. Defaults to a random per-process id.
+
+  Give it a stable, unique value per server. Two servers sharing one `source` will each ignore the other's events, so invalidations silently stop working between them.
+</ParamField>
+
+<ParamField path="subscribeToEvents" type="boolean" default="true">
+  Whether this server applies inbound events. Setting it to `false` gives you a publisher that never invalidates itself, which is what you want for a one-off writer process and never what you want for a server that also serves reads.
+</ParamField>
+
+<ParamField path="broadcastSet" type="boolean" default="true">
+  Publishes a `getOrSet` loader result to every peer, carrying the value itself, so their L1 warms without any of them running the query. On whenever an event bus is configured.
+
+  Setting it to `false` leaves you with delete-only fan-out, which means every server pays for its own copy of every key. Tune `broadcastSetMaxBytes` instead.
+</ParamField>
+
+<ParamField path="broadcastSetMaxBytes" type="number">
+  **No default.** The encoded event size above which a value is invalidated on peers rather than shipped to them.
+
+  With no ceiling set, a five megabyte loader result is broadcast in full to every server, on every cold load, over whatever transport you chose. That is the option most likely to hurt you here. Over the limit, the publish is skipped and `set:broadcast-skipped` is emitted with `reason: 'max-bytes'`. The value is still written to L1 and L2 locally.
+</ParamField>
+
+<ParamField path="eventDedupeMaxEntries" type="number" default="10000">
+  How many recent event ids are remembered for duplicate suppression. Too small on a busy bus and an id ages out of the set before a redelivery arrives, so the duplicate is applied.
+</ParamField>
+
+<ParamField path="eventDedupeTtlMs" type="number" default="300000">
+  How long each event id is remembered. Five minutes. Keep it above your broker's worst-case redelivery window, which matters on RabbitMQ and JetStream where redelivery is the point.
+</ParamField>
+
+<Note>
+  Only a `getOrSet` loader result is broadcast. A direct `cache.set()` writes L1 and L2 and emits a local event, but never publishes to the bus, so it will not prime peers. See [the API reference](/docs/reference/api#choosing-between-getorset-get-and-set).
+</Note>
+
+### Bus-side options that change correctness
+
+Full constructor options for each transport are in the [event bus reference](/docs/reference/event-buses). Two of them decide whether the bus holds up under load.
+
+<ParamField path="retryQueue" type="{ enabled?: boolean; maxSize?: number }">
+  Buffers events that failed to publish so they go out on reconnect. `maxSize` defaults to `10000`. Available on every transport. Read the sharp edge above: it cannot help with events the circuit breaker skipped.
+</ParamField>
+
+<ParamField path="prefetch" type="number">
+  RabbitMQ only, and it has **no default**. It is the only bound on how many invalidations are in flight to your handler at once, because the RabbitMQ handler dispatches without awaiting the result.
+
+  Leave it unset and a slow handler lets unacknowledged deliveries pile up without limit. Set it to a real number, in the tens. The Redis bus bounds the same thing with `handlerConcurrency`.
+</ParamField>
+
+## Serialization
+
+Values are packed with msgpack, then compressed with a codec chosen from the payload's size. A four byte prefix records which encoding was used, so decoding never has to guess.
+
+This is not a cache option. It is process-wide, set by `configureCompression` or by the `CACHE_COMPRESSION` environment variable, because the serializer is a module rather than a member of a cache instance. The last call wins for every cache in the process.
+
+<ParamField path="configureCompression(mode)" type="'gzip' | 'zstd' | 'auto' | CompressionTier[]" default="'gzip'">
+  Replaces the active tier list. Pass one of the three shorthands, or an explicit list of size bands.
+</ParamField>
+
+| Shorthand | Expands to |
+|---|---|
+| `'gzip'` | `none` under 1 KB, then `gzip`. The shipped default |
+| `'zstd'` | `none` under 1 KB, then `zstd` |
+| `'auto'` | `none` under 1 KB, the fastest installed codec up to 256 KB, then the densest installed codec |
+
+A `CompressionTier` is `{ maxBytes?: number, codec: CodecName }`, and `CodecName` is `'none'`, `'gzip'`, `'zstd'`, `'lz4'` or `'snappy'`.
+
+<CodeGroup>
+```js src/cache/compression.js
+import { configureCompression } from 'lazy-layers-cache'
+
+// Import this file once, before the cache is constructed.
+configureCompression([
+  { maxBytes: 1024, codec: 'none' },
+  { maxBytes: 262144, codec: 'lz4' },
+  { codec: 'zstd' },
+])
+```
+
+```ts src/cache/compression.ts
+import { configureCompression } from 'lazy-layers-cache'
+
+// Import this file once, before the cache is constructed.
+configureCompression([
+  { maxBytes: 1024, codec: 'none' },
+  { maxBytes: 262144, codec: 'lz4' },
+  { codec: 'zstd' },
+])
+```
+</CodeGroup>
+
+<ParamField path="maxBytes" type="number">
+  Exclusive upper bound for the tier, measured against the **packed msgpack** buffer rather than your object. Bounds must ascend, and only the last tier may omit this. Omitting it there means "and above". Anything else throws when you call `configureCompression`, not when a value is written.
+</ParamField>
+
+<ParamField path="codec" type="'none' | 'gzip' | 'zstd' | 'lz4' | 'snappy'">
+  The codec for that band. An unrecognised name throws. A recognised codec this process cannot run falls back to `gzip` at write time, so one list can ship to a mixed fleet.
+</ParamField>
+
+<Warning>
+  Keep `maxBytes` off the last tier. If every tier has a bound, payloads larger than the highest one fall off the end of the list and are stored uncompressed.
+</Warning>
+
+<ParamField path="getCompressionTiers()" type="readonly CompressionTier[]">
+  The list currently in effect. Read this rather than the configuration you believe you shipped.
+</ParamField>
+
+<ParamField path="ZSTD_AVAILABLE" type="boolean">
+  Whether `node:zlib` on this runtime exposes zstd. It arrived in Node 22.15 and 23.8, and this package supports Node 20, so it is detected rather than assumed. A constant, not a function.
+</ParamField>
+
+<ParamField path="LZ4_AVAILABLE() / SNAPPY_AVAILABLE()" type="() => boolean">
+  Whether the `lz4-napi` and `snappy` native modules resolved. Both are `optionalDependencies`, so the package installs cleanly without them. These are functions because the module is resolved lazily on first call.
+</ParamField>
+
+Compression still has to earn its place. Whatever codec a tier names, the compressed result is kept only when it saves at least 15 percent against the packed buffer. Otherwise the plain msgpack buffer is stored.
+
+Two environment variables force JSON encoding for debugging, at a real size and speed cost. They are checked before packing, so they bypass the tier list entirely. Neither belongs in production.
+
+| Variable | Effect |
+|---|---|
+| `CACHE_FORMAT=json` | Encodes with `JSON.stringify` under the `HC1J` prefix |
+| `CACHE_DEBUG_SERIALIZATION=true` | Same |
+
+`deserialize` returns `null` on corrupt input rather than throwing, so a poisoned key degrades to a miss instead of taking down the read path. The same applies to a prefix the reader does not recognise, which is what makes it safe to add codecs.
+
+Full tables of what each codec costs are in [serialization](/docs/concepts/serialization#choosing-a-codec).
+
+## Observability
+
+<ParamField path="observability" type="boolean | ObservabilityOptions" default="false">
+  Off by default, with zero hot-path cost when off. `true` starts the dashboard with the defaults below. Enabling it adds one O(1) handler to the event loop that is already running.
+</ParamField>
+
+<Warning>
+  The dashboard exposes cache contents and live activity. It is a development and staging tool. Leaving it enabled in production, on default credentials, publishes your cached data to anyone who can reach the port.
+</Warning>
+
+<ParamField path="observability.enabled" type="boolean" default="false">
+  Master switch. Also enabled by a truthy `LAZY_OBS_ENABLED`.
+</ParamField>
+
+<ParamField path="observability.route" type="string" default="/observelazyily">
+  Base route. Normalised to a leading slash with no trailing slash.
+</ParamField>
+
+<ParamField path="observability.maxEvents" type="number" default="1000">
+  Size of the in-memory ring buffer for the live feed. Never persisted. Raising it costs heap on a process you are already trying to keep small.
+</ParamField>
+
+<ParamField path="observability.maxValueBytes" type="number" default="262144">
+  Decoded values larger than this are truncated in the UI. 256 KB.
+</ParamField>
+
+<ParamField path="observability.server" type="{ host?: string; port?: number; autoStart?: boolean } | false">
+  Standalone server config. `host` defaults to `127.0.0.1`, `port` to `7077`, `autoStart` to `true`. Pass `false` to skip the server and mount `getObservabilityHandler()` on your own instead.
+
+  Changing `host` off localhost exposes the dashboard to your network. Do that only behind real authentication.
+</ParamField>
+
+<ParamField path="observability.auth" type="{ username?: string; password?: string; token?: string; disabled?: boolean }">
+  Credentials. `username` and `password` both default to `lazydev`, which is a development default and nothing more. `token` adds `?token=` and bearer support. `disabled: true` removes authentication entirely.
+
+  The environment variable is `LAZY_OBS_USER`, not `LAZY_OBS_USERNAME`.
+</ParamField>
+
+<ParamField path="observability.prometheus" type="boolean | { enabled?: boolean; prefix?: string; public?: boolean }">
+  Exposes an exposition endpoint at `{route}/metrics`. `enabled` defaults to `false`, `prefix` to `lazycache`, `public` to `false`. `public: true` allows unauthenticated scrapes of the metrics endpoint while the UI stays behind auth.
+</ParamField>
+
+<ParamField path="observability.quiet" type="boolean" default="false">
+  Suppresses the one-time startup warning. Silence it only once you have actually secured the dashboard.
+</ParamField>
+
+Every option above has an environment variable equivalent. They are listed in the [environment variables reference](/docs/reference/environment-variables).
+
+## Logging
+
+<ParamField path="logging.env" type="'development' | 'production' | 'test'">
+  Overrides `NODE_ENV` for log verbosity. Defaults to `production` when `NODE_ENV` is `production`, and `development` otherwise. Anything other than `production` prints debug lines on every hit, miss, set and delete.
+</ParamField>
+
+<ParamField path="logging.enabled" type="boolean">
+  No default. A hard override of the environment check. `true` forces debug logging on in production, which will fill your log pipeline at cache throughput. `false` silences it everywhere, including the error lines that tell you L2 is failing open.
+</ParamField>
+
+<ParamField path="events" type="CacheEventHandler[]">
+  Handlers registered at construction, equivalent to calling `on` for each. Registering them here is what catches events emitted during startup, before you would have had a chance to subscribe.
+</ParamField>
+
+<Note>
+  Logger configuration is process-wide. The last cache you construct wins for every cache in the process.
+</Note>
+
+## Per-call overrides
+
+`getOrSet` takes a third argument of the same `CacheOptions` shape, so one call can differ from the cache-wide policy.
+
+<CodeGroup>
+```js src/reports/annual.js
+import { cache } from '../cache/index.js'
+import { buildReport } from './build.js'
+
+export function getAnnualReport() {
+  return cache.getOrSet('report:annual', buildReport, {
+    ttlMs: 24 * 60 * 60 * 1000,
+    timeouts: { hardMs: 30_000 },
+  })
+}
+```
+
+```ts src/reports/annual.ts
+import { cache } from '../cache/index.js'
+import { buildReport } from './build.js'
+import type { Report } from '../types/report.js'
+
+export function getAnnualReport(): Promise<Report | undefined> {
+  return cache.getOrSet('report:annual', buildReport, {
+    ttlMs: 24 * 60 * 60 * 1000,
+    timeouts: { hardMs: 30_000 },
+  })
+}
+```
+</CodeGroup>
+
+Overridable per call: `ttlMs`, `levels`, `inflight`, `negativeCache`, `failSafe`, `timeouts` and `distributedLock`.
+
+Constructor only: `l1`, `l2`, `eventBus`, `source`, `subscribeToEvents`, `resilience`, `events`, `eventDedupeMaxEntries`, `eventDedupeTtlMs`, `logging`, `broadcastSet`, `broadcastSetMaxBytes` and `observability`. `versioning` is accepted per call by the type but read from the constructor options only.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="API reference" icon="code" href="/docs/reference/api">
+    The methods that read these options, with full signatures and return types.
+  </Card>
+  <Card title="Production checklist" icon="clipboard-check" href="/docs/setups/production">
+    These numbers chosen for a real instance, in the order you should set them.
+  </Card>
+  <Card title="Failure handling" icon="shield-check" href="/docs/guides/failure-handling">
+    What fail-safe, timeouts and the circuit breakers actually do when the origin is down.
+  </Card>
+</CardGroup>

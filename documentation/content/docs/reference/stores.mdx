@@ -1,0 +1,444 @@
+---
+title: "Stores"
+description: "The CacheStore interface, MemoryStore, RedisStore, and what it takes to write your own."
+---
+
+A store is anything that implements `CacheStore`. Both layers take one: `l1` defaults to a `MemoryStore` built from your options, and `l2` has no default at all.
+
+## The CacheStore interface
+
+Eight methods, all asynchronous. This is the complete contract.
+
+```ts
+interface CacheStore<K extends CacheKey, V> {
+  set(key: K, value: V, options?: CacheOptions): Promise<void>
+  get(key: K): Promise<V | undefined>
+  getOrSet(key: K, loader: CacheLoader<V>, options?: CacheOptions): Promise<V | undefined>
+  has(key: K): Promise<boolean>
+  delete(key: K): Promise<void>
+  deleteByPattern(pattern: string): Promise<void>
+  clear(): Promise<void>
+  size(): Promise<number>
+}
+```
+
+`CacheKey` is `string | number`. `CacheLoader<V>` is `(context?: { signal: AbortSignal }) => Promise<V | undefined>`.
+
+`undefined` is the miss signal throughout. A store returning `undefined` from `get` means "not here", which is why a cached `undefined` is handled by the negative cache rather than by the store.
+
+## MemoryStore
+
+The default L1. It wraps `lru-cache` and holds live object references, so a read is a map lookup with no decoding.
+
+```ts
+new MemoryStore<K extends CacheKey, V>(options?: CacheOptions)
+```
+
+Two type parameters, key first. It takes the same `CacheOptions` the cache takes, and reads exactly two fields out of them.
+
+<CodeGroup>
+```js src/cache/l1.js
+import { MemoryStore } from 'lazy-layers-cache'
+
+export const l1 = new MemoryStore({
+  levels: { L1: { maxEntries: 10_000, ttlMs: 30_000 } },
+})
+```
+
+```ts src/cache/l1.ts
+import { MemoryStore } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+
+export const l1 = new MemoryStore<string, User>({
+  levels: { L1: { maxEntries: 10_000, ttlMs: 30_000 } },
+})
+```
+</CodeGroup>
+
+You rarely construct one yourself. The cache builds it for you from the options you already passed, unless you set `l1` explicitly or set `l1: false`.
+
+### L1 has exactly two dials
+
+`MemoryStore` sets only `max` and `ttl` on the underlying `lru-cache`.
+
+<ParamField path="levels.L1.maxEntries" type="number" default="1000">
+  Becomes `max`. A count of entries, not bytes.
+</ParamField>
+
+<ParamField path="levels.L1.ttlMs" type="number" default="3600000">
+  Becomes `ttl`. Falls back to the cache-wide `ttlMs`, then to one hour.
+</ParamField>
+
+That is the whole surface.
+
+- **There is no configurable eviction policy.** Eviction is LRU, always. There is no LFU, no FIFO and no TTL-only mode to select.
+- **There is no byte-based sizing.** `maxSize` and `sizeCalculation` are not set and are not exposed, so a single unexpectedly large value can blow past whatever memory budget you had in mind.
+
+Size the entry count instead. Multiply `maxEntries` by a typical decoded value size and keep the result to a fraction of your heap, treating the answer as an estimate rather than a measurement. Under Node clustering every worker keeps its own `MemoryStore`, so budget `maxEntries x workers`.
+
+### TTL on write
+
+`set` resolves the lifetime most specific first: the per-call `levels.L1.ttlMs`, then the per-call `ttlMs`, then the store's constructor `levels.L1.ttlMs`, then its constructor `ttlMs`, then one hour.
+
+### The rest of the behaviour
+
+`deleteByPattern` walks every key in the LRU and glob-matches it, so its cost is the size of L1, not the size of the match. `size()` reports the LRU's current entry count.
+
+`MemoryStore` implements `InspectableStore`. Its `inspect` reads values with `peek()`, so opening the dashboard never changes recency or brings forward an eviction.
+
+## RedisStore
+
+The shared L2. It takes an `ioredis` client you already built, so connection settings, TLS and cluster configuration stay yours.
+
+```ts
+new RedisStore<V>(redis: Redis, options?: RedisStoreOptions)
+```
+
+<Warning>
+  **`RedisStore` declares one type parameter, not two.** The class is `RedisStore<V> implements CacheStore<CacheKey, V>`, so the key type is fixed to `CacheKey` and the only thing you name is the value.
+
+  Write `new RedisStore<User>(redis, options)`. `RedisStore<string, User>` does not compile.
+</Warning>
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+  l2: new RedisStore(redis, {
+    prefix: 'app:cache:',
+    deleteStrategy: 'unlink',
+    scanCount: 500,
+  }),
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+
+// One type parameter: the value. The key type is fixed to CacheKey.
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+  l2: new RedisStore<User>(redis, {
+    prefix: 'app:cache:',
+    deleteStrategy: 'unlink',
+    scanCount: 500,
+  }),
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+### RedisStoreOptions
+
+`RedisStoreOptions` extends `CacheOptions`, so a store can carry its own `ttlMs` and `levels` policy independent of the cache. On top of that it adds exactly six fields.
+
+<ParamField path="prefix" type="string" default="cache:">
+  Prepended to every Redis key. Two applications sharing a Redis instance with the same prefix will invalidate each other's keys.
+</ParamField>
+
+<ParamField path="indexKey" type="string" default="{prefix}__index">
+  The sorted set that tracks live keys, scored by write time. Derived from `prefix` unless you set it. Change it only if it collides with something you already store.
+</ParamField>
+
+<ParamField path="useIndex" type="boolean" default="true">
+  Maintain the index, so pattern deletes and `size` use `ZSCAN` and `ZCARD` instead of walking the keyspace. The check is `!== false`.
+
+  Turning it off saves one `ZADD` per write and costs you a full `SCAN` on every pattern delete and every `size()` call. It also disables `levels.L2.maxEntries` trimming entirely.
+</ParamField>
+
+<ParamField path="scanCount" type="number" default="1000">
+  The `COUNT` hint on `SCAN`, `ZSCAN` and the streaming variants. Higher finishes a sweep in fewer round trips and blocks the Redis event loop for longer on each one.
+</ParamField>
+
+<ParamField path="batchSize" type="number" default="500">
+  Keys per delete pipeline, and the batch size for accumulating matches during an indexed pattern delete. Raising it turns a large invalidation into one long stall instead of several short ones.
+</ParamField>
+
+<ParamField path="deleteStrategy" type="'unlink' | 'del'" default="unlink">
+  `unlink` frees memory on a background thread, so a large delete does not block the Redis event loop. Any value other than the exact string `'del'` resolves to `unlink`. Choose `del` only for a Redis older than 4.0.
+</ParamField>
+
+### The key layout
+
+Three shapes live under your prefix.
+
+| Shape | Purpose |
+|---|---|
+| `{prefix}{key}` | One cached value, serialized, with a `PX` expiry |
+| `{prefix}__index` | Sorted set of live key names, scored by write timestamp |
+| `{prefix}__lock:{key}` | Distributed lock token, held for the lock TTL |
+
+When `useIndex` is off, `inspect` filters out anything starting with `{prefix}__` so the dashboard does not show you the bookkeeping keys.
+
+### What each operation actually does
+
+`set` pipelines `SET key value PX ttl` with a `ZADD` on the index. When `levels.L2.maxEntries` is set **and** `useIndex` is on, it then reads `ZCARD` and deletes the oldest overflow keys.
+
+`get` reads with `getBuffer()`, which preserves binary payloads exactly, then deserializes. A miss also removes that key from the index, so an expired key stops being counted by `size()`.
+
+`delete` and `deleteByPattern` batch into pipelines of `batchSize`, issuing `UNLINK` or `DEL` alongside a `ZREM` on the index. With the index on, a pattern delete streams `ZSCAN`. With it off, it streams a keyspace `SCAN`.
+
+`clear()` is `deleteByPattern('*')` under your prefix, so it does not touch keys another application put in the same Redis.
+
+`size()` is `ZCARD` on the index, which is cheap. Without the index it is a full `SCAN` of everything under your prefix, which is not.
+
+### The two optional capabilities
+
+`RedisStore` implements both, which is why it is the store the dashboard and the distributed lock are written against.
+
+`InspectableStore` gives you `inspect`, used by the observability dashboard. It advances one `SCAN` or `ZSCAN` step at a time and pipelines `PTTL` plus the value fetch, so it never blasts the keyspace and never runs unless a dashboard tab is open.
+
+`acquireLock` and `releaseLock` back `distributedLock`. Acquire is `SET NX PX` on the lock key. Release is a Lua compare-and-delete against the token, so a server that has lost its lock to a timeout cannot delete the winner's.
+
+## Introspection
+
+<ParamField path="InspectableStore" type="interface">
+  One method: `inspect(options?: StoreInspectOptions): Promise<StoreInspection>`. Both shipped stores implement it.
+</ParamField>
+
+```ts
+interface StoreInspectOptions {
+  cursor?: string
+  limit?: number
+  match?: string
+  includeValues?: boolean
+  maxValueBytes?: number
+}
+
+interface StoreInspection {
+  size: number
+  cursor?: string
+  keys: KeyInspection[]
+}
+
+interface KeyInspection {
+  key: string
+  ttlRemainingMs?: number
+  serializedBytes: number
+  deserializedBytes: number
+  compressionRatio: number
+  encoding: 'msgpack' | 'msgpack-gzip' | 'json' | 'legacy'
+  value?: unknown
+  truncated?: boolean
+}
+```
+
+`limit` defaults to `100` in both stores, and `includeValues` defaults to `true` via a `!== false` check. `maxValueBytes` defaults to `262144`, which is 256 KB, and a value over it is reported with `truncated: true` instead of its contents. An absent `cursor` in the result means the scan is finished.
+
+The two stores differ in what the numbers mean. `MemoryStore` holds live objects, so `serializedBytes` is the size the value **would** take on the wire, computed on demand and skipped for values over the cap. `RedisStore` holds encoded buffers, so `serializedBytes` is what is actually stored, read back without re-serializing.
+
+### isInspectableStore
+
+A runtime type guard, exported from the package. Use it before calling `inspect` on a store you did not construct.
+
+<CodeGroup>
+```js src/cache/browse.js
+import { isInspectableStore } from 'lazy-layers-cache'
+
+export async function firstPage(store, match) {
+  if (!isInspectableStore(store)) {
+    return { size: 0, keys: [] }
+  }
+
+  return store.inspect({ match, limit: 50, includeValues: false })
+}
+```
+
+```ts src/cache/browse.ts
+import { isInspectableStore, type StoreInspection } from 'lazy-layers-cache'
+
+export async function firstPage(store: unknown, match: string): Promise<StoreInspection> {
+  if (!isInspectableStore(store)) {
+    return { size: 0, keys: [] }
+  }
+
+  return store.inspect({ match, limit: 50, includeValues: false })
+}
+```
+</CodeGroup>
+
+The guard is a single `typeof store?.inspect === 'function'` check. A store without `inspect` still works everywhere else, and the dashboard simply shows nothing for that layer.
+
+## Writing your own store
+
+Implement the eight `CacheStore` methods and pass the instance as `l1` or `l2`.
+
+<CodeGroup>
+```js src/cache/mapStore.js
+// A minimal store with no eviction. Real backends need a bound.
+export class MapStore {
+  constructor() {
+    this.entries = new Map()
+  }
+
+  async set(key, value) {
+    this.entries.set(key, value)
+  }
+
+  async get(key) {
+    return this.entries.get(key)
+  }
+
+  async getOrSet(key, loader, options) {
+    const cached = await this.get(key)
+    if (cached !== undefined) return cached
+
+    const value = await loader()
+    if (value === undefined) return undefined
+
+    await this.set(key, value, options)
+    return value
+  }
+
+  async has(key) {
+    return this.entries.has(key)
+  }
+
+  async delete(key) {
+    this.entries.delete(key)
+  }
+
+  async deleteByPattern(pattern) {
+    const regex = new RegExp(`^${pattern.split('*').map(escapeRegExp).join('.*')}$`)
+
+    for (const key of this.entries.keys()) {
+      if (regex.test(String(key))) this.entries.delete(key)
+    }
+  }
+
+  async clear() {
+    this.entries.clear()
+  }
+
+  async size() {
+    return this.entries.size
+  }
+}
+
+function escapeRegExp(part) {
+  return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+```
+
+```ts src/cache/mapStore.ts
+import type { CacheLoader, CacheOptions, CacheStore } from 'lazy-layers-cache'
+
+// A minimal store with no eviction. Real backends need a bound.
+export class MapStore<V> implements CacheStore<string, V> {
+  private readonly entries = new Map<string, V>()
+
+  async set(key: string, value: V): Promise<void> {
+    this.entries.set(key, value)
+  }
+
+  async get(key: string): Promise<V | undefined> {
+    return this.entries.get(key)
+  }
+
+  async getOrSet(key: string, loader: CacheLoader<V>, options?: CacheOptions): Promise<V | undefined> {
+    const cached = await this.get(key)
+    if (cached !== undefined) return cached
+
+    const value = await loader()
+    if (value === undefined) return undefined
+
+    await this.set(key, value)
+    return value
+  }
+
+  async has(key: string): Promise<boolean> {
+    return this.entries.has(key)
+  }
+
+  async delete(key: string): Promise<void> {
+    this.entries.delete(key)
+  }
+
+  async deleteByPattern(pattern: string): Promise<void> {
+    const regex = new RegExp(`^${pattern.split('*').map(escapeRegExp).join('.*')}$`)
+
+    for (const key of this.entries.keys()) {
+      if (regex.test(key)) this.entries.delete(key)
+    }
+  }
+
+  async clear(): Promise<void> {
+    this.entries.clear()
+  }
+
+  async size(): Promise<number> {
+    return this.entries.size
+  }
+}
+
+function escapeRegExp(part: string): string {
+  return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+```
+</CodeGroup>
+
+Then hand it to a layer. `getOrSet` on the cache goes through your store on the way to the loader, so nothing above changes.
+
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+```
+
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+import { db } from '../db.js'
+
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+```
+</CodeGroup>
+
+### Things to get right
+
+**Return `undefined` for a miss, never `null`.** The cache treats `undefined` as "not present" everywhere. A `null` return counts as a hit and is served to your callers.
+
+**Only L2 is wrapped in a circuit breaker.** Every L2 call goes through a guard that catches the failure, records it against `resilience.l2CircuitBreaker`, emits `l2:error` and falls back. Calls to your L1 store are awaited directly with no guard at all, so an L1 store that throws propagates that error straight to the caller of `getOrSet`. If you are writing an L1 store, handle your own failures and degrade to a miss.
+
+**Add the optional capabilities you can support.** Both are detected at runtime and neither is required.
+
+| Capability | Methods | Unlocks |
+|---|---|---|
+| `InspectableStore` | `inspect(options?)` | Key browsing in the observability dashboard |
+| Distributed lock | `acquireLock(key, token, ttlMs)`, `releaseLock(key, token)` | `distributedLock`, which serializes cold loads across servers |
+
+The lock check is structural: an object with both methods as functions satisfies it. `acquireLock` must return `true` only when it actually took the lock, and `releaseLock` must compare the token before deleting, or a slow holder will release a lock somebody else now owns.
+
+**Respect the options argument on `set`.** A store that ignores `options.ttlMs` and `options.levels` silently discards every per-call TTL override the cache passes down.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Configuration reference" icon="sliders" href="/docs/reference/configuration#lifetime-and-layers">
+    How `l1`, `l2` and `levels` resolve, and the TTL precedence a store has to honour.
+  </Card>
+  <Card title="Layers" icon="layer-group" href="/docs/concepts/layers">
+    Why L1 and L2 have different jobs, and how a read walks them.
+  </Card>
+  <Card title="Serialization" icon="box" href="/docs/concepts/serialization">
+    What `RedisStore` actually writes into Redis, and how the encoding prefix is chosen.
+  </Card>
+</CardGroup>

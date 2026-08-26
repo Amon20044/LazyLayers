@@ -1,0 +1,8 @@
+{
+  "title": "Setups",
+  "pages": [
+    "single-process",
+    "multi-instance",
+    "production"
+  ]
+}

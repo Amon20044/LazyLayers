@@ -65,6 +65,8 @@
     "example:events:rabbit": "node --import tsx examples/04-multi-server-event-buses/02-rabbitmq-fanout.ts",
     "example:events:nats-core": "node --import tsx examples/04-multi-server-event-buses/03-nats-core-pubsub.ts",
     "example:events:nats-js": "node --import tsx examples/04-multi-server-event-buses/04-nats-jetstream.ts",
+    "docs:dev": "npm --prefix documentation run dev",
+    "docs:build": "npm --prefix documentation run build",
     "example:fullstack": "cd examples/fullstack-hono-vite && npm run dev",
     "example:fullstack:server": "cd examples/fullstack-hono-vite && npm run start:server",
     "example:fullstack:client": "cd examples/fullstack-hono-vite && npm run start:client"

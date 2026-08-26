@@ -1,0 +1,386 @@
+---
+title: "RabbitMQ"
+description: "Durable fan-out with a queue per server, and the prefetch you have to set yourself."
+icon: "envelope"
+---
+
+Durable fan-out. Each server gets its own queue bound to a shared exchange, and that queue holds invalidations while the server is disconnected. When it comes back, it drains the backlog and catches up on every key it missed.
+
+That is the thing Redis Pub/Sub and NATS Core cannot do. The price is broker state per server, and one option with no default that you have to set.
+
+## Run RabbitMQ
+
+<Tabs>
+  <Tab value="Docker">
+    ```bash
+    docker run -d --name rabbitmq \
+      -p 5672:5672 \
+      -p 15672:15672 \
+      rabbitmq:3-management
+    ```
+
+    Management UI on [http://localhost:15672](http://localhost:15672), login `guest` / `guest`. Worth having in development, because watching a queue fill and drain is the fastest way to confirm durability is doing what you think.
+  </Tab>
+
+  <Tab value="macOS">
+    ```bash
+    brew install rabbitmq
+    brew services start rabbitmq
+    ```
+  </Tab>
+
+  <Tab value="Managed">
+    | Provider | Notes |
+    | --- | --- |
+    | [CloudAMQP](https://www.cloudamqp.com) | Dedicated RabbitMQ hosting, has a free tier |
+    | [AWS Amazon MQ](https://aws.amazon.com/amazon-mq/) | Managed broker inside your VPC |
+  </Tab>
+</Tabs>
+
+```bash .env
+RABBITMQ_URL="amqp://guest:guest@localhost:5672"
+```
+
+<Warning>
+  The `guest` account only works over localhost. On a remote broker, create a real user and use `amqps://` for TLS.
+</Warning>
+
+## Set it up
+
+<Steps>
+
+<Step title="Redis for L2">
+
+RabbitMQ carries the events. Redis still holds the shared values.
+
+<CodeGroup>
+```js src/cache/redis.js
+import Redis from 'ioredis'
+
+export const redis = new Redis(process.env.REDIS_URL, {
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  enableOfflineQueue: true,
+})
+
+redis.on('error', (err) => {
+  console.error('[redis]', err.message)
+})
+```
+
+```ts src/cache/redis.ts
+import Redis from 'ioredis'
+
+export const redis = new Redis(process.env.REDIS_URL!, {
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  enableOfflineQueue: true,
+})
+
+redis.on('error', (err: Error) => {
+  console.error('[redis]', err.message)
+})
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="The bus">
+
+<CodeGroup>
+```js src/cache/bus.js
+import { RabbitMQEventBus } from 'lazy-layers-cache'
+
+export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
+  url: process.env.RABBITMQ_URL,
+  exchangeType: 'fanout',
+  durable: true,
+  persistent: true,
+  durableInvalidationMode: true,
+  // Required. The queue is asserted durable only when it is named,
+  // so without this you get a transient, broker-named queue.
+  queueName: `lazylayers.${process.env.INSTANCE_ID}`,
+  // Stable per server. An unnamed queue is never durable.
+  queueName: `${process.env.INSTANCE_ID}-cache`,
+  exclusiveQueue: false,
+  autoDeleteQueue: false,
+  // No default. Without it, handlers run as fast as the broker delivers.
+  prefetch: 32,
+  retryQueue: { maxSize: 1000 },
+  logging: { env: 'production' },
+})
+
+await bus.connect()
+```
+
+```ts src/cache/bus.ts
+import { RabbitMQEventBus } from 'lazy-layers-cache'
+
+export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
+  url: process.env.RABBITMQ_URL,
+  exchangeType: 'fanout',
+  durable: true,
+  persistent: true,
+  durableInvalidationMode: true,
+  // Required. The queue is asserted durable only when it is named,
+  // so without this you get a transient, broker-named queue.
+  queueName: `lazylayers.${process.env.INSTANCE_ID}`,
+  // Stable per server. An unnamed queue is never durable.
+  queueName: `${process.env.INSTANCE_ID}-cache`,
+  exclusiveQueue: false,
+  autoDeleteQueue: false,
+  // No default. Without it, handlers run as fast as the broker delivers.
+  prefetch: 32,
+  retryQueue: { maxSize: 1000 },
+  logging: { env: 'production' },
+})
+
+await bus.connect()
+```
+</CodeGroup>
+
+`connect()` opens the connection, creates a consumer channel and a separate confirm channel for publishing, and asserts the exchange on both. Without `url` it throws, so a missing environment variable fails at startup.
+
+</Step>
+
+<Step title="The cache">
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+export const cache = new LazyLayersCache({
+  ttlMs: 5 * 60 * 1000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 60 * 1000 },
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+  l2: new RedisStore(redis, { prefix: 'app:cache:', deleteStrategy: 'unlink' }),
+
+  eventBus: bus,
+  // The same identity that names the queue above.
+  source: process.env.INSTANCE_ID,
+  broadcastSetMaxBytes: 32 * 1024,
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+const options: LazyLayersCacheOptions<string, User> = {
+  ttlMs: 5 * 60 * 1000,
+  levels: {
+    L1: { maxEntries: 10_000, ttlMs: 60 * 1000 },
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+  l2: new RedisStore<User>(redis, { prefix: 'app:cache:', deleteStrategy: 'unlink' }),
+
+  eventBus: bus,
+  // The same identity that names the queue above.
+  source: process.env.INSTANCE_ID,
+  broadcastSetMaxBytes: 32 * 1024,
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="Read and invalidate">
+
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+
+export async function updateUser(id, patch) {
+  const updated = await db.users.update(id, patch)
+  await cache.delete(`user:${id}`)
+  return updated
+}
+```
+
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+import { db } from '../db.js'
+
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+
+export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
+  const updated = await db.users.update(id, patch)
+  await cache.delete(`user:${id}`)
+  return updated
+}
+```
+</CodeGroup>
+
+</Step>
+
+</Steps>
+
+## prefetch has no default, and it is the only concurrency dial
+
+The consumer decodes a message and calls `void Promise.resolve(handler(event))`. It attaches `.then()` to acknowledge and `.catch()` to negatively acknowledge, and then it returns. **It does not await the handler before taking the next message.**
+
+<Warning>
+  `prefetch` has no default, and the bus applies the channel QoS only when you pass a number. Leave it unset and the broker keeps delivering, every delivery starts a handler immediately, and a backlog of ten thousand invalidations starts ten thousand handlers.
+</Warning>
+
+Because the acknowledgement happens when the handler settles, `prefetch` is what caps in-flight work: it bounds unacknowledged messages on the consumer channel, and unacknowledged means still running. Setting it turns unbounded concurrency into a number you chose.
+
+This matters most in exactly the situation you bought RabbitMQ for. A server that has been down for ten minutes reconnects to a full queue, and the whole backlog arrives at once.
+
+| Transport | What bounds handler concurrency | Default |
+| --- | --- | --- |
+| Redis Pub/Sub | `handlerConcurrency` | 1 |
+| NATS Core | The message loop awaits each handler | 1 |
+| NATS JetStream | The consume loop awaits each handler | 1 |
+| RabbitMQ | `prefetch` | None |
+
+Start at 32 and raise it if the queue drains too slowly for you. A `set` handler writes to L1 and a `del` handler touches L1 and L2, so the work per message is small and bounded.
+
+## Every option
+
+<ParamField path="exchange" type="string" required>
+  Constructor argument. Every server must bind to the same exchange. It is asserted on connect with the type and durability below.
+</ParamField>
+
+<ParamField path="url" type="string">
+  AMQP URL. Required unless you call `init(url)` yourself. Missing on both paths throws on connect.
+</ParamField>
+
+<ParamField path="exchangeType" type="'fanout' | 'topic' | 'direct'" default="fanout">
+  Fanout delivers to every bound queue, which is what invalidation wants. Use topic or direct when one exchange serves several caches, and set `routingKey` to match.
+</ParamField>
+
+<ParamField path="durableInvalidationMode" type="boolean" default="false">
+  The mode switch. It makes `durable` default to `true`, and makes `exclusiveQueue` and `autoDeleteQueue` default to `false` so the queue outlives the connection. It does **not** name the queue for you. Set `queueName` as well or the durability is only half there.
+</ParamField>
+
+<ParamField path="durable" type="boolean">
+  Exchange durability, and queue durability when `queueName` is set. Defaults to whatever `durableInvalidationMode` is. A durable exchange survives a broker restart.
+</ParamField>
+
+<ParamField path="persistent" type="boolean">
+  Marks published messages persistent so the broker writes them to disk. Defaults to the value of `durable`. Without it, a broker restart loses the backlog even from a durable queue.
+</ParamField>
+
+<ParamField path="queueName" type="string">
+  This server's queue. No default, and an empty name means the broker generates one. The queue is created durable only when you set this, so in durable mode it is effectively required.
+</ParamField>
+
+<ParamField path="exclusiveQueue" type="boolean">
+  Ties the queue to this connection and deletes it when the connection closes. Defaults to `true` outside durable mode and `false` inside it.
+</ParamField>
+
+<ParamField path="autoDeleteQueue" type="boolean">
+  Removes the queue once its last consumer goes away. Defaults to `true` outside durable mode and `false` inside it.
+</ParamField>
+
+<ParamField path="prefetch" type="number">
+  Channel QoS. No default. Caps unacknowledged messages on the consumer channel, which is the only bound on how many handlers run at once.
+</ParamField>
+
+<ParamField path="routingKey" type="string" default="">
+  Used to bind the queue and to publish. Ignored by a fanout exchange. Required for topic and direct.
+</ParamField>
+
+<ParamField path="retryQueue.enabled" type="boolean" default="true">
+  Buffer an event in memory when the publish fails, and flush the buffer ahead of the next successful publish.
+</ParamField>
+
+<ParamField path="retryQueue.maxSize" type="number" default="10000">
+  Cap on buffered events. Past it, the oldest is dropped with a warning.
+</ParamField>
+
+<ParamField path="logging" type="CacheLoggerOptions">
+  `{ env, enabled }`. `enabled` wins when set, otherwise output is on unless `env` is `'production'`.
+</ParamField>
+
+## Failure modes
+
+**An unnamed queue in durable mode is the trap.** With `durableInvalidationMode: true` and no `queueName`, the broker generates a random name. The queue is not exclusive and not auto-deleted, so it survives your disconnect, but it is also not durable and your next start asks for another random name. The old queue keeps its binding to the exchange and keeps accumulating messages that nothing will ever consume, while your restarted server has an empty queue and no backlog. You get the broker cost of durability and none of the benefit.
+
+**A handler that throws loses the event.** The catch path calls `nack` with requeue set to false, so the message is discarded rather than retried. It is dead-lettered only if you configured a dead-letter exchange on the queue yourself. Unlike JetStream, there is no redelivery attempt here.
+
+**A message that does not decode is acknowledged and dropped**, with a warning. That is deliberate: redelivering something unparseable would fail the same way forever.
+
+**Publishing before `connect()` throws.** So does subscribing. Both check for the channel and refuse.
+
+**Publishes wait for a broker confirm.** The publisher uses a confirm channel and awaits `waitForConfirms()`, so a `delete` does not resolve until the broker has taken responsibility for the message. That is stronger than Redis Pub/Sub, and it means a slow broker slows your write path.
+
+**Repeated publish failures trip the cache's circuit breaker, and then the retry queue stops helping.** Once the breaker is open the cache returns before it calls `eventBus.publish`, so nothing reaches the retry queue to be buffered. See [the sharp edges](/docs/guides/event-buses#two-sharp-edges).
+
+## Operational notes
+
+`healthCheck()` reports `queueName` as `null` until `subscribe()` has run, because the queue is asserted at subscribe time, not at connect time. A healthy result before the cache has subscribed is still healthy.
+
+One queue exists per server, forever, unless something removes it. If your servers are ephemeral, that set grows with every deploy. Either derive `queueName` from a stable identity so restarts reuse the same queue, or set a queue expiry policy on the broker so an unused queue is reaped. On Kubernetes, a StatefulSet gives you the stable name. A Deployment does not.
+
+In the management UI, open **Queues**. You should see one queue per server, each bound to your exchange. Stop a server and delete a key elsewhere, and its queue depth rises. Start it again and the depth falls to zero as it drains. Watch the same thing from the application side:
+
+<CodeGroup>
+```js src/cache/watch.js
+import { cache } from './index.js'
+
+cache.on((event) => {
+  if (event.type === 'invalidation:received') {
+    console.log('received', event.eventType, event.eventId)
+  }
+})
+```
+
+```ts src/cache/watch.ts
+import type { CacheEvent } from 'lazy-layers-cache'
+import { cache } from './index.js'
+
+cache.on((event: CacheEvent) => {
+  if (event.type === 'invalidation:received') {
+    console.log('received', event.eventType, event.eventId)
+  }
+})
+```
+</CodeGroup>
+
+Queue depth is the metric worth alerting on. A depth that grows and never returns to zero means a server is gone and its queue is not being reaped, or `prefetch` is far lower than your invalidation rate.
+
+## When to choose it
+
+Choose RabbitMQ when a missed invalidation is a correctness problem and RabbitMQ is already something your team runs. Durable queues per server, a management UI that shows the backlog, and dead-letter routing you may already have standardised on.
+
+Choose [NATS JetStream](/docs/guides/buses/nats-jetstream) instead if you want redelivery on handler failure rather than a discard, or if you would rather run one small binary than a broker.
+
+Stay on [Redis Pub/Sub](/docs/guides/buses/redis) if a missed invalidation only costs you a reload. Broker state per server is not free, and you should not pay for it without a reason.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="NATS JetStream" icon="bolt" href="/docs/guides/buses/nats-jetstream">
+    The other durable transport, with redelivery instead of a discard on handler failure.
+  </Card>
+  <Card title="Event bus reference" icon="sliders" href="/docs/reference/event-buses">
+    The full RabbitMQ option table with defaults, next to the other three transports.
+  </Card>
+  <Card title="Event buses" icon="tower-broadcast" href="/docs/guides/event-buses">
+    How durable and at-most-once delivery actually differ for a server that was offline.
+  </Card>
+</CardGroup>

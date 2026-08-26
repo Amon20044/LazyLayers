@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="LazyLayers">
+  <rect width="512" height="512" rx="112" fill="#D3F15D"/>
+  <g transform="translate(256 256) scale(0.78) translate(-349.5 -337.5)">
+    <path d="M131 443 L349 559 L568 443 L531 424 L351 520 L170 425 L131 443 Z" fill="#30302C"/>
+  <path d="M570 443 L350 561 L129 444 L128 462 L350 584 L563 472 L570 443 Z" fill="#8FAE2E"/>
+  <path d="M128 378 L349 496 L570 378 L566 405 L351 518 L128 399 L128 378 Z" fill="#8FAE2E"/>
+  <path d="M207 139 L230 150 L230 349 L207 338 L207 139 Z" fill="#8FAE2E"/>
+  <path d="M404 107 L426 118 L427 299 L404 287 L404 107 Z" fill="#8FAE2E"/>
+  <path d="M326 328 L480 411 L447 416 L326 351 L326 328 Z" fill="#8FAE2E"/>
+  <path d="M403 107 L326 146 L326 326 L481 413 L373 429 L208 341 L205 139 L129 178 L129 377 L347 493 L569 377 L403 288 L403 107 Z" fill="#30302C"/>
+  </g>
+</svg>

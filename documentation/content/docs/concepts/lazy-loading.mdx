@@ -1,0 +1,231 @@
+---
+title: "Lazy loading"
+description: "Load late, load once, load small, and let one server's work warm the whole fleet."
+icon: "bolt"
+---
+
+Every cache has to decide when a value gets produced. LazyLayers answers as late as it can, exactly once, in as few bytes as it can, and then gives the result away to every other server. That is where the name comes from.
+
+Three rules, and one consequence that falls out of them.
+
+<CardGroup cols={3}>
+  <Card title="Load late" icon="hourglass-half">
+    Nothing is cached until a request asks for it. The working set defines itself.
+  </Card>
+  <Card title="Load once" icon="layer-group">
+    Concurrent callers for one cold key share a single loader call.
+  </Card>
+  <Card title="Load small" icon="file-zipper">
+    Values cross the wire as MessagePack, gzipped only when that pays.
+  </Card>
+</CardGroup>
+
+## The problem with warming up front
+
+The eager design is tempting because it is easy to describe. On boot, walk the catalogue, load the top few thousand keys, serve traffic from a warm cache.
+
+It goes wrong in four places at once.
+
+- You pay for keys nobody reads. The list of "probably hot" keys is a guess, and memory spent on a key that is never requested is memory the hot keys do not get.
+- The guess ages. Traffic moves to a new campaign, a new region, a new customer, and the warm set is now warm for yesterday.
+- Startup gets slower and more fragile, because the process cannot serve until it has finished doing work no request asked for.
+- It multiplies. Forty servers rolling out means forty copies of the same warming queries, fired at the same database, in the same thirty seconds. A rolling deploy becomes a load test of your origin.
+
+Lazy loading declines the guess. A key enters the cache because a request asked for it, and it stays because requests keep asking. What is in L1 is what traffic actually touched inside the last `ttlMs`, on this server, which is the only definition of "hot" that cannot go stale.
+
+The cost is real and worth naming. The first reader of each key pays full price. Everything below is about making sure only one reader pays it, and that everybody else gets the result for free.
+
+## Load once, or the thundering herd
+
+Picture one key that a lot of people want. A pricing table, a feature flag document, the front page of a marketplace. It expires, or it gets evicted, or a fresh server comes up with an empty L1.
+
+Now count what happens next. The loader takes 200 ms. The key receives 500 requests per second. In the window between the first miss and the first write, another 100 requests arrive, and every one of them also misses. All 100 run the loader.
+
+That is the thundering herd, and the shape of it is the dangerous part. The extra 100 queries make the database slower, which widens the window, which admits more callers, which makes the database slower again. It is a feedback loop, it triggers on your most popular keys rather than your least, and it fires at the worst moments: just after a deploy, just after an eviction, just after the cache you were relying on went away.
+
+A TTL does not save you here. Nothing about "this value expires in 60 seconds" says anything about how many callers arrive in the same millisecond.
+
+### The mechanism
+
+The first caller for a key stores its promise in a map keyed by that key. Every caller that arrives while the promise is unsettled is handed the same promise. The loader body runs once, and everyone resolves from the one result.
+
+```mermaid
+sequenceDiagram
+    participant C1 as Caller 1
+    participant C2 as Callers 2 to 10000
+    participant Cache as LazyLayers
+    participant DB as Database
+    C1->>Cache: getOrSet user:42
+    Cache->>DB: loader runs
+    C2->>Cache: getOrSet user:42
+    Cache-->>C2: await the same promise
+    DB-->>Cache: row
+    Cache-->>C1: value
+    Cache-->>C2: value
+```
+
+<CodeGroup>
+```js src/reports/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+export async function getDailyReport(day) {
+  return cache.getOrSet(`report:${day}`, async ({ signal } = {}) => {
+    // One caller runs this. The other 9,999 wait on the promise it created.
+    return db.reports.build(day, { signal })
+  })
+}
+```
+
+```ts src/reports/repository.ts
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+import type { Report } from '../types/report.js'
+
+export async function getDailyReport(day: string): Promise<Report | undefined> {
+  return cache.getOrSet(`report:${day}`, async ({ signal } = {}) => {
+    // One caller runs this. The other 9,999 wait on the promise it created.
+    return db.reports.build(day, { signal })
+  })
+}
+```
+</CodeGroup>
+
+`benchmarks/herd.mjs` fires 10,000 concurrent `getOrSet` calls at a single cold key and counts the loader calls.
+
+| Run | Callers | Loader calls | In-flight reuses |
+| --- | --- | --- | --- |
+| Dedupe on, the default | 10,000 | 1 | 9,999 |
+| Dedupe off | 10,000 | 10,000 | 0 |
+
+Both runs assert that every caller received the correct value, so the collapse cannot come from dropping requests.
+
+### Where the sharing stops
+
+Sharing a promise forever would be its own failure mode, so it is bounded in two directions.
+
+An in-flight entry expires after `inflight.ttlMs`, which defaults to 5,000 ms. Past that, the next caller starts a fresh load rather than joining a promise that may never settle. One wedged loader cannot pin every future caller behind it.
+
+`inflight.maxEntries` bounds how many keys can be tracked at once. When the map is full, a new key skips the join and loads directly, emitting `inflight:bypass` with `reason: 'maxEntries'`. Leave it unset for an unbounded map, or set it when you have a key space wide enough that tracking every concurrent load is itself the memory problem.
+
+Every join emits `inflight:reuse`, so the collapse ratio is something you can graph rather than assume.
+
+<Warning>
+  Dedupe is per process. Four servers, each with a cold L1, produce four loader calls rather than one. The lazy fan-out below narrows that after the first load. To narrow it during the first load, see [stampede protection](/docs/guides/stampede-protection#across-instances).
+</Warning>
+
+## Load small
+
+L1 holds live JavaScript objects, so nothing is encoded there. Everything that leaves the process gets packed: values written to L2, and the invalidation events that travel between servers.
+
+The wire format is MessagePack, and gzip is applied on top only when the payload is at least 64 KB and compression saves at least 15%. A session record that costs 212 bytes as JSON is 123 bytes packed. A 400 record catalogue that costs 125,568 bytes as JSON is 9,903 bytes packed and gzipped.
+
+Smaller payloads matter more here than in a normal cache, because of what happens next. [Serialization](/docs/concepts/serialization) has the decision table and the CPU cost.
+
+## The lazy fan-out
+
+This is the part that makes two layers worth having.
+
+Per-process dedupe solves the herd inside one server. It does nothing across a fleet. Forty servers with cold L1 caches and one popular key still means forty identical queries, just spread out instead of stacked up. A cache that only broadcasts invalidations makes this worse rather than better, because every delete tells forty servers to go and reload the same thing.
+
+So when a `getOrSet` loader resolves, the value does not just get stored. It gets published.
+
+```mermaid
+sequenceDiagram
+    participant DB as Database
+    participant A as Server A
+    participant Bus as Event bus
+    participant B as Server B
+    participant C as Server C
+    A->>DB: loader runs once
+    DB-->>A: value
+    A->>A: write L1 and L2
+    A->>Bus: set event carrying the value
+    Bus-->>B: set event
+    Bus-->>C: set event
+    B->>B: applyRemoteSet writes L1
+    C->>C: applyRemoteSet writes L1
+```
+
+Each peer runs `applyRemoteSet`, which writes the value into its own L1, clears any negative entry for that key, and drops any in-flight promise still waiting on it. The peer does not query anything. It did not ask for this key, and it may never be asked for it. It simply keeps what it was handed, which is laziness on the receiving side as much as the sending side.
+
+One server pays for the query. The whole fleet gets warm. The first request for that key on server C is already a memory hit.
+
+<Note>
+  This is on whenever an event bus is configured. `broadcastSet` is gated on the option not being `false`, so there is nothing to switch on.
+</Note>
+
+### Two things you have to know about it
+
+<Warning>
+  **Only `getOrSet` broadcasts.** A direct `cache.set()` writes L1 and L2 and emits a local event, but never publishes to the bus. Peers find out about that value only when they read L2 themselves, or when a later invalidation reaches them. If you want the fan-out, the write has to come from a loader.
+</Warning>
+
+<Warning>
+  **`broadcastSetMaxBytes` has no default.** Without it, a 5 MB value is encoded and sent in full to every server on the bus. Set a ceiling. Above it the broadcast is skipped and `set:broadcast-skipped` is emitted with `reason: 'max-bytes'`, the value is still written to L1 and L2 normally, and peers load it from L2 when they need it.
+</Warning>
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+export const cache = new LazyLayersCache({
+  l2: new RedisStore(redis, { prefix: 'app:cache:' }),
+  eventBus: bus,
+
+  // Identifies this server so it ignores its own broadcasts. Must be unique.
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+
+  // Above this encoded size, peers get nothing and read L2 instead.
+  broadcastSetMaxBytes: 32 * 1024,
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+const options: LazyLayersCacheOptions<string, User> = {
+  l2: new RedisStore<User>(redis, { prefix: 'app:cache:' }),
+  eventBus: bus,
+
+  // Identifies this server so it ignores its own broadcasts. Must be unique.
+  source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
+
+  // Above this encoded size, peers get nothing and read L2 instead.
+  broadcastSetMaxBytes: 32 * 1024,
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+Pick the ceiling from what your bus and your servers can absorb, not from what your largest value happens to be. A broadcast is sent once and received by every server, so the cost scales with fleet size.
+
+A `set` event carries a per-key generation, so a peer that has already deleted the key at a higher generation drops the event instead of resurrecting the value. [Invalidation](/docs/concepts/invalidation#late-events-cannot-resurrect-a-deleted-value) covers how that comparison works.
+
+## What laziness costs
+
+The first reader of every key waits for the origin. That is the deal, and it is visible in your p99 rather than hidden in your startup time.
+
+When one specific key genuinely cannot afford a cold first request, ask for it yourself at boot. Calling `getOrSet` for that key during startup is still the lazy path, with a synthetic first caller standing in for a real one, and it stays honest about the difference between one key you decided to pre-load and a catalogue you guessed at.
+
+Misses are lazy too. A loader that returns `undefined` records a negative entry, so a key that does not exist stops costing a query on every request. That needs `negativeCache.ttlMs` set, because there is no default lifetime for a remembered miss.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Stampede protection" icon="shield-halved" href="/docs/guides/stampede-protection">
+    The distributed lock, for when one loader call per server is still too many.
+  </Card>
+  <Card title="Layers" icon="layer-group" href="/docs/concepts/layers">
+    Why the value lands in two places, and how to size the one that lives in your heap.
+  </Card>
+  <Card title="Invalidation" icon="arrows-rotate" href="/docs/concepts/invalidation">
+    The other three things that travel on the bus, and why a late event cannot undo a delete.
+  </Card>
+</CardGroup>
