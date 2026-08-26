@@ -126,7 +126,7 @@ That gives a short decision rule.
 A tier list is an ascending set of size bands, each naming the codec to use for payloads in that band. `configureCompression` installs one.
 
 <CodeGroup>
-```js src/cache/compression.js
+```js title="src/cache/compression.js"
 import { configureCompression } from 'lazy-layers-cache'
 
 // Small values are left alone, mid-sized values take the fast codec, and
@@ -138,7 +138,7 @@ configureCompression([
 ])
 ```
 
-```ts src/cache/compression.ts
+```ts title="src/cache/compression.ts"
 import { configureCompression } from 'lazy-layers-cache'
 
 // Small values are left alone, mid-sized values take the fast codec, and
@@ -177,7 +177,7 @@ Three shorthands cover the common cases without writing a list.
 `getCompressionTiers` returns the list currently in effect, which is the honest way to answer "what is this server doing" rather than reading the configuration you think you shipped.
 
 <CodeGroup>
-```js src/cache/compression.js
+```js title="src/cache/compression.js"
 import { getCompressionTiers, LZ4_AVAILABLE, SNAPPY_AVAILABLE, ZSTD_AVAILABLE } from 'lazy-layers-cache'
 
 logger.info({
@@ -188,7 +188,7 @@ logger.info({
 }, 'compression profile')
 ```
 
-```ts src/cache/compression.ts
+```ts title="src/cache/compression.ts"
 import { getCompressionTiers, LZ4_AVAILABLE, SNAPPY_AVAILABLE, ZSTD_AVAILABLE } from 'lazy-layers-cache'
 
 logger.info({
@@ -268,7 +268,7 @@ The catalogue row is where the shape becomes obvious. It packs to 113,541 bytes 
 `serializeWithStats` returns the buffer alongside what happened to it, which is how you answer "is this key worth caching" with a number rather than an opinion.
 
 <CodeGroup>
-```js src/catalog/repository.js
+```js title="src/catalog/repository.js"
 import { serializeWithStats } from 'lazy-layers-cache'
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
@@ -291,7 +291,7 @@ export async function getCatalog() {
 }
 ```
 
-```ts src/catalog/repository.ts
+```ts title="src/catalog/repository.ts"
 import { serializeWithStats } from 'lazy-layers-cache'
 import type { Catalog } from '../types/catalog.js'
 import { cache } from '../cache/index.js'

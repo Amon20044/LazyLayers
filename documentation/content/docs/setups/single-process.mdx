@@ -25,7 +25,7 @@ You are not switching any of this on. It is already running.
 There is no `src/cache/redis.js` and no `src/cache/bus.js` here. Those two files exist only once you have infrastructure to talk to. You write one file.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache } from 'lazy-layers-cache'
 
 export const cache = new LazyLayersCache({
@@ -54,7 +54,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 
@@ -91,7 +91,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 
 TypeScript users also want the value type in its own file, exactly as the quickstart lays it out.
 
-```ts src/types/user.ts
+```ts title="src/types/user.ts"
 export interface User {
   id: string
   email: string
@@ -105,7 +105,7 @@ export interface User {
 `getOrSet` is the whole API surface you need. It checks L1 and then runs your loader.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -127,7 +127,7 @@ export async function updateUser(id, patch) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 import { db } from '../db.js'
@@ -205,7 +205,7 @@ Multiply the entry count by a typical decoded value size. A decoded JavaScript o
 A cache you cannot measure is a cache you cannot tune.
 
 <CodeGroup>
-```js src/cache/metrics.js
+```js title="src/cache/metrics.js"
 import { cache } from './index.js'
 
 let hits = 0
@@ -226,7 +226,7 @@ setInterval(() => {
 }, 60_000)
 ```
 
-```ts src/cache/metrics.ts
+```ts title="src/cache/metrics.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from './index.js'
 

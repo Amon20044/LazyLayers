@@ -36,7 +36,7 @@ Its blast radius is small, and that is its other virtue. A wrong value in L1 aff
 L2 is optional and shared. `RedisStore` is the implementation in the package, and it stores bytes rather than objects, so values are encoded on the way in and decoded on the way out. [Serialization](/docs/concepts/serialization) covers the format.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 
@@ -56,7 +56,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'

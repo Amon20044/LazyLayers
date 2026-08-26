@@ -33,7 +33,7 @@ Every server holds its own L1. They share L2 and the bus. Postgres is the only p
 A request lands on **Server A**. Nothing anywhere has `user:42`.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 export async function getUser(id) {
   return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
     const row = await db.users.findById(id, { signal })
@@ -42,7 +42,7 @@ export async function getUser(id) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 export async function getUser(id: string): Promise<User | undefined> {
   return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
     const row = await db.users.findById(id, { signal })
@@ -119,7 +119,7 @@ Server A does not apply its own event. Every event carries a `source`, and a ser
 Someone upgrades user 42 to the pro plan.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 export async function updateUser(id, patch) {
   // The database first. Until this commits, the cached value is still the truth.
   const updated = await db.users.update(id, patch)
@@ -130,7 +130,7 @@ export async function updateUser(id, patch) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
   // The database first. Until this commits, the cached value is still the truth.
   const updated = await db.users.update(id, patch)

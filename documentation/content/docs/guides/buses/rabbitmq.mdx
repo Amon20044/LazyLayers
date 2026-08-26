@@ -37,7 +37,7 @@ That is the thing Redis Pub/Sub and NATS Core cannot do. The price is broker sta
   </Tab>
 </Tabs>
 
-```bash .env
+```bash title=".env"
 RABBITMQ_URL="amqp://guest:guest@localhost:5672"
 ```
 
@@ -54,7 +54,7 @@ RABBITMQ_URL="amqp://guest:guest@localhost:5672"
 RabbitMQ carries the events. Redis still holds the shared values.
 
 <CodeGroup>
-```js src/cache/redis.js
+```js title="src/cache/redis.js"
 import Redis from 'ioredis'
 
 export const redis = new Redis(process.env.REDIS_URL, {
@@ -68,7 +68,7 @@ redis.on('error', (err) => {
 })
 ```
 
-```ts src/cache/redis.ts
+```ts title="src/cache/redis.ts"
 import Redis from 'ioredis'
 
 export const redis = new Redis(process.env.REDIS_URL!, {
@@ -88,7 +88,7 @@ redis.on('error', (err: Error) => {
 <Step title="The bus">
 
 <CodeGroup>
-```js src/cache/bus.js
+```js title="src/cache/bus.js"
 import { RabbitMQEventBus } from 'lazy-layers-cache'
 
 export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
@@ -113,7 +113,7 @@ export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
 await bus.connect()
 ```
 
-```ts src/cache/bus.ts
+```ts title="src/cache/bus.ts"
 import { RabbitMQEventBus } from 'lazy-layers-cache'
 
 export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
@@ -146,7 +146,7 @@ await bus.connect()
 <Step title="The cache">
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 import { bus } from './bus.js'
@@ -166,7 +166,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'
@@ -195,7 +195,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 <Step title="Read and invalidate">
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -213,7 +213,7 @@ export async function updateUser(id, patch) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 import { db } from '../db.js'
@@ -339,7 +339,7 @@ One queue exists per server, forever, unless something removes it. If your serve
 In the management UI, open **Queues**. You should see one queue per server, each bound to your exchange. Stop a server and delete a key elsewhere, and its queue depth rises. Start it again and the depth falls to zero as it drains. Watch the same thing from the application side:
 
 <CodeGroup>
-```js src/cache/watch.js
+```js title="src/cache/watch.js"
 import { cache } from './index.js'
 
 cache.on((event) => {
@@ -349,7 +349,7 @@ cache.on((event) => {
 })
 ```
 
-```ts src/cache/watch.ts
+```ts title="src/cache/watch.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from './index.js'
 

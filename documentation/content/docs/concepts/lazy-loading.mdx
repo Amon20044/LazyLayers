@@ -49,8 +49,7 @@ A TTL does not save you here. Nothing about "this value expires in 60 seconds" s
 
 The first caller for a key stores its promise in a map keyed by that key. Every caller that arrives while the promise is unsettled is handed the same promise. The loader body runs once, and everyone resolves from the one result.
 
-```mermaid
-sequenceDiagram
+```mermaid title="sequenceDiagram"
     participant C1 as Caller 1
     participant C2 as Callers 2 to 10000
     participant Cache as LazyLayers
@@ -65,7 +64,7 @@ sequenceDiagram
 ```
 
 <CodeGroup>
-```js src/reports/repository.js
+```js title="src/reports/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -77,7 +76,7 @@ export async function getDailyReport(day) {
 }
 ```
 
-```ts src/reports/repository.ts
+```ts title="src/reports/repository.ts"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 import type { Report } from '../types/report.js'
@@ -130,8 +129,7 @@ Per-process dedupe solves the herd inside one server. It does nothing across a f
 
 So when a `getOrSet` loader resolves, the value does not just get stored. It gets published.
 
-```mermaid
-sequenceDiagram
+```mermaid title="sequenceDiagram"
     participant DB as Database
     participant A as Server A
     participant Bus as Event bus
@@ -166,7 +164,7 @@ One server pays for the query. The whole fleet gets warm. The first request for 
 </Warning>
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 import { bus } from './bus.js'
@@ -183,7 +181,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'

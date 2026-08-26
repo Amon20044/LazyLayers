@@ -111,7 +111,7 @@ Redis Pub/Sub. At-most-once delivery: a server that is disconnected when an even
 </ParamField>
 
 <CodeGroup>
-```js src/cache/bus.js
+```js title="src/cache/bus.js"
 import { RedisEventBus } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 
@@ -124,7 +124,7 @@ export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
 await bus.connect()
 ```
 
-```ts src/cache/bus.ts
+```ts title="src/cache/bus.ts"
 import { RedisEventBus } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 
@@ -205,7 +205,7 @@ Durable delivery through a broker. Events can survive a server being down and be
 </Warning>
 
 <CodeGroup>
-```js src/cache/bus.js
+```js title="src/cache/bus.js"
 import { RabbitMQEventBus } from 'lazy-layers-cache'
 
 export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
@@ -224,7 +224,7 @@ export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
 await bus.connect()
 ```
 
-```ts src/cache/bus.ts
+```ts title="src/cache/bus.ts"
 import { RabbitMQEventBus } from 'lazy-layers-cache'
 
 export const bus = new RabbitMQEventBus('lazylayers.invalidate', {
@@ -323,7 +323,7 @@ Everything under `jetstream` is read only in `mode: 'jetstream'`.
 </ParamField>
 
 <CodeGroup>
-```js src/cache/bus.js
+```js title="src/cache/bus.js"
 import { NatsEventBus } from 'lazy-layers-cache'
 
 export const bus = new NatsEventBus({
@@ -346,7 +346,7 @@ export const bus = new NatsEventBus({
 await bus.connect()
 ```
 
-```ts src/cache/bus.ts
+```ts title="src/cache/bus.ts"
 import { NatsEventBus } from 'lazy-layers-cache'
 
 export const bus = new NatsEventBus({
@@ -383,7 +383,7 @@ Both NATS modes **await** your handler before moving to the next message, so a s
 All three buses implement `healthCheck()`. Each one calls `connect()` internally and reports `ok: false` with the thrown error rather than throwing, so it is safe in a readiness probe.
 
 <CodeGroup>
-```js src/health.js
+```js title="src/health.js"
 import { bus } from './cache/bus.js'
 
 export async function busHealth() {
@@ -393,7 +393,7 @@ export async function busHealth() {
 }
 ```
 
-```ts src/health.ts
+```ts title="src/health.ts"
 import type { EventBusHealth } from 'lazy-layers-cache'
 import { bus } from './cache/bus.js'
 
@@ -412,7 +412,7 @@ Each transport widens the result with its own fields: Redis adds `channel`, `pub
 Implement `publish` and `subscribe`, add the optional methods you can support, and pass the instance as `eventBus`. Nothing else in the cache changes.
 
 <CodeGroup>
-```js src/cache/localBus.js
+```js title="src/cache/localBus.js"
 import { EventEmitter } from 'node:events'
 
 // A single-process bus, useful in tests where you want the fan-out path
@@ -445,7 +445,7 @@ export class LocalEventBus {
 }
 ```
 
-```ts src/cache/localBus.ts
+```ts title="src/cache/localBus.ts"
 import { EventEmitter } from 'node:events'
 import type { EventBus, EventBusHealth, InvalidationEvent } from 'lazy-layers-cache'
 

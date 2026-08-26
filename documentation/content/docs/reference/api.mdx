@@ -20,7 +20,7 @@ class LazyLayersCache<K extends CacheKey = string, V = unknown> extends HybridCa
 `K` is the key type and must extend `CacheKey`, which is `string | number`. `V` is the value type. Both default to `string` and `unknown`, so an unparameterised cache hands you `unknown` back and you cast at every call site. Name the types once at construction and every method is typed from there.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, createCache } from 'lazy-layers-cache'
 
 export const cache = new LazyLayersCache({ ttlMs: 5 * 60 * 1000 })
@@ -29,7 +29,7 @@ export const cache = new LazyLayersCache({ ttlMs: 5 * 60 * 1000 })
 export const same = createCache({ ttlMs: 5 * 60 * 1000 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, createCache } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 
@@ -77,7 +77,7 @@ The read-through path, and the method to reach for in almost all code. It checks
 Returns the cached or freshly loaded value. It returns `undefined` when the loader resolves `undefined` and no stale copy is available, and short-circuits to `undefined` without calling the loader at all while a negative entry for that key is live.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -89,7 +89,7 @@ export async function getUser(id) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 import { db } from '../db.js'
@@ -145,7 +145,7 @@ Checks the negative cache, then L1, then L2. A value found in L2 is written into
 `get` never runs a loader, never dedupes, and never publishes anything.
 
 <CodeGroup>
-```js src/users/warm-path.js
+```js title="src/users/warm-path.js"
 import { cache } from '../cache/index.js'
 
 const cached = await cache.get(`user:${id}`)
@@ -155,7 +155,7 @@ if (cached === undefined) {
 }
 ```
 
-```ts src/users/warm-path.ts
+```ts title="src/users/warm-path.ts"
 import { cache } from '../cache/index.js'
 
 const cached: User | undefined = await cache.get(`user:${id}`)
@@ -193,14 +193,14 @@ Writes to L1 and to L2, remembers the value as the stale copy when fail-safe is 
 </Warning>
 
 <CodeGroup>
-```js src/users/import.js
+```js title="src/users/import.js"
 import { cache } from '../cache/index.js'
 
 // Seeding a value you computed elsewhere. Local layers only.
 await cache.set(`user:${user.id}`, user, { ttlMs: 30 * 1000 })
 ```
 
-```ts src/users/import.ts
+```ts title="src/users/import.ts"
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 
@@ -237,7 +237,7 @@ Returns `false` immediately for a negative-cached key, without consulting either
 
 `has` does not decode the value, which makes it cheap on L2 but leaves you open to the usual race: the key can expire between your `has` and your read. Prefer `getOrSet` and check the result for `undefined`.
 
-```js src/cache/probe.js
+```js title="src/cache/probe.js"
 const warm = await cache.has(`user:${id}`)
 ```
 
@@ -254,7 +254,7 @@ delete(key: K): Promise<void>
 Drops the key from L1, L2, the negative cache, the stale copy and any in-flight promise, advances that key's generation counter, then publishes a `del` event so every peer does the same. Call it after your write commits, not before.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 export async function updateUser(id, patch) {
   const updated = await db.users.update(id, patch)
   await cache.delete(`user:${id}`)
@@ -262,7 +262,7 @@ export async function updateUser(id, patch) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
   const updated = await db.users.update(id, patch)
   await cache.delete(`user:${id}`)
@@ -290,11 +290,11 @@ Removes every matching entry from L1, L2, and the in-flight, negative and stale 
 Unlike `delete`, a `pattern` event carries no generation counter, so the ordering guard that protects single keys does not apply to pattern invalidations.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 await cache.deleteByPattern(`user:${id}:sessions:*`)
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 await cache.deleteByPattern(`user:${id}:sessions:*`)
 ```
 </CodeGroup>
@@ -321,7 +321,7 @@ Returns the L1 entry count when L1 exists. It only reports L2 when L1 is disable
 
 L2 sizing is approximate. `RedisStore` returns the cardinality of its index when `useIndex` is on, and otherwise counts keys with a full scan, which is expensive on a large keyspace.
 
-```js src/cache/metrics.js
+```js title="src/cache/metrics.js"
 const l1Entries = await cache.size()
 ```
 
@@ -338,7 +338,7 @@ on(handler: CacheEventHandler): () => void
 Returns an unsubscribe function. Passing handlers to the `events` constructor option is equivalent to calling `on` for each of them at startup.
 
 <CodeGroup>
-```js src/cache/metrics.js
+```js title="src/cache/metrics.js"
 import { cache } from './index.js'
 
 const off = cache.on((event) => {
@@ -351,7 +351,7 @@ const off = cache.on((event) => {
 off()
 ```
 
-```ts src/cache/metrics.ts
+```ts title="src/cache/metrics.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from './index.js'
 

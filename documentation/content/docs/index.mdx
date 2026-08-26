@@ -47,19 +47,19 @@ icon: "rocket"
 LazyLayers requires **Node.js 20 or 22+**.
 
 <CodeGroup>
-```bash npm
+```bash title="npm"
 npm install lazy-layers-cache ioredis
 ```
 
-```bash pnpm
+```bash title="pnpm"
 pnpm add lazy-layers-cache ioredis
 ```
 
-```bash yarn
+```bash title="yarn"
 yarn add lazy-layers-cache ioredis
 ```
 
-```bash bun
+```bash title="bun"
 bun add lazy-layers-cache ioredis
 ```
 </CodeGroup>
@@ -74,7 +74,7 @@ bun add lazy-layers-cache ioredis
 
 Create your hybrid cache with L1 in-memory storage, shared L2 Redis, and cross-instance Pub/Sub invalidation:
 
-```ts cache.ts
+```ts title="cache.ts"
 import Redis from 'ioredis';
 import { LazyLayersCache, RedisStore, RedisEventBus } from 'lazy-layers-cache';
 

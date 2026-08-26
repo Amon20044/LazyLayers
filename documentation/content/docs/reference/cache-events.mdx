@@ -10,7 +10,7 @@ The cache emits a typed event for every decision it makes: which layer served a 
 `on` registers a handler and returns a function that removes it.
 
 <CodeGroup>
-```js src/cache/metrics.js
+```js title="src/cache/metrics.js"
 import { cache } from './index.js'
 
 const off = cache.on((event) => {
@@ -21,7 +21,7 @@ const off = cache.on((event) => {
 off()
 ```
 
-```ts src/cache/metrics.ts
+```ts title="src/cache/metrics.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from './index.js'
 
@@ -148,7 +148,7 @@ That ordering matters for `invalidation:duplicate`, which is checked before the 
 `CacheEvent` is a discriminated union on `type`, so a `switch` gives you the exact payload in each branch and a field that does not exist on that member is a compile error.
 
 <CodeGroup>
-```js src/cache/handlers.js
+```js title="src/cache/handlers.js"
 export function handle(event) {
   switch (event.type) {
     case 'hit':
@@ -166,7 +166,7 @@ export function handle(event) {
 }
 ```
 
-```ts src/cache/handlers.ts
+```ts title="src/cache/handlers.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 
 export function handle(event: CacheEvent): void {
@@ -192,7 +192,7 @@ export function handle(event: CacheEvent): void {
 Because one read can emit two events, a per-request rate has to count the last layer's miss rather than every miss. With both layers configured, a read that reaches your loader is exactly one `miss` with `level: 'L2'`, and a read that was served is exactly one `hit` at either level.
 
 <CodeGroup>
-```js src/cache/hitRate.js
+```js title="src/cache/hitRate.js"
 import { cache } from './index.js'
 
 // Fixed label sets only. No keys, ever.
@@ -233,7 +233,7 @@ setInterval(() => {
 }, 60_000)
 ```
 
-```ts src/cache/hitRate.ts
+```ts title="src/cache/hitRate.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from './index.js'
 

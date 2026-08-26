@@ -13,11 +13,11 @@ That is the whole reason to pick it. You pay for it in broker state and in one p
 JetStream is off unless you ask for it.
 
 <CodeGroup>
-```bash docker
+```bash title="docker"
 docker run -p 4222:4222 nats:latest --jetstream
 ```
 
-```bash cli
+```bash title="cli"
 nats-server --jetstream --store_dir /var/lib/nats
 ```
 </CodeGroup>
@@ -35,7 +35,7 @@ npm install @nats-io/transport-node @nats-io/jetstream
 ## Set it up
 
 <CodeGroup>
-```js src/cache/bus.js
+```js title="src/cache/bus.js"
 import { NatsEventBus } from 'lazy-layers-cache'
 
 export const bus = new NatsEventBus({
@@ -70,7 +70,7 @@ export const bus = new NatsEventBus({
 await bus.connect()
 ```
 
-```ts src/cache/bus.ts
+```ts title="src/cache/bus.ts"
 import { NatsEventBus } from 'lazy-layers-cache'
 
 export const bus = new NatsEventBus({
@@ -121,7 +121,7 @@ await bus.connect()
 Identical to every other transport, which is the point of the interface.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 import { bus } from './bus.js'
@@ -139,7 +139,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'

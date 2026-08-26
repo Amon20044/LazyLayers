@@ -61,7 +61,7 @@ Every event also carries `id`, `source` and `ts`. The `id` is what event dedupe 
 Read it from the environment and include the worker identity.
 
 <CodeGroup>
-```js src/cache/source.js
+```js title="src/cache/source.js"
 import cluster from 'node:cluster'
 
 const host = process.env.INSTANCE_ID ?? process.env.HOSTNAME ?? 'local'
@@ -70,7 +70,7 @@ const worker = cluster.worker?.id ?? process.pid
 export const source = `${host}-w${worker}`
 ```
 
-```ts src/cache/source.ts
+```ts title="src/cache/source.ts"
 import cluster from 'node:cluster'
 
 const host = process.env.INSTANCE_ID ?? process.env.HOSTNAME ?? 'local'
@@ -288,7 +288,7 @@ Every bus needs `await bus.connect()` before use.
 The bus and the identity go in as two options. Nothing else about the configuration depends on which transport you picked.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 import { bus } from './bus.js'
@@ -312,7 +312,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'
@@ -343,7 +343,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 From here the bus is invisible. `getOrSet` primes your peers, and `delete` invalidates them.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -366,7 +366,7 @@ export async function updateUser(id, patch) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 import { db } from '../db.js'
@@ -396,7 +396,7 @@ export async function updateUser(id: string, patch: Partial<User>): Promise<User
 A bus that never connected fails quietly. The cache keeps answering from its own L1 and simply never hears about anyone else's writes, so you get stale data rather than an error. Every bus exposes `healthCheck()`, which returns a result object instead of throwing.
 
 <CodeGroup>
-```js src/server.js
+```js title="src/server.js"
 import { bus } from './cache/bus.js'
 import { app } from './app.js'
 
@@ -410,7 +410,7 @@ if (!health.ok) {
 app.listen(3000)
 ```
 
-```ts src/server.ts
+```ts title="src/server.ts"
 import { bus } from './cache/bus.js'
 import { app } from './app.js'
 

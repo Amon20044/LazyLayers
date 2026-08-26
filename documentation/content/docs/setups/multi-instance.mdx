@@ -35,7 +35,7 @@ Same four-file layout as the quickstart. You are adding `src/cache/redis.js` and
 One connection, one file, imported by everything else. Keeping it separate matters because the event bus duplicates this client rather than opening a second one from scratch.
 
 <CodeGroup>
-```js src/cache/redis.js
+```js title="src/cache/redis.js"
 import Redis from 'ioredis'
 
 export const redis = new Redis(process.env.REDIS_URL, {
@@ -51,7 +51,7 @@ redis.on('error', (err) => {
 })
 ```
 
-```ts src/cache/redis.ts
+```ts title="src/cache/redis.ts"
 import Redis from 'ioredis'
 
 export const redis = new Redis(process.env.REDIS_URL!, {
@@ -75,7 +75,7 @@ redis.on('error', (err: Error) => {
 Redis Pub/Sub is the default because you already have Redis for L2. It is at-most-once, so a server that is offline misses the event and reloads on its next request.
 
 <CodeGroup>
-```js src/cache/bus.js
+```js title="src/cache/bus.js"
 import { RedisEventBus } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 
@@ -89,7 +89,7 @@ export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
 await bus.connect()
 ```
 
-```ts src/cache/bus.ts
+```ts title="src/cache/bus.ts"
 import { RedisEventBus } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 
@@ -112,7 +112,7 @@ If you cannot tolerate a missed event, the durable transports are laid out tab b
 
 Skip this if you are writing JavaScript.
 
-```ts src/types/user.ts
+```ts title="src/types/user.ts"
 export interface User {
   id: string
   email: string
@@ -126,7 +126,7 @@ export interface User {
 <Step title="Build the cache">
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 import { bus } from './bus.js'
@@ -163,7 +163,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'
@@ -211,7 +211,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 Nothing about your call sites changes. The same `getOrSet` now fans out, and the same `delete` now travels.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -236,7 +236,7 @@ export async function updateUser(id, patch) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 import { db } from '../db.js'
@@ -308,7 +308,7 @@ That pairing, short L1 and long L2, is what makes a two tier cache worth having.
 `healthCheck()` connects, creates streams and consumers where the transport needs them, and returns `{ ok: false, error }` rather than throwing. Running it before you accept traffic turns a configuration mistake into a failed startup instead of a slow leak of stale reads.
 
 <CodeGroup>
-```js src/server.js
+```js title="src/server.js"
 import { bus } from './cache/bus.js'
 import { app } from './app.js'
 
@@ -322,7 +322,7 @@ if (!health.ok) {
 app.listen(3000)
 ```
 
-```ts src/server.ts
+```ts title="src/server.ts"
 import { bus } from './cache/bus.js'
 import { app } from './app.js'
 
