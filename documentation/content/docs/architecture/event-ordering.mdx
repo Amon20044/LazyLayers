@@ -79,8 +79,7 @@ Each server keeps a generation counter per key, in memory. Deleting a key advanc
 
 When an inbound `del` or `set` carries a generation **strictly lower** than the receiver's own counter for that key, the receiver drops it and emits `invalidation:stale` carrying both numbers.
 
-```mermaid
-sequenceDiagram
+```mermaid title="sequenceDiagram"
     participant A as Server A
     participant Bus as Event bus
     participant B as Server B
@@ -139,7 +138,7 @@ If a key must never be served stale, do not cache it. If it can tolerate a bound
 Every drop emits an event, so the ordering machinery is something you can graph rather than trust.
 
 <CodeGroup>
-```js src/cache/metrics.js
+```js title="src/cache/metrics.js"
 import { cache } from './index.js'
 
 cache.on((event) => {
@@ -158,7 +157,7 @@ cache.on((event) => {
 })
 ```
 
-```ts src/cache/metrics.ts
+```ts title="src/cache/metrics.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from './index.js'
 

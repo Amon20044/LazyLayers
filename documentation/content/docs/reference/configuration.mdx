@@ -6,7 +6,7 @@ description: "Every option, its exact type, its real default, and what it costs 
 Everything here goes to the `LazyLayersCache` constructor. The subset that also exists on `CacheOptions` can be overridden per call on `getOrSet`.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache } from 'lazy-layers-cache'
 
 export const cache = new LazyLayersCache({
@@ -14,7 +14,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 
@@ -277,7 +277,7 @@ This is not a cache option. It is process-wide, set by `configureCompression` or
 A `CompressionTier` is `{ maxBytes?: number, codec: CodecName }`, and `CodecName` is `'none'`, `'gzip'`, `'zstd'`, `'lz4'` or `'snappy'`.
 
 <CodeGroup>
-```js src/cache/compression.js
+```js title="src/cache/compression.js"
 import { configureCompression } from 'lazy-layers-cache'
 
 // Import this file once, before the cache is constructed.
@@ -288,7 +288,7 @@ configureCompression([
 ])
 ```
 
-```ts src/cache/compression.ts
+```ts title="src/cache/compression.ts"
 import { configureCompression } from 'lazy-layers-cache'
 
 // Import this file once, before the cache is constructed.
@@ -408,7 +408,7 @@ Every option above has an environment variable equivalent. They are listed in th
 `getOrSet` takes a third argument of the same `CacheOptions` shape, so one call can differ from the cache-wide policy.
 
 <CodeGroup>
-```js src/reports/annual.js
+```js title="src/reports/annual.js"
 import { cache } from '../cache/index.js'
 import { buildReport } from './build.js'
 
@@ -420,7 +420,7 @@ export function getAnnualReport() {
 }
 ```
 
-```ts src/reports/annual.ts
+```ts title="src/reports/annual.ts"
 import { cache } from '../cache/index.js'
 import { buildReport } from './build.js'
 import type { Report } from '../types/report.js'

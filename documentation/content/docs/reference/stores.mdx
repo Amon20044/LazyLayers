@@ -37,7 +37,7 @@ new MemoryStore<K extends CacheKey, V>(options?: CacheOptions)
 Two type parameters, key first. It takes the same `CacheOptions` the cache takes, and reads exactly two fields out of them.
 
 <CodeGroup>
-```js src/cache/l1.js
+```js title="src/cache/l1.js"
 import { MemoryStore } from 'lazy-layers-cache'
 
 export const l1 = new MemoryStore({
@@ -45,7 +45,7 @@ export const l1 = new MemoryStore({
 })
 ```
 
-```ts src/cache/l1.ts
+```ts title="src/cache/l1.ts"
 import { MemoryStore } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 
@@ -101,7 +101,7 @@ new RedisStore<V>(redis: Redis, options?: RedisStoreOptions)
 </Warning>
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 
@@ -115,7 +115,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'
@@ -238,7 +238,7 @@ The two stores differ in what the numbers mean. `MemoryStore` holds live objects
 A runtime type guard, exported from the package. Use it before calling `inspect` on a store you did not construct.
 
 <CodeGroup>
-```js src/cache/browse.js
+```js title="src/cache/browse.js"
 import { isInspectableStore } from 'lazy-layers-cache'
 
 export async function firstPage(store, match) {
@@ -250,7 +250,7 @@ export async function firstPage(store, match) {
 }
 ```
 
-```ts src/cache/browse.ts
+```ts title="src/cache/browse.ts"
 import { isInspectableStore, type StoreInspection } from 'lazy-layers-cache'
 
 export async function firstPage(store: unknown, match: string): Promise<StoreInspection> {
@@ -270,7 +270,7 @@ The guard is a single `typeof store?.inspect === 'function'` check. A store with
 Implement the eight `CacheStore` methods and pass the instance as `l1` or `l2`.
 
 <CodeGroup>
-```js src/cache/mapStore.js
+```js title="src/cache/mapStore.js"
 // A minimal store with no eviction. Real backends need a bound.
 export class MapStore {
   constructor() {
@@ -326,7 +326,7 @@ function escapeRegExp(part) {
 }
 ```
 
-```ts src/cache/mapStore.ts
+```ts title="src/cache/mapStore.ts"
 import type { CacheLoader, CacheOptions, CacheStore } from 'lazy-layers-cache'
 
 // A minimal store with no eviction. Real backends need a bound.
@@ -386,7 +386,7 @@ function escapeRegExp(part: string): string {
 Then hand it to a layer. `getOrSet` on the cache goes through your store on the way to the loader, so nothing above changes.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -398,7 +398,7 @@ export async function getUser(id) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 import { db } from '../db.js'

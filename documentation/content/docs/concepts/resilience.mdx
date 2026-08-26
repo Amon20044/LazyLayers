@@ -58,7 +58,7 @@ interface CircuitBreakerOptions {
 </Note>
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 import { bus } from './bus.js'
@@ -85,7 +85,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'
@@ -145,7 +145,7 @@ Values are remembered as stale at write time, kept for `staleTtlMs` past their n
 </Warning>
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
 
@@ -158,7 +158,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 const options: LazyLayersCacheOptions<string, User> = {
   ttlMs: 5 * 60 * 1000,
 
@@ -187,7 +187,7 @@ Asking repeatedly for something that does not exist runs the loader repeatedly. 
 A loader that resolves to `undefined` records the absence. Later reads for that key return `undefined` without calling the loader, and emit `miss` with level `negative`. That check runs before any layer is touched, so a known miss costs nothing.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
 
@@ -201,7 +201,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 const options: LazyLayersCacheOptions<string, User> = {
   ttlMs: 5 * 60 * 1000,
 
@@ -234,7 +234,7 @@ The soft timeout is a latency budget. You already hold an answer that is slightl
 Both fire `controller.abort()` on the `AbortSignal` handed to your loader. That signal is the only lever the cache has, because it cannot reach inside your database client and cancel a query it never issued.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 
 export async function getUser(id) {
@@ -247,7 +247,7 @@ export async function getUser(id) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 

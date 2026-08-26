@@ -139,8 +139,7 @@ Only now, and only when a bus is configured and `broadcastSet` is not `false`.
 
 The local write is fully awaited before the broadcast block is entered, and the publish itself is awaited too. Your `getOrSet` caller is still waiting while the event goes out.
 
-```mermaid
-sequenceDiagram
+```mermaid title="sequenceDiagram"
     participant C as Caller
     participant Cache as getOrSet
     participant DB as Loader
@@ -269,7 +268,7 @@ A remote `set` never writes L2. The shared copy comes from the publishing server
 The event stream is emitted in execution order, so subscribing to it is the cheapest way to confirm any of the above against your own configuration.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -285,7 +284,7 @@ export async function getUser(id) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'

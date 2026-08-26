@@ -24,7 +24,7 @@ This is on by default. You are not switching it on, and you should not switch it
 The first caller for a key stores its promise. Every caller that arrives while that promise is unsettled receives the same promise instead of starting a second load. When it settles, all of them resolve from one result and the entry is removed.
 
 <CodeGroup>
-```js src/products/repository.js
+```js title="src/products/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -36,7 +36,7 @@ export async function getProduct(id) {
 }
 ```
 
-```ts src/products/repository.ts
+```ts title="src/products/repository.ts"
 import { cache } from '../cache/index.js'
 import type { Product } from '../types/product.js'
 import { db } from '../db.js'
@@ -75,7 +75,7 @@ The second row is there as a control, not as a configuration you should copy. It
 Tuning here means numbers. The two that matter are how long an in-flight entry stays reusable, and how many distinct keys can be tracked at once.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
 
@@ -90,7 +90,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 const options: LazyLayersCacheOptions<string, Product> = {
   ttlMs: 5 * 60 * 1000,
 
@@ -119,7 +119,7 @@ In-flight dedupe is per process. Four servers each collapse their own callers to
 The distributed lock reduces the whole cluster to one loader call. It needs an L2 that supports locking, which `RedisStore` does.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 import { bus } from './bus.js'
@@ -141,7 +141,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { Product } from '../types/product.js'
 import { redis } from './redis.js'
@@ -218,7 +218,7 @@ There is a third mechanism working alongside these, and it is easy to miss. When
 Every reuse emits an event, so the collapse is measurable rather than assumed.
 
 <CodeGroup>
-```js src/cache/metrics.js
+```js title="src/cache/metrics.js"
 import { cache } from './index.js'
 
 cache.on((event) => {
@@ -230,7 +230,7 @@ cache.on((event) => {
 })
 ```
 
-```ts src/cache/metrics.ts
+```ts title="src/cache/metrics.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from './index.js'
 

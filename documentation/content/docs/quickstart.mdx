@@ -40,15 +40,15 @@ Event dedupe by ID and per-key generation counters are also on, which is what st
 ## Install
 
 <CodeGroup>
-```bash npm
+```bash title="npm"
 npm install lazy-layers-cache ioredis
 ```
 
-```bash pnpm
+```bash title="pnpm"
 pnpm add lazy-layers-cache ioredis
 ```
 
-```bash yarn
+```bash title="yarn"
 yarn add lazy-layers-cache ioredis
 ```
 </CodeGroup>
@@ -62,7 +62,7 @@ TypeScript users need nothing else. Types ship with the package.
 One connection, one file, imported by everything else. Keeping it separate matters because the event bus will duplicate this client rather than open a second one from scratch.
 
 <CodeGroup>
-```js src/cache/redis.js
+```js title="src/cache/redis.js"
 import Redis from 'ioredis'
 
 export const redis = new Redis(process.env.REDIS_URL, {
@@ -79,7 +79,7 @@ redis.on('error', (err) => {
 })
 ```
 
-```ts src/cache/redis.ts
+```ts title="src/cache/redis.ts"
 import Redis from 'ioredis'
 
 export const redis = new Redis(process.env.REDIS_URL!, {
@@ -281,7 +281,7 @@ Skip this step if you are writing JavaScript.
 
 Keeping the type in its own file is what lets the cache be generic over it, so `getOrSet` returns `User | undefined` instead of `unknown`.
 
-```ts src/types/user.ts
+```ts title="src/types/user.ts"
 export interface User {
   id: string
   email: string
@@ -297,7 +297,7 @@ export interface User {
 Now the two layers, wired to the connection and the bus you already made.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 import { bus } from './bus.js'
@@ -343,7 +343,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'
@@ -402,7 +402,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 `getOrSet` is the method you will use almost everywhere. It checks L1, then L2, then runs your loader.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -420,7 +420,7 @@ export async function getUser(id) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 import { db } from '../db.js'
@@ -449,7 +449,7 @@ The loader receives an `AbortSignal` that your `timeouts` actually fire. Pass it
 Call this after the write commits, not before. Until it commits, the cached value is still the truth.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 export async function updateUser(id, patch) {
   const updated = await db.users.update(id, patch)
 
@@ -464,7 +464,7 @@ export async function updateUser(id, patch) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
   const updated = await db.users.update(id, patch)
 
@@ -511,7 +511,7 @@ Under Node clustering, every worker keeps its **own** L1. Budget `maxEntries x w
 A cache you cannot measure is a cache you cannot tune.
 
 <CodeGroup>
-```js src/cache/metrics.js
+```js title="src/cache/metrics.js"
 import { cache } from './index.js'
 
 let hits = 0
@@ -535,7 +535,7 @@ setInterval(() => {
 }, 60_000)
 ```
 
-```ts src/cache/metrics.ts
+```ts title="src/cache/metrics.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from './index.js'
 

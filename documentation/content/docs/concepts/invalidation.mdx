@@ -32,7 +32,7 @@ An event bus lets the server that made the change tell everyone else. Staleness 
 TTL does not go away. It changes job, from being the mechanism that keeps the cache honest to being the safety net for the case where a message did not arrive.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -52,7 +52,7 @@ export async function updateUser(id, patch) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 import type { User } from '../types/user.js'
@@ -127,8 +127,7 @@ Every server keeps a per-key generation counter. Deleting a key advances it, and
 
 When an event arrives carrying a generation lower than the receiver's own counter for that key, the receiver knows the event describes a world that has already moved on. It drops it and emits `invalidation:stale`.
 
-```mermaid
-sequenceDiagram
+```mermaid title="sequenceDiagram"
     participant A as Server A
     participant Bus as Event bus
     participant B as Server B

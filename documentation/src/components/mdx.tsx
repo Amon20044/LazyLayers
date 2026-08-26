@@ -7,6 +7,7 @@ import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { File, Folder, Files } from 'fumadocs-ui/components/files';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
+import { CodeGroup } from '@/components/code-group';
 import React from 'react';
 import {
   Database,
@@ -109,7 +110,6 @@ function resolveIcon(icon: React.ReactNode): React.ReactNode {
     case 'arrows-rotate':
     case 'refresh':
     case 'sync':
-    case 'cycle':
       return <RefreshCw {...iconProps} className="size-5 shrink-0 text-cyan-400" />;
     case 'network-wired':
     case 'network':
@@ -280,7 +280,7 @@ export function getMDXComponents(components?: MDXComponents) {
     AccordionGroup: Accordions,
     Tab: CustomTab,
     Tabs,
-    CodeGroup: Tabs,
+    CodeGroup,
     Step,
     Steps,
     File,

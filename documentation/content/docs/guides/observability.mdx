@@ -14,7 +14,7 @@ Everything the cache does emits an event, and `cache.on()` is how you receive th
 `on` returns an unsubscribe function. Call it on shutdown, or in tests, so handlers do not accumulate.
 
 <CodeGroup>
-```js src/cache/metrics.js
+```js title="src/cache/metrics.js"
 import { cache } from './index.js'
 
 const off = cache.on((event) => {
@@ -43,7 +43,7 @@ const off = cache.on((event) => {
 process.on('SIGTERM', () => off())
 ```
 
-```ts src/cache/metrics.ts
+```ts title="src/cache/metrics.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from './index.js'
 
@@ -85,7 +85,7 @@ The four numbers worth deriving from this stream first are your hit ratio, your 
 A live view of counters, an L1 and L2 key explorer with per-key serialized versus decoded sizes, an event feed over server sent events, and the resolved configuration.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 
@@ -97,7 +97,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'
@@ -115,8 +115,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 
 That starts a standalone server bound to `127.0.0.1` on port `7077` and serves the dashboard at `/observelazyily`, behind basic auth with the default credentials `lazydev` and `lazydev`. So the URL you open is:
 
-```txt
-http://127.0.0.1:7077/observelazyily
+```txt title="http://127.0.0.1:7077/observelazyily"
 ```
 
 Turning it on prints a one time warning to `console.warn`, deliberately outside the gated logger, because production is exactly where you do not want this left running.
@@ -128,7 +127,7 @@ Turning it on prints a one time warning to `console.warn`, deliberately outside 
 ### Configuring it
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
   l2: new RedisStore(redis, { prefix: 'app:cache:' }),
@@ -151,7 +150,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 const options: LazyLayersCacheOptions<string, User> = {
   ttlMs: 5 * 60 * 1000,
   l2: new RedisStore<User>(redis, { prefix: 'app:cache:' }),
@@ -181,7 +180,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 
 Every dashboard setting also reads an environment variable, so you can run it in staging without a code change. Precedence is option, then environment variable, then default.
 
-```bash .env.staging
+```bash title=".env.staging"
 LAZY_OBS_ENABLED=1
 LAZY_OBS_ROUTE=/internal/cache
 LAZY_OBS_HOST=127.0.0.1
@@ -203,7 +202,7 @@ The rest of the surface, including `LAZY_OBS_TOKEN`, `LAZY_OBS_NO_SERVER`, and `
 Set `server: false` and mount the handler on a route your own middleware already protects. This is the only shape worth considering outside development, because it inherits your real authentication rather than adding a second, weaker one.
 
 <CodeGroup>
-```js src/server.js
+```js title="src/server.js"
 import express from 'express'
 import { cache } from './cache/index.js'
 import { requireAdmin } from './auth.js'
@@ -221,7 +220,7 @@ process.on('SIGTERM', async () => {
 })
 ```
 
-```ts src/server.ts
+```ts title="src/server.ts"
 import express from 'express'
 import { cache } from './cache/index.js'
 import { requireAdmin } from './auth.js'
@@ -247,7 +246,7 @@ process.on('SIGTERM', async () => {
 The dashboard is for a human looking at one process. Prometheus is for the fleet.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
   l2: new RedisStore(redis, { prefix: 'app:cache:' }),
@@ -264,7 +263,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 const options: LazyLayersCacheOptions<string, User> = {
   ttlMs: 5 * 60 * 1000,
   l2: new RedisStore<User>(redis, { prefix: 'app:cache:' }),
@@ -308,7 +307,7 @@ If your scraper cannot present basic auth, `prometheus: { public: true }` leaves
 Raw events are published to a `node:diagnostics_channel` named `lazycache:cache:event`, which is the seam to attach a tracer to.
 
 <CodeGroup>
-```js src/cache/telemetry.js
+```js title="src/cache/telemetry.js"
 import { subscribeTelemetry } from 'lazy-layers-cache'
 
 const unsubscribe = subscribeTelemetry((event) => {
@@ -317,7 +316,7 @@ const unsubscribe = subscribeTelemetry((event) => {
 })
 ```
 
-```ts src/cache/telemetry.ts
+```ts title="src/cache/telemetry.ts"
 import { subscribeTelemetry, type CacheEvent } from 'lazy-layers-cache'
 
 const unsubscribe = subscribeTelemetry((event: CacheEvent) => {

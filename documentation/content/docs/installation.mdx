@@ -18,19 +18,19 @@ icon: "download"
 ## Install the package
 
 <CodeGroup>
-```bash npm
+```bash title="npm"
 npm install lazy-layers-cache
 ```
 
-```bash pnpm
+```bash title="pnpm"
 pnpm add lazy-layers-cache
 ```
 
-```bash yarn
+```bash title="yarn"
 yarn add lazy-layers-cache
 ```
 
-```bash bun
+```bash title="bun"
 bun add lazy-layers-cache
 ```
 </CodeGroup>
@@ -87,7 +87,7 @@ import {
 
 This is the one piece of setup worth doing properly. Naming the options type checks your whole configuration in one place, and it changes what reads give you back.
 
-```ts src/types/user.ts
+```ts title="src/types/user.ts"
 export interface User {
   id: string
   email: string
@@ -96,7 +96,7 @@ export interface User {
 }
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 
@@ -121,7 +121,7 @@ Without the generic, values come back as `unknown` and you end up casting at eve
 
 Nothing special is required. If you are on TypeScript 7, note that `moduleResolution: "node10"` was removed, so a CommonJS project wants:
 
-```json tsconfig.json
+```json title="tsconfig.json"
 {
   "compilerOptions": {
     "module": "CommonJS",
@@ -139,7 +139,7 @@ ESM projects can use `"module": "NodeNext"` with `"moduleResolution": "NodeNext"
 No Redis needed for this. It exercises the loader, the L1 write, and the read back.
 
 <CodeGroup>
-```js check.js
+```js title="check.js"
 import { LazyLayersCache } from 'lazy-layers-cache'
 
 const cache = new LazyLayersCache({ ttlMs: 10_000 })
@@ -161,7 +161,7 @@ console.log('all resolved:', results.length)     // 100
 console.log('value:', results[0])                // { id: 42, plan: 'pro' }
 ```
 
-```ts check.ts
+```ts title="check.ts"
 import { LazyLayersCache } from 'lazy-layers-cache'
 
 interface User { id: number; plan: string }
