@@ -50,6 +50,16 @@ pre {
   background-color: transparent !important;
 }
 
+/* Inactive tabs text color */
+.dark [role='tab'][data-state='inactive'],
+.dark button[role='tab']:not([data-state='active']) {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+.dark [role='tab'][data-state='inactive']:hover,
+.dark button[role='tab']:not([data-state='active']):hover {
+  color: #FFFFFF !important;
+}
+
 html {
   scrollbar-gutter: stable;
 }

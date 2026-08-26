@@ -8,7 +8,8 @@ import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { File, Folder, Files } from 'fumadocs-ui/components/files';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
 import { CodeGroup } from '@/components/code-group';
-import { Mermaid, extractTextFromNode } from '@/components/mermaid';
+import { Mermaid } from '@/components/mermaid';
+import { extractTextFromNode } from '@/lib/extract-text';
 import React from 'react';
 import {
   Database,
@@ -264,10 +265,14 @@ export function Icon({ name, className }: { name?: string; className?: string })
 }
 
 function Pre(props: any) {
+  const rawChart = extractTextFromNode(props.children);
+  const trimmed = rawChart.trim();
+
   const isMermaid =
     props.className?.includes('language-mermaid') ||
     props.className?.includes('mermaid') ||
     props['data-language'] === 'mermaid' ||
+    /^(sequenceDiagram|flowchart|graph\b|classDiagram|stateDiagram|erDiagram|gantt|pie|gitGraph|journey|mindmap|timeline|quadrantChart|C4Context|zenuml|sankey-beta|block-beta)\b/m.test(trimmed) ||
     (props.children &&
       typeof props.children === 'object' &&
       (props.children.props?.className?.includes('language-mermaid') ||
@@ -275,7 +280,6 @@ function Pre(props: any) {
         props.children.props?.['data-language'] === 'mermaid'));
 
   if (isMermaid) {
-    const rawChart = extractTextFromNode(props.children);
     const title = props.title || props['data-title'] || props.name;
     return <Mermaid chart={rawChart} title={title} />;
   }

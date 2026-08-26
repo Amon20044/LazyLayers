@@ -48,7 +48,7 @@ export function CodeGroup({ children }: { children: React.ReactNode }) {
                 'px-3 py-1 text-xs font-mono font-medium rounded-md transition-all cursor-pointer select-none',
                 isActive
                   ? 'bg-[#181822] text-[#D3F15D] shadow-sm border border-fd-border/90 font-semibold'
-                  : 'text-fd-muted-foreground hover:text-fd-foreground hover:bg-white/5',
+                  : 'text-white/85 hover:text-white hover:bg-white/10',
               )}
             >
               {tab.label}
