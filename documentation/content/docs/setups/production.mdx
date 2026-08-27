@@ -92,7 +92,7 @@ Same layout as the quickstart, in the order you would create the files.
 One connection, one file. The event bus duplicates this client rather than opening a second one from scratch, which is why it lives on its own.
 
 <CodeGroup>
-```js title="src/cache/redis.js"
+```js src/cache/redis.js
 import Redis from 'ioredis'
 
 export const redis = new Redis(process.env.REDIS_URL, {
@@ -113,7 +113,7 @@ redis.on('error', (err) => {
 })
 ```
 
-```ts title="src/cache/redis.ts"
+```ts src/cache/redis.ts
 import Redis from 'ioredis'
 
 export const redis = new Redis(process.env.REDIS_URL!, {
@@ -142,7 +142,7 @@ redis.on('error', (err: Error) => {
 Pick a transport. Everything after this file is identical whichever you choose, because every bus satisfies the same interface.
 
 <Tabs>
-  <Tab value="Redis (default)">
+  <Tab title="Redis (default)">
     At-most-once delivery. A server that is offline misses the event and reloads on its next request. The right default when you already run Redis for L2 and your L1 TTL is short enough to bound a missed event.
 
     <CodeGroup>
@@ -184,7 +184,7 @@ Pick a transport. Everything after this file is identical whichever you choose, 
     </CodeGroup>
   </Tab>
 
-  <Tab value="RabbitMQ">
+  <Tab title="RabbitMQ">
     Durable. Events survive a server being down and are redelivered on reconnect, at the cost of broker state per server.
 
     <CodeGroup>
@@ -242,7 +242,7 @@ Pick a transport. Everything after this file is identical whichever you choose, 
     </CodeGroup>
   </Tab>
 
-  <Tab value="NATS Core">
+  <Tab title="NATS Core">
     At-most-once, like Redis, but on a cluster built for fan-out. Use it when your event rate is high enough that Redis Pub/Sub is competing with your L2 traffic on the same connection.
 
     <CodeGroup>
@@ -276,7 +276,7 @@ Pick a transport. Everything after this file is identical whichever you choose, 
     </CodeGroup>
   </Tab>
 
-  <Tab value="NATS JetStream">
+  <Tab title="NATS JetStream">
     Durable with explicit acks. Use it when missing an invalidation is not acceptable.
 
     <CodeGroup>
@@ -341,7 +341,7 @@ Pick a transport. Everything after this file is identical whichever you choose, 
 
 Skip this file if you are writing JavaScript. Keeping the type separate is what lets the cache be generic over it, so `getOrSet` returns `User | undefined` instead of `unknown`.
 
-```ts title="src/types/user.ts"
+```ts src/types/user.ts
 export interface User {
   id: string
   email: string
@@ -357,7 +357,7 @@ export interface User {
 The layers, wired to the connection and the bus you just built. Every value here is a number you chose, and the sections below are where the numbers come from.
 
 <CodeGroup>
-```js title="src/cache/index.js"
+```js src/cache/index.js
 import cluster from 'node:cluster'
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
@@ -422,7 +422,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts title="src/cache/index.ts"
+```ts src/cache/index.ts
 import cluster from 'node:cluster'
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
@@ -500,7 +500,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 One place that closes everything, in the order that works. The next section explains why the order is what it is.
 
 <CodeGroup>
-```js title="src/cache/shutdown.js"
+```js src/cache/shutdown.js
 import { cache } from './index.js'
 import { bus } from './bus.js'
 import { redis } from './redis.js'
@@ -520,7 +520,7 @@ export async function shutdownCache() {
 }
 ```
 
-```ts title="src/cache/shutdown.ts"
+```ts src/cache/shutdown.ts
 import { cache } from './index.js'
 import { bus } from './bus.js'
 import { redis } from './redis.js'
@@ -548,7 +548,7 @@ export async function shutdownCache(): Promise<void> {
 Health-check the bus, serve traffic, then unwind in the reverse order.
 
 <CodeGroup>
-```js title="src/server.js"
+```js src/server.js
 import { bus } from './cache/bus.js'
 import { shutdownCache } from './cache/shutdown.js'
 import { app } from './app.js'
@@ -577,7 +577,7 @@ process.on('SIGTERM', shutdown)
 process.on('SIGINT', shutdown)
 ```
 
-```ts title="src/server.ts"
+```ts src/server.ts
 import { bus } from './cache/bus.js'
 import { shutdownCache } from './cache/shutdown.js'
 import { app } from './app.js'
@@ -614,7 +614,7 @@ process.on('SIGINT', shutdown)
 Nothing exotic. `getOrSet` on the read path, `delete` after the write commits.
 
 <CodeGroup>
-```js title="src/users/repository.js"
+```js src/users/repository.js
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -641,7 +641,7 @@ export async function updateUser(id, patch) {
 }
 ```
 
-```ts title="src/users/repository.ts"
+```ts src/users/repository.ts
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 import { db } from '../db.js'
@@ -779,7 +779,7 @@ Both come from `optionalDependencies` (`lz4-napi` and `snappy`) and are native m
 Set the profile with `CACHE_COMPRESSION`, so it moves per environment without a code change, and log what actually took effect. A malformed value is ignored silently, and an unavailable codec falls back to gzip, so the only trustworthy answer comes from asking the process.
 
 <CodeGroup>
-```js title="src/cache/compression.js"
+```js src/cache/compression.js
 import { getCompressionTiers, LZ4_AVAILABLE, SNAPPY_AVAILABLE, ZSTD_AVAILABLE } from 'lazy-layers-cache'
 
 // Import before the cache is constructed. Log it on every boot, because
@@ -792,7 +792,7 @@ logger.info({
 }, 'compression profile')
 ```
 
-```ts title="src/cache/compression.ts"
+```ts src/cache/compression.ts
 import { getCompressionTiers, LZ4_AVAILABLE, SNAPPY_AVAILABLE, ZSTD_AVAILABLE } from 'lazy-layers-cache'
 
 // Import before the cache is constructed. Log it on every boot, because
@@ -819,7 +819,7 @@ There is no shared memory between workers. Eight workers with `maxEntries: 100_0
 Total L1 memory is `maxEntries x workers`. Take the per-process number from the table above and divide.
 
 <CodeGroup>
-```js title="src/cache/index.js"
+```js src/cache/index.js
 import os from 'node:os'
 
 // The instance budget from the sizing table, split across workers.
@@ -833,7 +833,7 @@ const maxEntries = Math.floor(INSTANCE_MAX_ENTRIES / workers)
 //   levels: { L1: { maxEntries, ttlMs: 10 * 1000 } }
 ```
 
-```ts title="src/cache/index.ts"
+```ts src/cache/index.ts
 import os from 'node:os'
 
 // The instance budget from the sizing table, split across workers.
@@ -867,7 +867,7 @@ Duplication across workers also costs you hit rate. Eight workers each caching t
 The bootstrap that produces those identities:
 
 <CodeGroup>
-```js title="src/index.js"
+```js src/index.js
 import cluster from 'node:cluster'
 import os from 'node:os'
 
@@ -887,7 +887,7 @@ if (cluster.isPrimary) {
 }
 ```
 
-```ts title="src/index.ts"
+```ts src/index.ts
 import cluster from 'node:cluster'
 import os from 'node:os'
 
@@ -950,9 +950,9 @@ The sequence, in order:
   Anything still in the retry queue when you disconnect is lost. It lives in process memory and is not persisted. Draining the queue is not something you can force, so keep `retryQueue.maxSize` modest and treat a missed invalidation as bounded by your L1 TTL rather than as something shutdown will rescue.
 </Note>
 
-## Sharp edges
+## Sharp edges and things that bite
 
-Two behaviours that will not show up in your metrics and will confuse you when they bite.
+Two behaviours that will not show up in your metrics and will confuse you when they bite, plus several more that show up only after they have already cost you.
 
 <AccordionGroup>
 
@@ -976,11 +976,6 @@ Two behaviours that will not show up in your metrics and will confuse you when t
   Redis and NATS Core do not have this problem in the same way, because their received events go through a handler queue bounded by `handlerConcurrency`.
 </Accordion>
 
-</AccordionGroup>
-
-## More things that bite
-
-<AccordionGroup>
 <Accordion title="Distributed locks on cheap loaders">
   The lock costs a Redis round trip on every cold load. If your loader takes 5 ms, the lock is more expensive than the duplicate work it prevents.
 
