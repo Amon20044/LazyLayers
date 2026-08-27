@@ -1,0 +1,363 @@
+---
+title: "Serverless"
+description: "L2-only caching on Vercel, Cloudflare Workers, and other platforms where the process does not persist between requests."
+---
+
+Serverless platforms give you a fresh process for every request or a short-lived container that disappears after handling a batch. L1, the in-process LRU, lives and dies with that process. By the time the next request arrives, the cache is gone.
+
+That does not make LazyLayers useless. It makes it a different shape. You keep L2, you keep in-flight dedupe, and you keep the event bus. You skip L1, or you treat it as a single-request optimisation rather than a persistent layer.
+
+## What changes
+
+<CardGroup cols={2}>
+  <Card title="L1 is gone or ephemeral" icon="bolt">
+    No process survives long enough for an LRU to warm across requests. Each cold start is truly cold for L1.
+  </Card>
+  <Card title="L2 is your real cache" icon="database">
+    Redis (or any shared store) outlives every invocation. A miss hits L2, then your origin. The value is there for the next request.
+  </Card>
+  <Card title="In-flight dedupe still works" icon="layer-group">
+    Concurrent callers within one invocation share one loader call. That is free, and it matters when a single request fans out to many parallel reads.
+  </Card>
+  <Card title="The bus connects instances" icon="tower-broadcast">
+    An invalidation on one invocation reaches every other active invocation that subscribed. At-most-once delivery is fine when L1 is not in the picture.
+  </Card>
+</CardGroup>
+
+## The setup
+
+You write two files, not four. There is no `src/cache/bus.js` unless you need cross-instance invalidation, and there is no L1 configuration because there is no persistent process to hold it.
+
+<Steps>
+
+<Step title="Connect to Redis">
+
+One connection, one file. The same Redis client that backs L2 also backs the event bus if you use one.
+
+<CodeGroup>
+```js src/cache/redis.js
+import Redis from 'ioredis'
+
+export const redis = new Redis(process.env.REDIS_URL, {
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  enableOfflineQueue: true,
+})
+
+redis.on('error', (err) => {
+  console.error('[redis]', err.message)
+})
+```
+
+```ts src/cache/redis.ts
+import Redis from 'ioredis'
+
+export const redis = new Redis(process.env.REDIS_URL!, {
+  maxRetriesPerRequest: 2,
+  enableReadyCheck: true,
+  enableOfflineQueue: true,
+})
+
+redis.on('error', (err: Error) => {
+  console.error('[redis]', err.message)
+})
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="Build the cache">
+
+L1 is off. L2 is the only persistent layer. The TTLs are longer because L2 is invalidated directly rather than by expiry.
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+
+export const cache = new LazyLayersCache({
+  // No L1. Every read goes to L2 or the origin.
+  l1: false,
+
+  // Fallback lifetime for anything that does not set its own.
+  ttlMs: 5 * 60 * 1000,
+
+  levels: {
+    // Long, because L2 is the only tier and is invalidated directly.
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+
+  l2: new RedisStore(redis, {
+    prefix: 'app:cache:',
+    deleteStrategy: 'unlink',
+    scanCount: 500,
+  }),
+
+  // Optional. Only needed when you want invalidation to reach other instances.
+  // Without a bus, a delete on one invocation only drops L2 on that Redis
+  // connection. Other invocations see the stale entry until its TTL expires.
+  // eventBus: bus,
+
+  timeouts: { softMs: 800, hardMs: 5000 },
+  failSafe: { staleTtlMs: 30 * 1000 },
+  negativeCache: { ttlMs: 10 * 1000, maxEntries: 5_000 },
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+
+const options: LazyLayersCacheOptions<string, User> = {
+  // No L1. Every read goes to L2 or the origin.
+  l1: false,
+
+  // Fallback lifetime for anything that does not set its own.
+  ttlMs: 5 * 60 * 1000,
+
+  levels: {
+    // Long, because L2 is the only tier and is invalidated directly.
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+
+  l2: new RedisStore<User>(redis, {
+    prefix: 'app:cache:',
+    deleteStrategy: 'unlink',
+    scanCount: 500,
+  }),
+
+  timeouts: { softMs: 800, hardMs: 5000 },
+  failSafe: { staleTtlMs: 30 * 1000 },
+  negativeCache: { ttlMs: 10 * 1000, maxEntries: 5_000 },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="Read and invalidate">
+
+The same `getOrSet` and `delete` API. Without an event bus, a delete drops the key from L2 on the Redis connection this invocation shares. Other invocations see the stale entry until the L2 TTL expires.
+
+<CodeGroup>
+```js src/users/repository.js
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+
+export async function getUser(id) {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+
+export async function updateUser(id, patch) {
+  const updated = await db.users.update(id, patch)
+
+  await cache.delete(`user:${id}`)
+
+  return updated
+}
+```
+
+```ts src/users/repository.ts
+import { cache } from '../cache/index.js'
+import type { User } from '../types/user.js'
+import { db } from '../db.js'
+
+export async function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const row = await db.users.findById(id, { signal })
+    return row ?? undefined
+  })
+}
+
+export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
+  const updated = await db.users.update(id, patch)
+
+  await cache.delete(`user:${id}`)
+
+  return updated
+}
+```
+</CodeGroup>
+
+</Step>
+
+</Steps>
+
+## Adding cross-instance invalidation
+
+When multiple serverless instances share a Redis, an invalidation on one instance does not reach the others without a bus. Add the bus if stale reads across instances are unacceptable.
+
+<CodeGroup>
+```js src/cache/bus.js
+import { RedisEventBus } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+
+export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+  retryQueue: { maxSize: 1000 },
+  handlerConcurrency: 16,
+})
+
+await bus.connect()
+```
+
+```ts src/cache/bus.ts
+import { RedisEventBus } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+
+export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
+  retryQueue: { maxSize: 1000 },
+  handlerConcurrency: 16,
+})
+
+await bus.connect()
+```
+</CodeGroup>
+
+Then wire it into the cache:
+
+<CodeGroup>
+```js src/cache/index.js
+import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+export const cache = new LazyLayersCache({
+  l1: false,
+
+  ttlMs: 5 * 60 * 1000,
+
+  levels: {
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+
+  l2: new RedisStore(redis, {
+    prefix: 'app:cache:',
+    deleteStrategy: 'unlink',
+    scanCount: 500,
+  }),
+
+  eventBus: bus,
+  source: process.env.FUNCTION_NAME ?? `fn-${process.pid}`,
+
+  timeouts: { softMs: 800, hardMs: 5000 },
+  failSafe: { staleTtlMs: 30 * 1000 },
+  negativeCache: { ttlMs: 10 * 1000, maxEntries: 5_000 },
+})
+```
+
+```ts src/cache/index.ts
+import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+import { redis } from './redis.js'
+import { bus } from './bus.js'
+
+const options: LazyLayersCacheOptions<string, User> = {
+  l1: false,
+
+  ttlMs: 5 * 60 * 1000,
+
+  levels: {
+    L2: { ttlMs: 60 * 60 * 1000 },
+  },
+
+  l2: new RedisStore<User>(redis, {
+    prefix: 'app:cache:',
+    deleteStrategy: 'unlink',
+    scanCount: 500,
+  }),
+
+  eventBus: bus,
+  source: process.env.FUNCTION_NAME ?? `fn-${process.pid}`,
+
+  timeouts: { softMs: 800, hardMs: 5000 },
+  failSafe: { staleTtlMs: 30 * 1000 },
+  negativeCache: { ttlMs: 10 * 1000, maxEntries: 5_000 },
+}
+
+export const cache = new LazyLayersCache<string, User>(options)
+```
+</CodeGroup>
+
+## Platform notes
+
+### Vercel
+
+Vercel serverless functions are short-lived containers. Each invocation is a separate process with its own heap. L1 would only help within a single invocation, which is too brief to matter.
+
+Set `source` from `process.env.VERCEL_FUNCTION_NAME` or `process.env.AWS_LAMBDA_FUNCTION_NAME` if you are on the AWS-backed runtime.
+
+Redis connections are not reused across invocations on Vercel unless you use a connection pool external to the function. Every cold start opens a new one. This is normal and the library handles it.
+
+### Cloudflare Workers
+
+Cloudflare Workers have no Node.js runtime. `ioredis` will not work. Use a Workers-compatible Redis client (such as `@upstash/redis`) and pass its interface to `RedisStore` and `RedisEventBus`.
+
+L1 is not meaningful in Workers. Each request is isolated, and there is no shared heap.
+
+### AWS Lambda
+
+Lambda functions are containers that may be reused across invocations. L1 **can** persist between warm invocations, but it is unreliable as a cache because Lambda can freeze and resume on a different instance, or evict the container at any time. Treat L1 as a bonus for warm starts, not a guarantee.
+
+Set `source` from `process.env.AWS_LAMBDA_FUNCTION_NAME`. If you use provisioned concurrency, L1 becomes more predictable, but L2 is still the tier you design around.
+
+### Netlify Functions
+
+Same model as Vercel. Short-lived, no persistent process. L2 only, with an optional bus for cross-instance invalidation.
+
+## What you give up
+
+<AccordionGroup>
+<Accordion title="L1 is not a real layer">
+Without a persistent process, L1 only helps within a single invocation. That is in-flight dedupe, not a cache. The real cache is L2.
+</Accordion>
+
+<Accordion title="Deletes do not travel without a bus">
+A `delete` on one invocation drops the key from L2 on that Redis connection. Other invocations see the stale entry until the L2 TTL expires. Add a bus if you need immediate cross-instance invalidation.
+</Accordion>
+
+<Accordion title="Cold starts hit L2 directly">
+Every cold start skips L1 entirely. The first read of every key pays a Redis round trip. With a bus, warm invocations may have the value in L2 from a previous load, but there is no local cache to absorb it.
+</Accordion>
+
+<Accordion title="Connection overhead">
+Each cold start opens a new Redis connection. On platforms that reuse containers (warm Lambda), the connection may survive, but do not design around it.
+</Accordion>
+</AccordionGroup>
+
+## When to move to serverful
+
+Move to a serverful setup when any of these is true.
+
+<Steps>
+<Step title="L1 hit rate matters">
+If your read pattern is the same keys repeatedly and you need sub-millisecond reads, a persistent L1 on a long-running process gives you that. Serverless cannot.
+</Step>
+
+<Step title="You need tight staleness control without a bus">
+On a single server, L1 TTL is your staleness window. On serverless, L2 TTL is, and it is longer because L2 is your only tier.
+</Step>
+
+<Step title="Connection limits are a problem">
+Many concurrent invocations each opening their own Redis connection can hit limits. A serverful process multiplexes requests over a single connection pool.
+</Step>
+</Steps>
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Single process" icon="server" href="/docs/setups/single-process">
+    The smallest serverful setup. L1 only, no Redis, no bus.
+  </Card>
+  <Card title="Multiple instances" icon="server" href="/docs/setups/multi-instance">
+    Add L2 and the bus to a serverful setup, and see what the staleness window becomes.
+  </Card>
+  <Card title="Production checklist" icon="clipboard-check" href="/docs/setups/production">
+    Instance sizing, clustering, graceful shutdown, and the transport tabs in full.
+  </Card>
+</CardGroup>
