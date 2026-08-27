@@ -950,9 +950,9 @@ The sequence, in order:
   Anything still in the retry queue when you disconnect is lost. It lives in process memory and is not persisted. Draining the queue is not something you can force, so keep `retryQueue.maxSize` modest and treat a missed invalidation as bounded by your L1 TTL rather than as something shutdown will rescue.
 </Note>
 
-## Sharp edges
+## Sharp edges and things that bite
 
-Two behaviours that will not show up in your metrics and will confuse you when they bite.
+Two behaviours that will not show up in your metrics and will confuse you when they bite, plus several more that show up only after they have already cost you.
 
 <AccordionGroup>
 
@@ -976,11 +976,6 @@ Two behaviours that will not show up in your metrics and will confuse you when t
   Redis and NATS Core do not have this problem in the same way, because their received events go through a handler queue bounded by `handlerConcurrency`.
 </Accordion>
 
-</AccordionGroup>
-
-## More things that bite
-
-<AccordionGroup>
 <Accordion title="Distributed locks on cheap loaders">
   The lock costs a Redis round trip on every cold load. If your loader takes 5 ms, the lock is more expensive than the duplicate work it prevents.
 

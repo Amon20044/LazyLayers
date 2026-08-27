@@ -35,7 +35,7 @@ You write two files, not four. There is no `src/cache/bus.js` unless you need cr
 One connection, one file. The same Redis client that backs L2 also backs the event bus if you use one.
 
 <CodeGroup>
-```js src/cache/redis.js
+```js title="src/cache/redis.js"
 import Redis from 'ioredis'
 
 export const redis = new Redis(process.env.REDIS_URL, {
@@ -49,7 +49,7 @@ redis.on('error', (err) => {
 })
 ```
 
-```ts src/cache/redis.ts
+```ts title="src/cache/redis.ts"
 import Redis from 'ioredis'
 
 export const redis = new Redis(process.env.REDIS_URL!, {
@@ -71,7 +71,7 @@ redis.on('error', (err: Error) => {
 L1 is off. L2 is the only persistent layer. The TTLs are longer because L2 is invalidated directly rather than by expiry.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 
@@ -104,7 +104,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'
@@ -143,7 +143,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 The same `getOrSet` and `delete` API. Without an event bus, a delete drops the key from L2 on the Redis connection this invocation shares. Other invocations see the stale entry until the L2 TTL expires.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -163,7 +163,7 @@ export async function updateUser(id, patch) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 import { db } from '../db.js'
@@ -194,7 +194,7 @@ export async function updateUser(id: string, patch: Partial<User>): Promise<User
 When multiple serverless instances share a Redis, an invalidation on one instance does not reach the others without a bus. Add the bus if stale reads across instances are unacceptable.
 
 <CodeGroup>
-```js src/cache/bus.js
+```js title="src/cache/bus.js"
 import { RedisEventBus } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 
@@ -206,7 +206,7 @@ export const bus = new RedisEventBus(redis, 'lazylayers.invalidate', {
 await bus.connect()
 ```
 
-```ts src/cache/bus.ts
+```ts title="src/cache/bus.ts"
 import { RedisEventBus } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 
@@ -222,7 +222,7 @@ await bus.connect()
 Then wire it into the cache:
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 import { bus } from './bus.js'
@@ -251,7 +251,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'
