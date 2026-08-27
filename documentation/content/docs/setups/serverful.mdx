@@ -1,0 +1,94 @@
+---
+title: "Serverful"
+description: "Traditional servers, Docker, and Kubernetes where the process persists long enough for L1 to warm across requests."
+---
+
+A serverful platform gives you a long-running process. It handles many requests, its heap survives between them, and an LRU cache inside it warms as traffic arrives. This is where both L1 and L2 earn their keep.
+
+L1 answers "how fast is a repeat read on this server". L2 answers "what does the fleet agree on, and what survives a deploy". Neither answer degrades the other.
+
+## The two shapes
+
+Serverful setups come in two shapes, and the right one depends on how many processes read the same data.
+
+<CardGroup cols={2}>
+  <Card title="Single process" icon="server" href="/docs/setups/single-process">
+    One process, one cache, nothing to operate. L1 only, no Redis, no event bus.
+  </Card>
+  <Card title="Multiple instances" icon="server" href="/docs/setups/multi-instance">
+    Add a shared L2 and an event bus. Every server agrees, and deletes travel.
+  </Card>
+</CardGroup>
+
+## When to use which
+
+| Scenario | Setup | Why |
+| --- | --- | --- |
+| One process serves all traffic | [Single process](/docs/setups/single-process) | No peers to share with, no bus to operate |
+| Behind a load balancer with 2+ replicas | [Multiple instances](/docs/setups/multi-instance) | L2 absorbs misses across servers, the bus keeps L1s in sync |
+| Under Node.js clustering | [Multiple instances](/docs/setups/multi-instance) | Every worker is a separate process with its own L1 and its own identity |
+| Docker Compose with service replicas | [Multiple instances](/docs/setups/multi-instance) | Each container is a separate cache that must agree with the others |
+| Kubernetes pods | [Multiple instances](/docs/setups/multi-instance) | Pod names make stable, unique sources |
+
+## The progression
+
+<Steps>
+
+<Step title="Start with single process">
+One file, one cache, L1 only. You get in-flight dedupe, a warm LRU, and fail-open behaviour for free. Nothing to operate.
+
+If your traffic is served by one process and a cold start is acceptable, this is enough.
+</Step>
+
+<Step title="Graduate to multiple instances when you need to">
+Move on when any of these is true:
+
+- You run more than one process against the same data
+- Your L1 TTL has to be shorter than your traffic can afford
+- Cold starts are visible to users
+- One key is expensive enough that duplicating the work across processes matters
+
+That takes two files: `src/cache/redis.js` for L2 and `src/cache/bus.js` for the event bus. The single-process cache file gets rewired to use them.
+</Step>
+
+<Step title="Apply the production checklist when you ship">
+Instance sizing, Node.js clustering, graceful shutdown, compression, and the transport tabs in full. This is the hardening pass before real traffic.
+</Step>
+
+</Steps>
+
+## What you keep across both shapes
+
+- **In-flight dedupe.** Concurrent callers for one key share one loader call.
+- **Fail-open.** An L2 or bus failure degrades, it does not throw.
+- **`getOrSet` as the primary API.** Load through `getOrSet`, invalidate with `delete` or `deleteByPattern`.
+- **Negative caching.** "This does not exist" is remembered briefly so a missing row is not a free pass to hammer the database.
+- **Timeouts.** `softMs` serves a stale value when one exists. `hardMs` gives up on the loader entirely.
+
+## What changes between the two shapes
+
+| | Single process | Multiple instances |
+| --- | --- | --- |
+| L1 | Yes, the only tier | Yes, short TTL, primed by the bus |
+| L2 | No | Yes, shared, long TTL |
+| Event bus | No | Yes, deletes travel, loads fan out |
+| Staleness window | L1 TTL | Event delivery time, or L1 TTL if the event is missed |
+| `source` | Not needed | Unique per server, stable across restarts |
+| `broadcastSetMaxBytes` | Not needed | Required, no default |
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Single process" icon="server" href="/docs/setups/single-process">
+    The smallest setup. L1 only, no Redis, no bus. Start here if you have one process.
+  </Card>
+  <Card title="Multiple instances" icon="server" href="/docs/setups/multi-instance">
+    Add L2 and the bus. The exact step up when one process is not enough.
+  </Card>
+  <Card title="Production checklist" icon="clipboard-check" href="/docs/setups/production">
+    Instance sizing, clustering, graceful shutdown, and the transport tabs in full.
+  </Card>
+  <Card title="Serverless" icon="cloud" href="/docs/setups/serverless">
+    Vercel, Cloudflare, and other platforms where only L2 is possible.
+  </Card>
+</CardGroup>
