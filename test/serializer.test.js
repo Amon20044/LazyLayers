@@ -12,11 +12,13 @@ const {
   serializeWithStats,
   shouldGzip,
   stripPrefix,
+  ZSTD_AVAILABLE,
 } = await import("../dist/index.js");
 
 const HC1M = Buffer.from("HC1M", "ascii");
 const HC1G = Buffer.from("HC1G", "ascii");
 const HC1Z = Buffer.from("HC1Z", "ascii");
+const HC1L = Buffer.from("HC1L", "ascii");
 const HC1J = Buffer.from("HC1J", "ascii");
 
 // Mock player listing — nested arrays, objects, mixed types. The fixture is intentionally
@@ -105,9 +107,11 @@ test("large payload is compressed by the top tier when savings >= 15%", () => {
   // Highly compressible: 200 KB of a repeating pattern.
   const value = { blob: "a".repeat(200 * 1024) };
   const stats = serializeWithStats(value);
-  assert.equal(stats.encoding, "msgpack-zstd", "the top default tier is zstd");
+  const expectedEncoding = ZSTD_AVAILABLE ? "msgpack-zstd" : "msgpack-lz4";
+  const expectedPrefix = ZSTD_AVAILABLE ? HC1Z : HC1L;
+  assert.equal(stats.encoding, expectedEncoding, "the top tier follows runtime capabilities");
   assert.equal(stats.compressed, true);
-  assert.ok(hasPrefix(stats.buffer, HC1Z), "top tier is zstd");
+  assert.ok(hasPrefix(stats.buffer, expectedPrefix), "top tier uses the runtime-safe codec");
   assert.ok(stats.compressionRatio >= 0.15);
   assert.deepEqual(deserialize(stats.buffer), value);
 });
@@ -123,7 +127,7 @@ test("large but incompressible payload falls back to msgpack", () => {
   // Either passes (extremely unlikely with random) or falls back — both are correct;
   // assert the buffer round-trips and respects the threshold rule.
   assert.deepEqual(deserialize(stats.buffer), value);
-  if (stats.encoding === "msgpack-zstd") {
+  if (stats.encoding === "msgpack-zstd" || stats.encoding === "msgpack-lz4") {
     assert.ok(stats.compressionRatio >= 0.15);
   } else {
     assert.equal(stats.encoding, "msgpack");
@@ -165,7 +169,11 @@ test("HC1M values decode correctly", () => {
 
 test("compressed values decode correctly", () => {
   const stats = serializeWithStats({ blob: "x".repeat(GZIP_MIN_BYTES * 2) });
-  assert.equal(stats.encoding, "msgpack-zstd", "the top default tier is zstd");
+  assert.equal(
+    stats.encoding,
+    ZSTD_AVAILABLE ? "msgpack-zstd" : "msgpack-lz4",
+    "the top tier follows runtime capabilities",
+  );
   assert.deepEqual(deserialize(stats.buffer), {
     blob: "x".repeat(GZIP_MIN_BYTES * 2),
   });
@@ -280,11 +288,11 @@ test("sentinel buffers written by older versions still decode to null", async ()
 
 /* Compression backend selection. */
 
-test("the default top tier is zstd, chosen by measurement", async () => {
+test("the default top tier uses zstd when available and lz4 otherwise", async () => {
   const { serialize } = await import("../dist/index.js");
   const big = { rows: Array.from({ length: 4_000 }, (_, i) => ({ i, name: `row-${i}`, tag: "repeatable" })) };
 
-  assert.equal(serialize(big).subarray(0, 4).toString(), "HC1Z");
+  assert.equal(serialize(big).subarray(0, 4).toString(), ZSTD_AVAILABLE ? "HC1Z" : "HC1L");
 });
 
 test("zstd is used once it is switched on, and round-trips", async () => {
