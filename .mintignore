@@ -1,0 +1,14 @@
+# Mintlify is a compatibility check for the canonical MDX source in /docs.
+# The production site is the Fumadocs app under /documentation.
+benchmarks/
+documentation/
+examples/
+scripts/
+site/
+src/
+test/
+
+# Internal authoring instructions are not public documentation pages.
+docs/AGENTS.md
+docs/CONTRACT.md
+docs/DOCS_PLAN.md
