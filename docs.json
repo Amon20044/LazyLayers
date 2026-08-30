@@ -1,0 +1,75 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "LazyLayers",
+  "colors": {
+    "primary": "#84CC16",
+    "light": "#A3E635",
+    "dark": "#65A30D"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get started",
+        "pages": [
+          "docs/index",
+          "docs/installation",
+          "docs/quickstart",
+          "docs/learn",
+          "docs/walkthrough"
+        ]
+      },
+      {
+        "group": "Recommended setups",
+        "pages": [
+          "docs/setups/production",
+          "docs/setups/single-process",
+          "docs/setups/serverful",
+          "docs/setups/serverless",
+          "docs/setups/multi-instance"
+        ]
+      },
+      {
+        "group": "Core concepts",
+        "pages": [
+          "docs/concepts/layers",
+          "docs/concepts/lazy-loading",
+          "docs/concepts/invalidation",
+          "docs/concepts/resilience",
+          "docs/concepts/serialization"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "docs/guides/stampede-protection",
+          "docs/guides/failure-handling",
+          "docs/guides/event-buses",
+          "docs/guides/buses/redis",
+          "docs/guides/buses/rabbitmq",
+          "docs/guides/buses/nats-core",
+          "docs/guides/buses/nats-jetstream",
+          "docs/guides/observability"
+        ]
+      },
+      {
+        "group": "Architecture",
+        "pages": [
+          "docs/architecture/execution-paths",
+          "docs/architecture/event-ordering"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "docs/reference/api",
+          "docs/reference/configuration",
+          "docs/reference/environment-variables",
+          "docs/reference/stores",
+          "docs/reference/event-buses",
+          "docs/reference/cache-events"
+        ]
+      }
+    ]
+  }
+}
