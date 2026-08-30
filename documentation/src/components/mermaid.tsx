@@ -62,8 +62,9 @@ export function Mermaid({ chart, children, title, className }: MermaidProps) {
     if (!cleanChart) return;
     let isMounted = true;
 
-    try {
-      mermaid.initialize({
+    void Promise.resolve()
+      .then(() => {
+        mermaid.initialize({
         startOnLoad: false,
         theme: 'dark',
         securityLevel: 'loose',
@@ -121,27 +122,22 @@ export function Mermaid({ chart, children, title, className }: MermaidProps) {
           mirrorActors: false,
           useMaxWidth: true,
         },
-      });
-
-      mermaid
-        .render(id, cleanChart)
-        .then(({ svg: renderedSvg }) => {
-          if (isMounted) {
-            setSvg(renderedSvg);
-            setError(null);
-          }
-        })
-        .catch((err) => {
-          if (isMounted) {
-            console.error('Mermaid render error:', err);
-            setError(err?.message || 'Failed to render Mermaid diagram');
-          }
         });
-    } catch (err: any) {
-      if (isMounted) {
-        setError(err?.message || 'Mermaid initialization error');
-      }
-    }
+
+        return mermaid.render(id, cleanChart);
+      })
+      .then(({ svg: renderedSvg }) => {
+        if (isMounted) {
+          setSvg(renderedSvg);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          console.error('Mermaid render error:', err);
+          setError(err?.message || 'Failed to render Mermaid diagram');
+        }
+      });
 
     return () => {
       isMounted = false;

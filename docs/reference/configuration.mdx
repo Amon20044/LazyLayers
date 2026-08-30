@@ -3,28 +3,32 @@ title: "Configuration"
 description: "Every option, its exact type, its real default, and what it costs you when it is wrong."
 ---
 
-Everything here goes to the `LazyLayersCache` constructor. The subset that also exists on `CacheOptions` can be overridden per call on `getOrSet`.
+`setupCache` is the production entry point. It accepts the full `LazyLayersCache` option surface, resolves L1, Redis L2, and Redis Pub/Sub, then applies the bounded setup defaults called out below. The subset that also exists on `CacheOptions` can be overridden per call on `getOrSet` or `prewarm`.
 
 <CodeGroup>
 ```js src/cache/index.js
-import { LazyLayersCache } from 'lazy-layers-cache'
+import { setupCache } from 'lazy-layers-cache'
 
-export const cache = new LazyLayersCache({
-  ttlMs: 5 * 60 * 1000,
+export const cache = await setupCache({
+  namespace: 'billing-api',
+  redis: { required: true },
 })
 ```
 
 ```ts src/cache/index.ts
-import { LazyLayersCache, type LazyLayersCacheOptions } from 'lazy-layers-cache'
+import { setupCache, type SetupCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 
-const options: LazyLayersCacheOptions<string, User> = {
-  ttlMs: 5 * 60 * 1000,
+const options: SetupCacheOptions<string, User> = {
+  namespace: 'billing-api',
+  redis: { required: true },
 }
 
-export const cache = new LazyLayersCache<string, User>(options)
+export const cache = await setupCache<string, User>(options)
 ```
 </CodeGroup>
+
+`new LazyLayersCache(options)` remains the low-level constructor. It never creates external infrastructure. Where its defaults differ from `setupCache`, this page names both.
 
 <Warning>
   **Tuning for production means changing numbers, not disabling safety.** In-flight dedupe, fail-open L2 behaviour and `broadcastSet` are load-bearing. `inflight: { enabled: false }`, `failSafe: { enabled: false }` and `broadcastSet: false` are not production advice, they are ways to reintroduce the failures this library exists to prevent. What you tune is entry counts, TTLs, byte ceilings, thresholds and cooldowns, sized to the instance the process runs on.
@@ -37,7 +41,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 </ParamField>
 
 <ParamField path="levels.L1" type="{ maxEntries?: number; ttlMs?: number }">
-  The in-process layer. `maxEntries` defaults to `1000`. `ttlMs` falls back to the cache-wide `ttlMs`, then to one hour.
+  The in-process layer. `maxEntries` defaults to `1000`. `setupCache` sets `ttlMs` to 10 seconds. The low-level constructor falls back to the cache-wide `ttlMs`, then to one hour.
 
   These are the **only two dials L1 has**. Eviction is LRU and is not configurable, and there is no byte-based limit.
 </ParamField>
@@ -55,7 +59,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 </ParamField>
 
 <ParamField path="l2" type="CacheStore<K, V> | false">
-  The shared store, usually a `RedisStore`. There is no default, so without it the cache is L1 only: nothing survives a restart and nothing is shared between servers.
+  The shared store, usually a `RedisStore`. `setupCache` creates one when a Redis client or URL is available. The low-level constructor has no L2 default.
 </ParamField>
 
 <ParamField path="versioning.enabled" type="boolean" default="false">
@@ -121,7 +125,7 @@ Passed to the `RedisStore` constructor, not to the cache.
 </ParamField>
 
 <ParamField path="inflight.maxEntries" type="number">
-  No default, so the number of tracked keys is unbounded. Cap it if a burst across many distinct cold keys could grow the map faster than loaders drain it.
+  `setupCache` defaults to `10000`. The low-level constructor leaves it unbounded. Cap it if a burst across many distinct cold keys could grow the map faster than loaders drain it.
 
   Past the cap, loads still run, just without dedupe, and each one emits `inflight:bypass`. Setting it to `0` bypasses tracking for every load, which disables dedupe entirely.
 </ParamField>
@@ -129,23 +133,23 @@ Passed to the `RedisStore` constructor, not to the cache.
 <ParamField path="negativeCache.enabled" type="boolean" default="true">
   Remembers that a loader returned `undefined`, so a missing row is not a free pass to hammer the origin on every retry.
 
-  On by default, but inert until you give it a `ttlMs`.
+  On by default with a 10 second TTL.
 </ParamField>
 
-<ParamField path="negativeCache.ttlMs" type="number">
-  No default. Without a positive value **nothing is ever recorded**, so negative caching does nothing at all. How long a recorded miss suppresses the loader.
+<ParamField path="negativeCache.ttlMs" type="number" default="10000">
+  How long a recorded miss suppresses the loader.
 
   Too long and a row created a second after the miss stays invisible for the rest of that window. Seconds, not minutes.
 </ParamField>
 
-<ParamField path="negativeCache.maxEntries" type="number">
-  No default, so remembered misses are unbounded. Cap it when a scan of nonexistent keys is reachable from user input. Eviction here is oldest-inserted, not LRU.
+<ParamField path="negativeCache.maxEntries" type="number" default="10000">
+  Caps remembered misses. Eviction here is oldest-inserted, not LRU.
 </ParamField>
 
-<ParamField path="distributedLock.enabled" type="boolean" default="false">
+<ParamField path="distributedLock.enabled" type="boolean" default="true">
   Serializes cold loads for one key across **servers**, not just within a process. In-flight dedupe already covers one process. This covers the case where fifty servers all miss the same key at the same instant.
 
-  Requires an L2 that implements `acquireLock` and `releaseLock`, which `RedisStore` does. Without one, this option is silently ignored. It costs a Redis round trip on every cold load, so turn it on for genuinely expensive loaders, not for every key.
+  Requires an L2 that implements `acquireLock` and `releaseLock`, which `RedisStore` does. Without one, it is a no-op. With Redis L2, every cold load uses the per-key lock unless you explicitly opt out.
 </ParamField>
 
 <ParamField path="distributedLock.ttlMs" type="number" default="10000">
@@ -162,10 +166,10 @@ Passed to the `RedisStore` constructor, not to the cache.
 
 ## Resilience
 
-<ParamField path="failSafe.enabled" type="boolean" default="false">
+<ParamField path="failSafe.enabled" type="boolean" default="true">
   Serves the last known value when the loader fails or times out, instead of propagating the error.
 
-  Off unless you set it to exactly `true`. This is the one safety feature you have to opt into, and it is the difference between a degraded page and a 500 while your origin is down.
+  On unless you explicitly disable it. A stale value is returned instead of an origin error while the stale window remains open.
 </ParamField>
 
 <ParamField path="failSafe.staleTtlMs" type="number">
@@ -180,8 +184,8 @@ Passed to the `RedisStore` constructor, not to the cache.
   It applies **only** when fail-safe is enabled and a stale value exists for that key. In that case the soft timeout is the one that runs and `hardMs` is not consulted at all. Set it near your p99 loader latency, since anything lower trades freshness for latency on every slow load.
 </ParamField>
 
-<ParamField path="timeouts.hardMs" type="number">
-  No default, which means a hung loader waits forever. Gives up on the loader entirely and rethrows, unless a stale copy is available to fall back on.
+<ParamField path="timeouts.hardMs" type="number" default="10000">
+  Gives up on the loader entirely and rethrows, unless a stale copy is available to fall back on.
 
   Applies whenever the soft path above does not, so it is your only protection on a cold key that has never been loaded.
 </ParamField>
@@ -205,9 +209,9 @@ Both timeouts abort the `AbortSignal` handed to your loader. If you do not pass 
 ## Event bus
 
 <ParamField path="eventBus" type="EventBus">
-  The transport that carries invalidations and primed values between servers. No default. Without it, a `delete` on one server is invisible to every other one until their entries expire.
+  The transport that carries invalidations and primed values between servers. `setupCache` creates Redis Pub/Sub when Redis is available. The low-level constructor has no default.
 
-  Every bus needs `await bus.connect()` before you hand it to the cache.
+  With `setupCache`, health, connection, and subscription readiness are awaited for you. With the low-level constructor, connect the bus yourself and call `await cache.ready()` before accepting traffic.
 </ParamField>
 
 <ParamField path="source" type="string">
@@ -227,7 +231,7 @@ Both timeouts abort the `AbortSignal` handed to your loader. If you do not pass 
 </ParamField>
 
 <ParamField path="broadcastSetMaxBytes" type="number">
-  **No default.** The encoded event size above which a value is invalidated on peers rather than shipped to them.
+  `setupCache` defaults to 32 KB. The low-level constructor has no default. This is the encoded event size above which a value is not shipped to peers.
 
   With no ceiling set, a five megabyte loader result is broadcast in full to every server, on every cold load, over whatever transport you chose. That is the option most likely to hurt you here. Over the limit, the publish is skipped and `set:broadcast-skipped` is emitted with `reason: 'max-bytes'`. The value is still written to L1 and L2 locally.
 </ParamField>

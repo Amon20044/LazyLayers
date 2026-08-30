@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { cn } from '@/lib/cn';
 
 export function CodeGroup({ children }: { children: React.ReactNode }) {
+  const [activeIndex, setActiveIndex] = useState(0);
   const childArray = React.Children.toArray(children).filter(
     (child) => React.isValidElement(child)
   ) as React.ReactElement[];
@@ -30,8 +31,6 @@ export function CodeGroup({ children }: { children: React.ReactNode }) {
 
     return { label: String(label), child };
   });
-
-  const [activeIndex, setActiveIndex] = useState(0);
 
   return (
     <div className="my-4 rounded-xl border border-fd-border bg-fd-card overflow-hidden shadow-sm not-prose">

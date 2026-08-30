@@ -23,11 +23,11 @@ npm install lazy-layers-cache
 - 🛑 **Thundering Herd Stampede Protection**: In-flight Promise deduplication (10,000 concurrent callers for a cold key execute exactly 1 database query) + Redis distributed mutex locks.
 - 🔄 **Fleet Synchronization via Event Bus**: Real-time cross-instance invalidation (`del`, `pattern`) and lazy value priming (`set`) over **Redis Pub/Sub**, **RabbitMQ (AMQP topic/fanout)**, **NATS Core**, or **NATS JetStream**.
 - 🛡️ **Fail-Open Resilience & Circuit Breaking**: If Redis or message brokers degrade, traffic gracefully fails open to L1 RAM or DB without blocking threads or throwing 500 errors.
-- ⏳ **Grace Periods & Fail-Safe Stale Fallbacks**: Serves stale cached copies during upstream database outages to guarantee 100% uptime.
+- ⏳ **Grace Periods & Fail-Safe Stale Fallbacks**: Serves recent stale copies when an upstream loader fails or times out.
 - 🚫 **Negative Caching (404 Protection)**: Automatically caches missing keys (`null`/`undefined`) with short TTLs to prevent database penetration attacks.
 - 🎯 **Deterministic Causal Ordering**: Instance identity (`source`), event deduplication, and per-key generation counters prevent out-of-order race conditions and loopback self-echos.
-- 📊 **Built-in Real-Time Observability Dashboard**: Zero-dependency live dashboard at `/__lazylayers` with Light/Dark mode, interactive canvas Bezier sparklines, traffic distribution visualizer, and L1/L2 memory inspectors.
-- 📈 **Native Prometheus Metrics**: Direct Prometheus exposition at `/__lazylayers/metrics` and `node:diagnostics_channel` telemetry stream.
+- 📊 **Built-in Real-Time Observability Dashboard**: Optional live dashboard at `/observelazyily` with L1/L2 inspectors and activity metrics.
+- 📈 **Native Prometheus Metrics**: Prometheus exposition at `/observelazyily/metrics` and a `node:diagnostics_channel` telemetry stream.
 - 🏷️ **Pattern-Based Invalidation**: Single-key `delete()` and wildcard `deleteByPattern('users:*')` broadcast across the entire cluster.
 - 💎 **100% Type-Safe TypeScript & Zero-Config Defaults**: Complete end-to-end generic typing with hardened, battle-tested production defaults out of the box.
 
@@ -39,13 +39,13 @@ npm install lazy-layers-cache
 Stage 1: Single Process    ──> In-memory LRU with getOrSet() & inflight dedupe (zero infra)
 Stage 2: Shared L2 Store   ──> Add RedisStore with size-tiered LZ4/Zstd binary compression
 Stage 3: Multi-Instance    ──> Add Redis Pub/Sub, RabbitMQ, or NATS for del/pattern/set fanout
-Stage 4: Cold Spike Shield ──> Enable Redis-backed distributed lock for cross-instance dedupe
+Stage 4: Cold Spike Shield ──> Redis-backed per-key locks engage automatically on cold loads
 ```
 
 ## Table of Contents
 
 - [Install](#install)
-- [Quickstart (15 Lines)](#quickstart-15-lines)
+- [Production quickstart](#production-quickstart)
 - [Type-safe Usage](#type-safe-usage)
 - [Layer Modes & Progressive Adoption](#layer-modes--progressive-adoption)
 - [Using Redis L2](#using-redis-l2)
@@ -77,66 +77,61 @@ msgpackr                 - Redis serialization
 
 Requires **Node.js 20 or 22+**.
 
-## Usage
+## Production quickstart
 
-Create a cache and use it like a small async key-value store.
-
-```ts
-import { LazyLayersCache } from "lazy-layers-cache";
-
-const cache = new LazyLayersCache({
-  ttlMs: 60_000,
-});
-
-await cache.set("user:1", { id: "1", name: "Amonk" });
-
-const user = await cache.get("user:1");
-
-await cache.delete("user:1");
-```
-
-Use `getOrSet()` for read-through caching.
+`setupCache` reads `REDIS_URL`, creates L1, Redis L2, and Redis Pub/Sub, waits for health and subscription readiness, and returns one managed cache. `required: true` stops a multi-server service from accidentally starting with isolated L1 caches.
 
 ```ts
-import { LazyLayersCache } from "lazy-layers-cache";
+import { setupCache } from "lazy-layers-cache";
 
-const cache = new LazyLayersCache({
-  ttlMs: 60_000,
-  inflight: {
-    enabled: true,
-    ttlMs: 5_000,
-    maxEntries: 1_000,
-  },
-});
-
-const user = await cache.getOrSet("user:1", async ({ signal } = {}) => {
-  return db.users.findById("1", { signal });
+export const cache = await setupCache({
+  namespace: "billing-api",
+  redis: { required: true },
 });
 ```
 
-The first caller runs the loader. Concurrent callers for the same key reuse the same inflight promise.
+Read through the cache. In-process callers share one in-flight promise and Redis adds a per-key lock across processes.
+
+```ts
+const user = await cache.getOrSet(`user:${id}`, ({ signal }) =>
+  db.users.findById(id, { signal }),
+);
+```
+
+Invalidate after the database write commits, or pre-warm a key through the same protected path.
+
+```ts
+await cache.invalidate(`user:${id}`);
+
+await cache.prewarm("plans:active", ({ signal }) =>
+  db.plans.findActive({ signal }),
+);
+```
+
+Call `await cache.close()` during graceful shutdown. When no Redis URL is available, `setupCache()` conditionally resolves to the protected L1-only path. Pass `redis: false` to make local-only mode explicit.
 
 ## Type-safe Usage
 
 You can bind one cache instance to one value shape.
 
 ```ts
-import { LazyLayersCache, type LazyLayersCacheOptions } from "lazy-layers-cache";
+import { setupCache, type SetupCacheOptions } from "lazy-layers-cache";
 
 interface User {
   id: string;
   name: string;
 }
 
-const options: LazyLayersCacheOptions<string, User> = {
-  ttlMs: 60_000,
+const options: SetupCacheOptions<string, User> = {
+  namespace: "users-api",
+  redis: { required: true },
 };
 
-const users = new LazyLayersCache<string, User>(options);
+const users = await setupCache<string, User>(options);
 
-await users.set("user:1", { id: "1", name: "Amonk" });
-
-const user = await users.get("user:1");
+const user = await users.getOrSet("user:1", ({ signal }) =>
+  db.users.findById("1", { signal }),
+);
 // user is User | undefined
 ```
 
@@ -259,7 +254,7 @@ When multiple application instances use their own L1 memory caches, connect them
 
 `set` broadcasts are emitted from inside `getOrSet`'s loader path only. Direct `cache.set()` calls do **not** broadcast. This is the L1 priming path the rule above describes — one instance pays for the loader, every peer's L1 warms automatically. Self-published events are ignored via the `source` filter, and events are deduplicated by ID.
 
-Turn off the L1 priming broadcast with `broadcastSet: false` if you want pure invalidation semantics (delete-only fanout, like older releases).
+Bound L1 priming with `broadcastSetMaxBytes`. The managed setup defaults to 32 KB, so larger values remain in L2 and peers load them on demand.
 
 `del` and `set` events carry a per-key `generation`. Each cache instance ignores remote `del` / `set` events whose generation is older than the generation it has already applied for that key, so a late `set` broadcast cannot repopulate a value after a newer delete.
 
@@ -269,7 +264,6 @@ Large `set` broadcasts can be skipped with `broadcastSetMaxBytes`. The value is 
 const cache = new LazyLayersCache({
   eventBus,
   source: process.env.INSTANCE_ID,
-  broadcastSet: true, // default — peers populate L1 from getOrSet results
   broadcastSetMaxBytes: 256 * 1024,
 });
 ```
@@ -691,6 +685,19 @@ Patterns support `*` and `?` matching. Pattern deletes also publish invalidation
 
 ## API
 
+### `setupCache([options])`
+
+Production setup that conditionally creates Redis L2 and Redis Pub/Sub, verifies readiness, applies bounded defaults, and returns a `ManagedLazyLayersCache` with idempotent `close()`.
+
+```ts
+import { setupCache } from "lazy-layers-cache";
+
+const cache = await setupCache({
+  namespace: "billing-api",
+  redis: { required: true },
+});
+```
+
 ### `new LazyLayersCache([options])`
 
 Returns a cache instance. This is the primary class.
@@ -720,12 +727,17 @@ const cache = createCache({ ttlMs: 60_000 });
 | `set(key, value, options?)` | Store a value in active layers. |
 | `get(key)` | Read from L1 first, then L2. L2 hits are promoted into L1. |
 | `getOrSet(key, loader, options?)` | Read cached value or run a loader and store the result. |
+| `prewarm(key, loader, options?)` | Warm one key through the same protected path as `getOrSet`. |
 | `has(key)` | Check whether a key exists. |
+| `invalidate(key)` | Delete one key locally, from L2, and across peers. |
+| `invalidateByPattern(pattern)` | Delete matching keys locally, from L2, and across peers. |
 | `delete(key)` | Delete a key locally and publish invalidation when configured. |
 | `deleteByPattern(pattern)` | Delete matching keys locally and publish pattern invalidation when configured. |
 | `clear()` | Delete all keys using `deleteByPattern("*")`. |
 | `size()` | Return the active store size. |
 | `on(handler)` | Subscribe to cache events. Returns an unsubscribe function. |
+| `ready()` | Wait for inbound event subscription readiness. |
+| `close()` | Stop observability and disconnect the event bus. Managed setup also closes owned Redis. |
 
 ### `new MemoryStore([options])`
 

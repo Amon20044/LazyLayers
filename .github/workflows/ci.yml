@@ -37,12 +37,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      nats:
-        image: nats:2.10-alpine
-        ports:
-          - 4222:4222
-        options: -js
-
     env:
       REDIS_URL: redis://127.0.0.1:6379
       RABBITMQ_URL: amqp://guest:guest@127.0.0.1:5672
@@ -60,6 +54,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Start NATS with JetStream
+        run: docker run --detach --name lazy-layers-ci-nats --publish 4222:4222 nats:2.10-alpine -js
 
       - name: Wait for live service containers (Redis, RabbitMQ, NATS)
         run: |
@@ -121,3 +118,33 @@ jobs:
           cd site
           npm ci
           npm run build
+
+  documentation-build:
+    name: Lint, Typecheck & Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: documentation/package-lock.json
+
+      - name: Install documentation dependencies
+        run: npm ci
+        working-directory: documentation
+
+      - name: Lint documentation
+        run: npm run lint
+        working-directory: documentation
+
+      - name: Typecheck documentation
+        run: npm run types:check
+        working-directory: documentation
+
+      - name: Build documentation
+        run: npm run build
+        working-directory: documentation
