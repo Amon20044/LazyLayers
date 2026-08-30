@@ -3,7 +3,13 @@ import { test } from "node:test";
 
 process.env.NODE_ENV = "production";
 
-const { LazyLayersCache, CircuitBreaker } = await import("../dist/index.js");
+const {
+  CacheSetupError,
+  CircuitBreaker,
+  LazyLayersCache,
+  ManagedLazyLayersCache,
+  setupCache,
+} = await import("../dist/index.js");
 
 /**
  * These tests all construct the cache with as little configuration as possible.
@@ -166,4 +172,113 @@ test("the observability dashboard stays off unless asked for", async () => {
     undefined,
     "no handler should be mounted by default",
   );
+});
+
+test("setupCache resolves to a managed production cache in L1-only mode", async () => {
+  const cache = await setupCache({
+    namespace: "safe-defaults",
+    redis: false,
+  });
+  let calls = 0;
+
+  assert.ok(cache instanceof ManagedLazyLayersCache);
+  assert.deepEqual(
+    await cache.prewarm("user:1", async () => {
+      calls++;
+      return { id: 1 };
+    }),
+    { id: 1 },
+  );
+  assert.deepEqual(await cache.prewarm("user:1", async () => ({ id: 2 })), { id: 1 });
+  assert.equal(calls, 1);
+
+  await cache.invalidate("user:1");
+  assert.deepEqual(await cache.prewarm("user:1", async () => ({ id: 2 })), { id: 2 });
+
+  await cache.invalidateByPattern("user:*");
+  assert.equal(await cache.has("user:1"), false);
+
+  await cache.close();
+  await cache.close();
+});
+
+test("setupCache waits for bus health and subscription, then owns bus cleanup", async () => {
+  const published = [];
+  let subscribed = false;
+  let disconnects = 0;
+  const eventBus = {
+    async healthCheck() {
+      return { ok: true, transport: "fake" };
+    },
+    async subscribe() {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      subscribed = true;
+    },
+    async publish(event) {
+      published.push(event);
+    },
+    async disconnect() {
+      disconnects++;
+    },
+  };
+
+  const cache = await setupCache({
+    namespace: "managed-bus",
+    redis: false,
+    l2: false,
+    eventBus,
+  });
+
+  assert.equal(subscribed, true, "setup must not return before the subscription is active");
+  await cache.prewarm("ready", async () => "yes");
+  await cache.invalidate("ready");
+  assert.deepEqual(published.map((event) => event.type), ["set", "del"]);
+
+  await cache.close();
+  await cache.close();
+  assert.equal(disconnects, 1);
+});
+
+test("setupCache fails closed when configured infrastructure is unhealthy", async () => {
+  let disconnects = 0;
+  const eventBus = {
+    async healthCheck() {
+      return { ok: false, transport: "fake", error: new Error("offline") };
+    },
+    async subscribe() {},
+    async publish() {},
+    async disconnect() {
+      disconnects++;
+    },
+  };
+
+  await assert.rejects(
+    () => setupCache({ redis: false, eventBus }),
+    (error) => error instanceof CacheSetupError && /health check/.test(error.message),
+  );
+  assert.equal(disconnects, 1);
+});
+
+test("setupCache bounds a startup check that never settles", async () => {
+  let disconnects = 0;
+  const eventBus = {
+    healthCheck() {
+      return new Promise(() => {});
+    },
+    async subscribe() {},
+    async publish() {},
+    async disconnect() {
+      disconnects++;
+    },
+  };
+
+  await assert.rejects(
+    () => setupCache({
+      redis: false,
+      eventBus,
+      startup: { timeoutMs: 10 },
+    }),
+    (error) => error instanceof CacheSetupError && /timed out/.test(error.message),
+  );
+  assert.equal(disconnects, 1);
 });

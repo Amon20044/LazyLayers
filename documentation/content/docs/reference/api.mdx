@@ -1,15 +1,61 @@
 ---
 title: "API"
-description: "Every method on LazyLayersCache, the createCache helper, and the complete export surface."
+description: "Managed production setup, every LazyLayersCache method, and the complete export surface."
 ---
 
-`LazyLayersCache` is the only object most code touches. Nine methods, one constructor, and a module that exports the stores, buses and types behind them.
+`setupCache` is the production entry point. It returns a managed `LazyLayersCache`, which is the only object application code needs after startup.
 
 <Note>
   Tuning this API for production means changing **numbers**, not turning safety off. In-flight dedupe, fail-open behaviour and `broadcastSet` are on for a reason. Size the entry counts, TTLs, byte ceilings and thresholds instead.
 </Note>
 
-## Constructing a cache
+## Production setup
+
+```ts
+function setupCache<K extends CacheKey = string, V = unknown>(
+  options?: SetupCacheOptions<K, V>,
+): Promise<ManagedLazyLayersCache<K, V>>
+```
+
+`setupCache` resolves infrastructure, checks health, waits for the event subscription, and returns a cache with idempotent cleanup. It reads `REDIS_URL` when no client or URL is passed.
+
+```ts title="src/cache/index.ts"
+import { setupCache } from 'lazy-layers-cache'
+import type { User } from '../types/user.js'
+
+export const cache = await setupCache<string, User>({
+  namespace: 'billing-api',
+  redis: { required: true },
+})
+```
+
+<ParamField path="namespace" type="string">
+  Redis key and channel namespace. Falls back to `LAZY_LAYERS_NAMESPACE`, then `npm_package_name`, then `app`.
+</ParamField>
+
+<ParamField path="redis" type="SetupRedisOptions | false">
+  Creates Redis L2 and Redis Pub/Sub from an existing `client`, an explicit `url`, or `REDIS_URL`. Pass `false` for L1 only. `required: true` rejects startup when Redis configuration is missing.
+</ParamField>
+
+<ParamField path="l2" type="CacheStore<K, V> | false">
+  Explicit store override. It wins over the generated Redis store.
+</ParamField>
+
+<ParamField path="eventBus" type="EventBus | false">
+  Explicit bus override. It wins over generated Redis Pub/Sub. Pass `false` to disable peer fan-out.
+</ParamField>
+
+<ParamField path="startup.requireHealthy" type="boolean" default="true">
+  Requires configured shared infrastructure and the inbound subscription to be ready before setup returns.
+</ParamField>
+
+<ParamField path="startup.timeoutMs" type="number" default="10000">
+  Bounds each startup health, connection, and subscription readiness check.
+</ParamField>
+
+All `LazyLayersCacheOptions` are accepted alongside these setup fields. See [production setup](/docs/setups/production) for the resolved defaults.
+
+## Low-level construction
 
 ```ts
 class LazyLayersCache<K extends CacheKey = string, V = unknown> extends HybridCache<K, V> {
@@ -20,7 +66,7 @@ class LazyLayersCache<K extends CacheKey = string, V = unknown> extends HybridCa
 `K` is the key type and must extend `CacheKey`, which is `string | number`. `V` is the value type. Both default to `string` and `unknown`, so an unparameterised cache hands you `unknown` back and you cast at every call site. Name the types once at construction and every method is typed from there.
 
 <CodeGroup>
-```js title="src/cache/index.js"
+```js src/cache/index.js
 import { LazyLayersCache, createCache } from 'lazy-layers-cache'
 
 export const cache = new LazyLayersCache({ ttlMs: 5 * 60 * 1000 })
@@ -29,7 +75,7 @@ export const cache = new LazyLayersCache({ ttlMs: 5 * 60 * 1000 })
 export const same = createCache({ ttlMs: 5 * 60 * 1000 })
 ```
 
-```ts title="src/cache/index.ts"
+```ts src/cache/index.ts
 import { LazyLayersCache, createCache } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 
@@ -77,7 +123,7 @@ The read-through path, and the method to reach for in almost all code. It checks
 Returns the cached or freshly loaded value. It returns `undefined` when the loader resolves `undefined` and no stale copy is available, and short-circuits to `undefined` without calling the loader at all while a negative entry for that key is live.
 
 <CodeGroup>
-```js title="src/users/repository.js"
+```js src/users/repository.js
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -89,7 +135,7 @@ export async function getUser(id) {
 }
 ```
 
-```ts title="src/users/repository.ts"
+```ts src/users/repository.ts
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 import { db } from '../db.js'
@@ -125,8 +171,22 @@ What happens on a miss, in order:
 </Note>
 
 <Warning>
-  `broadcastSetMaxBytes` has **no default**. Without it, a multi-megabyte loader result is broadcast in full to every server. Set a ceiling. Values over it are still stored locally and in L2, and the skip emits `set:broadcast-skipped` with `reason: 'max-bytes'`.
+  `setupCache` sets `broadcastSetMaxBytes` to 32 KB. The low-level constructor has no ceiling. Values over the ceiling are still stored locally and in L2, and the skip emits `set:broadcast-skipped` with `reason: 'max-bytes'`.
 </Warning>
+
+### prewarm
+
+```ts
+prewarm(key: K, loader: CacheLoader<V>, options?: CacheOptions): Promise<V | undefined>
+```
+
+The explicit warm-up name for the full `getOrSet` path. It checks existing layers first, runs one protected loader on a miss, stores the result, and primes peer L1 caches. Use it from deploy hooks, schedulers, or background jobs.
+
+```js title="src/jobs/prewarm.js"
+await cache.prewarm('plans:active', ({ signal }) =>
+  db.plans.findActive({ signal }),
+)
+```
 
 ### get
 
@@ -145,7 +205,7 @@ Checks the negative cache, then L1, then L2. A value found in L2 is written into
 `get` never runs a loader, never dedupes, and never publishes anything.
 
 <CodeGroup>
-```js title="src/users/warm-path.js"
+```js src/users/warm-path.js
 import { cache } from '../cache/index.js'
 
 const cached = await cache.get(`user:${id}`)
@@ -155,7 +215,7 @@ if (cached === undefined) {
 }
 ```
 
-```ts title="src/users/warm-path.ts"
+```ts src/users/warm-path.ts
 import { cache } from '../cache/index.js'
 
 const cached: User | undefined = await cache.get(`user:${id}`)
@@ -193,14 +253,14 @@ Writes to L1 and to L2, remembers the value as the stale copy when fail-safe is 
 </Warning>
 
 <CodeGroup>
-```js title="src/users/import.js"
+```js src/users/import.js
 import { cache } from '../cache/index.js'
 
 // Seeding a value you computed elsewhere. Local layers only.
 await cache.set(`user:${user.id}`, user, { ttlMs: 30 * 1000 })
 ```
 
-```ts title="src/users/import.ts"
+```ts src/users/import.ts
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 
@@ -220,7 +280,7 @@ await cache.set(`user:${user.id}`, user, { ttlMs: 30 * 1000 })
 Reach for `getOrSet` unless you have a specific reason not to. `get` is for the rare case where a miss is not yours to fill, such as a health probe or a debug endpoint. `set` is for a value that arrived from somewhere other than a loader, and it costs you the broadcast.
 
 <Note>
-  This is the only page in these docs that uses `get` and `set` in an example. Everywhere else, a read is `getOrSet` and an invalidation is `delete` or `deleteByPattern`.
+  This is the only page in these docs that uses `get` and `set` in an example. Everywhere else, a read is `getOrSet`, a warm-up is `prewarm`, and an invalidation is `invalidate` or `invalidateByPattern`.
 </Note>
 
 ### has
@@ -237,7 +297,7 @@ Returns `false` immediately for a negative-cached key, without consulting either
 
 `has` does not decode the value, which makes it cheap on L2 but leaves you open to the usual race: the key can expire between your `has` and your read. Prefer `getOrSet` and check the result for `undefined`.
 
-```js title="src/cache/probe.js"
+```js src/cache/probe.js
 const warm = await cache.has(`user:${id}`)
 ```
 
@@ -254,7 +314,7 @@ delete(key: K): Promise<void>
 Drops the key from L1, L2, the negative cache, the stale copy and any in-flight promise, advances that key's generation counter, then publishes a `del` event so every peer does the same. Call it after your write commits, not before.
 
 <CodeGroup>
-```js title="src/users/repository.js"
+```js src/users/repository.js
 export async function updateUser(id, patch) {
   const updated = await db.users.update(id, patch)
   await cache.delete(`user:${id}`)
@@ -262,7 +322,7 @@ export async function updateUser(id, patch) {
 }
 ```
 
-```ts title="src/users/repository.ts"
+```ts src/users/repository.ts
 export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
   const updated = await db.users.update(id, patch)
   await cache.delete(`user:${id}`)
@@ -270,6 +330,19 @@ export async function updateUser(id: string, patch: Partial<User>): Promise<User
 }
 ```
 </CodeGroup>
+
+### invalidate
+
+```ts
+invalidate(key: K): Promise<void>
+```
+
+The application-facing name for `delete`. It has identical behaviour and is the preferred name after a source-of-truth write.
+
+```js title="src/users/repository.js"
+const user = await db.users.update(id, patch)
+await cache.invalidate(`user:${id}`)
+```
 
 ### deleteByPattern
 
@@ -290,14 +363,22 @@ Removes every matching entry from L1, L2, and the in-flight, negative and stale 
 Unlike `delete`, a `pattern` event carries no generation counter, so the ordering guard that protects single keys does not apply to pattern invalidations.
 
 <CodeGroup>
-```js title="src/users/repository.js"
+```js src/users/repository.js
 await cache.deleteByPattern(`user:${id}:sessions:*`)
 ```
 
-```ts title="src/users/repository.ts"
+```ts src/users/repository.ts
 await cache.deleteByPattern(`user:${id}:sessions:*`)
 ```
 </CodeGroup>
+
+### invalidateByPattern
+
+```ts
+invalidateByPattern(pattern: string): Promise<void>
+```
+
+The application-facing name for `deleteByPattern`. It performs the same namespace scan and publishes the same pattern event.
 
 ### clear
 
@@ -321,7 +402,7 @@ Returns the L1 entry count when L1 exists. It only reports L2 when L1 is disable
 
 L2 sizing is approximate. `RedisStore` returns the cardinality of its index when `useIndex` is on, and otherwise counts keys with a full scan, which is expensive on a large keyspace.
 
-```js title="src/cache/metrics.js"
+```js src/cache/metrics.js
 const l1Entries = await cache.size()
 ```
 
@@ -338,7 +419,7 @@ on(handler: CacheEventHandler): () => void
 Returns an unsubscribe function. Passing handlers to the `events` constructor option is equivalent to calling `on` for each of them at startup.
 
 <CodeGroup>
-```js title="src/cache/metrics.js"
+```js src/cache/metrics.js
 import { cache } from './index.js'
 
 const off = cache.on((event) => {
@@ -351,7 +432,7 @@ const off = cache.on((event) => {
 off()
 ```
 
-```ts title="src/cache/metrics.ts"
+```ts src/cache/metrics.ts
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from './index.js'
 
@@ -382,13 +463,24 @@ closeObservability(): Promise<void>
 
 `getObservabilityHandler` returns a request handler you can mount on your own HTTP server. It answers the request and returns `true`, or returns `false` to pass through. Both getters return `undefined` when observability is off. `closeObservability` stops the standalone server and is safe to call when none was started.
 
+### Lifecycle methods
+
+```ts
+ready(): Promise<void>
+close(): Promise<void>
+```
+
+`ready` resolves when the inbound event subscription is active and rejects when subscription failed. `setupCache` calls it before returning.
+
+`close` stops observability and disconnects the event bus. On a `ManagedLazyLayersCache`, it also closes the Redis client when setup created that client. Caller-provided clients remain caller-owned. Managed close is idempotent.
+
 ## Exported classes and values
 
 Everything below is a runtime export of `lazy-layers-cache`.
 
 <AccordionGroup>
   <Accordion title="Cache and stores">
-    `LazyLayersCache`, `HybridCache`, `MemoryStore`, `RedisStore`, `CircuitBreaker`, and the `createCache` factory helper.
+    `ManagedLazyLayersCache`, `LazyLayersCache`, `HybridCache`, `MemoryStore`, `RedisStore`, `CircuitBreaker`, `setupCache`, `createCache`, and `CacheSetupError`.
 
     `MemoryStore` is the L1 implementation and is created for you when you do not pass `l1`. `RedisStore` is generic over the value type only, as `RedisStore<V>`, because its key type is fixed to `CacheKey`.
   </Accordion>
@@ -402,6 +494,10 @@ Everything below is a runtime export of `lazy-layers-cache`.
     DEFAULT_CACHE_TTL_MS      // 3_600_000
     DEFAULT_L1_MAX_ENTRIES    // 1_000
     DEFAULT_INFLIGHT_TTL_MS   // 5_000
+    PRODUCTION_L1_TTL_MS      // 10_000
+    PRODUCTION_INFLIGHT_MAX_ENTRIES // 10_000
+    PRODUCTION_BROADCAST_SET_MAX_BYTES // 32_768
+    PRODUCTION_STARTUP_TIMEOUT_MS // 10_000
     GZIP_MIN_BYTES            // 65_536
     GZIP_SAVINGS_THRESHOLD    // 0.15
     NULL_SENTINEL             // '__hybridcache_null__'
@@ -427,7 +523,7 @@ Everything below is a runtime export of `lazy-layers-cache`.
 
 <AccordionGroup>
   <Accordion title="Cache and options">
-    `LazyLayersCacheOptions<K, V>`, `HybridCacheOptions<K, V>`, `HybridCacheResilienceOptions`, `CacheOptions`, `CacheLevelOptions`, `CacheLevel`, `CacheKey`, `CacheLayer<K, V>`, `CacheEntry<V>`, `CacheStore<K, V>`, `CacheLoader<V>`, `InflightEntry<K, V>`, `InflightOptions`, `InflightStore<K, V>`, `DistributedLock`, `DistributedLockOptions`, `CircuitBreakerOptions`, `CircuitBreakerState`, `RedisStoreOptions`, `CacheLoggerOptions`, `CacheRuntimeEnv`.
+    `SetupCacheOptions<K, V>`, `SetupRedisOptions`, `CacheStartupOptions`, `LazyLayersCacheOptions<K, V>`, `HybridCacheOptions<K, V>`, `HybridCacheResilienceOptions`, `CacheOptions`, `CacheLevelOptions`, `CacheLevel`, `CacheKey`, `CacheLayer<K, V>`, `CacheEntry<V>`, `CacheStore<K, V>`, `CacheLoader<V>`, `InflightEntry<K, V>`, `InflightOptions`, `InflightStore<K, V>`, `DistributedLock`, `DistributedLockOptions`, `CircuitBreakerOptions`, `CircuitBreakerState`, `RedisStoreOptions`, `CacheLoggerOptions`, `CacheRuntimeEnv`.
 
     `CacheStore<K, V>` is the interface any custom layer must satisfy: `set`, `get`, `getOrSet`, `has`, `delete`, `deleteByPattern`, `clear` and `size`. `CacheLayer<K, V>` is `CacheStore<K, V> | false`, which is why `l1: false` and `l2: false` typecheck.
   </Accordion>

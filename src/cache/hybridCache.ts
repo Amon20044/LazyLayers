@@ -95,6 +95,9 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   private readonly generations = new Map<string, number>();
   private readonly seenEvents = new Map<string, number>();
   private readonly eventHandlers = new Set<CacheEventHandler>();
+  private readonly readyPromise: Promise<void>;
+  private subscriptionError?: unknown;
+  private closePromise?: Promise<void>;
   private observabilityHandler?: ObservabilityRequestHandler;
   private observabilityServer?: ObservabilityServerHandle;
 
@@ -108,7 +111,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     options.events?.forEach((handler) => this.eventHandlers.add(handler));
 
     if (options.eventBus && options.subscribeToEvents !== false) {
-      void options.eventBus
+      this.readyPromise = options.eventBus
         .subscribe(async (event) => {
           const eventId = event.id ?? this.getLegacyEventId(event);
 
@@ -147,8 +150,11 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
           }
         })
         .catch((error) => {
+          this.subscriptionError = error;
           errorLog('event-bus subscription failed', { error });
         });
+    } else {
+      this.readyPromise = Promise.resolve();
     }
 
     this.setupObservability();
@@ -241,6 +247,40 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     if (this.observabilityServer) {
       await this.observabilityServer.close();
       this.observabilityServer = undefined;
+    }
+  }
+
+  /**
+   * Wait until the event-bus subscription is active. Constructors cannot be
+   * asynchronous, so managed startup calls this before accepting traffic.
+   */
+  async ready(): Promise<void> {
+    await this.readyPromise;
+
+    if (this.subscriptionError !== undefined) {
+      throw this.subscriptionError;
+    }
+  }
+
+  /** Release resources owned by the cache. Safe to call more than once. */
+  async close(): Promise<void> {
+    this.closePromise ??= this.closeResources();
+    await this.closePromise;
+  }
+
+  private async closeResources(): Promise<void> {
+    const results = await Promise.allSettled([
+      this.closeObservability(),
+      this.options.eventBus?.disconnect?.() ?? Promise.resolve(),
+    ]);
+    const failures = results.filter((result) => result.status === 'rejected');
+
+    if (failures.length === 1) {
+      throw failures[0].reason;
+    }
+
+    if (failures.length > 1) {
+      throw new AggregateError(failures.map((failure) => failure.reason), 'Cache cleanup failed');
     }
   }
 
@@ -360,6 +400,11 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     return promise;
   }
 
+  /** Warm one key through the full read-through and peer-priming path. */
+  async prewarm(key: K, loader: CacheLoader<V>, options: CacheOptions = {}): Promise<V | undefined> {
+    return this.getOrSet(key, loader, options);
+  }
+
   async has(key: K): Promise<boolean> {
     if (this.hasNegative(key)) {
       return false;
@@ -388,6 +433,11 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     });
   }
 
+  /** Invalidate one key locally, in L2, and across the event bus. */
+  async invalidate(key: K): Promise<void> {
+    await this.delete(key);
+  }
+
   async deleteByPattern(pattern: string): Promise<void> {
     await this.deleteByPatternLocal(pattern);
     debugLog('cache delete pattern', { pattern });
@@ -399,6 +449,11 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       source: this.source,
       ts: Date.now(),
     });
+  }
+
+  /** Invalidate every matching key locally, in L2, and across the event bus. */
+  async invalidateByPattern(pattern: string): Promise<void> {
+    await this.deleteByPattern(pattern);
   }
 
   async clear(): Promise<void> {

@@ -17,6 +17,14 @@ the coordinator.
 | `DEFAULT_CACHE_TTL_MS` | `60 * 60 * 1000` (1 hour) | `src/cache/defaults.ts:1` |
 | `DEFAULT_L1_MAX_ENTRIES` | `1_000` | `src/cache/defaults.ts:2` |
 | `DEFAULT_INFLIGHT_TTL_MS` | `5_000` | `src/cache/defaults.ts:3` |
+| `PRODUCTION_L1_TTL_MS` | `10_000` | `src/setup.ts` |
+| `PRODUCTION_INFLIGHT_MAX_ENTRIES` | `10_000` | `src/setup.ts` |
+| `PRODUCTION_BROADCAST_SET_MAX_BYTES` | `32 * 1024` | `src/setup.ts` |
+| `PRODUCTION_STARTUP_TIMEOUT_MS` | `10_000` | `src/setup.ts` |
+| `DEFAULT_STALE_TTL_MS` | `30_000` | `src/cache/defaults.ts` |
+| `DEFAULT_NEGATIVE_TTL_MS` | `10_000` | `src/cache/defaults.ts` |
+| `DEFAULT_NEGATIVE_MAX_ENTRIES` | `10_000` | `src/cache/defaults.ts` |
+| `DEFAULT_LOADER_HARD_TIMEOUT_MS` | `10_000` | `src/cache/defaults.ts` |
 | `GZIP_MIN_BYTES` | `64 * 1024` (64 KB) | `src/utils/serializer.ts:33` |
 | Gzip kept only when it saves | at least 15% | `src/utils/serializer.ts` |
 | Wire prefixes | `HC1M` msgpack, `HC1G` gzip, `HC1J` json | `src/utils/serializer.ts` |
@@ -92,6 +100,22 @@ State these as already-on, never as things to enable:
   older than what already landed.
 - **`broadcastSet`.** Gated on `this.options.broadcastSet !== false`, so it is on
   whenever an event bus is configured.
+- **Negative caching.** A 10 second miss capped at 10,000 entries.
+- **Fail-safe stale fallback.** A 30 second stale window.
+- **Hard loader timeout.** A 10 second ceiling.
+- **Distributed per-key locking.** Used automatically when L2 implements the
+  lock interface. It is a no-op without a lock-capable L2.
+
+## Managed setup
+
+`setupCache` in `src/setup.ts` is the production entry point. It resolves Redis
+from a passed client, a passed URL, or `REDIS_URL`; creates Redis L2 and Redis
+Pub/Sub; performs health and subscription readiness checks; and returns
+`ManagedLazyLayersCache` with idempotent cleanup. With no Redis configuration it
+resolves to L1 only unless `redis.required` is true.
+
+It adds bounded defaults that the low-level constructor does not: a 10 second
+L1 TTL, 10,000 tracked in-flight keys, and a 32 KB set-broadcast ceiling.
 
 ## The lazy fan-out (give this prominence)
 
@@ -118,12 +142,12 @@ Two caveats that must appear wherever this is explained:
 
 ## API emphasis
 
-`getOrSet` is the method to show. Use it in every example on every page.
+`getOrSet` is the read method to show. `prewarm` is its intent-named alias for
+background warm-up. `invalidate` aliases `delete`; `invalidateByPattern` aliases
+`deleteByPattern`.
 
-`get` and `set` exist and may be documented **only** on
-`docs/reference/api.mdx`. Do not use them in examples anywhere else. Where a
-page needs to write a value, it uses `getOrSet`; where it needs to invalidate,
-it uses `delete` or `deleteByPattern`.
+`get`, `set`, `delete`, and `deleteByPattern` exist and may be documented
+**only** on `docs/reference/api.mdx`. Do not use them in examples elsewhere.
 
 ## Production advice rule
 

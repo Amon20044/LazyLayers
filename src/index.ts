@@ -8,6 +8,21 @@ export function createCache<K extends CacheKey = string, V = unknown>(
 }
 
 export type {
+  CacheStartupOptions,
+  SetupCacheOptions,
+  SetupRedisOptions,
+} from './setup.js';
+export {
+  CacheSetupError,
+  ManagedLazyLayersCache,
+  PRODUCTION_BROADCAST_SET_MAX_BYTES,
+  PRODUCTION_INFLIGHT_MAX_ENTRIES,
+  PRODUCTION_L1_TTL_MS,
+  PRODUCTION_STARTUP_TIMEOUT_MS,
+  setupCache,
+} from './setup.js';
+
+export type {
   BaseInvalidationEvent,
   CacheEntry,
   CacheKey,

@@ -10,6 +10,7 @@ const {
   RedisEventBus,
   RabbitMQEventBus,
   NatsEventBus,
+  setupCache,
 } = await import('../dist/index.js');
 
 const REDIS_URL = process.env.REDIS_URL;
@@ -17,6 +18,29 @@ const RABBITMQ_URL = process.env.RABBITMQ_URL;
 const NATS_URL = process.env.NATS_URL;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test('Live managed setup: production Redis path is ready and closes cleanly', async (t) => {
+  if (!REDIS_URL) {
+    t.skip('REDIS_URL not provided, skipping managed setup test');
+    return;
+  }
+
+  const cache = await setupCache({
+    namespace: `managed-live-${Date.now()}`,
+    redis: { url: REDIS_URL, required: true },
+    logging: { env: 'production' },
+  });
+
+  assert.deepEqual(
+    await cache.prewarm('health', async () => ({ ok: true })),
+    { ok: true },
+  );
+  await cache.invalidate('health');
+  assert.equal(await cache.has('health'), false);
+
+  await cache.close();
+  await cache.close();
+});
 
 /* ── 1. Live Redis Integration ───────────────────────────────────────── */
 
@@ -643,4 +667,3 @@ test('Live Cluster Fanout: 5-Node RabbitMQ & NATS cross-instance invalidation', 
     }
   }
 });
-
