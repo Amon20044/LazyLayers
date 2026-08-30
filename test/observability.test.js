@@ -14,6 +14,7 @@ const {
   TELEMETRY_CHANNEL_NAME,
   serialize,
   configureCompression,
+  ZSTD_AVAILABLE,
   MemoryStore,
 } = await import("../dist/index.js");
 
@@ -21,7 +22,7 @@ const HC1M = Buffer.from("HC1M", "ascii");
 const HC1G = Buffer.from("HC1G", "ascii");
 const HC1J = Buffer.from("HC1J", "ascii");
 
-test("inspectBuffer labels every encoding, not just the ones it was written for", () => {
+test("inspectBuffer labels every available encoding and runtime fallback", () => {
   const msgpack = serialize({ a: 1 });
   assert.equal(inspectBuffer(msgpack).encoding, "msgpack");
   assert.deepEqual(inspectBuffer(msgpack).value, { a: 1 });
@@ -32,7 +33,7 @@ test("inspectBuffer labels every encoding, not just the ones it was written for"
   // "legacy" for anything that was not gzip, which mislabelled the dashboard.
   for (const [codec, expected] of [
     ["gzip", "msgpack-gzip"],
-    ["zstd", "msgpack-zstd"],
+    ["zstd", ZSTD_AVAILABLE ? "msgpack-zstd" : "msgpack-lz4"],
     ["lz4", "msgpack-lz4"],
     ["snappy", "msgpack-snappy"],
   ]) {
