@@ -4,11 +4,15 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-<title>LazyLayers — Local-speed caching for distributed Node.js apps</title>
-<meta name="description" content="Start with an in-process LRU. Add Redis for shared L2. Add Redis Pub/Sub, RabbitMQ, or NATS for cross-instance invalidation and priming. Byte-efficient binary storage, fail-open resilience, and live observability behind one TypeScript API." />
+<title>LazyLayers — Lightweight L1/L2 caching for Node.js</title>
+<meta name="description" content="A lightweight TypeScript hybrid L1/L2 cache for Node.js. Start with in-memory LRU, add Redis, and coordinate instances with invalidation, stampede protection, stale fallback, compression, and observability." />
 <link rel="canonical" href="https://lazy-layers-cache.vercel.app/" />
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
 <meta name="author" content="Amon20044" />
+<meta name="creator" content="Amon20044" />
+<meta name="publisher" content="LazyLayers" />
+<meta name="application-name" content="LazyLayers" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
 <meta name="color-scheme" content="light dark" />
@@ -17,19 +21,21 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="LazyLayers" />
 <meta property="og:url" content="https://lazy-layers-cache.vercel.app/" />
-<meta property="og:title" content="LazyLayers — Local-speed caching for distributed Node.js apps" />
-<meta property="og:description" content="Start with an in-process LRU. Add Redis for shared L2. Add Redis Pub/Sub, RabbitMQ, or NATS for cross-instance invalidation and priming. Byte-efficient binary storage and fail-open resilience behind one TypeScript API." />
+<meta property="og:title" content="LazyLayers — Lightweight L1/L2 caching for Node.js" />
+<meta property="og:description" content="A lightweight TypeScript hybrid L1/L2 cache for Node.js with in-memory LRU, Redis, stampede protection, invalidation, compression, and observability." />
 <meta property="og:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="LazyLayers — Local-speed caching for distributed Node.js apps" />
+<meta property="og:image:alt" content="LazyLayers — Lightweight L1/L2 caching for Node.js" />
 <meta property="og:locale" content="en_US" />
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="LazyLayers — Local-speed caching for distributed Node.js apps" />
-<meta name="twitter:description" content="Start with an in-process LRU. Add Redis for shared L2. Add Redis Pub/Sub, RabbitMQ, or NATS for cross-instance invalidation and priming. Byte-efficient binary storage and fail-open resilience." />
+<meta name="twitter:title" content="LazyLayers — Lightweight L1/L2 caching for Node.js" />
+<meta name="twitter:description" content="A lightweight TypeScript hybrid L1/L2 cache for Node.js with in-memory LRU, Redis, stampede protection, invalidation, compression, and observability." />
 <meta name="twitter:image" content="https://lazy-layers-cache.vercel.app/og.png" />
+<link rel="alternate" type="text/plain" href="/llms.txt" title="LazyLayers AI-readable overview" />
+<link rel="alternate" type="text/plain" href="/llms-full.txt" title="LazyLayers full AI-readable documentation" />
 
 <script>
   // Runs before first paint so the page never flashes the wrong theme.
@@ -57,28 +63,52 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "LazyLayers",
-  "alternateName": "lazy-layers-cache",
-  "applicationCategory": "DeveloperApplication",
-  "operatingSystem": "Node.js 20+",
-  "description": "A TypeScript hybrid L1/L2 cache for Node.js. Start with an in-process LRU, add Redis for shared L2, and add Redis Pub/Sub, RabbitMQ, or NATS when instances need to stay in sync. Features size-tiered LZ4/Zstd compression, fail-open resilience, stampede protection, and live observability.",
-  "url": "https://lazy-layers-cache.vercel.app/",
-  "downloadUrl": "https://www.npmjs.com/package/lazy-layers-cache",
-  "installUrl": "https://www.npmjs.com/package/lazy-layers-cache",
-  "softwareVersion": "0.5.0",
-  "license": "https://opensource.org/licenses/MIT",
-  "programmingLanguage": ["TypeScript", "JavaScript"],
-  "codeRepository": "https://github.com/Amon20044/LazyLayers",
-  "softwareHelp": { "@type": "WebSite", "url": "/docs" },
-  "about": { "@type": "Thing", "name": "distributed caching" },
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-  "author": {
-    "@type": "Person",
-    "name": "Amon20044",
-    "url": "https://github.com/Amon20044",
-    "sameAs": ["https://github.com/Amon20044/LazyLayers", "https://www.npmjs.com/package/lazy-layers-cache"]
-  }
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://lazy-layers-cache.vercel.app/#website",
+      "url": "https://lazy-layers-cache.vercel.app/",
+      "name": "LazyLayers",
+      "description": "Lightweight L1/L2 caching for Node.js and TypeScript.",
+      "inLanguage": "en-US"
+    },
+    {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://lazy-layers-cache.vercel.app/#software",
+      "name": "lazy-layers-cache",
+      "alternateName": "LazyLayers",
+      "description": "A lightweight TypeScript hybrid L1/L2 cache for Node.js. Start with in-memory LRU, add Redis for shared caching, and coordinate instances with event-bus invalidation.",
+      "url": "https://lazy-layers-cache.vercel.app/",
+      "codeRepository": "https://github.com/Amon20044/LazyLayers",
+      "downloadUrl": "https://www.npmjs.com/package/lazy-layers-cache",
+      "documentation": "https://lazy-layers-cache.vercel.app/docs",
+      "softwareVersion": "0.5.0",
+      "runtimePlatform": "Node.js 20+",
+      "programmingLanguage": ["TypeScript", "JavaScript"],
+      "license": "https://opensource.org/licenses/MIT",
+      "keywords": "Node.js cache, TypeScript cache, L1 L2 cache, Redis cache, cache stampede protection, distributed cache invalidation",
+      "author": { "@id": "https://lazy-layers-cache.vercel.app/#author" },
+      "publisher": { "@id": "https://lazy-layers-cache.vercel.app/#author" }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://lazy-layers-cache.vercel.app/#author",
+      "name": "Amon20044",
+      "url": "https://github.com/Amon20044",
+      "sameAs": ["https://github.com/Amon20044/LazyLayers", "https://www.npmjs.com/package/lazy-layers-cache"]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://lazy-layers-cache.vercel.app/#webpage",
+      "url": "https://lazy-layers-cache.vercel.app/",
+      "name": "LazyLayers — Lightweight L1/L2 caching for Node.js",
+      "description": "A lightweight TypeScript hybrid L1/L2 cache for Node.js with in-memory LRU, Redis, invalidation, stampede protection, compression, and observability.",
+      "isPartOf": { "@id": "https://lazy-layers-cache.vercel.app/#website" },
+      "about": { "@id": "https://lazy-layers-cache.vercel.app/#software" },
+      "mainEntity": { "@id": "https://lazy-layers-cache.vercel.app/#software" },
+      "inLanguage": "en-US"
+    }
+  ]
 }
 </script>
 <script type="application/ld+json"><!--@faq-jsonld--></script>
@@ -154,8 +184,8 @@
         </h1>
 
         <p class="hero__lead">
-          The layered cache for <strong>Node.js &amp; TypeScript.</strong>
-          Keep hot reads in memory, collapse duplicate loads, and keep your instances coordinated.
+          LazyLayers is a lightweight hybrid L1/L2 cache for <strong>Node.js &amp; TypeScript.</strong>
+          Keep hot reads in memory, collapse duplicate loads, and coordinate instances as your app scales.
         </p>
 
         <div class="hero__actions">

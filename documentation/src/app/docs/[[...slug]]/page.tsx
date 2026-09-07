@@ -56,7 +56,18 @@ export async function generateMetadata(props: PageProps<'/docs/[[...slug]]'>): P
   return {
     title: page.data.title,
     description: page.data.description,
+    alternates: {
+      canonical: page.url,
+    },
     openGraph: {
+      url: page.url,
+      type: 'article',
+      siteName: 'LazyLayers',
+      description: page.data.description,
+      images: getPageImageUrl(page).url,
+    },
+    twitter: {
+      card: 'summary_large_image',
       images: getPageImageUrl(page).url,
     },
   };

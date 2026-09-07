@@ -6,7 +6,7 @@ Disallow: /dist-cjs/
 Disallow: /test/
 
 Sitemap: https://lazy-layers-cache.vercel.app/sitemap.xml
-# llms.txt: https://lazy-layers-cache.vercel.app/llms.txt
+# AI-readable product context: https://lazy-layers-cache.vercel.app/llms.txt
 
 # AI Crawlers — explicitly allowed for GEO/AEO
 User-agent: GPTBot
