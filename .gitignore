@@ -16,3 +16,5 @@ benchmarks/package*.json
 .claude/skills/
 .zcode/
 skills-lock.json
+.vercel
+.env*
