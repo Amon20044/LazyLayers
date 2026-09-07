@@ -89,7 +89,7 @@
   .nav__cta { gap: 0.5rem; }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .nav__links {
     position: fixed; inset: 62px 0 auto 0;
     flex-direction: column; gap: 0;

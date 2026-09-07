@@ -2,6 +2,7 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/components.css';
 import './styles/sections.css';
+import './styles/cache-visuals.css';
 import 'locomotive-scroll/locomotive-scroll.css';
 
 import { initCalculator } from './lib/calculator';
@@ -285,6 +286,7 @@ function initTabs() {
     tabs.forEach((t) => {
       const on = t === tab;
       t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
       const panel = document.getElementById(t.getAttribute('aria-controls')!);
       if (panel) panel.hidden = !on;
     });
@@ -324,18 +326,35 @@ function initFaq() {
 
 function initCopy() {
   $$<HTMLButtonElement>('[data-copy]').forEach((btn) => {
+    const label = btn.querySelector('[data-copy-label]') ?? btn;
+    const original = label.textContent;
+    let reset: ReturnType<typeof setTimeout>;
     btn.addEventListener('click', async () => {
+      clearTimeout(reset);
       try {
         await navigator.clipboard.writeText(btn.dataset.copy ?? '');
-        const prev = btn.textContent;
-        btn.textContent = 'copied';
+        label.textContent = 'Copied!';
         btn.classList.add('is-done');
-        setTimeout(() => { btn.textContent = prev; btn.classList.remove('is-done'); }, 1600);
+        announceCopy('Install command copied to clipboard.');
       } catch {
-        btn.textContent = 'press ⌘C';
+        label.textContent = 'Select text';
+        announceCopy('Clipboard unavailable. Select and copy the command manually.');
       }
+      reset = setTimeout(() => { label.textContent = original; btn.classList.remove('is-done'); }, 1800);
     });
   });
+}
+
+function announceCopy(message: string) {
+  let status = document.querySelector<HTMLElement>('#copy-status');
+  if (!status) {
+    status = document.createElement('span');
+    status.id = 'copy-status';
+    status.className = 'sr-only';
+    status.setAttribute('role', 'status');
+    document.body.append(status);
+  }
+  status.textContent = message;
 }
 
 /* ── Boot ────────────────────────────────────────────────────────────── */

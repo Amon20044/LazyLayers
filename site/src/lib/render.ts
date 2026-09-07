@@ -10,10 +10,11 @@ import {
 } from './data';
 import { BUDGET } from './bytes';
 import { isoDiagram } from './iso';
-import { staleDiagram, fanoutDiagram } from './diagrams';
+import { cacheDrift, cacheFanout } from './cacheVisuals';
 import { byteViz, BYTE_LEGEND } from './byteviz';
 import { bento as bentoGrid } from './bento';
 import { icon, BRAND, TITLE, type IconName } from './icons';
+export { cacheHero, cacheScale, cacheResilience } from './cacheVisuals';
 
 const bytes = (b: number) =>
   b >= 1048576 ? `${(b / 1048576).toFixed(2)} MB` : b >= 1024 ? `${(b / 1024).toFixed(1)} kB` : `${b} B`;
@@ -23,8 +24,8 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 /* ── Diagrams ────────────────────────────────────────────────────────── */
 
 export const iso = () => `<div class="iso reveal">${isoDiagram()}</div>`;
-export const stale = () => `<figure class="iso iso--inset reveal">${staleDiagram()}</figure>`;
-export const fanout = () => `<figure class="iso iso--inset reveal">${fanoutDiagram()}</figure>`;
+export const stale = cacheDrift;
+export const fanout = cacheFanout;
 export const bento = () => bentoGrid();
 
 /* ── Byte story ──────────────────────────────────────────────────────── */
@@ -175,9 +176,6 @@ export function comparisonTable(): string {
           </tr>`).join('')}
       </tbody>
     </table>
-    <p class="compare-note">
-      Feature set verified against BentoCache 1.6.x and Keyv/Cacheable latest releases. We let competitors win where they excel (broad multi-database ecosystems and deep tagging) so our architectural focus is clear.
-    </p>
   </div>`;
 }
 
@@ -203,12 +201,13 @@ export function limitations(): string {
 /* ── Transports Matrix ────────────────────────────────────────────────── */
 
 export function transportMatrix(): string {
+  const transportIcons: IconName[] = ['redis', 'nats', 'rabbit', 'nats'];
   return `
   <div class="transports-grid reveal-stagger">
-    ${TRANSPORTS.map((t) => `
+    ${TRANSPORTS.map((t,i) => `
       <div class="transport-card ${t.durable ? 'transport-card--durable' : ''}">
         <div class="transport-card__head">
-          <span class="transport-card__name">${esc(t.name)}</span>
+          <span class="transport-card__name">${icon(transportIcons[i],22)}${esc(t.name)}</span>
           <span class="tag ${t.durable ? 'tag--mint' : 'tag--dim'}">${esc(t.delivery)}</span>
         </div>
         <p class="transport-card__note">${esc(t.note)}</p>
@@ -349,4 +348,3 @@ export function benchMeta(): string {
   return `Node ${BENCH_META.node} · ${BENCH_META.cpu} · BentoCache ${BENCH_META.bentocache} vs
           LazyLayers ${BENCH_META.lazyLayers} · byte counts deterministic, throughput median of ${BENCH_META.reps} reps`;
 }
-

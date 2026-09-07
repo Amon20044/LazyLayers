@@ -21,6 +21,9 @@ function staticContent(): Plugin {
         '<!--@bento-->': r.bento(),
         '<!--@progressive-->': r.progressive(),
         '<!--@pillars-->': r.pillars(),
+        '<!--@cache-scale-->': r.cacheScale(),
+        '<!--@cache-hero-->': r.cacheHero(),
+        '<!--@cache-resilience-->': r.cacheResilience(),
         '<!--@comparison-->': r.comparisonTable(),
         '<!--@limitations-->': r.limitations(),
         '<!--@transports-->': r.transportMatrix(),
@@ -31,7 +34,10 @@ function staticContent(): Plugin {
         '<!--@faq-jsonld-->': r.faqJsonLd(),
         '<!--@bench-meta-->': r.benchMeta(),
       };
-      return Object.entries(slots).reduce((acc, [k, v]) => acc.split(k).join(v), html);
+      // Reuse the current header artwork for the footer and the cache hub.
+      const brandArt = html.match(/<svg class="brand__mark"[^>]*>([\s\S]*?)<\/svg>/)?.[1] ?? '';
+      return Object.entries(slots).reduce((acc, [k, v]) => acc.split(k).join(v), html)
+        .replaceAll('<!--@brand-art-->', brandArt);
     },
   };
 }

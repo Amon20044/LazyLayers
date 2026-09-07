@@ -105,9 +105,9 @@
   filter: blur(90px);
   opacity: var(--aurora-alpha);
   background:
-    radial-gradient(38% 44% at 18% 22%, rgba(34, 211, 238, 0.30), transparent 60%),
-    radial-gradient(42% 40% at 78% 30%, rgba(168, 85, 247, 0.26), transparent 62%),
-    radial-gradient(46% 46% at 50% 78%, rgba(99, 102, 241, 0.28), transparent 64%);
+    radial-gradient(38% 44% at 18% 22%, rgba(121, 207, 200, 0.12), transparent 60%),
+    radial-gradient(42% 40% at 78% 30%, rgba(211, 241, 93, 0.12), transparent 62%),
+    radial-gradient(46% 46% at 50% 78%, rgba(121, 146, 77, 0.10), transparent 64%);
   animation: aurora 26s var(--ease-io) infinite alternate;
 }
 
@@ -124,7 +124,7 @@
   left: 0; top: 0;
   margin: -310px 0 0 -310px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.10), transparent 62%);
+  background: radial-gradient(circle, rgba(211, 241, 93, 0.06), transparent 62%);
   opacity: 0;
   transition: opacity 0.6s var(--ease);
   will-change: transform;

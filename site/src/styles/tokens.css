@@ -1,14 +1,10 @@
 /* ── Design tokens ─────────────────────────────────────────────────────────
-   Dark-first. The palette is built from a single "layer" gradient (cyan →
-   indigo → violet) so every accent on the page traces back to one idea.
+   Dark-first. Lime for useful work, teal for coordination, muted violet for
+   shared storage. The same role colors run through the entire landing page.
    ------------------------------------------------------------------------ */
 
 :root {
-  /* ── Palette that does NOT flip ──────────────────────────────────────
-     Diagrams and code blocks stay on a dark canvas in both themes. That is
-     deliberate: the isometric artwork is lit for a dark ground, and a dark
-     code panel on a light page is a well-worn convention (it is what the
-     references do too). Only the page chrome flips. */
+  /* Code examples retain dark ink. Diagrams relight on the page itself. */
   --ink:           #08080B;
   --ink-2:         #0D0D12;
   --ink-line:      rgba(255, 255, 255, 0.09);
@@ -17,19 +13,19 @@
   --ink-dim:       #8C8D9C;
 
   /* ── Accents (dark theme values; light overrides below) ────────────── */
-  --c-cyan:        #22D3EE;
-  --c-indigo:      #6366F1;
-  --c-violet:      #A855F7;
-  --c-mint:        #34D399;
-  --c-amber:       #FBBF24;
-  --c-rose:        #FB7185;
+  --c-cyan:        #79CFC8;
+  --c-indigo:      #B1C96D;
+  --c-violet:      #AFA0F7;
+  --c-mint:        #D3F15D;
+  --c-amber:       #C5AF79;
+  --c-rose:        #DA8390;
 
   /* ── Surfaces ─────────────────────────────────────────────────────── */
   --bg:            #000000;
   --bg-raised:     #060608;
-  --surface:       #0A0A0C;
-  --surface-2:     #0E0E12;
-  --surface-3:     #141419;
+  --surface:       #0A0D0B;
+  --surface-2:     #101510;
+  --surface-3:     #192018;
 
   --line:          rgba(255, 255, 255, 0.07);
   --line-strong:   rgba(255, 255, 255, 0.13);
@@ -50,7 +46,7 @@
   --accent:        var(--c-indigo);
   --logo-lime:     #D3F15D;
   --logo-ink:      #F2F3EC;
-  --grad-layer:    linear-gradient(100deg, var(--c-cyan), var(--c-indigo) 48%, var(--c-violet));
+  --grad-layer:    linear-gradient(100deg, var(--c-mint), var(--c-cyan));
   --grad-savings:  linear-gradient(100deg, var(--c-mint), var(--c-cyan));
   --grad-text:     linear-gradient(180deg, #FFFFFF 12%, #9EA0B0 100%);
 
@@ -95,12 +91,12 @@
    so the media query is really the no-JS fallback. */
 :root[data-theme='light'] {
   --logo-ink:      #30302C;
-  --c-cyan:        #0E7490;
-  --c-indigo:      #4F46E5;
-  --c-violet:      #7C3AED;
-  --c-mint:        #059669;
-  --c-amber:       #B45309;
-  --c-rose:        #E11D48;
+  --c-cyan:        #287E75;
+  --c-indigo:      #647F23;
+  --c-violet:      #78629F;
+  --c-mint:        #536B10;
+  --c-amber:       #927238;
+  --c-rose:        #B05464;
 
   --bg:            #FFFFFF;
   --bg-raised:     #FBFBFC;
@@ -132,8 +128,8 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']):not([data-theme='light']) {
     --logo-ink: #30302C;
-    --c-cyan: #0E7490; --c-indigo: #4F46E5; --c-violet: #7C3AED;
-    --c-mint: #059669; --c-amber: #B45309; --c-rose: #E11D48;
+    --c-cyan: #287E75; --c-indigo: #647F23; --c-violet: #78629F;
+    --c-mint: #536B10; --c-amber: #927238; --c-rose: #B05464;
     --bg: #FFFFFF; --bg-raised: #FBFBFC; --surface: #F6F6F8;
     --surface-2: #EFEFF3; --surface-3: #E7E7ED;
     --line: rgba(9,9,14,0.10); --line-strong: rgba(9,9,14,0.18); --line-faint: rgba(9,9,14,0.05);
