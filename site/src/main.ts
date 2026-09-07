@@ -4,8 +4,13 @@ import './styles/components.css';
 import './styles/sections.css';
 import './styles/cache-visuals.css';
 import 'locomotive-scroll/locomotive-scroll.css';
+import { inject } from '@vercel/analytics';
 
 import { initCalculator } from './lib/calculator';
+
+// Vercel Web Analytics works with the Vite site through the browser SDK.
+// It injects the tracking script and records page views after deployment.
+inject({ framework: 'vite' });
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document) => r.querySelector<T>(s);

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
+    "@vercel/analytics": "^2.0.1",
     "locomotive-scroll": "^5.0.0-beta.21",
     "simple-icons": "^16.28.0",
     "typescript": "^5.9.3",
