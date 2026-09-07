@@ -1,85 +1,49 @@
 # lazy-layers-cache
 
-> **Local-speed caching for distributed Node.js apps.**
+> Fast L1/L2 caching for Node.js services that run on more than one instance.
 
 [![npm version](https://img.shields.io/npm/v/lazy-layers-cache.svg)](https://www.npmjs.com/package/lazy-layers-cache)
 [![CI](https://github.com/Amon20044/LazyLayers/actions/workflows/ci.yml/badge.svg)](https://github.com/Amon20044/LazyLayers/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/lazy-layers-cache.svg)](LICENSE)
 [![types](https://img.shields.io/npm/types/lazy-layers-cache.svg)](https://www.npmjs.com/package/lazy-layers-cache)
-[![node](https://img.shields.io/badge/node-20%2B-brightgreen.svg)](https://nodejs.org)
 
-Start with an in-process LRU cache. Add Redis when you need a shared L2. Add Redis Pub/Sub, RabbitMQ, or NATS when instances need to stay in sync. LazyLayers handles lazy loading, duplicate-load collapse, stale fallback, fail-open caching, cross-instance invalidation, and compact Redis payloads behind one TypeScript API.
-
-```bash
-npm install lazy-layers-cache
-```
-
----
-
-### ✨ Key Features & Capabilities
-
-- ⚡ **Multi-Tier Hybrid Caching**: Sub-0.1ms in-process L1 LRU memory + shared remote L2 Redis with automated promotion & tiering.
-- 🗜️ **Size-Tiered Binary Compression**: Native MessagePack + dynamic LZ4/Zstd compression (33%–92% smaller wire payloads than raw JSON and metadata envelopes).
-- 🛑 **Thundering Herd Stampede Protection**: In-flight Promise deduplication (10,000 concurrent callers for a cold key execute exactly 1 database query) + Redis distributed mutex locks.
-- 🔄 **Fleet Synchronization via Event Bus**: Real-time cross-instance invalidation (`del`, `pattern`) and lazy value priming (`set`) over **Redis Pub/Sub**, **RabbitMQ (AMQP topic/fanout)**, **NATS Core**, or **NATS JetStream**.
-- 🛡️ **Fail-Open Resilience & Circuit Breaking**: If Redis or message brokers degrade, traffic gracefully fails open to L1 RAM or DB without blocking threads or throwing 500 errors.
-- ⏳ **Grace Periods & Fail-Safe Stale Fallbacks**: Serves recent stale copies when an upstream loader fails or times out.
-- 🚫 **Negative Caching (404 Protection)**: Automatically caches missing keys (`null`/`undefined`) with short TTLs to prevent database penetration attacks.
-- 🎯 **Deterministic Causal Ordering**: Instance identity (`source`), event deduplication, and per-key generation counters prevent out-of-order race conditions and loopback self-echos.
-- 📊 **Built-in Real-Time Observability Dashboard**: Optional live dashboard at `/observelazyily` with L1/L2 inspectors and activity metrics.
-- 📈 **Native Prometheus Metrics**: Prometheus exposition at `/observelazyily/metrics` and a `node:diagnostics_channel` telemetry stream.
-- 🏷️ **Pattern-Based Invalidation**: Single-key `delete()` and wildcard `deleteByPattern('users:*')` broadcast across the entire cluster.
-- 💎 **100% Type-Safe TypeScript & Zero-Config Defaults**: Complete end-to-end generic typing with hardened, battle-tested production defaults out of the box.
-
----
-
-## Progressive Architecture
-
-```txt
-Stage 1: Single Process    ──> In-memory LRU with getOrSet() & inflight dedupe (zero infra)
-Stage 2: Shared L2 Store   ──> Add RedisStore with size-tiered LZ4/Zstd binary compression
-Stage 3: Multi-Instance    ──> Add Redis Pub/Sub, RabbitMQ, or NATS for del/pattern/set fanout
-Stage 4: Cold Spike Shield ──> Redis-backed per-key locks engage automatically on cold loads
-```
-
-## Table of Contents
-
-- [Install](#install)
-- [Production quickstart](#production-quickstart)
-- [Type-safe Usage](#type-safe-usage)
-- [Layer Modes & Progressive Adoption](#layer-modes--progressive-adoption)
-- [Using Redis L2](#using-redis-l2)
-- [Distributed Invalidation & Priming](#distributed-invalidation--priming)
-- [Resilience & Fail-Open Behavior](#resilience--fail-open-behavior)
-- [Observability Dashboard & Prometheus](#observability-dashboard--prometheus)
-- [Size-Tiered Serializer (HC1M / HC1L / HC1Z / HC1G / HC1J)](#size-tiered-serializer-hc1m--hc1l--hc1z--hc1g--hc1j)
-- [API Reference](#api)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Install
+**[Docs](https://lazy-layers-cache.vercel.app/docs)** · **[Memory and cost calculator](https://lazy-layers-cache.vercel.app/#calculator)** · **[LLM index](https://lazy-layers-cache.vercel.app/llms.txt)** · **[Full LLM context](https://lazy-layers-cache.vercel.app/llms-full.txt)**
 
 ```bash
 npm install lazy-layers-cache
 ```
 
-The package includes the clients it needs for its built-in integrations:
+## Why this package?
 
-```txt
-ioredis                  - RedisStore and RedisEventBus
-amqplib                  - RabbitMQEventBus
-@nats-io/transport-node  - NatsEventBus (connection)
-@nats-io/jetstream       - NatsEventBus (JetStream mode)
-lru-cache                - MemoryStore
-msgpackr                 - Redis serialization
-```
+Most Node.js caches solve one part of the problem. An in-process cache is fast but private to one server. A shared cache survives restarts but adds a network hop to every read. A cache invalidation bus can keep instances aligned, but it adds failure modes of its own.
 
-Requires **Node.js 20 or 22+**.
+LazyLayers puts those pieces behind one TypeScript API. Start with L1 memory. Add Redis L2 and an event bus when the service needs shared state. The production setup wires the safety mechanisms for you.
 
-## Production quickstart
+## The real problem it solves
 
-`setupCache` reads `REDIS_URL`, creates L1, Redis L2, and Redis Pub/Sub, waits for health and subscription readiness, and returns one managed cache. `required: true` stops a multi-server service from accidentally starting with isolated L1 caches.
+At traffic peaks, the expensive work is not the cache lookup. It is what happens on a miss:
+
+- Many callers load the same cold key at once, creating a thundering herd.
+- Every server keeps a different L1 value after a write.
+- A slow cache or broker blocks the request path.
+- A failed loader turns a temporary dependency problem into an application error.
+- Large JSON payloads waste network bandwidth and Redis memory.
+- Missing records repeatedly hit the database.
+
+LazyLayers addresses these costs in the read and write path:
+
+- ⚡ **Lazy loading:** `getOrSet` only loads keys that traffic requests.
+- 🧩 **In-flight dedupe:** concurrent callers for one key share one loader promise.
+- 🔒 **Distributed locks:** Redis-backed per-key locking prevents duplicate cold loads across instances.
+- 🛡️ **Fail-open L2:** Redis failures degrade to a miss and the origin loader instead of blocking the request.
+- 🚦 **Circuit breakers:** unhealthy L2 and event-bus dependencies are skipped during cooldowns.
+- 🕰️ **Stale fallback:** recent values can be served when a loader fails or times out.
+- 🚫 **Negative caching:** short-lived missing-key entries reduce repeated database lookups.
+- 🗜️ **Compact payloads:** MessagePack with size-aware compression reduces L2 wire and storage pressure.
+
+## System design, in request order
+
+`setupCache` gives you the production path with one awaited call:
 
 ```ts
 import { setupCache } from "lazy-layers-cache";
@@ -90,850 +54,90 @@ export const cache = await setupCache({
 });
 ```
 
-Read through the cache. In-process callers share one in-flight promise and Redis adds a per-key lock across processes.
+The default production path is designed for the problems in this order:
+
+1. 🧠 **L1 memory:** an in-process LRU gives hot reads local-memory latency and bounds memory by `maxEntries` and `ttlMs`.
+2. 🗄️ **L2 Redis:** shared values survive process restarts and are available to every instance. L2 hits promote back into L1.
+3. 💤 **Read-through loading:** `getOrSet` checks negative cache, L1, and L2 before calling the loader.
+4. 🧵 **Stampede protection:** in-flight dedupe handles callers in one process. A distributed lock handles cold loads across instances.
+5. 🗜️ **Serialization:** values use MessagePack and size-aware compression before they cross the Redis connection.
+6. 📡 **Event-bus synchronization:** Redis Pub/Sub, RabbitMQ, NATS Core, and NATS JetStream carry `del`, `pattern`, and bounded `set` priming events between instances.
+7. 🏷️ **Namespaces and patterns:** isolate applications with a namespace, then invalidate one key with `invalidate` or a family with `invalidateByPattern("users:*")`.
+8. 🔢 **Ordering and dedupe:** source identity, event IDs, and generations ignore self-echoes, duplicates, and stale invalidations.
+9. 🛡️ **Resilience:** L2 and event-bus circuit breakers stop repeated calls to unhealthy dependencies. Publish retry queues absorb brief bus failures.
+10. ⏳ **Graceful degradation:** stale values cover loader errors and timeouts. A missing loader result can be negative-cached.
+11. ❤️ **Health and lifecycle:** configured Redis and subscriptions pass health checks before startup. `close()` performs idempotent shutdown.
+12. 📊 **Observability:** optional dashboard, Prometheus metrics, and `node:diagnostics_channel` telemetry expose hit levels, stale reads, invalidations, compression, and breaker behavior.
+
+### Minimal production usage
 
 ```ts
 const user = await cache.getOrSet(`user:${id}`, ({ signal }) =>
   db.users.findById(id, { signal }),
 );
-```
 
-Invalidate after the database write commits, or pre-warm a key through the same protected path.
-
-```ts
+await db.users.update(id, patch);
 await cache.invalidate(`user:${id}`);
 
-await cache.prewarm("plans:active", ({ signal }) =>
-  db.plans.findActive({ signal }),
-);
+await cache.invalidateByPattern("tenant:42:*");
 ```
 
-Call `await cache.close()` during graceful shutdown. When no Redis URL is available, `setupCache()` conditionally resolves to the protected L1-only path. Pass `redis: false` to make local-only mode explicit.
+Invalidate after the source-of-truth write commits. Use `prewarm` for deploy hooks and background jobs. Pass the loader's `AbortSignal` to the database or HTTP client.
 
-## Type-safe Usage
+### Choose the event bus by delivery needs
 
-You can bind one cache instance to one value shape.
+- 🔄 **Redis Pub/Sub:** low-overhead, at-most-once fanout.
+- 🐇 **RabbitMQ:** durable queues, acknowledgements, and exchange routing.
+- ⚡ **NATS Core:** fast at-most-once fanout.
+- 💾 **NATS JetStream:** durable consumers, replay, acknowledgements, and redelivery.
+
+### Drivers and extension points
+
+The package includes an L1 `MemoryStore` and an L2 `RedisStore`. You can implement the `CacheStore` interface when your service needs another backing store. The event-bus interface supports custom transports as well.
+
+## Production defaults
+
+For most multi-instance services, use L1 + Redis L2 + Redis Pub/Sub first:
 
 ```ts
-import { setupCache, type SetupCacheOptions } from "lazy-layers-cache";
-
-interface User {
-  id: string;
-  name: string;
-}
-
-const options: SetupCacheOptions<string, User> = {
-  namespace: "users-api",
-  redis: { required: true },
-};
-
-const users = await setupCache<string, User>(options);
-
-const user = await users.getOrSet("user:1", ({ signal }) =>
-  db.users.findById("1", { signal }),
-);
-// user is User | undefined
-```
-
-For mixed values, use `unknown`, a union type, or separate cache instances.
-
-```ts
-type CacheValue =
-  | string
-  | number
-  | boolean
-  | null
-  | CacheValue[]
-  | { [key: string]: CacheValue };
-
-const cache = new LazyLayersCache<string, CacheValue>();
-```
-
-CommonJS works too.
-
-```js
-const { LazyLayersCache } = require("lazy-layers-cache");
-
-const cache = new LazyLayersCache({ ttlMs: 60_000 });
-```
-
-Subpath imports are available when you want narrower imports.
-
-```ts
-import { RedisStore } from "lazy-layers-cache/cache";
-import { RedisEventBus } from "lazy-layers-cache/event-bus";
-```
-
-## Layer Modes
-
-By default, `LazyLayersCache` creates an L1 memory store and does not create an L2 store.
-
-```ts
-const cache = new LazyLayersCache();
-```
-
-Disable L2 explicitly when you want a local-only cache.
-
-```ts
-const cache = new LazyLayersCache({
-  l2: false,
-});
-```
-
-Use only an L2 store by disabling L1.
-
-```ts
-const cache = new LazyLayersCache({
-  l1: false,
-  l2: redisStore,
-});
-```
-
-Use both layers for hot local reads plus shared Redis reads.
-
-```ts
-const cache = new LazyLayersCache({
-  l2: redisStore,
-  ttlMs: 60_000,
-  levels: {
-    L1: {
-      ttlMs: 10_000,
-      maxEntries: 1_000,
-    },
-    L2: {
-      ttlMs: 300_000,
-      maxEntries: 100_000,
-    },
-  },
-});
-```
-
-## Using Redis L2
-
-Pass an existing `ioredis` client to `RedisStore`.
-
-```ts
-import Redis from "ioredis";
-import { LazyLayersCache, RedisStore } from "lazy-layers-cache";
-
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
-
-const l2 = new RedisStore(redis, {
-  prefix: "app:cache:",
-  ttlMs: 300_000,
-  useIndex: true,
-});
-
-const cache = new LazyLayersCache({
-  l2,
-  ttlMs: 60_000,
-  levels: {
-    L1: {
-      ttlMs: 10_000,
-      maxEntries: 1_000,
-    },
-    L2: {
-      ttlMs: 300_000,
-      maxEntries: 100_000,
-    },
-  },
-});
-```
-
-`RedisStore` stores values with MessagePack, reads with `getBuffer()`, supports indexed pattern invalidation, and defaults to `UNLINK` for deletes.
-
-## Distributed Invalidation
-
-When multiple application instances use their own L1 memory caches, connect them with an event bus. The bus carries three kinds of events:
-
-| Event | Trigger | What peers do |
-| --- | --- | --- |
-| `del` | `cache.delete(key)` | Drop the key from L1 / L2 / negative / stale / inflight. |
-| `pattern` | `cache.deleteByPattern(p)` / `cache.clear()` | Drop every local entry that matches the pattern. |
-| `set` | A loader in `getOrSet` returns a value | Populate peer L1 with the broadcast value — no peer loader call. |
-
-`set` broadcasts are emitted from inside `getOrSet`'s loader path only. Direct `cache.set()` calls do **not** broadcast. This is the L1 priming path the rule above describes — one instance pays for the loader, every peer's L1 warms automatically. Self-published events are ignored via the `source` filter, and events are deduplicated by ID.
-
-Bound L1 priming with `broadcastSetMaxBytes`. The managed setup defaults to 32 KB, so larger values remain in L2 and peers load them on demand.
-
-`del` and `set` events carry a per-key `generation`. Each cache instance ignores remote `del` / `set` events whose generation is older than the generation it has already applied for that key, so a late `set` broadcast cannot repopulate a value after a newer delete.
-
-Large `set` broadcasts can be skipped with `broadcastSetMaxBytes`. The value is still written through the normal cache path, so peers can fall back to L2 instead of receiving a large payload over the fanout bus.
-
-```ts
-const cache = new LazyLayersCache({
-  eventBus,
-  source: process.env.INSTANCE_ID,
-  broadcastSetMaxBytes: 256 * 1024,
-});
-```
-
-### Delivery Semantics
-
-| Transport | Delivery meaning |
-| --- | --- |
-| Redis Pub/Sub | At-most-once and ephemeral. Subscribers only receive messages while connected. |
-| NATS Core | At-most-once. Fast fanout, but no replay for disconnected subscribers. |
-| RabbitMQ durable mode | Retryable/durable when `durableInvalidationMode`, a stable `queueName`, and persistent messages are configured. |
-| NATS JetStream | Durable/replayable with explicit ack, durable consumers, and redelivery. |
-
-### Redis Pub/Sub
-
-```ts
-import Redis from "ioredis";
-import { LazyLayersCache, RedisEventBus, RedisStore } from "lazy-layers-cache";
-
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
-const l2 = new RedisStore(redis, { prefix: "app:cache:" });
-const eventBus = new RedisEventBus(redis, "app:cache:invalidate");
-
-await eventBus.connect();
-
-const cache = new LazyLayersCache({
-  l2,
-  eventBus,
-  source: process.env.INSTANCE_ID,
-});
-```
-
-### RabbitMQ
-
-```ts
-import { LazyLayersCache, RabbitMQEventBus } from "lazy-layers-cache";
-
-const eventBus = new RabbitMQEventBus("cache.invalidate", {
-  url: process.env.RABBITMQ_URL ?? "amqp://localhost",
-  durableInvalidationMode: true,
-  queueName: process.env.INSTANCE_ID,
-});
-
-await eventBus.connect();
-
-const cache = new LazyLayersCache({
-  eventBus,
-  source: process.env.INSTANCE_ID,
-});
-```
-
-### NATS Core
-
-```ts
-import { LazyLayersCache, NatsEventBus } from "lazy-layers-cache";
-
-const eventBus = new NatsEventBus({
-  mode: "core",
-  connectionOptions: {
-    servers: process.env.NATS_URL ?? "nats://localhost:4222",
-  },
-  subject: "cache.invalidate",
-});
-
-await eventBus.connect();
-
-const cache = new LazyLayersCache({
-  eventBus,
-  source: process.env.INSTANCE_ID,
-});
-```
-
-### NATS JetStream
-
-```ts
-import { LazyLayersCache, NatsEventBus } from "lazy-layers-cache";
-
-const eventBus = new NatsEventBus({
-  mode: "jetstream",
-  connectionOptions: {
-    servers: process.env.NATS_URL ?? "nats://localhost:4222",
-  },
-  subject: "cache.invalidate",
-  jetstream: {
-    stream: "CACHE_INVALIDATIONS",
-    durableName: process.env.INSTANCE_ID,
-    ensureStream: true,
-    ensureConsumer: true,
-  },
-});
-
-await eventBus.connect();
-
-const cache = new LazyLayersCache({
-  eventBus,
-  source: process.env.INSTANCE_ID,
-});
-```
-
-## Event Bus Initialization Options
-
-Every transport ships with sane defaults but exposes the full surface for tuning durability, fanout, retry, and per-instance identity. The `source` field on `LazyLayersCache` is what filters self-loopback regardless of transport — every transport delivers your own publishes back to you.
-
-### LazyLayersCache event-bus options (shared across all transports)
-
-| Option | Default | Why it exists |
-| --- | --- | --- |
-| `eventBus` | unset | The bus instance used for distributed invalidation and L1 priming. Without it, the cache is local-only. |
-| `source` | random per process | **Required in multi-instance setups.** Stamped on every published event; the subscribe handler discards events whose `source` matches this value so you don't invalidate yourself. Use `$HOSTNAME` / `INSTANCE_ID`. |
-| `subscribeToEvents` | `true` | Set `false` to publish-only (one-way). Useful for read-only replicas that should not apply remote invalidations. |
-| `broadcastSet` | `true` | When a `getOrSet` loader returns a value, broadcast it so peer L1s populate without a second loader call. Set `false` for delete-only fanout. |
-| `broadcastSetMaxBytes` | unset | Optional cap for the encoded `set` event. Oversized values are stored locally/L2 but not fanned out for peer L1 priming. |
-| `eventDedupeMaxEntries` | `10_000` | How many recent event IDs the cache remembers to drop duplicates. Durable buses can redeliver; this stops a redelivered event from re-applying. |
-| `eventDedupeTtlMs` | `300_000` | How long each event ID stays in the dedupe map. Should comfortably exceed your worst-case redelivery window. |
-| `resilience.eventBusCircuitBreaker` | unset | `{ failureThreshold, cooldownMs }`. After repeated publish failures, the circuit opens and publishes are skipped until cooldown. Keeps a broken bus from blocking your request path. |
-
-### Shared retry queue (every transport accepts `retryQueue`)
-
-| Option | Default | Why it exists |
-| --- | --- | --- |
-| `retryQueue.enabled` | `true` | If a publish throws, the event is buffered in memory and re-attempted on the next successful publish. Smooths out brief bus blips. |
-| `retryQueue.maxSize` | `10_000` | Cap to prevent memory bloat when the bus stays down for a long time. Oldest event drops first with a warn log. Set a smaller value for very memory-sensitive services. |
-
-### RedisEventBus — `new RedisEventBus(redis, channel, options)`
-
-| Option | Default | Why it exists |
-| --- | --- | --- |
-| `redis` (ctor arg) | — | An existing `ioredis` client. The bus calls `.duplicate()` internally for the subscriber (Pub/Sub clients can't issue other commands). |
-| `channel` (ctor arg) | — | The Pub/Sub channel name. All instances that share invalidation must use the same channel. |
-| `retryQueue` | see above | Buffers failed publishes for the next attempt. Pub/Sub is fire-and-forget — without retry, a single network blip drops the event. |
-| `handlerConcurrency` | `1` | Limits concurrent subscriber handler execution. The default preserves approximate message order for invalidations. |
-| `logging.env` | inherits `NODE_ENV` | Force `"production"` / `"development"` / `"test"` independent of `NODE_ENV`. Production suppresses debug logs. |
-| `logging.enabled` | auto from env | Hard override of the env-based switch when you want logs on or off regardless of `NODE_ENV`. |
-
-### RabbitMQEventBus — `new RabbitMQEventBus(exchange, options)`
-
-| Option | Default | Why it exists |
-| --- | --- | --- |
-| `exchange` (ctor arg) | — | Exchange name. All instances must bind to the same exchange for fanout to work. |
-| `url` | — | AMQP URL (`amqp://user:pass@host:5672`). Required unless you call `init(url)` manually. |
-| `exchangeType` | `"fanout"` | Use `"topic"` if you want one bus for multiple caches with routing keys; `"direct"` for exact-match routing. Default fanout broadcasts to every bound queue. |
-| `durableInvalidationMode` | `false` | One switch that flips `durable`, `persistent`, names the queue, and disables auto-delete/exclusive. Pick this when you cannot afford to miss an invalidation across reconnects. |
-| `durable` | follows `durableInvalidationMode` | Survives broker restarts. Required if you want messages preserved across RabbitMQ outages. |
-| `persistent` | follows `durable` | Per-message delivery mode 2 — flushed to disk before ack. Pair with `durable: true` for end-to-end durability. |
-| `queueName` | server-generated | **Set this to a stable per-instance value (e.g. `${INSTANCE_ID}-cache`) when using durable mode.** Anonymous queues vanish on reconnect, losing messages buffered for that instance. |
-| `exclusiveQueue` | `true` unless durable mode | Exclusive queues are tied to the connection and auto-deleted on disconnect. Good for ephemeral subscribers, bad for durable per-instance invalidation queues. |
-| `autoDeleteQueue` | `true` unless durable mode | Queue is removed once no consumers remain. Disable when you want messages to buffer while an instance restarts. |
-| `routingKey` | `""` | Ignored for fanout; required for topic/direct exchanges to pick which messages this consumer wants. |
-| `prefetch` | `32` | Channel-level QoS. The handler is acked only after it resolves, so this is also the handler concurrency cap. Unlimited would let the broker push the whole queue at once and run every invalidation in parallel. |
-| `retryQueue` | see above | Buffers failed publishes when the AMQP confirm fails. |
-| `logging` | inherits env | Same shape as Redis. |
-
-### NatsEventBus — `new NatsEventBus(options)`
-
-| Option | Default | Why it exists |
-| --- | --- | --- |
-| `mode` | `"core"` | `"core"` is at-most-once, lowest latency. `"jetstream"` adds durable streams, per-instance durable consumers, redelivery, and replay. |
-| `connection` | created internally | Inject a pre-built `NatsConnection` when you want to share one connection across multiple services. The bus will not own (or drain) an injected connection on `disconnect()`. |
-| `connectionOptions` | — | Standard `connect()` options (`NodeConnectionOptions` from `@nats-io/transport-node`) when the bus creates the connection itself (`servers`, `name`, `token`, etc.). Set `name` to your instance ID for cleaner observability on the NATS server. |
-| `subject` | `"cache.invalidations"` | NATS subject used to publish and subscribe. Same value on every instance. |
-| `retryQueue` | see above | Buffers failed publishes (core mode in particular can drop on broker hiccup). |
-| `jetstream.stream` | `"CACHE_INVALIDATIONS"` | JetStream stream name. The bus creates it if `ensureStream` is true. |
-| `jetstream.durableName` | — | **Required in JetStream mode.** Per-instance durable consumer identity. JetStream replays from where this consumer last acked, so each instance needs its own unique value. |
-| `jetstream.storage` | `"file"` | `"file"` persists across NATS restarts; `"memory"` is faster but lost on restart. |
-| `jetstream.maxAgeMs` | unset (forever) | Drops messages older than this from the stream. Caps disk usage when invalidations stack up. |
-| `jetstream.maxMsgs` | `-1` (unlimited) | Hard cap on stored messages. Pair with `maxAgeMs` for predictable storage. |
-| `jetstream.ackWaitMs` | `30_000` | Time the server waits for an ack before redelivering. Increase if your handler is slow; decrease for tighter retries. |
-| `jetstream.maxDeliver` | `10` | Maximum redelivery attempts before the message is given up on. Stops poison messages from looping forever. |
-| `jetstream.ensureStream` | `true` | Auto-create the stream on `connect()` if missing. Set `false` if streams are provisioned by infra/IaC. |
-| `jetstream.ensureConsumer` | `true` | Auto-create the durable consumer for this instance if missing. Set `false` when consumers are provisioned externally. |
-| `logging` | inherits env | Same shape as Redis. |
-
-## Resilience
-
-`lazy-layers-cache` keeps the application path moving when Redis or an invalidation transport has trouble. L2 failures return safe fallbacks, event-bus publish failures are queued by the bus, and circuit breakers avoid repeatedly calling unhealthy dependencies.
-
-```ts
-const cache = new LazyLayersCache({
-  l2,
-  eventBus,
-  failSafe: {
-    enabled: true,
-    staleTtlMs: 120_000,
-  },
-  negativeCache: {
-    ttlMs: 5_000,
-    maxEntries: 10_000,
-  },
-  timeouts: {
-    softMs: 50,
-    hardMs: 500,
-  },
-  distributedLock: {
-    enabled: true,
-    ttlMs: 10_000,
-    waitTimeoutMs: 2_000,
-    pollMs: 50,
-  },
-  resilience: {
-    l2CircuitBreaker: {
-      failureThreshold: 3,
-      cooldownMs: 30_000,
-    },
-    eventBusCircuitBreaker: {
-      failureThreshold: 3,
-      cooldownMs: 30_000,
-    },
-  },
-});
-```
-
-Resilience features are opt-in where they change behavior:
-
-- `failSafe.enabled` returns stale values after loader errors or timeouts.
-- `negativeCache.ttlMs` caches `undefined` loader results for a short period.
-- `distributedLock.enabled` uses RedisStore lock methods when Redis L2 is present.
-- `timeouts.softMs` can return stale data quickly when stale data exists.
-- `timeouts.hardMs` aborts slow loaders with an `AbortSignal`.
-
-## Observability
-
-Use `cache.on()` to connect metrics, logs, or tracing.
-
-```ts
-const unsubscribe = cache.on((event) => {
-  if (event.type === "hit") {
-    metrics.increment("cache.hit", { level: event.level });
-  }
-
-  if (event.type === "loader:error") {
-    logger.error({ key: event.key, error: event.error }, "cache loader failed");
-  }
-});
-
-unsubscribe();
-```
-
-Common event types include:
-
-- `hit`
-- `miss`
-- `set`
-- `delete`
-- `delete-pattern`
-- `loader:start`
-- `loader:success`
-- `loader:error`
-- `loader:timeout`
-- `inflight:reuse`
-- `stale:hit`
-- `negative:set`
-- `l2:error`
-- `event-bus:publish-error`
-- `invalidation:received`
-- `invalidation:stale`
-- `set:broadcast` (this instance published a `getOrSet` result to peers)
-- `set:broadcast-skipped` (the encoded `set` event exceeded `broadcastSetMaxBytes`)
-- `set:received` (this instance applied a peer's `getOrSet` result to its L1)
-
-## Observability Dashboard
-
-Set `observability: true` to get a live, zero-config dashboard at
-**`/observelazyily`** — a "Redis Insight for your whole cache". It visualizes L1
-(in-memory LRU) and L2 (Redis) keys as a nested tree with **deserialized values
-and a per-key serialized-vs-in-memory size comparison**, a live event stream, and
-the resolved configuration — all separated into navigations.
-
-```ts
-const cache = createCache({
-  l2: new RedisStore(redis),
-  eventBus,
-  observability: true, // standalone server on http://127.0.0.1:7077/observelazyily
-});
-```
-
-Default credentials are **`lazydev` / `lazydev`** (HTTP Basic auth). Open the URL
-printed at startup and log in.
-
-> ⚠️ The dashboard exposes cache contents and live activity. It is intended for
-> **development/staging**. It binds to `127.0.0.1` and requires auth by default;
-> secure it (token, network policy) and avoid leaving it enabled in production.
-> A one-time notice is logged on enable — set `quiet: true` to silence it.
-
-### Design goals
-
-- **Zero performance hindrance.** Disabled by default — not a single extra
-  instruction in `get`/`set`. When enabled, the only hot-path cost is one O(1)
-  handler on the event stream the cache already emits, plus a bounded ring-buffer
-  write. All key enumeration / Redis `SCAN` / deserialization is **pull-based and
-  paginated** — it runs only while a dashboard tab is open, using `peek()` (L1)
-  and `SCAN` (L2) so inspection never disturbs eviction order or blocks Redis.
-- **Nothing is persisted.** The live event feed is an in-memory ring buffer
-  streamed over SSE — it is never written to Redis or disk.
-
-### Mount into your own server
-
-Prefer your existing HTTP server? Disable the standalone server and mount the
-framework-agnostic handler:
-
-```ts
-const cache = createCache({ observability: { enabled: true, server: false } });
-const dashboard = cache.getObservabilityHandler();
-
-http.createServer((req, res) => {
-  if (dashboard?.(req, res)) return; // handled a /observelazyily request
-  // ...your routes
-}).listen(3000);
-```
-
-### Configuration
-
-```ts
-createCache({
-  observability: {
-    enabled: true,
-    route: "/observelazyily",          // base route
-    server: { host: "127.0.0.1", port: 7077, autoStart: true }, // or `false`
-    auth: { username: "lazydev", password: "lazydev", token: "optional-bearer" },
-    maxEvents: 1000,                    // ring-buffer size for the live feed
-    maxValueBytes: 256 * 1024,         // values larger than this are truncated in the UI
-    prometheus: { enabled: true, prefix: "lazycache", public: false },
-    quiet: false,
-  },
-});
-```
-
-Everything is also configurable via **environment variables** (handy for
-toggling per environment without code changes). Precedence is
-`option > env > default`:
-
-| Env var | Purpose | Default |
-|---------|---------|---------|
-| `LAZY_OBS_ENABLED` | Enable the dashboard | `false` |
-| `LAZY_OBS_ROUTE` | Base route | `/observelazyily` |
-| `LAZY_OBS_HOST` / `LAZY_OBS_PORT` | Standalone server bind | `127.0.0.1` / `7077` |
-| `LAZY_OBS_USER` / `LAZY_OBS_PASSWORD` | Basic-auth credentials | `lazydev` / `lazydev` |
-| `LAZY_OBS_TOKEN` | Optional bearer/query token | — |
-| `LAZY_OBS_NO_SERVER` | Only expose the mountable handler | `false` |
-| `LAZY_OBS_NO_AUTH` | Disable auth (not recommended) | `false` |
-| `LAZY_OBS_PROMETHEUS` | Expose `/metrics` | `false` |
-| `LAZY_OBS_PROMETHEUS_PREFIX` | Metric name prefix | `lazycache` |
-| `LAZY_OBS_PROMETHEUS_PUBLIC` | Allow unauthenticated scrapes | `false` |
-| `LAZY_OBS_MAX_EVENTS` / `LAZY_OBS_MAX_VALUE_BYTES` | Feed / value limits | `1000` / `262144` |
-| `LAZY_OBS_QUIET` | Silence the startup notice | `false` |
-
-## Prometheus Metrics
-
-Enable a Prometheus exposition endpoint at **`{route}/metrics`** (zero extra
-dependencies):
-
-```ts
-createCache({
-  observability: { enabled: true, prometheus: { enabled: true, public: true } },
-});
-// GET http://127.0.0.1:7077/observelazyily/metrics
-```
-
-```
-# TYPE lazycache_hits_total counter
-lazycache_hits_total{level="l1"} 128
-lazycache_hits_total{level="l2"} 17
-lazycache_misses_total{level="l1"} 31
-lazycache_writes_total 44
-lazycache_hit_ratio 0.82
-lazycache_l1_entries 950
-```
-
-Metrics are labeled by `level`/`kind`/`result` only — **never by cache key** — so
-series cardinality stays bounded no matter how many keys you store. Set
-`prometheus.public: true` to allow scrapers through without UI credentials (or
-configure `basic_auth` in your Prometheus scrape config).
-
-Scrape config:
-
-```yaml
-scrape_configs:
-  - job_name: lazy-layers-cache
-    metrics_path: /observelazyily/metrics
-    static_configs:
-      - targets: ["127.0.0.1:7077"]
-```
-
-## OpenTelemetry / APM Telemetry
-
-The raw event stream is published to a Node
-[`diagnostics_channel`](https://nodejs.org/api/diagnostics_channel.html) named
-**`lazycache:cache:event`** — the zero-dependency hook for OpenTelemetry or any
-APM. Publishing is guarded by `hasSubscribers`, so it costs a single boolean
-check on the hot path when nothing is attached.
-
-```ts
-import { subscribeTelemetry, TELEMETRY_CHANNEL_NAME } from "lazy-layers-cache";
-
-const unsubscribe = subscribeTelemetry((event) => {
-  // build spans/metrics, forward to OTel, etc.
-  span.addEvent(event.type, event);
-});
-```
-
-You can also subscribe directly via `diagnostics_channel.subscribe(TELEMETRY_CHANNEL_NAME, ...)`.
-
-## Pattern Deletes
-
-Delete one key:
-
-```ts
-await cache.delete("user:1");
-```
-
-Delete by wildcard pattern:
-
-```ts
-await cache.deleteByPattern("user:*");
-await cache.deleteByPattern("tenant:42:*");
-await cache.clear();
-```
-
-Patterns support `*` and `?` matching. Pattern deletes also publish invalidation events when an event bus is configured.
-
-## API
-
-### `setupCache([options])`
-
-Production setup that conditionally creates Redis L2 and Redis Pub/Sub, verifies readiness, applies bounded defaults, and returns a `ManagedLazyLayersCache` with idempotent `close()`.
-
-```ts
-import { setupCache } from "lazy-layers-cache";
-
 const cache = await setupCache({
   namespace: "billing-api",
   redis: { required: true },
 });
 ```
 
-### `new LazyLayersCache([options])`
+This path includes health checks, startup readiness, L1/L2 layering, invalidation, per-key locks, in-flight dedupe, stale fallback, negative caching, circuit breakers, bounded peer priming, and managed shutdown. Tune the numbers for your traffic rather than removing the safety mechanisms.
 
-Returns a cache instance. This is the primary class.
+For memory planning, estimate:
 
-```ts
-import { LazyLayersCache } from "lazy-layers-cache";
-
-const cache = new LazyLayersCache({
-  ttlMs: 60_000,
-});
+```txt
+L1 memory ≈ maxEntries × typical decoded value size + application headroom
 ```
 
-### `createCache([options])`
+Use the **[memory and cost calculator](https://lazy-layers-cache.vercel.app/#calculator)** to compare L1 sizing, Redis payload size, compression, and infrastructure costs. Payload bytes are an estimate of wire/storage pressure, not total Redis memory usage.
 
-Convenience helper that returns a `LazyLayersCache`.
+## Explore the docs
 
-```ts
-import { createCache } from "lazy-layers-cache";
+- 🚀 [Quickstart](https://lazy-layers-cache.vercel.app/docs/quickstart): install, configure, read, invalidate, pre-warm, and shut down.
+- 🏭 [Production setup](https://lazy-layers-cache.vercel.app/docs/setups/production): L1/L2 sizing, instance identity, timeouts, stale fallback, and health behavior.
+- 🧱 [System design](https://lazy-layers-cache.vercel.app/docs/learn): how a key moves through the cache.
+- 🧠 [Layers](https://lazy-layers-cache.vercel.app/docs/concepts/layers): when L1, L2, or both make sense.
+- 🧵 [Stampede protection](https://lazy-layers-cache.vercel.app/docs/guides/stampede-protection): in-flight dedupe and distributed locks.
+- 🔄 [Invalidation](https://lazy-layers-cache.vercel.app/docs/concepts/invalidation): key, pattern, generation, and peer synchronization behavior.
+- 🛡️ [Failure handling](https://lazy-layers-cache.vercel.app/docs/guides/failure-handling): circuit breakers, timeouts, stale values, and negative caching.
+- 📡 [Event buses](https://lazy-layers-cache.vercel.app/docs/guides/event-buses): Redis, RabbitMQ, NATS Core, and JetStream.
+- 📊 [Observability](https://lazy-layers-cache.vercel.app/docs/guides/observability): dashboard, Prometheus, and telemetry.
+- ⚙️ [Configuration reference](https://lazy-layers-cache.vercel.app/docs/reference/configuration): every option and its trade-off.
+- 🔌 [API reference](https://lazy-layers-cache.vercel.app/docs/reference/api): methods, stores, and custom integrations.
 
-const cache = createCache({ ttlMs: 60_000 });
-```
-
-### Cache methods
-
-| Method | Description |
-| --- | --- |
-| `set(key, value, options?)` | Store a value in active layers. |
-| `get(key)` | Read from L1 first, then L2. L2 hits are promoted into L1. |
-| `getOrSet(key, loader, options?)` | Read cached value or run a loader and store the result. |
-| `prewarm(key, loader, options?)` | Warm one key through the same protected path as `getOrSet`. |
-| `has(key)` | Check whether a key exists. |
-| `invalidate(key)` | Delete one key locally, from L2, and across peers. |
-| `invalidateByPattern(pattern)` | Delete matching keys locally, from L2, and across peers. |
-| `delete(key)` | Delete a key locally and publish invalidation when configured. |
-| `deleteByPattern(pattern)` | Delete matching keys locally and publish pattern invalidation when configured. |
-| `clear()` | Delete all keys using `deleteByPattern("*")`. |
-| `size()` | Return the active store size. |
-| `on(handler)` | Subscribe to cache events. Returns an unsubscribe function. |
-| `ready()` | Wait for inbound event subscription readiness. |
-| `close()` | Stop observability and disconnect the event bus. Managed setup also closes owned Redis. |
-
-### `new MemoryStore([options])`
-
-In-memory LRU store used by L1.
-
-```ts
-import { MemoryStore } from "lazy-layers-cache";
-
-const l1 = new MemoryStore({
-  levels: {
-    L1: {
-      maxEntries: 2_000,
-      ttlMs: 30_000,
-    },
-  },
-});
-```
-
-### `new RedisStore(redis, [options])`
-
-Redis-backed store used by L2.
-
-```ts
-import Redis from "ioredis";
-import { RedisStore } from "lazy-layers-cache";
-
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
-const store = new RedisStore(redis, {
-  prefix: "app:cache:",
-  ttlMs: 300_000,
-});
-```
-
-`RedisStore` also exposes `acquireLock(key, token, ttlMs)` and `releaseLock(key, token)` for distributed stampede protection.
-
-### Event buses
-
-All built-in event buses implement the same interface.
-
-```ts
-interface EventBus {
-  connect?(): Promise<void>;
-  healthCheck?(): Promise<{ ok: boolean; transport: string; error?: unknown }>;
-  publish(event: InvalidationEvent): Promise<void>;
-  subscribe(handler: (event: InvalidationEvent) => void | Promise<void>): Promise<void>;
-  disconnect?(): Promise<void>;
-}
-```
-
-Built-in implementations:
-
-| Class | Transport |
-| --- | --- |
-| `RedisEventBus` | Redis Pub/Sub |
-| `RabbitMQEventBus` | RabbitMQ exchange and queue |
-| `NatsEventBus` | NATS core or JetStream |
-
-## Options
-
-### Cache options
-
-| Option | Type | Default |
-| --- | --- | --- |
-| `ttlMs` | `number` | `3_600_000` |
-| `levels.L1.ttlMs` | `number` | `ttlMs` |
-| `levels.L1.maxEntries` | `number` | `1_000` |
-| `levels.L2.ttlMs` | `number` | `ttlMs` |
-| `levels.L2.maxEntries` | `number` | unset |
-| `inflight.enabled` | `boolean` | `true` |
-| `inflight.ttlMs` | `number` | `5_000` |
-| `inflight.maxEntries` | `number` | unset |
-| `negativeCache.ttlMs` | `number` | unset |
-| `negativeCache.maxEntries` | `number` | unset |
-| `failSafe.enabled` | `boolean` | `false` |
-| `failSafe.staleTtlMs` | `number` | unset |
-| `timeouts.softMs` | `number` | unset |
-| `timeouts.hardMs` | `number` | unset |
-| `distributedLock.enabled` | `boolean` | `false` |
-| `versioning.enabled` | `boolean` | `false` |
-
-### LazyLayersCache options
-
-| Option | Description |
-| --- | --- |
-| `l1` | Custom L1 store or `false` to disable L1. |
-| `l2` | Custom L2 store or `false` to disable L2. |
-| `eventBus` | Invalidation bus used by `delete()` and `deleteByPattern()`. |
-| `source` | Instance identifier used to ignore self-published invalidations. |
-| `subscribeToEvents` | Set `false` to publish invalidations without subscribing. |
-| `broadcastSet` | Set `false` to disable peer L1 priming after `getOrSet` loader success. Default `true` when `eventBus` is set. |
-| `broadcastSetMaxBytes` | Optional encoded-size cap for `set` broadcasts. Oversized values are not fanned out; peers can still load them from L2. |
-| `events` | Initial cache event handlers. |
-| `eventDedupeMaxEntries` | Max invalidation event IDs remembered for dedupe. |
-| `eventDedupeTtlMs` | TTL for invalidation event dedupe. |
-| `logging.env` | `development`, `production`, or `test`. |
-| `logging.enabled` | Force package logs on or off. |
-
-### RedisStore options
-
-| Option | Default | Description |
-| --- | --- | --- |
-| `prefix` | `cache:` | Prefix for Redis keys. |
-| `indexKey` | `${prefix}__index` | Sorted-set index used for pattern deletes and size. |
-| `useIndex` | `true` | Use indexed pattern deletes instead of scanning keys directly. |
-| `scanCount` | `1_000` | Count hint for Redis scan streams. |
-| `batchSize` | `500` | Delete batch size. |
-| `deleteStrategy` | `unlink` | Use `unlink` or `del`. |
-
-### Event bus retry queue options
-
-| Option | Default | Description |
-| --- | --- | --- |
-| `enabled` | `true` | Keep failed publishes in memory for a later flush. |
-| `maxSize` | `10_000` | Max events to keep after publish failures. Oldest events are dropped when full. |
-
-## Runtime Notes
-
-![Lazy Layers Architecture](LazyLayers.webp)
-
-- L1 is local to the current process.
-- Redis L2 is shared across processes.
-- Event buses carry three event types: `del`, `pattern`, and `set`. The `set` event is the L1-priming broadcast emitted from `getOrSet` loader success — it carries the loaded value so peers populate L1 without a second loader call. Disable with `broadcastSet: false` for delete-only fanout.
-- Remote `del` and `set` events are generation-checked per key. Older-generation events are ignored to prevent late `set` broadcasts from repopulating values after deletes.
-- Use `broadcastSetMaxBytes` for payload-heavy values; event buses are best for invalidations and small L1-warmup messages, not large-object fanout.
-- Loader results of `undefined` are not stored as normal cache values and are not broadcast.
-- Direct `cache.set()` calls do not broadcast — only `getOrSet` loader successes do.
-- Production logging is quiet by default when `NODE_ENV=production`.
-- `versioning.enabled` writes generation-suffixed storage keys after deletes.
-- Always use a stable `source` or `INSTANCE_ID` in multi-instance deployments.
-- Pattern invalidation scans local in-memory structures and delegates to the backing store's pattern delete. Avoid very frequent broad patterns such as `*` on large L1 maps unless you have measured the cost.
-
-## Size-Tiered Serializer (HC1M / HC1L / HC1Z / HC1G / HC1J)
-
-L2 values are written through an intelligent size-tiered binary serializer. Each Redis payload carries a fixed 4-byte magic prefix so decode is O(1):
-
-| Prefix | Encoding | Size Decision & When Used |
-| --- | --- | --- |
-| `HC1M` | msgpack | Under 256 bytes (raw MessagePack, no compression overhead). Also used if compression saves < 15%. |
-| `HC1L` | lz4(msgpack) | 256 B to 4 KB: LZ4 compression (5x faster than Zstd at low byte sizes). |
-| `HC1Z` | zstd(msgpack) | Payloads ≥ 4 KB: Zstd (highest bytes saved per microsecond). Falls back to LZ4 on Node 20. |
-| `HC1G` | gzip(msgpack) | Legacy fallback format for pre-v3 compressed buffers. |
-| `HC1J` | JSON | Opt-in debug mode (`CACHE_FORMAT=json` or `CACHE_DEBUG_SERIALIZATION=true`). |
-
-`null` and `undefined` are stored via a sentinel string (`__hybridcache_null__`) so a cached "the value is null" is preserved as a real cache hit, not a miss.
-
-Legacy values (pre-prefix raw msgpack buffers and JSON-as-bytes) still decode correctly — the deserializer falls back through them in order.
-
-### Programmatic API
-
-```ts
-import { serialize, deserialize, serializeWithStats } from 'lazy-layers-cache';
-
-const buf = serialize({ id: 1 });               // Buffer with HC1M / HC1L / HC1Z prefix
-const value = deserialize(buf);                  // back to JS
-
-const stats = serializeWithStats(largeObject);
-// {
-//   buffer, encoding: 'msgpack-zstd',
-//   originalBytes, storedBytes, compressionRatio, compressed: true
-// }
-```
-
-`RedisStore` calls `serialize` on write and `redis.getBuffer` + `deserialize` on read automatically.
-
-## Testing
+## Development
 
 ```bash
-npm test            # node --test, runs ./test/*.test.js
-npm run typecheck   # tsc --noEmit
-npm run ci          # clean + typecheck + ESM/CJS build + tests
-```
-
-The suite covers:
-
-- **Serializer & Codecs** (`test/serializer.test.js`, `test/codecs.test.js`) — round-trips for plain objects, nested listing responses, `null`/`undefined`, strings, legacy JSON strings, legacy JSON buffers, legacy raw msgpack buffers; HC1M / HC1L / HC1Z / HC1G / HC1J prefix decoding; size-tiering rules; JSON debug mode; corrupted buffer recovery; `Uint8Array` input.
-- **MemoryStore / RedisStore / HybridCache** (`test/cache.test.js`, `test/edge-cases.test.js`) — L1/L2 layering, promotion, TTL, inflight dedupe, distributed locks, negative caching, fail-safe stale, circuit breakers, invalidation events, versioning, pattern deletes.
-- **Observability** (`test/observability.test.js`) — dashboard routes (`/__lazylayers` and `/observelazyily`), Prometheus metrics exposition, and SSE stream endpoints.
-
-219 tests pass on the current branch (`npm test`).
-
-## Contributing
-
-```bash
-npm install
-npm run build
-npm test
-```
-
-The test suite runs against the compiled `dist/`, so build before testing. `npm run ci` does the whole sequence in one step.
-does the whole sequence in one step:
-
-```bash
+npm ci
 npm run ci
 ```
 
-`npm run ci` cleans builds, type-checks, builds ESM and CommonJS output, and runs the test suite.
+The GitHub Actions workflow runs type checks, ESM/CommonJS builds, unit tests, integration tests, live Redis/RabbitMQ/NATS tests, benchmarks, the site build, and the documentation build.
 
 ## License
 
