@@ -19,6 +19,19 @@ Most Node.js caches solve one part of the problem. An in-process cache is fast b
 
 LazyLayers puts those pieces behind one TypeScript API. Start with L1 memory. Add Redis L2 and an event bus when the service needs shared state. The production setup wires the safety mechanisms for you.
 
+### How instances stay warm and consistent
+
+`getOrSet` does not make a synchronous request to validate another instance. Each instance checks its own L1, then shared L2, and only runs the loader on a miss. When a loader succeeds, the result is written locally and, when an event bus is configured, published as a bounded `set` event so peer L1 caches can be prewarmed without running the loader again. This is push-based peer priming, not request-time validation.
+
+Writes and invalidations travel through the same event-bus path:
+
+- `invalidate(key)` publishes a generation-aware `del` event so every subscribed instance drops that key.
+- `deleteByPattern(pattern)` / `invalidateByPattern(pattern)` publishes a `pattern` event so every instance repeats the scoped deletion locally.
+- `prewarm(key, loader)` uses the full protected `getOrSet` path, so a successful warm-up also primes peer L1 caches.
+- Redis Pub/Sub, RabbitMQ, NATS Core, and NATS JetStream are supported transports. The transport determines delivery semantics; LazyLayers handles source filtering, duplicate suppression, and stale single-key event ordering.
+
+Pattern deletion is optimized per layer: L1 removes matching keys from its bounded LRU, while indexed Redis L2 streams matches with `ZSCAN` and deletes them in pipelines using `UNLINK` or `DEL` plus index cleanup. The pattern event is small; each instance performs the same namespace-scoped scan against its local state and shared L2.
+
 ## The real problem it solves
 
 At traffic peaks, the expensive work is not the cache lookup. It is what happens on a miss:
@@ -61,7 +74,7 @@ The default production path is designed for the problems in this order:
 3. 💤 **Read-through loading:** `getOrSet` checks negative cache, L1, and L2 before calling the loader.
 4. 🧵 **Stampede protection:** in-flight dedupe handles callers in one process. A distributed lock handles cold loads across instances.
 5. 🗜️ **Serialization:** values use MessagePack and size-aware compression before they cross the Redis connection.
-6. 📡 **Event-bus synchronization:** Redis Pub/Sub, RabbitMQ, NATS Core, and NATS JetStream carry `del`, `pattern`, and bounded `set` priming events between instances.
+6. 📡 **Event-bus synchronization:** successful `getOrSet` loads and explicit `prewarm` can broadcast bounded `set` events to prime peer L1 caches; `invalidate` and `deleteByPattern` broadcast `del` and `pattern` events to keep instances aligned.
 7. 🏷️ **Namespaces and patterns:** isolate applications with a namespace, then invalidate one key with `invalidate` or a family with `invalidateByPattern("users:*")`.
 8. 🔢 **Ordering and dedupe:** source identity, event IDs, and generations ignore self-echoes, duplicates, and stale invalidations.
 9. 🛡️ **Resilience:** L2 and event-bus circuit breakers stop repeated calls to unhealthy dependencies. Publish retry queues absorb brief bus failures.
@@ -82,7 +95,7 @@ await cache.invalidate(`user:${id}`);
 await cache.invalidateByPattern("tenant:42:*");
 ```
 
-Invalidate after the source-of-truth write commits. Use `prewarm` for deploy hooks and background jobs. Pass the loader's `AbortSignal` to the database or HTTP client.
+Invalidate after the source-of-truth write commits. Use `prewarm` for deploy hooks and background jobs when a known key should be warm on every instance. Pass the loader's `AbortSignal` to the database or HTTP client. If a primed value exceeds `broadcastSetMaxBytes`, it is still stored on the originating instance and in L2, but peers load it on demand instead of receiving the payload.
 
 ### Choose the event bus by delivery needs
 
