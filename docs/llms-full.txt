@@ -97,7 +97,7 @@ Size-tiered binary compression with 4-byte magic prefixes for O(1) decode:
 | Circuit breakers | After configurable failures, the circuit opens and external calls are skipped until cooldown. |
 | Soft timeout | Returns stale immediately when available. |
 | Hard timeout | Aborts the loader entirely with AbortSignal. |
-| Distributed lock | Cross-instance getOrSet coordination via RedisStore lock methods. |
+| Distributed lock | Automatic getOrSet coordination for cold and expired keys. RedisStore renews leases, and contention deadlines serve eligible stale data or throw DistributedLockTimeoutError. |
 
 ## Event Buses
 
@@ -113,7 +113,7 @@ Size-tiered binary compression with 4-byte magic prefixes for O(1) decode:
 ### Stampede Protection
 
 - In-flight promise deduplication (default)
-- Optional Redis-backed distributed lock for cross-instance deduplication
+- Automatic Redis-backed locking and renewal for cold and expired keys across instances
 - Configurable via `inflight` and `distributedLock` options
 
 ### Failure Handling
@@ -153,7 +153,7 @@ Size-tiered binary compression with 4-byte magic prefixes for O(1) decode:
 - Durable queues: own queue per instance
 - NATS JetStream: own durableName per instance
 - Prefer negative caching over Bloom filters
-- Distributed locks only for expensive loaders
+- Automatic distributed locking and renewal with Redis L2
 - Idempotent, timeout-aware loader functions
 
 ## Links

@@ -118,10 +118,10 @@ Passed to the `RedisStore` constructor, not to the cache.
   Already on. Setting it to `false` hands every concurrent caller its own loader call, which is the exact thundering herd this library was built to stop.
 </ParamField>
 
-<ParamField path="inflight.ttlMs" type="number" default="5000">
-  How long an in-flight promise stays joinable. Past it, a new caller starts a fresh load rather than waiting on a loader that may never settle.
+<ParamField path="inflight.ttlMs" type="number" default="derived">
+  How long an in-flight promise stays joinable. By default this covers the loader hard timeout, the distributed wait budget when locking is active, and a 50 ms margin, with a 5,000 ms minimum. Defaults are 10,050 ms without locking and 20,100 ms with Redis locking. Settled entries are removed immediately.
 
-  Set below your p99 loader latency and you get duplicate loads under normal conditions. Set it far above and one wedged loader parks every caller for that key until it expires.
+  An explicit value overrides the derived lifetime. Setting it too low allows a later caller to start another load while the original is still active.
 </ParamField>
 
 <ParamField path="inflight.maxEntries" type="number">
@@ -153,15 +153,19 @@ Passed to the `RedisStore` constructor, not to the cache.
 </ParamField>
 
 <ParamField path="distributedLock.ttlMs" type="number" default="10000">
-  Lock lifetime. Set it below your slowest realistic loader and a second server starts loading while the first is still working, which defeats the point.
+  Lease lifetime. RedisStore renews it automatically while the load and write are active. Custom stores without `renewLock` must finish within this lifetime.
 </ParamField>
 
-<ParamField path="distributedLock.waitTimeoutMs" type="number" default="2000">
-  How long a server that lost the lock polls for the winner's result before giving up and running the loader itself. Too short and you get the duplicate load anyway. Too long and a stuck lock holder adds this much latency to every waiter.
+<ParamField path="distributedLock.waitTimeoutMs" type="number" default="derived">
+  Maximum contention wait. Defaults to `max(distributedLock.ttlMs, timeouts.hardMs) + distributedLock.pollMs`, initially 10,050 ms. Waiters recheck the cache and retry released locks. At the deadline, eligible stale data is returned or `DistributedLockTimeoutError` is thrown by default. An explicit value overrides the derived budget.
 </ParamField>
 
 <ParamField path="distributedLock.pollMs" type="number" default="50">
   Interval between polls while waiting. Each poll is a real read through L1 and L2, so a small value multiplies L2 traffic across every waiting server.
+</ParamField>
+
+<ParamField path="distributedLock.onTimeout" type="string" default="throw">
+  `throw` uses eligible stale data when fail-safe is enabled, otherwise it raises `DistributedLockTimeoutError`. `load` explicitly permits an unlocked loader after contention times out, which can duplicate another instance's work. No setting is needed for the default protection.
 </ParamField>
 
 ## Resilience

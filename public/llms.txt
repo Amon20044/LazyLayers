@@ -14,7 +14,7 @@ Two methods do almost all the work:
 
 - Lazy loading with getOrSet — one loader call per key across all concurrent callers
 - In-flight promise deduplication prevents same-process stampede
-- Optional Redis-backed distributed lock for cross-instance stampede protection
+- Automatic Redis-backed locking and renewal for cold and expired keys across instances
 - Fail-open resilience: L2 and event-bus failures are logged and swallowed, local L1 continues serving
 - Stale fallback: last-known-good values returned on loader errors or timeouts
 - Negative caching: loader misses briefly cached to avoid hammering databases

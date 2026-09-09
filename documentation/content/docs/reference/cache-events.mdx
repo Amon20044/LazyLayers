@@ -94,12 +94,13 @@ A healthy `inflight:reuse` rate under load is dedupe doing exactly what you inst
 
 | Event | Payload | Fires when |
 |---|---|---|
-| `stale:hit` | `key`, `reason` | A stale copy was served instead of an error. `reason` is `'loader-error'`, `'soft-timeout'` or `'hard-timeout'`. |
+| `stale:hit` | `key`, `reason` | A stale copy was served instead of an error. `reason` is `'loader-error'`, `'soft-timeout'`, `'hard-timeout'` or `'lock-timeout'`. |
+| `lock:timeout` | `key`, `timeoutMs`, `onTimeout` | The contention wait budget elapsed. Emitted before stale fallback, throwing or an explicitly configured unlocked load. |
 | `negative:set` | `key`, `ttlMs` | A loader resolved `undefined` and a positive negative-cache TTL was in effect, so the miss was recorded. |
 
 `stale:hit` requires both a remembered stale value and `failSafe.enabled === true`. Without either one the loader error is rethrown to your caller.
 
-One gap worth knowing: when a loader resolves `undefined` and a stale copy exists, the stale copy is returned but **no `stale:hit` is emitted**. That path emits `loader:success` and, if negative caching is configured, `negative:set`. Only a rejected or timed-out loader produces `stale:hit`.
+One gap worth knowing: when a loader resolves `undefined` and a stale copy exists, the stale copy is returned but **no `stale:hit` is emitted**. That path emits `loader:success` and, if negative caching is configured, `negative:set`. A rejected or timed-out loader, or a contention timeout with stale fallback, produces `stale:hit`.
 
 `negative:set` fires only when a positive `negativeCache.ttlMs` is resolved. With no TTL set, nothing is ever recorded and this event never appears, which is the fastest way to confirm negative caching is inert.
 
@@ -288,7 +289,7 @@ Run this without an L2 and the formula changes: `miss` with `level: 'L2'` never 
 
 Two paths generate more events than you would guess from your request rate.
 
-Every poll while a server waits on a distributed lock performs a real read through L1 and L2, so it emits a full set of `hit` or `miss` events. At `pollMs: 50` and a `waitTimeoutMs` of two seconds, one waiting caller can emit forty reads' worth.
+Every poll while a server waits on a distributed lock performs a real read through L1 and L2, so it emits a full set of `hit` or `miss` events. At the default `pollMs: 50` and derived 10,050 ms wait budget, one waiting operation can produce about 201 polls, each followed by an acquisition retry when time remains. In-flight dedupe shares that operation across callers in the same instance while its entry is live.
 
 Enabling the observability dashboard adds one more handler to the same loop. It is O(1) per event and it is the only cost, but it runs on every event you emit.
 

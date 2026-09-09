@@ -165,7 +165,7 @@ const eventBus = new NatsEventBus({
 | Circuit breakers | After configurable failures, the circuit opens and external calls are skipped until cooldown. |
 | Soft timeout | Returns stale immediately when available. |
 | Hard timeout | Aborts the loader entirely with AbortSignal. |
-| Distributed lock | Cross-instance getOrSet coordination via RedisStore lock methods. |
+| Distributed lock | Automatic getOrSet coordination for cold and expired keys. RedisStore renews leases, and contention deadlines serve eligible stale data or throw DistributedLockTimeoutError. |
 
 ## Serialization
 
@@ -258,7 +258,7 @@ const cache = new LazyLayersCache({
 - Durable queues: own queue per instance
 - NATS JetStream: own durableName per instance
 - Prefer negative caching over Bloom filters
-- Distributed locks only for expensive loaders
+- Automatic distributed locking and renewal with Redis L2
 - logging.env: "production" in prod
 - Idempotent, timeout-aware loader functions
 - deleteStrategy: "unlink" for large values

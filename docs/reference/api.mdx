@@ -113,7 +113,7 @@ The read-through path, and the method to reach for in almost all code. It checks
 </ParamField>
 
 <ParamField path="loader" type="(context?: { signal: AbortSignal }) => Promise<V | undefined>" required>
-  Runs only on a miss. Receives an `AbortSignal` that your `timeouts` actually fire, so pass it into your I/O. Returning `undefined` records a negative entry instead of caching a value.
+  Runs only on a miss. Receives an `AbortSignal` that fires on loader timeout or detected distributed lock loss, so pass it into your I/O. Returning `undefined` records a negative entry instead of caching a value.
 </ParamField>
 
 <ParamField path="options" type="CacheOptions">
@@ -155,6 +155,9 @@ What happens on a miss, in order:
   <Step title="Dedupe">
     Concurrent callers for the same key join the in-flight promise, so the loader body runs once. If `inflight.maxEntries` is already full the call runs unregistered and emits `inflight:bypass`.
   </Step>
+  <Step title="Coordinate across instances">
+    Redis L2 automatically locks cold and expired keys and renews active leases. Waiters return the shared value or retry a released lock. The cache is checked again after acquisition before another loader can run.
+  </Step>
   <Step title="Load">
     The loader runs under your `timeouts` with an `AbortSignal`. A failure serves the stale copy when fail-safe is on and one exists, and rethrows otherwise.
   </Step>
@@ -173,6 +176,8 @@ What happens on a miss, in order:
 <Warning>
   `setupCache` sets `broadcastSetMaxBytes` to 32 KB. The low-level constructor has no ceiling. Values over the ceiling are still stored locally and in L2, and the skip emits `set:broadcast-skipped` with `reason: 'max-bytes'`.
 </Warning>
+
+With Redis L2, a contention deadline returns eligible stale data or throws the exported `DistributedLockTimeoutError` (`code: 'DISTRIBUTED_LOCK_TIMEOUT'`, `key`, `waitTimeoutMs`). Detected lease loss aborts the loader signal and throws `DistributedLockLostError` (`code: 'DISTRIBUTED_LOCK_LOST'`, `key`) unless eligible stale data can be served. No lock settings are required. See [stampede protection](/docs/guides/stampede-protection) for the automatic wait budget and failure limits.
 
 ### prewarm
 
@@ -493,7 +498,7 @@ Everything below is a runtime export of `lazy-layers-cache`.
     ```ts
     DEFAULT_CACHE_TTL_MS      // 3_600_000
     DEFAULT_L1_MAX_ENTRIES    // 1_000
-    DEFAULT_INFLIGHT_TTL_MS   // 5_000
+    DEFAULT_INFLIGHT_TTL_MS   // 5_000 minimum for the derived in-flight lifetime
     PRODUCTION_L1_TTL_MS      // 10_000
     PRODUCTION_INFLIGHT_MAX_ENTRIES // 10_000
     PRODUCTION_BROADCAST_SET_MAX_BYTES // 32_768

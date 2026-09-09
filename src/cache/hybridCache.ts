@@ -18,13 +18,18 @@ import {
   DEFAULT_INFLIGHT_TTL_MS,
   DEFAULT_L1_MAX_ENTRIES,
   DEFAULT_LOADER_HARD_TIMEOUT_MS,
+  DEFAULT_LOCK_TTL_MS,
+  DEFAULT_LOCK_POLL_MS,
   DEFAULT_NEGATIVE_MAX_ENTRIES,
   DEFAULT_NEGATIVE_TTL_MS,
   DEFAULT_STALE_TTL_MS,
 } from './defaults.js';
 import {
+  DistributedLockTimeoutError,
+  maintainLock,
   supportsDistributedLock,
   type DistributedLockOptions,
+  type LoadLease,
 } from './distributedLock.js';
 import type { CacheEvent, CacheEventHandler } from './events.js';
 import { MemoryStore } from './memoryStore.js';
@@ -386,7 +391,10 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     }
 
     const promise = this.loadWithDistributedLock(key, loader, options).finally(() => {
-      this.inflight.delete(key);
+      // An expired or invalidated entry may have been replaced while we waited.
+      if (this.inflight.get(key)?.promise === promise) {
+        this.inflight.delete(key);
+      }
       debugLog('cache inflight complete', { key });
     });
 
@@ -476,14 +484,17 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     };
   }
 
-  private async loadAndStore(key: K, loader: CacheLoader<V>, options: CacheOptions): Promise<V | undefined> {
+  private async loadAndStore(key: K, loader: CacheLoader<V>, options: CacheOptions, lease?: LoadLease): Promise<V | undefined> {
     const startedAt = Date.now();
-    const controller = new AbortController();
+    const controller = lease?.controller ?? new AbortController();
     let value: V | undefined;
 
     try {
+      lease?.assertOwned();
       this.emit({ type: 'loader:start', key });
-      value = await this.runLoaderWithTimeouts(key, loader, controller, options);
+      const loading = this.runLoaderWithTimeouts(key, loader, controller, options);
+      value = await (lease ? Promise.race([loading, lease.lost]) : loading);
+      lease?.assertOwned();
     } catch (error) {
       const durationMs = Date.now() - startedAt;
       const stale = this.getStale(key);
@@ -512,7 +523,9 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       return undefined;
     }
 
+    lease?.assertOwned();
     await this.set(key, value, options);
+    lease?.assertOwned();
 
     if (this.shouldBroadcastSet()) {
       const event: SetEvent = {
@@ -566,50 +579,70 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private async loadWithDistributedLock(key: K, loader: CacheLoader<V>, options: CacheOptions): Promise<V | undefined> {
-    if (!this.distributedLockEnabled(options) || !supportsDistributedLock(this.l2)) {
+    const l2 = this.l2;
+    if (!this.distributedLockEnabled(options) || !supportsDistributedLock(l2)) {
       return this.loadAndStore(key, loader, options);
     }
 
-    const lockTtlMs = options.distributedLock?.ttlMs ?? this.options.distributedLock?.ttlMs ?? 10_000;
-    const waitTimeoutMs = options.distributedLock?.waitTimeoutMs ?? this.options.distributedLock?.waitTimeoutMs ?? 2_000;
-    const pollMs = options.distributedLock?.pollMs ?? this.options.distributedLock?.pollMs ?? 50;
-    const token = createEventId();
-    const acquired = await this.runL2(
-      'acquireLock',
-      key,
-      () => this.l2 && supportsDistributedLock(this.l2)
-        ? this.l2.acquireLock(key, token, lockTtlMs)
-        : Promise.resolve(false),
-      false,
-    );
-
-    if (acquired) {
-      try {
-        return await this.loadAndStore(key, loader, options);
-      } finally {
-        await this.runL2(
-          'releaseLock',
-          key,
-          () => this.l2 && supportsDistributedLock(this.l2)
-            ? this.l2.releaseLock(key, token)
-            : Promise.resolve(),
-        );
-      }
+    const lockTtlMs = options.distributedLock?.ttlMs ?? this.options.distributedLock?.ttlMs ?? DEFAULT_LOCK_TTL_MS;
+    const pollMs = options.distributedLock?.pollMs ?? this.options.distributedLock?.pollMs ?? DEFAULT_LOCK_POLL_MS;
+    const waitTimeoutMs = this.getLockWaitTimeoutMs(options);
+    const onTimeout = options.distributedLock?.onTimeout ?? this.options.distributedLock?.onTimeout ?? 'throw';
+    if (!Number.isFinite(lockTtlMs) || lockTtlMs <= 0
+      || !Number.isFinite(waitTimeoutMs) || waitTimeoutMs < 0
+      || !Number.isFinite(pollMs) || pollMs <= 0) {
+      throw new RangeError('Distributed lock ttlMs and pollMs must be positive and finite, and waitTimeoutMs must be non-negative and finite');
     }
-
+    const token = createEventId();
     const waitUntil = Date.now() + waitTimeoutMs;
+    let contended = false;
 
-    while (Date.now() < waitUntil) {
-      await sleep(pollMs);
+    while (true) {
+      const acquiredAt = Date.now();
+      const acquired = await this.runL2<boolean | undefined>(
+        'acquireLock', key, () => l2.acquireLock(key, token, lockTtlMs), undefined,
+      );
+
+      if (acquired) {
+        const lease = maintainLock(key, lockTtlMs, acquiredAt, l2.renewLock
+          ? () => this.runL2('renewLock', key, () => l2.renewLock!(key, token, lockTtlMs), false)
+          : undefined);
+        try {
+          // A previous owner may have filled L2 between our miss and acquisition.
+          const cached = await this.get(key);
+          if (cached !== undefined) return cached;
+          if (this.hasNegative(key)) return undefined;
+          return await this.loadAndStore(key, loader, options, lease);
+        } finally {
+          lease.stop();
+          await this.runL2('releaseLock', key, () => l2.releaseLock(key, token));
+        }
+      }
+
+      // Preserve fail-open on Redis failure, but do not mistake contention for
+      // an outage or bypass an owner we have already observed.
+      if (acquired === undefined && !contended) {
+        return this.loadAndStore(key, loader, options);
+      }
+      contended = true;
+      const remainingMs = waitUntil - Date.now();
+      if (remainingMs > 0) await sleep(Math.min(pollMs, remainingMs));
 
       const cached = await this.get(key);
-
-      if (cached !== undefined) {
-        return cached;
-      }
+      if (cached !== undefined) return cached;
+      if (this.hasNegative(key)) return undefined;
+      if (Date.now() >= waitUntil) break;
     }
 
-    return this.loadAndStore(key, loader, options);
+    this.emit({ type: 'lock:timeout', key, timeoutMs: waitTimeoutMs, onTimeout });
+    if (onTimeout === 'load') return this.loadAndStore(key, loader, options);
+
+    const stale = this.getStale(key);
+    if (stale !== undefined && this.failSafeEnabled(options)) {
+      this.emit({ type: 'stale:hit', key, reason: 'lock-timeout' });
+      return stale;
+    }
+    throw new DistributedLockTimeoutError(key, waitTimeoutMs);
   }
 
   private async deleteLocal(key: K, generation?: number): Promise<void> {
@@ -743,7 +776,21 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private getInflightTtlMs(options: CacheOptions): number | undefined {
-    return options.inflight?.ttlMs ?? this.options.inflight?.ttlMs ?? DEFAULT_INFLIGHT_TTL_MS;
+    const explicit = options.inflight?.ttlMs ?? this.options.inflight?.ttlMs;
+    if (explicit !== undefined) return explicit;
+    const hardMs = options.timeouts?.hardMs ?? this.options.timeouts?.hardMs ?? DEFAULT_LOADER_HARD_TIMEOUT_MS;
+    const waitMs = this.distributedLockEnabled(options) && supportsDistributedLock(this.l2)
+      ? this.getLockWaitTimeoutMs(options) : 0;
+    // Keep local callers together throughout the default wait + loader budget.
+    return Math.max(DEFAULT_INFLIGHT_TTL_MS, waitMs + hardMs + DEFAULT_LOCK_POLL_MS);
+  }
+
+  private getLockWaitTimeoutMs(options: CacheOptions): number {
+    const lockTtlMs = options.distributedLock?.ttlMs ?? this.options.distributedLock?.ttlMs ?? DEFAULT_LOCK_TTL_MS;
+    const hardMs = options.timeouts?.hardMs ?? this.options.timeouts?.hardMs ?? DEFAULT_LOADER_HARD_TIMEOUT_MS;
+    const pollMs = options.distributedLock?.pollMs ?? this.options.distributedLock?.pollMs ?? DEFAULT_LOCK_POLL_MS;
+    return options.distributedLock?.waitTimeoutMs ?? this.options.distributedLock?.waitTimeoutMs
+      ?? Math.max(lockTtlMs, hardMs) + pollMs;
   }
 
   private getInflightExpiresAt(options: CacheOptions): number | undefined {
@@ -778,7 +825,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     const stale = this.getStale(key);
 
     if (softMs !== undefined && stale !== undefined && this.failSafeEnabled(options)) {
-      const result = await raceWithTimeout(loaderPromise, softMs, 'soft-timeout');
+      const result = await raceWithTimeout(loaderPromise, softMs, 'soft-timeout', controller.signal);
 
       if (result.timedOut) {
         controller.abort();
@@ -790,7 +837,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     }
 
     if (hardMs !== undefined) {
-      const result = await raceWithTimeout(loaderPromise, hardMs, 'hard-timeout');
+      const result = await raceWithTimeout(loaderPromise, hardMs, 'hard-timeout', controller.signal);
 
       if (result.timedOut) {
         controller.abort();
@@ -1089,17 +1136,25 @@ async function raceWithTimeout<V>(
   promise: Promise<V | undefined>,
   timeoutMs: number,
   reason: LoaderTimeoutReason,
+  signal: AbortSignal,
 ): Promise<{ timedOut: false; value: V | undefined } | { timedOut: true; reason: LoaderTimeoutReason }> {
   let timeout: NodeJS.Timeout | undefined;
+  let abort: (() => void) | undefined;
 
   try {
     return await Promise.race([
       promise.then((value) => ({ timedOut: false as const, value })),
+      new Promise<never>((_, reject) => {
+        abort = () => reject(signal.reason);
+        if (signal.aborted) abort();
+        else signal.addEventListener('abort', abort, { once: true });
+      }),
       new Promise<{ timedOut: true; reason: LoaderTimeoutReason }>((resolve) => {
         timeout = setTimeout(() => resolve({ timedOut: true, reason }), timeoutMs);
       }),
     ]);
   } finally {
+    if (abort) signal.removeEventListener('abort', abort);
     if (timeout) {
       clearTimeout(timeout);
     }

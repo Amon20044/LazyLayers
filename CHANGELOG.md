@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- `getOrSet` coordinates both cold and expired keys automatically with Redis L2.
+  RedisStore renews active leases with a token-checked Lua operation. Waiters retry
+  released locks and recheck the cache after acquisition before loading.
+- **Contention timeout behavior changed:** the default wait budget is now derived
+  from `max(lock ttlMs, loader hardMs) + pollMs` (10,050 ms with defaults).
+  At the deadline, eligible stale data is returned or `DistributedLockTimeoutError`
+  is thrown. Set `distributedLock.onTimeout: 'load'` to restore the prior unlocked
+  fallback. Explicit wait budgets are still honored.
+- Detected lease loss aborts the loader signal and discards late loader results.
+  `DistributedLockLostError` is exported for calls without eligible stale data.
+  Custom locking stores may implement optional `renewLock` to extend their leases.
+- Added `lock:timeout` events and the `lock-timeout` stale fallback reason.
+- In-flight lifetime now adapts to the wait and loader budgets instead of expiring
+  at five seconds during a healthy slow load. Explicit lifetimes remain supported.
+- Finishing an older in-flight operation no longer removes a replacement entry.
+
+
 ## 0.5.0
 
 ### Breaking

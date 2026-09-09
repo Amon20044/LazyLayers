@@ -47,7 +47,7 @@ LazyLayers addresses these costs in the read and write path:
 
 - ⚡ **Lazy loading:** `getOrSet` only loads keys that traffic requests.
 - 🧩 **In-flight dedupe:** concurrent callers for one key share one loader promise.
-- 🔒 **Distributed locks:** Redis-backed per-key locking prevents duplicate cold loads across instances.
+- 🔒 **Distributed locks:** Redis-backed per-key locking coordinates cold and expired keys across instances, with automatic lease renewal.
 - 🛡️ **Fail-open L2:** Redis failures degrade to a miss and the origin loader instead of blocking the request.
 - 🚦 **Circuit breakers:** unhealthy L2 and event-bus dependencies are skipped during cooldowns.
 - 🕰️ **Stale fallback:** recent values can be served when a loader fails or times out.
@@ -96,6 +96,14 @@ await cache.invalidateByPattern("tenant:42:*");
 ```
 
 Invalidate after the source-of-truth write commits. Use `prewarm` for deploy hooks and background jobs when a known key should be warm on every instance. Pass the loader's `AbortSignal` to the database or HTTP client. If a primed value exceeds `broadcastSetMaxBytes`, it is still stored on the originating instance and in L2, but peers load it on demand instead of receiving the payload.
+
+### Cache expiry and slow loaders
+
+The same `getOrSet(key, loader)` call protects cold starts and cache expiry. With Redis L2, locking and lease renewal are automatic. Concurrent callers wait for the shared result, and waiters retry a released lock if the original loader fails. No lock settings are required.
+
+The contention wait budget adapts to the lock TTL and loader hard timeout, initially 10,050 ms. If it expires, the cache serves eligible stale data or throws the exported `DistributedLockTimeoutError`. It no longer starts an unlocked load just because another instance is slow. `distributedLock.onTimeout: 'load'` explicitly restores that older behavior.
+
+If ownership is lost, the loader signal is aborted and late loader results are discarded. Without eligible stale data, the call rejects with `DistributedLockLostError`. Pass the signal to your database or HTTP client when supported. This is not an exactly-once guarantee: Redis outages before contention still fail open, and failover, process pauses or work that ignores cancellation can allow overlap. Redis client command timeouts still bound network operations.
 
 ### Choose the event bus by delivery needs
 

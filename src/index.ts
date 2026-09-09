@@ -60,6 +60,8 @@ export type {
 } from './cache/index.js';
 export {
   CircuitBreaker,
+  DistributedLockLostError,
+  DistributedLockTimeoutError,
   DEFAULT_CACHE_TTL_MS,
   DEFAULT_INFLIGHT_TTL_MS,
   DEFAULT_L1_MAX_ENTRIES,

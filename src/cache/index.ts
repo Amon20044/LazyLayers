@@ -2,6 +2,7 @@ export type { CircuitBreakerOptions, CircuitBreakerState } from './circuitBreake
 export { CircuitBreaker } from './circuitBreaker.js';
 export { DEFAULT_CACHE_TTL_MS, DEFAULT_INFLIGHT_TTL_MS, DEFAULT_L1_MAX_ENTRIES } from './defaults.js';
 export type { DistributedLock, DistributedLockOptions } from './distributedLock.js';
+export { DistributedLockLostError, DistributedLockTimeoutError } from './distributedLock.js';
 export type { CacheEvent, CacheEventHandler } from './events.js';
 export type {
   CacheLayer,

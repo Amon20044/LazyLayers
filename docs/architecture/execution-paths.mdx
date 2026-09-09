@@ -80,7 +80,7 @@ If `inflight.enabled` is `false`, either on the call or on the cache, the load r
 </Step>
 
 <Step title="Prune expired entries">
-The whole map is swept and entries past their `expiresAt` are removed. An in-flight entry expires after `inflight.ttlMs`, which defaults to 5,000 ms, so one wedged loader cannot pin every future caller behind it forever.
+The whole map is swept and entries past their `expiresAt` are removed. Unless explicitly set, `inflight.ttlMs` covers the loader hard timeout, the distributed wait budget when locking is active, and a 50 ms margin, with a 5,000 ms minimum. Default lifetimes are 10,050 ms without locking and 20,100 ms with Redis locking.
 </Step>
 
 <Step title="Join a live entry if there is one">
@@ -184,24 +184,24 @@ Otherwise `set:broadcast` is emitted and the event is published. If the bus circ
 
 ## Load with the distributed lock
 
-This sits between the in-flight registration and the load above, and only when `distributedLock.enabled` is `true` **and** the L2 supports locking. Otherwise the load runs directly.
+This runs between in-flight registration and the loader whenever the L2 supports locking, unless locking is explicitly disabled. Cold starts and cache expiry use this same path.
 
 <Steps>
 
 <Step title="Try to acquire">
-A random token is generated and the lock is acquired through the circuit breaker with a fallback of `false`, so a broken Redis degrades to unlocked loading rather than throwing. The lock TTL defaults to 10,000 ms.
+A random token identifies the owner. An initial Redis failure falls through to the existing fail-open loader path. A lock held by another instance starts a bounded wait instead.
 </Step>
 
-<Step title="If acquired, load">
-The load runs, and the lock is released in a `finally` block, so a loader that throws still releases it.
+<Step title="Recheck and load while renewing">
+After acquisition, the cache is read again so a value published since the original miss avoids another load. RedisStore renews the token's lease at roughly one third of its lifetime. A separate local expiry deadline bounds a hung renewal. Detected ownership loss aborts the loader signal and discards a late loader result. Cleanup stops renewal and releases only this token's lock.
 </Step>
 
-<Step title="If not acquired, poll">
-Sleep `pollMs`, which defaults to 50, then re-run the read path from the top. Repeat until a value appears or `waitTimeoutMs` elapses, which defaults to 2,000. The poll re-reads the cache, it does not call your loader.
+<Step title="Wait for a result or retry acquisition">
+Waiters sleep up to `pollMs`, then reread the layers and retry the lock if the value is still missing. A failed or crashed owner can be replaced by a waiter. Once contention has been observed, later Redis errors do not trigger an automatic unlocked load.
 </Step>
 
-<Step title="On timeout, load anyway">
-Rather than fail, the waiting server runs the loader itself. A dead lock holder cannot block the cluster for the full lock TTL.
+<Step title="Bound the wait without starting another load">
+The default budget is `max(lock ttlMs, loader hardMs) + pollMs`, initially 10,050 ms. At the deadline the cache emits `lock:timeout`, returns eligible stale data or throws `DistributedLockTimeoutError`. An explicit `onTimeout: 'load'` restores the unlocked fallback. Redis command latency is governed by your Redis client timeouts.
 </Step>
 
 </Steps>

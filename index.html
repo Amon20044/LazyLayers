@@ -126,7 +126,7 @@
       "name": "How does lazy loading work in lazy-layers-cache?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Call cache.getOrSet(key, loader). The first caller runs the loader, stores the result in L1 and L2, and broadcasts it to all peer instances via the event bus. Concurrent callers for the same key reuse the same in-flight promise — no duplicate loader calls."
+        "text": "Call cache.getOrSet(key, loader). The first caller runs the loader, stores the result in L1 and L2, and broadcasts it to all peer instances via the event bus. Concurrent callers share an in-flight load on cold starts and expiry. Redis L2 coordinates instances automatically, with lease renewal and bounded waits."
       }
     },
     {
@@ -1563,7 +1563,7 @@
     <div class="feat-card">
       <div class="feat-icon">🛡</div>
       <div class="feat-title">Stampede Protection</div>
-      <div class="feat-desc">In-flight promise deduplication prevents same-process dogpile. Optional Redis-backed distributed lock for cross-instance coordination on expensive loaders.</div>
+      <div class="feat-desc">In-flight promise deduplication prevents same-process dogpile. Redis L2 automatically coordinates cold and expired keys across instances and renews active locks.</div>
     </div>
     <div class="feat-card">
       <div class="feat-icon">📡</div>
@@ -2252,7 +2252,7 @@ NATS_URL=<span class="str">"nats://localhost:4222"</span>
     <div class="res-card">
       <div class="res-num">05</div>
       <div class="res-title">Distributed Lock</div>
-      <div class="res-desc">With RedisStore and distributedLock enabled, cross-instance getOrSet calls coordinate so only one instance loads a missing key at a time.</div>
+      <div class="res-desc">With RedisStore, getOrSet automatically coordinates cold and expired keys across instances. Active locks renew while callers wait for the shared result. No lock configuration required.</div>
     </div>
     <div class="res-card">
       <div class="res-num">06</div>
@@ -2445,7 +2445,7 @@ process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</spa
     L2: { maxEntries: <span class="num">100_000</span>, ttlMs: <span class="num">60_000</span> },
   },
   inflight: { enabled: <span class="kw">true</span>, ttlMs: <span class="num">5_000</span>, maxEntries: <span class="num">1_000</span> },
-  distributedLock: { enabled: <span class="kw">true</span>, ttlMs: <span class="num">10_000</span>, waitTimeoutMs: <span class="num">2_000</span>, pollMs: <span class="num">50</span> },
+  <span class="cm">// Redis locking, lease renewal, and the wait budget are automatic.</span>
   negativeCache: { enabled: <span class="kw">true</span>, ttlMs: <span class="num">5_000</span>, maxEntries: <span class="num">10_000</span> },
   failSafe: { enabled: <span class="kw">true</span>, staleTtlMs: <span class="num">300_000</span> },
   timeouts: { softMs: <span class="num">100</span>, hardMs: <span class="num">2_000</span> },
@@ -2490,8 +2490,8 @@ process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</spa
         <div class="opt-val">Same-process request coalescing for concurrent getOrSet calls on the same key.</div>
       </div>
       <div class="opt-row">
-        <div class="opt-key">distributedLock<span class="opt-type">enabled, ttlMs, waitTimeoutMs, pollMs</span></div>
-        <div class="opt-val">Cross-instance stampede control when the L2 store supports locks, such as RedisStore.</div>
+        <div class="opt-key">distributedLock<span class="opt-type">enabled, ttlMs, waitTimeoutMs, pollMs, onTimeout</span></div>
+        <div class="opt-val">Automatic protection for cold starts and cache expiry with RedisStore. At a contention deadline, serve eligible stale data or throw a clear error. See the <a href="/docs/guides/stampede-protection">stampede protection guide</a>.</div>
       </div>
       <div class="opt-row">
         <div class="opt-key">failSafe / timeouts<span class="opt-type">stale fallback</span></div>
@@ -2539,7 +2539,7 @@ process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</spa
       </tr>
       <tr class="highlight-row">
         <td>Stampede protection</td>
-        <td>In-flight dedupe + optional distributed lock. Concurrent callers share one loader promise.</td>
+        <td>In-flight dedupe + automatic Redis locks and renewal. Cold and expired keys share a load.</td>
         <td>You build your own deduplication and locking.</td>
       </tr>
       <tr class="highlight-row">
@@ -2632,7 +2632,7 @@ process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</spa
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Durable queues: own queue per instance</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">NATS JetStream: own durableName per instance</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Prefer negative caching over Bloom filters</span></span>
-<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Distributed locks only for expensive loaders</span></span>
+<span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Automatic Redis locks for cold and expired keys</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">logging.env: "production" in prod</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">Idempotent, timeout-aware loader functions</span></span>
 <span><span class="cm"># ✓</span> <span style="color:#80cbc4;">deleteStrategy: "unlink" for large values</span></span>
@@ -2664,7 +2664,7 @@ process.env.<span class="kw">CACHE_FORMAT</span> = <span class="str">"json"</spa
         <span style="font-size:18px;color:var(--muted);transition:transform 0.2s;">+</span>
       </summary>
       <div style="padding:0 24px 20px;font-size:14px;color:var(--muted);line-height:1.7;font-weight:300;">
-        Call <code>cache.getOrSet(key, loader)</code>. The first caller runs the loader, stores the result in L1 and L2, and broadcasts it to all peer instances via the event bus. Concurrent callers for the same key reuse the same in-flight promise — no duplicate loader calls, no stampede.
+        Call <code>cache.getOrSet(key, loader)</code>. The first caller runs the loader, stores the result in L1 and L2, and broadcasts it to all peer instances via the event bus. Concurrent callers share an in-flight load on cold starts and expiry. Redis L2 automatically coordinates instances and renews active locks. At the contention deadline, eligible stale data is served or a timeout error is returned.
       </div>
     </details>
 

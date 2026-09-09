@@ -216,6 +216,20 @@
 <section class="section" id="architecture" aria-label="Caching problems handled by LazyLayers">
   <div class="wrap">
     <!--@cache-scale-->
+    <div class="cache-protection" aria-labelledby="cache-protection-title">
+      <div class="cache-protection__intro">
+        <span class="eyebrow">Automatic stampede protection</span>
+        <h2 id="cache-protection-title">Cold starts.<br />Expired keys.<br />Same simple call.</h2>
+        <code>cache.getOrSet(key, loader)</code>
+        <p>With Redis L2, coordination is built in. No lock configuration required.</p>
+        <a href="/docs/guides/stampede-protection">How refresh protection works <span aria-hidden="true">→</span></a>
+      </div>
+      <ol class="cache-protection__steps">
+        <li><span aria-hidden="true">01</span><div><h3>Share the refresh</h3><p>Requests for the same missing or expired key wait for the shared load across instances.</p></div></li>
+        <li><span aria-hidden="true">02</span><div><h3>Keep slow loads protected</h3><p>Redis renews the active lock automatically. Waiters retry released locks if the original loader fails.</p></div></li>
+        <li><span aria-hidden="true">03</span><div><h3>Keep waiting bounded</h3><p>At the wait deadline, use eligible stale data or return a clear error. A slow refresh does not trigger an unlocked load by default.</p></div></li>
+      </ol>
+    </div>
   </div>
 </section>
 
@@ -258,7 +272,7 @@
   l2<span class="t-op">:</span> <span class="t-key">new</span> <span class="t-fn">RedisStore</span>(redis, { prefix<span class="t-op">:</span> <span class="t-str">'app:'</span> }),
 });
 
-<span class="t-com">// getOrSet collapses concurrent callers into a single database query</span>
+<span class="t-com">// Cold or expired key: shared loads and Redis lock renewal are automatic</span>
 <span class="t-key">const</span> user <span class="t-op">=</span> <span class="t-key">await</span> cache.<span class="t-fn">getOrSet</span>(<span class="t-str">`user:</span><span class="t-op">${</span>id<span class="t-op">}</span><span class="t-str">`</span>, <span class="t-op">() =&gt;</span>
   db.users.<span class="t-fn">findById</span>(id)
 );</code></pre>

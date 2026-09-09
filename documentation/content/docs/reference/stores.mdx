@@ -194,7 +194,7 @@ When `useIndex` is off, `inspect` filters out anything starting with `{prefix}__
 
 `InspectableStore` gives you `inspect`, used by the observability dashboard. It advances one `SCAN` or `ZSCAN` step at a time and pipelines `PTTL` plus the value fetch, so it never blasts the keyspace and never runs unless a dashboard tab is open.
 
-`acquireLock` and `releaseLock` back `distributedLock`. Acquire is `SET NX PX` on the lock key. Release is a Lua compare-and-delete against the token, so a server that has lost its lock to a timeout cannot delete the winner's.
+`acquireLock`, `renewLock` and `releaseLock` back `distributedLock`. Acquire is `SET NX PX` on the lock key. Renewal uses Lua to compare the token before extending expiry with `PEXPIRE`. Release compares the token before deleting. An expired owner cannot renew or release another owner's lock. HybridCache manages renewal automatically.
 
 ## Introspection
 
@@ -424,6 +424,8 @@ export async function getUser(id: string): Promise<User | undefined> {
 |---|---|---|
 | `InspectableStore` | `inspect(options?)` | Key browsing in the observability dashboard |
 | Distributed lock | `acquireLock(key, token, ttlMs)`, `releaseLock(key, token)` | `distributedLock`, which serializes cold loads across servers |
+
+Custom stores may also provide `renewLock(key, token, ttlMs): Promise<boolean>`. It must atomically extend only a live lock owned by that token, returning `false` after ownership is lost. Without this optional method, the load is bounded by the original lease.
 
 The lock check is structural: an object with both methods as functions satisfies it. `acquireLock` must return `true` only when it actually took the lock, and `releaseLock` must compare the token before deleting, or a slow holder will release a lock somebody else now owns.
 

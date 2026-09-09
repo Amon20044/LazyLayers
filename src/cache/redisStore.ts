@@ -275,6 +275,17 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
     );
   }
 
+  async renewLock(key: CacheKey, token: string, ttlMs: number): Promise<boolean> {
+    const result = await this.redis.eval(
+      'if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("pexpire", KEYS[1], ARGV[2]) else return 0 end',
+      1,
+      this.toLockKey(key),
+      token,
+      ttlMs,
+    );
+    return result === 1;
+  }
+
   private toRedisKey(key: CacheKey): string {
     return `${this.prefix}${String(key)}`;
   }

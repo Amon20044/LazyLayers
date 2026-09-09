@@ -153,7 +153,7 @@ function hub(): string {
 }
 
 const stories = [
-  {id:'stampede', problem:'Cold-key stampedes', result:'Collapse duplicate loads', draw:stampede, desc:'Concurrent requests for the same key share one loader per process. An optional Redis distributed lock coordinates cold loads across instances.'},
+  {id:'stampede', problem:'Cold starts & expiry', result:'Share the refresh', draw:stampede, desc:'Concurrent requests for the same key share an in-flight load. Redis L2 automatically coordinates cold and expired keys across instances and renews active locks.'},
   {id:'local', problem:'Network round trips', result:'Keep hot reads local', draw:local, desc:'An L1 memory hit returns locally, without a Redis round trip.'},
   {id:'coherence', problem:'Drifting L1 caches', result:'Coordinate every instance', draw:coherence, desc:'A healthy event bus carries invalidations and optional value priming between peers. Propagation is asynchronous.'},
   {id:'negative', problem:'Repeated missing keys', result:'Remember the misses', draw:negative, desc:'Short-lived negative entries avoid repeated origin lookups for a missing key.'},

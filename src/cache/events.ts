@@ -13,7 +13,8 @@ export type CacheEvent =
   | { type: 'loader:timeout'; key: CacheKey; timeoutMs: number }
   | { type: 'inflight:reuse'; key: CacheKey }
   | { type: 'inflight:bypass'; key: CacheKey; reason: string }
-  | { type: 'stale:hit'; key: CacheKey; reason: 'loader-error' | 'soft-timeout' | 'hard-timeout' }
+  | { type: 'stale:hit'; key: CacheKey; reason: 'loader-error' | 'soft-timeout' | 'hard-timeout' | 'lock-timeout' }
+  | { type: 'lock:timeout'; key: CacheKey; timeoutMs: number; onTimeout: 'throw' | 'load' }
   | { type: 'negative:set'; key: CacheKey; ttlMs: number }
   | { type: 'l2:error'; operation: string; key: CacheKey | string; state: CircuitBreakerState; error: unknown }
   | { type: 'l2:skipped'; operation: string; key: CacheKey | string; state: CircuitBreakerState }

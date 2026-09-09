@@ -80,9 +80,7 @@ export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
 
   inflight: {
-    // How long one loader's promise stays reusable. Set it above your slowest
-    // realistic loader, and below the point where waiting is worse than retrying.
-    ttlMs: 5_000,
+    // The dedupe lifetime adapts to the wait and loader budgets automatically.
     // How many distinct keys can be tracked at once. Size it to your concurrent
     // cold key count, not to your total keyspace.
     maxEntries: 10_000,
@@ -95,9 +93,7 @@ const options: LazyLayersCacheOptions<string, Product> = {
   ttlMs: 5 * 60 * 1000,
 
   inflight: {
-    // How long one loader's promise stays reusable. Set it above your slowest
-    // realistic loader, and below the point where waiting is worse than retrying.
-    ttlMs: 5_000,
+    // The dedupe lifetime adapts to the wait and loader budgets automatically.
     // How many distinct keys can be tracked at once. Size it to your concurrent
     // cold key count, not to your total keyspace.
     maxEntries: 10_000,
@@ -108,7 +104,7 @@ export const cache = new LazyLayersCache<string, Product>(options)
 ```
 </CodeGroup>
 
-`ttlMs` defaults to 5,000 ms and bounds how long an entry counts as live. A loader that hangs past it stops being reused, so one stuck load cannot pin every later caller to a promise that will never settle. Setting it too low reopens the herd for slow loaders, so measure your loader's p99 and stay above it.
+`inflight.ttlMs` is derived automatically from the loader hard timeout, the distributed wait budget when locking is active, and a 50 ms margin, with a 5,000 ms minimum. Default settings produce 10,050 ms without locking and 20,100 ms with Redis locking. An explicit value still overrides this. Setting it below the time a healthy load needs can allow duplicate work. Settled promises are removed immediately.
 
 `maxEntries` caps the tracking map. Past the cap, a new load still runs and still returns the right value, it simply does not register for reuse, and it emits `inflight:bypass` with reason `maxEntries`. A steady stream of those means your cold key concurrency outgrew the cap.
 
@@ -116,7 +112,7 @@ export const cache = new LazyLayersCache<string, Product>(options)
 
 In-flight dedupe is per process. Four servers each collapse their own callers to one loader call, which is four queries rather than one. Usually that is fine. It stops being fine when the loader is genuinely expensive, when it hits a rate limited third party, or when you have twenty servers rather than four.
 
-The distributed lock reduces the whole cluster to one loader call. It needs an L2 that supports locking, which `RedisStore` does.
+With Redis L2, `getOrSet` automatically coordinates concurrent misses across instances, including misses after cache expiry. No lock configuration is required. If only L1 expires, a live L2 value refills it without invoking the loader.
 
 <CodeGroup>
 ```js src/cache/index.js
@@ -129,15 +125,7 @@ export const cache = new LazyLayersCache({
   eventBus: bus,
   source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
 
-  distributedLock: {
-    // Above your slowest realistic loader, or a second server acquires the lock
-    // while the first is still working.
-    ttlMs: 10_000,
-    // How long a loser waits before giving up and loading anyway.
-    waitTimeoutMs: 2_000,
-    // How often a loser rechecks the cache.
-    pollMs: 50,
-  },
+  // Locking and renewal are automatic with Redis L2.
 })
 ```
 
@@ -152,50 +140,45 @@ const options: LazyLayersCacheOptions<string, Product> = {
   eventBus: bus,
   source: process.env.INSTANCE_ID ?? `srv-${process.pid}`,
 
-  distributedLock: {
-    // Above your slowest realistic loader, or a second server acquires the lock
-    // while the first is still working.
-    ttlMs: 10_000,
-    // How long a loser waits before giving up and loading anyway.
-    waitTimeoutMs: 2_000,
-    // How often a loser rechecks the cache.
-    pollMs: 50,
-  },
+  // Locking and renewal are automatic with Redis L2.
 }
 
 export const cache = new LazyLayersCache<string, Product>(options)
 ```
 </CodeGroup>
 
-### What happens on a cold key
+### What happens on a cold or expired key
 
 <Steps>
 
 <Step title="One server acquires the lock">
-It runs the loader and releases the lock when it finishes, whether the loader resolved or threw.
+It rechecks the cache after acquiring the lock, then runs the loader only if the value is still missing. Redis renews the lease while the load and cache write are in progress. Renewal stops and the lock is released when the operation finishes.
 </Step>
 
 <Step title="The others poll">
-Each loser sleeps `pollMs`, then rereads the layers. As soon as the winner's value lands in L2, they pick it up and return it without loading anything.
+Waiters sleep `pollMs`, then reread the layers. They return the shared value when it appears. If the owner fails or its lock expires, they retry acquisition so one waiter can take over. In-flight dedupe lets callers within an instance share this wait.
 </Step>
 
 <Step title="Waiting has a deadline">
-If nothing appears within `waitTimeoutMs`, the waiting server runs the loader itself.
+If nothing appears within the wait budget, the cache returns an eligible stale value when fail-safe is enabled. Otherwise it throws `DistributedLockTimeoutError`. A contention timeout does not start an unlocked loader by default.
 </Step>
 
 </Steps>
 
-That last step is deliberate. A lock holder that dies mid load would otherwise block every other server for the full lock TTL, and duplicating work is a much cheaper failure than hanging every request in the cluster.
+The default wait budget is derived from the longer of the lock TTL and the loader hard timeout, plus one poll interval. With default settings that is 10,050 ms. This allows a healthy slow loader to finish while keeping waiting bounded. Explicit `waitTimeoutMs` settings still take precedence.
 
 ### Lock defaults
 
 | Option | Default | What it controls |
 | --- | --- | --- |
-| `ttlMs` | `10000` | How long the lock is held before expiring on its own |
-| `waitTimeoutMs` | `2000` | How long a loser waits before loading anyway |
-| `pollMs` | `50` | How often a loser rechecks the cache |
+| `ttlMs` | `10000` | Lease lifetime, renewed automatically by RedisStore while work is active |
+| `waitTimeoutMs` | Derived, initially `10050` | Maximum contention wait before stale fallback or an error |
+| `pollMs` | `50` | How often a waiter rechecks the cache and retries acquisition |
+| `onTimeout` | `throw` | Use eligible stale data or throw. `load` explicitly restores the unlocked fallback |
 
-Set `ttlMs` above your slowest realistic loader. If the lock expires while the holder is still working, a second server acquires it and starts a duplicate load, which is the exact thing you turned the lock on to avoid.
+RedisStore renews with a token-checked Lua operation at roughly one third of the lease lifetime. A failed renewal or expired local lease aborts the loader signal and rejects with `DistributedLockLostError`, or returns eligible stale data. Results that arrive after detected ownership loss are discarded. Custom stores can implement `renewLock(key, token, ttlMs)` to support renewal. Without it, their loads must finish within the lease.
+
+This is cache stampede protection, not an exactly-once execution guarantee. Redis failure before contention is observed still uses the existing fail-open origin path. Redis failover, process pauses and loaders that ignore their abort signal can allow overlapping origin work. Pass the supplied signal to clients that support cancellation. The lease and wait budget do not replace Redis client command timeouts.
 
 <Warning>
   The lock costs a Redis round trip on every cold load, and losers pay `pollMs` of added latency per poll. That is worth it for an expensive loader and wasteful for a cheap one.

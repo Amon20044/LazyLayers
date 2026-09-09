@@ -143,11 +143,11 @@ export const PILLARS: Pillar[] = [
   {
     id: 'origin',
     title: 'Protect the origin',
-    headline: 'Single loader execution on cold spikes',
-    description: 'In-process request deduplication collapses concurrent getOrSet calls for the same key into a single loader execution. Add the Redis distributed lock when you need cluster-wide protection.',
+    headline: 'Shared loads on cold starts and expiry',
+    description: 'Concurrent getOrSet calls share an in-flight load. Redis L2 adds automatic coordination and lease renewal across instances, including when a popular key expires.',
     bullets: [
       '10,000 concurrent callers share 1 promise per process',
-      'Optional Redis distributed lock for multi-instance herd collapse',
+      'Automatic Redis locking and renewal across instances',
       'AbortSignal cancellation and configurable hard timeouts',
     ],
   },
@@ -230,9 +230,9 @@ const user = await cache.getOrSet('user:1', () => db.find(1));`,
   {
     stage: '04',
     scope: 'High-Volume Spikes',
-    title: 'Add Distributed Lock',
-    detail: 'Cluster-wide stampede protection with Redis-backed lock so only one instance loads cold expensive keys.',
-    code: `const cache = new LazyLayersCache({\n  l2, eventBus: bus,\n  distributedLock: { enabled: true, redis },\n});`,
+    title: 'Handle Cache Expiry',
+    detail: 'Redis L2 already coordinates refreshes and renews active locks. Keep using getOrSet when keys expire. No lock setup is needed.',
+    code: `// Redis locking and renewal are automatic.\nconst value = await cache.getOrSet(key, load);`,
   },
 ];
 
@@ -429,6 +429,14 @@ export const TRANSPORTS: Transport[] = [
 
 export const FAQS = [
   {
+    q: 'Does getOrSet handle a thundering herd after cache expiry?',
+    a: 'Yes. Cold starts and expired keys use the same protection. Concurrent callers share an in-flight load, and Redis L2 automatically coordinates refreshes across instances. If only L1 expires, a live L2 value refills it without calling your loader. No lock configuration is required.',
+  },
+  {
+    q: 'What if refreshing a key takes longer than expected?',
+    a: 'Redis locks renew automatically while the load is active. Other instances wait for the shared result, with a budget derived from the lock TTL and loader timeout. If that wait expires, getOrSet serves eligible stale data or throws DistributedLockTimeoutError instead of starting an unlocked load. Detected lock loss aborts the loader signal. This reduces duplicate work but cannot guarantee exactly-once execution during outages or when a loader ignores cancellation.',
+  },
+  {
     q: 'What problem does cross-instance invalidation solve?',
     a: 'Every application instance keeps its own fast in-process L1 LRU cache. When one instance updates or deletes a record, other instances would otherwise continue serving their stale local copy until its TTL expires. An invalidation bus notifies peer instances immediately, reducing the stale window to network propagation latency.',
   },
@@ -450,7 +458,7 @@ export const FAQS = [
   },
   {
     q: 'Do I have to run Redis or an event bus to use LazyLayers?',
-    a: 'No. LazyLayers is designed for progressive adoption. You can use it as a standalone, zero-infrastructure in-process LRU cache. You can add Redis when you need a shared L2 store, add Pub/Sub or RabbitMQ/NATS when scaling out across multiple servers, and enable distributed locking only for expensive cold queries.',
+    a: 'No. LazyLayers is designed for progressive adoption. You can use it as a standalone, zero-infrastructure in-process LRU cache. You can add Redis when you need a shared L2 store, add Pub/Sub or RabbitMQ/NATS when scaling out across multiple servers, and get automatic distributed locking and renewal whenever Redis L2 is present.',
   },
   {
     q: 'How do I access the live observability dashboard?',

@@ -50,8 +50,11 @@ export interface VersioningOptions {
 export interface DistributedLockOptions {
     enabled?: boolean;
     ttlMs?: number;
+    /** Defaults to max(lock ttlMs, loader hardMs) + pollMs. */
     waitTimeoutMs?: number;
     pollMs?: number;
+    /** On contention timeout, use eligible stale data or throw (default), or explicitly allow an unlocked load. */
+    onTimeout?: 'throw' | 'load';
 }
 
 export interface CacheOptions {

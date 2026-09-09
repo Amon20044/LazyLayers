@@ -1,5 +1,6 @@
 export const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1_000;
 export const DEFAULT_L1_MAX_ENTRIES = 1_000;
+/** Minimum for the automatic in-flight lifetime, extended to cover wait and loader budgets. */
 export const DEFAULT_INFLIGHT_TTL_MS = 5_000;
 
 /**
@@ -37,5 +38,5 @@ export const DEFAULT_BREAKER_COOLDOWN_MS = 30 * 1_000;
 
 /** Lifetime of a distributed lock, and how long a caller waits to acquire one. */
 export const DEFAULT_LOCK_TTL_MS = 10_000;
-export const DEFAULT_LOCK_WAIT_TIMEOUT_MS = 2_000;
+export const DEFAULT_LOCK_WAIT_TIMEOUT_MS = 10_050;
 export const DEFAULT_LOCK_POLL_MS = 50;
