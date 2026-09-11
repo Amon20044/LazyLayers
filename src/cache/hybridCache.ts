@@ -107,6 +107,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   private staleBytes = 0;
   private readonly negative = new Map<K, NegativeEntry>();
   private readonly generations = new Map<string, number>();
+  private readonly remoteGenerations = new Map<string, number>();
   private readonly seenEvents = new Map<string, number>();
   private invalidationTrusted = true;
   private mutationEpoch = 0;
@@ -345,6 +346,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   async get(key: K): Promise<V | undefined> {
+    const readEpoch = this.mutationEpoch;
     if (this.invalidationTrusted && this.hasNegative(key)) {
       this.emit({ type: 'miss', key, level: 'negative' });
       return undefined;
@@ -381,7 +383,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     );
 
     if (l2Value !== undefined) {
-      if (!this.invalidationTrusted) return l2Value;
+      if (!this.invalidationTrusted || readEpoch !== this.mutationEpoch) return l2Value;
       if (encodedL2 && this.isEncodedStore(this.l1)) {
         const configured = this.options.levels?.L1?.ttlMs ?? this.options.ttlMs;
         const ttlMs = configured === undefined ? encodedL2.ttlRemainingMs
@@ -999,6 +1001,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private getStale(key: K): V | undefined {
+    if (!this.invalidationTrusted) return undefined;
     const entry = this.stale.get(key);
 
     if (!entry) {
@@ -1030,6 +1033,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private hasNegative(key: K): boolean {
+    if (!this.invalidationTrusted) return false;
     const entry = this.negative.get(key);
 
     if (!entry) {
@@ -1045,6 +1049,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private setNegative(key: K, options: CacheOptions): void {
+    if (!this.invalidationTrusted) return;
     if (options.negativeCache?.enabled === false || this.options.negativeCache?.enabled === false) {
       return;
     }
@@ -1120,11 +1125,13 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private async restoreInvalidationTrust(): Promise<void> {
+    const revision = this.mutationEpoch;
     this.mutationEpoch += 1;
     this.inflight.clear();
     this.negative.clear();
     this.stale.clear();
     await this.l1?.deleteByPattern('*');
+    if (revision + 1 !== this.mutationEpoch || this.closePromise) return;
     this.invalidationTrusted = true;
     this.emit({ type: 'invalidation:trusted' });
   }
@@ -1202,8 +1209,14 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     return `${event.source}:${event.ts}:${event.type}:${suffix}`;
   }
 
-  private isStaleGeneration(key: string, generation?: number): boolean {
-    return generation !== undefined && generation < this.getGeneration(key);
+  private isStaleGeneration(source: string, key: string, generation?: number): boolean {
+    if (generation === undefined) return false;
+    const id = `${source}\0${key}`;
+    const prior = this.remoteGenerations.get(id);
+    if (prior !== undefined && generation < prior) return true;
+    this.remoteGenerations.set(id, Math.max(prior ?? generation, generation));
+    while (this.remoteGenerations.size > 10_000) this.remoteGenerations.delete(this.remoteGenerations.keys().next().value!);
+    return false;
   }
 
   private emitStaleInvalidation(
@@ -1234,7 +1247,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     await Promise.all(event.keys.map(async (rawKey) => {
       const key = rawKey as K;
 
-      if (this.isStaleGeneration(rawKey, event.generation)) {
+      if (this.isStaleGeneration(event.source, rawKey, event.generation)) {
         this.emitStaleInvalidation(event, eventId, key);
         return;
       }
@@ -1244,13 +1257,15 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private async applyRemoteSet(event: SetEvent, eventId: string): Promise<void> {
+    this.mutationEpoch += 1;
+    if (!this.invalidationTrusted) return;
     const localOptions: CacheOptions =
       event.ttlMs !== undefined ? { ...this.options, ttlMs: event.ttlMs } : this.options;
 
     for (const rawKey of event.keys) {
       const key = rawKey as K;
 
-      if (this.isStaleGeneration(rawKey, event.generation)) {
+      if (this.isStaleGeneration(event.source, rawKey, event.generation)) {
         this.emitStaleInvalidation(event, eventId, key);
         continue;
       }
