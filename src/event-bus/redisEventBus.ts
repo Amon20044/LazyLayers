@@ -1,6 +1,6 @@
 import type { Redis as RedisClient } from 'ioredis';
 
-import type { EventBus, EventBusHealth } from './eventBus.interface.js';
+import type { EventBus, EventBusHealth, EventBusStatus } from './eventBus.interface.js';
 import type { InvalidationEvent } from '../types/event.types.js';
 import { configureCacheLogger, type CacheLoggerOptions } from '../utils/debugLog.js';
 import { debugLog, errorLog, warnLog } from '../utils/debugLog.js';
@@ -12,6 +12,8 @@ export interface RedisEventBusOptions {
   retryQueue?: EventBusRetryQueueOptions;
   handlerConcurrency?: number;
   logging?: CacheLoggerOptions;
+  handlerMaxSize?: number;
+  handlerMaxBytes?: number;
 }
 
 export interface RedisEventBusHealth extends EventBusHealth {
@@ -28,6 +30,7 @@ export class RedisEventBus implements EventBus {
   private readonly retryQueue: EventBusRetryQueue;
   private subscribed = false;
   private messageListener: ((channel: Buffer, message: Buffer) => void) | null = null;
+  private readonly statusListeners = new Set<(status: EventBusStatus) => void>();
 
   constructor(redis: RedisClient, channel: string, private readonly options: RedisEventBusOptions = {}) {
     configureCacheLogger(options.logging);
@@ -35,6 +38,11 @@ export class RedisEventBus implements EventBus {
     this.sub = redis.duplicate();
     this.channel = channel;
     this.retryQueue = new EventBusRetryQueue(options.retryQueue);
+    for (const status of ['close', 'end', 'reconnecting'] as const) {
+      this.sub.on(status, () => this.emitStatus('disconnected'));
+    }
+    this.sub.on('error', () => this.emitStatus('error'));
+    this.sub.on('ready', () => this.emitStatus('ready'));
   }
 
   async connect(): Promise<void> {
@@ -91,8 +99,13 @@ export class RedisEventBus implements EventBus {
 
     const handlerQueue = new EventBusHandlerQueue(handler, {
       concurrency: this.options.handlerConcurrency,
+      maxSize: this.options.handlerMaxSize,
+      maxBytes: this.options.handlerMaxBytes,
       onError: (error) => {
         errorLog('redis event bus handler failed', { channel: this.channel, error });
+      },
+      onOverflow: (details) => {
+        warnLog('redis event bus handler queue overflow', { channel: this.channel, ...details });
       },
     });
 
@@ -104,7 +117,7 @@ export class RedisEventBus implements EventBus {
       const event = decodeInvalidationEvent(message);
 
       if (event) {
-        handlerQueue.enqueue(event);
+        handlerQueue.enqueue(event, message);
       } else {
         warnLog('redis event bus ignored invalid message', { channel: this.channel });
       }
@@ -126,6 +139,7 @@ export class RedisEventBus implements EventBus {
     }
 
     this.subscribed = true;
+    this.emitStatus('subscribed');
     // ioredis re-issues SUBSCRIBE for every channel of a subscriber connection
     // after a reconnect (autoResubscribe defaults to true), so this bus does not
     // need its own resubscribe loop.
@@ -158,6 +172,18 @@ export class RedisEventBus implements EventBus {
     // very same client backing the L2 RedisStore, so disconnecting it here would
     // take L2 down along with the bus.
     this.sub.disconnect();
+    this.emitStatus('disconnected');
+  }
+
+  onStatus(listener: (status: EventBusStatus) => void): () => void {
+    this.statusListeners.add(listener);
+    return () => this.statusListeners.delete(listener);
+  }
+
+  private emitStatus(status: EventBusStatus): void {
+    for (const listener of this.statusListeners) {
+      try { listener(status); } catch { /* observers must not affect transport */ }
+    }
   }
 
   private async publishNow(event: InvalidationEvent): Promise<void> {

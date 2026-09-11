@@ -158,7 +158,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
               return;
             }
 
-            await this.deleteByPatternLocal(event.pattern);
+            await this.deleteByPatternLocal(event.pattern, false);
           } catch (error) {
             // Forget the event so a redelivery can actually be retried. Left
             // marked as seen, the redelivery a durable transport pays for would
@@ -726,7 +726,17 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     this.emit({ type: 'delete', key });
   }
 
-  private async deleteByPatternLocal(pattern: string): Promise<void> {
+  /** Received invalidations only evict this process; the publisher owns L2. */
+  private async deleteLocalOnly(key: K, generation?: number): Promise<void> {
+    this.inflight.delete(key);
+    this.negative.delete(key);
+    this.stale.delete(key);
+    this.advanceGenerationAfterDelete(String(key), generation);
+    await this.l1?.delete(this.toStorageKey(key));
+    this.emit({ type: 'delete', key });
+  }
+
+  private async deleteByPatternLocal(pattern: string, shared = true): Promise<void> {
     for (const key of this.inflight.keys()) {
       if (matchesPattern(String(key), pattern)) {
         this.inflight.delete(key);
@@ -746,7 +756,9 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     }
 
     await this.l1?.deleteByPattern(pattern);
-    await this.runL2('deleteByPattern', pattern, () => this.l2?.deleteByPattern(pattern) ?? Promise.resolve());
+    if (shared) {
+      await this.runL2('deleteByPattern', pattern, () => this.l2?.deleteByPattern(pattern) ?? Promise.resolve());
+    }
     this.emit({ type: 'delete-pattern', pattern });
   }
 
@@ -1175,7 +1187,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
         return;
       }
 
-      await this.deleteLocal(key, event.generation);
+      await this.deleteLocalOnly(key, event.generation);
     }));
   }
 

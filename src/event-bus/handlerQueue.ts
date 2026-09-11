@@ -1,43 +1,74 @@
 import type { InvalidationEvent } from '../types/event.types.js';
+import { encodeInvalidationEvent } from './eventCodec.js';
 
 export interface EventBusHandlerQueueOptions {
   concurrency?: number;
+  maxSize?: number;
+  maxBytes?: number;
   onError(error: unknown): void;
+  onOverflow?(details: { bytes: number; maxBytes?: number; maxSize?: number }): void;
 }
 
+interface PendingEvent { event: InvalidationEvent; bytes: number }
+
+export const DEFAULT_EVENT_BUS_HANDLER_QUEUE_MAX_SIZE = 10_000;
+export const DEFAULT_EVENT_BUS_HANDLER_QUEUE_MAX_BYTES = 16 * 1024 * 1024;
+
 export class EventBusHandlerQueue {
-  private readonly pending: InvalidationEvent[] = [];
+  private readonly pending: PendingEvent[] = [];
   private active = 0;
+  private activeBytes = 0;
+  private dropped = 0;
 
   constructor(
     private readonly handler: (event: InvalidationEvent) => void | Promise<void>,
     private readonly options: EventBusHandlerQueueOptions,
   ) {}
 
-  enqueue(event: InvalidationEvent): void {
-    this.pending.push(event);
+  get pendingCount(): number { return this.pending.length; }
+  get activeCount(): number { return this.active; }
+  get retainedBytes(): number { return this.activeBytes + this.pending.reduce((n, item) => n + item.bytes, 0); }
+  get droppedCount(): number { return this.dropped; }
+
+  enqueue(event: InvalidationEvent, encoded?: Uint8Array): boolean {
+    let bytes = encoded?.byteLength ?? 0;
+    if (!encoded) {
+      try { bytes = encodeInvalidationEvent(event).byteLength; } catch { /* handler still gets the object */ }
+    }
+    const maxSize = this.options.maxSize ?? DEFAULT_EVENT_BUS_HANDLER_QUEUE_MAX_SIZE;
+    const maxBytes = this.options.maxBytes ?? DEFAULT_EVENT_BUS_HANDLER_QUEUE_MAX_BYTES;
+    if ((maxSize !== undefined && this.pending.length + this.active >= Math.max(0, maxSize))
+      || (maxBytes !== undefined && this.retainedBytes + bytes > Math.max(0, maxBytes))) {
+      this.dropped += 1;
+      this.options.onOverflow?.({ bytes, maxBytes, maxSize });
+      return false;
+    }
+    this.pending.push({ event, bytes });
     this.drain();
+    return true;
   }
 
   private drain(): void {
     const concurrency = this.getConcurrency();
 
     while (this.active < concurrency) {
-      const event = this.pending.shift();
+      const item = this.pending.shift();
 
-      if (!event) {
+      if (!item) {
         return;
       }
 
       this.active += 1;
+      this.activeBytes += item.bytes;
 
       void Promise.resolve()
-        .then(() => this.handler(event))
+        .then(() => this.handler(item.event))
         .catch((error) => {
           this.options.onError(error);
         })
         .finally(() => {
           this.active -= 1;
+          this.activeBytes -= item.bytes;
           this.drain();
         });
     }
