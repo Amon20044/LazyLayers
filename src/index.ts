@@ -19,6 +19,7 @@ export {
   PRODUCTION_INFLIGHT_MAX_ENTRIES,
   PRODUCTION_L1_TTL_MS,
   PRODUCTION_STARTUP_TIMEOUT_MS,
+  PRODUCTION_REDIS_COMMAND_TIMEOUT_MS,
   setupCache,
 } from './setup.js';
 
@@ -59,6 +60,7 @@ export type {
   HybridCacheResilienceOptions,
   LazyLayersCacheOptions,
   RedisStoreOptions,
+  L2OperationGateOptions,
 } from './cache/index.js';
 export {
   CircuitBreaker,
@@ -73,6 +75,13 @@ export {
   OriginLoadOverloadError,
   MemoryStore,
   RedisStore,
+  L2OperationGate,
+  L2OperationOverloadError,
+  L2OperationTimeoutError,
+  L2OperationClosedError,
+  RedisPipelineCommandError,
+  redisKeyDigest,
+  validateRedisPipeline,
 } from './cache/index.js';
 export type { CacheLoggerOptions, CacheRuntimeEnv } from './utils/debugLog.js';
 export type { BufferInspection, CacheEncoding, SerializedCacheValue } from './utils/serializer.js';

@@ -27,6 +27,7 @@ import {
   DEFAULT_STALE_TTL_MS,
 } from './defaults.js';
 import { OriginLoadGate, OriginLoadOverloadError } from './originLoadGate.js';
+import { L2OperationGate, defaultL2OperationGateOptions, type L2OperationGateOptions } from './l2OperationGate.js';
 import {
   DistributedLockTimeoutError,
   maintainLock,
@@ -66,6 +67,7 @@ interface NegativeEntry {
 
 export interface HybridCacheResilienceOptions {
   l2CircuitBreaker?: CircuitBreakerOptions;
+  l2OperationGate?: L2OperationGateOptions;
   eventBusCircuitBreaker?: CircuitBreakerOptions;
 }
 
@@ -112,6 +114,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   private observabilityHandler?: ObservabilityRequestHandler;
   private observabilityServer?: ObservabilityServerHandle;
   private readonly originGate: OriginLoadGate<K>;
+  private readonly l2Gate: L2OperationGate;
 
   constructor(private readonly options: HybridCacheOptions<K, V> = {}) {
     configureCacheLogger(options.logging);
@@ -119,6 +122,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     this.l2 = options.l2 === false ? undefined : options.l2;
     this.source = options.source ?? createSourceId();
     this.l2CircuitBreaker = new CircuitBreaker(options.resilience?.l2CircuitBreaker);
+    this.l2Gate = new L2OperationGate(defaultL2OperationGateOptions(options.resilience?.l2OperationGate));
     this.eventBusCircuitBreaker = new CircuitBreaker(options.resilience?.eventBusCircuitBreaker);
     this.originGate = new OriginLoadGate(options.originLoad);
     options.events?.forEach((handler) => this.eventHandlers.add(handler));
@@ -260,6 +264,8 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     return this.originGate.stats();
   }
 
+  getL2OperationStats(): ReturnType<L2OperationGate['stats']> { return this.l2Gate.stats(); }
+
   /** Stop the standalone observability server (if any). Safe to call when off. */
   async closeObservability(): Promise<void> {
     if (this.observabilityServer) {
@@ -288,6 +294,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
   private async closeResources(): Promise<void> {
     this.originGate.close();
+    this.l2Gate.close();
     const results = await Promise.allSettled([
       this.closeObservability(),
       this.options.eventBus?.disconnect?.() ?? Promise.resolve(),
@@ -316,7 +323,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     await this.runL2('set', storageKey, () => {
       if (encoded && this.isEncodedStore(this.l2)) return this.l2.setEncoded(storageKey, encoded, options);
       return this.l2?.set(storageKey, value, options) ?? Promise.resolve();
-    });
+    }, undefined, encoded?.byteLength ?? 0);
     this.rememberStale(key, value, options);
     this.negative.delete(key);
 
@@ -777,6 +784,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     keyOrPattern: CacheKey | string,
     call: () => Promise<T>,
     fallback: T,
+    payloadBytes?: number,
   ): Promise<T>;
   private async runL2(
     operation: string,
@@ -788,6 +796,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     keyOrPattern: CacheKey | string,
     call: () => Promise<T>,
     fallback?: T,
+    payloadBytes = 0,
   ): Promise<T | void> {
     if (!this.l2) {
       return fallback;
@@ -808,12 +817,13 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       return fallback;
     }
 
+    const epoch = this.l2CircuitBreaker.currentEpoch;
     try {
-      const result = await call();
-      this.l2CircuitBreaker.recordSuccess();
+      const result = await this.l2Gate.run(operation, call, payloadBytes);
+      this.l2CircuitBreaker.recordSuccess(epoch);
       return result;
     } catch (error) {
-      const state = this.l2CircuitBreaker.recordFailure();
+      const state = this.l2CircuitBreaker.recordFailure(epoch);
       this.emit({ type: 'l2:error', operation, key: keyOrPattern, state, error });
       errorLog('l2 cache operation failed open', { operation, key: keyOrPattern, state, error });
       return fallback;
