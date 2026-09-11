@@ -68,6 +68,7 @@ export {
   DistributedLockTimeoutError,
   DEFAULT_CACHE_TTL_MS,
   DEFAULT_INFLIGHT_TTL_MS,
+  DEFAULT_INFLIGHT_MAX_ENTRIES,
   DEFAULT_L1_MAX_ENTRIES,
   HybridCache,
   LazyLayersCache,

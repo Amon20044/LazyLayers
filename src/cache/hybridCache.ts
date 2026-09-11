@@ -18,6 +18,7 @@ import { CircuitBreaker, type CircuitBreakerOptions } from './circuitBreaker.js'
 import {
   DEFAULT_CACHE_TTL_MS,
   DEFAULT_INFLIGHT_TTL_MS,
+  DEFAULT_INFLIGHT_MAX_ENTRIES,
   DEFAULT_L1_MAX_ENTRIES,
   DEFAULT_LOADER_HARD_TIMEOUT_MS,
   DEFAULT_LOCK_TTL_MS,
@@ -845,7 +846,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private canTrackNewInflight(): boolean {
-    const maxEntries = this.options.inflight?.maxEntries;
+    const maxEntries = this.options.inflight?.maxEntries ?? DEFAULT_INFLIGHT_MAX_ENTRIES;
 
     return maxEntries === undefined || maxEntries > 0 && this.inflight.size < maxEntries;
   }
