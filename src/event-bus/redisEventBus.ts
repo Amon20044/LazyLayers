@@ -1,6 +1,6 @@
 import type { Redis as RedisClient } from 'ioredis';
 
-import type { EventBus, EventBusHealth } from './eventBus.interface.js';
+import type { EventBus, EventBusHealth, EventBusStatus } from './eventBus.interface.js';
 import type { InvalidationEvent } from '../types/event.types.js';
 import { configureCacheLogger, type CacheLoggerOptions } from '../utils/debugLog.js';
 import { debugLog, errorLog, warnLog } from '../utils/debugLog.js';
@@ -12,6 +12,8 @@ export interface RedisEventBusOptions {
   retryQueue?: EventBusRetryQueueOptions;
   handlerConcurrency?: number;
   logging?: CacheLoggerOptions;
+  handlerMaxSize?: number;
+  handlerMaxBytes?: number;
 }
 
 export interface RedisEventBusHealth extends EventBusHealth {
@@ -28,16 +30,30 @@ export class RedisEventBus implements EventBus {
   private readonly retryQueue: EventBusRetryQueue;
   private subscribed = false;
   private messageListener: ((channel: Buffer, message: Buffer) => void) | null = null;
+  private handlerQueue: EventBusHandlerQueue | null = null;
+  private handler: ((event: InvalidationEvent) => void | Promise<void>) | null = null;
+  private resubscribing = false;
+  private transportEpoch = 0;
+  private readonly statusListeners = new Set<(status: EventBusStatus) => void>();
 
   constructor(redis: RedisClient, channel: string, private readonly options: RedisEventBusOptions = {}) {
     configureCacheLogger(options.logging);
     this.pub = redis;
-    this.sub = redis.duplicate();
+    this.sub = redis.duplicate({ autoResubscribe: false });
     this.channel = channel;
     this.retryQueue = new EventBusRetryQueue(options.retryQueue);
+    for (const status of ['close', 'end', 'reconnecting'] as const) {
+      this.sub.on(status, () => this.markDisconnected());
+    }
+    this.sub.on('error', () => this.emitStatus('error'));
+    this.sub.on('ready', () => { this.emitStatus('ready'); void this.resubscribe(); });
   }
 
   async connect(): Promise<void> {
+    await Promise.all([
+      this.ensureConnected(this.pub),
+      this.ensureConnected(this.sub),
+    ]);
     await Promise.all([
       this.pub.ping(),
       this.sub.ping(),
@@ -89,10 +105,18 @@ export class RedisEventBus implements EventBus {
       return;
     }
 
+    this.handler = handler;
     const handlerQueue = new EventBusHandlerQueue(handler, {
       concurrency: this.options.handlerConcurrency,
+      maxSize: this.options.handlerMaxSize,
+      maxBytes: this.options.handlerMaxBytes,
       onError: (error) => {
         errorLog('redis event bus handler failed', { channel: this.channel, error });
+        this.emitStatus('error');
+      },
+      onOverflow: (details) => {
+        warnLog('redis event bus handler queue overflow', { channel: this.channel, ...details });
+        this.emitStatus('error');
       },
     });
 
@@ -101,13 +125,7 @@ export class RedisEventBus implements EventBus {
         return;
       }
 
-      const event = decodeInvalidationEvent(message);
-
-      if (event) {
-        handlerQueue.enqueue(event);
-      } else {
-        warnLog('redis event bus ignored invalid message', { channel: this.channel });
-      }
+      handlerQueue.enqueueEncoded(message, (raw) => decodeInvalidationEvent(raw));
     };
 
     // Attach before SUBSCRIBE so a message delivered between the command
@@ -125,14 +143,16 @@ export class RedisEventBus implements EventBus {
       throw error;
     }
 
+    this.handlerQueue = handlerQueue;
     this.subscribed = true;
-    // ioredis re-issues SUBSCRIBE for every channel of a subscriber connection
-    // after a reconnect (autoResubscribe defaults to true), so this bus does not
-    // need its own resubscribe loop.
+    this.emitStatus('subscribed');
     debugLog('redis event bus subscribed', { channel: this.channel });
   }
 
   async disconnect(): Promise<void> {
+    this.handlerQueue?.close();
+    this.handlerQueue = null;
+    this.handler = null;
     if (this.messageListener) {
       this.sub.off('messageBuffer', this.messageListener);
       this.messageListener = null;
@@ -158,6 +178,62 @@ export class RedisEventBus implements EventBus {
     // very same client backing the L2 RedisStore, so disconnecting it here would
     // take L2 down along with the bus.
     this.sub.disconnect();
+    this.emitStatus('disconnected');
+  }
+
+  onStatus(listener: (status: EventBusStatus) => void): () => void {
+    this.statusListeners.add(listener);
+    return () => this.statusListeners.delete(listener);
+  }
+
+  private emitStatus(status: EventBusStatus): void {
+    for (const listener of this.statusListeners) {
+      try { listener(status); } catch { /* observers must not affect transport */ }
+    }
+  }
+
+  private markDisconnected(): void {
+    this.transportEpoch += 1;
+    this.subscribed = false;
+    this.handlerQueue?.discardPending();
+    this.emitStatus('disconnected');
+  }
+
+  private async resubscribe(): Promise<void> {
+    if (!this.handler || this.resubscribing || this.subscribed) return;
+    this.resubscribing = true;
+    const epoch = this.transportEpoch;
+    try {
+      await this.sub.subscribe(this.channel);
+      if (epoch !== this.transportEpoch) return;
+      this.subscribed = true;
+      this.emitStatus('subscribed');
+    } catch (error) {
+      this.emitStatus('error');
+      errorLog('redis event bus resubscribe failed', { channel: this.channel, error });
+    } finally {
+      this.resubscribing = false;
+    }
+  }
+
+  private async ensureConnected(client: RedisClient): Promise<void> {
+    if (client.status === 'ready' || typeof client.once !== 'function') return;
+    if (client.status === 'wait') {
+      await client.connect();
+      return;
+    }
+    await new Promise<void>((resolve, reject) => {
+      const ready = () => { cleanup(); resolve(); };
+      const failed = (error: Error) => { cleanup(); reject(error); };
+      const cleanup = () => {
+        client.off('ready', ready);
+        client.off('error', failed);
+        client.off('end', failed);
+      };
+      client.once('ready', ready);
+      client.once('error', failed);
+      client.once('end', failed);
+    });
   }
 
   private async publishNow(event: InvalidationEvent): Promise<void> {

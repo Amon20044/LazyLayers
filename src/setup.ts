@@ -19,6 +19,7 @@ export const PRODUCTION_L1_TTL_MS = 10_000;
 export const PRODUCTION_INFLIGHT_MAX_ENTRIES = 10_000;
 export const PRODUCTION_BROADCAST_SET_MAX_BYTES = 32 * 1024;
 export const PRODUCTION_STARTUP_TIMEOUT_MS = 10_000;
+export const PRODUCTION_REDIS_COMMAND_TIMEOUT_MS = 2_000;
 
 export interface SetupRedisOptions {
   /** Existing client. When omitted, setup creates and owns one from `url`. */
@@ -146,7 +147,9 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
     ownedRedis = new IORedis(redisUrl, {
       maxRetriesPerRequest: 2,
       enableReadyCheck: true,
-      enableOfflineQueue: true,
+      enableOfflineQueue: false,
+      autoResendUnfulfilledCommands: false,
+      commandTimeout: PRODUCTION_REDIS_COMMAND_TIMEOUT_MS,
       retryStrategy: (attempt: number) =>
         Math.min(attempt * 200, 2_000) + Math.floor(Math.random() * 100),
       ...redisOptions?.clientOptions,

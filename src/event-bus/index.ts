@@ -1,5 +1,5 @@
 export { decodeInvalidationEvent, encodeInvalidationEvent } from './eventCodec.js';
-export type { EventBus, EventBusHealth } from './eventBus.interface.js';
+export type { EventBus, EventBusHealth, EventBusStatus } from './eventBus.interface.js';
 export type {
   NatsEventBusHealth,
   NatsEventBusMode,
@@ -12,3 +12,6 @@ export { RabbitMQEventBus } from './rabbitmqEventBus.js';
 export type { RedisEventBusHealth, RedisEventBusOptions } from './redisEventBus.js';
 export { RedisEventBus } from './redisEventBus.js';
 export type { EventBusRetryQueueOptions } from './retryQueue.js';
+export { EventBusHandlerQueue } from './handlerQueue.js';
+export type { EventBusHandlerQueueOptions } from './handlerQueue.js';
+export { EventBusRetryQueue } from './retryQueue.js';

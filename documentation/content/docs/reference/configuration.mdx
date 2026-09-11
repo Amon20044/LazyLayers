@@ -40,10 +40,10 @@ export const cache = await setupCache<string, User>(options)
   Fallback lifetime for every entry, in milliseconds. One hour. Set too high, you serve stale data between invalidations. Set too low, your hit rate collapses and the origin absorbs the difference.
 </ParamField>
 
-<ParamField path="levels.L1" type="{ maxEntries?: number; ttlMs?: number }">
+<ParamField path="levels.L1" type="{ maxEntries?: number; ttlMs?: number; maxMemory?: MemoryLimit; minMemory?: MemoryLimit; autoEvict?: { enabled?: boolean }; admission?: { enabled?: boolean; maxEntryBytes?: number } }">
   The in-process layer. `maxEntries` defaults to `1000`. `setupCache` sets `ttlMs` to 10 seconds. The low-level constructor falls back to the cache-wide `ttlMs`, then to one hour.
 
-  These are the **only two dials L1 has**. Eviction is LRU and is not configurable, and there is no byte-based limit.
+  Eviction order is LRU and is not configurable. Values are retained in the serializer wire format, so L1 can enforce a shared byte budget as well as an entry count.
 </ParamField>
 
 <ParamField path="levels.L2" type="{ maxEntries?: number; ttlMs?: number }">
@@ -72,7 +72,9 @@ TTL resolution runs most specific to least: per-call level, per-call `ttlMs`, co
 
 ### Sizing L1
 
-`maxEntries` is a count, and your instance's limit is bytes. Multiply the count by a typical decoded value size and keep the result to a fraction of the heap. These are estimates, not measurements, and one unexpectedly large value can blow straight past them.
+`maxEntries` is still a count. `maxMemory` is the shared process-local byte ceiling for built-in L1 stores, expressed as bytes or a percentage of the effective host or cgroup memory. It defaults to `20%`. `minMemory` sets the lower floor used during pressure recovery. `admission.maxEntryBytes` rejects one oversized value before it evicts a useful working set.
+
+`autoEvict` samples available memory and cgroup pressure to lower the active target during sustained pressure. It does not make L1 a process RSS limit. Keep `maxMemory` below the memory available to your application, other libraries, and the Node.js runtime.
 
 | Typical value | Rough size | 10,000 entries | Reasonable ceiling |
 |---|---|---|---|
@@ -81,6 +83,10 @@ TTL resolution runs most specific to least: per-call level, per-call `ttlMs`, co
 | Rendered list page | ~18 KB | ~180 MB | 1,000 |
 
 Under Node clustering, every worker keeps its own L1. Budget `maxEntries x workers`.
+
+<ParamField path="memoryBudget" type="MemoryBudget">
+  Share an explicit `MemoryBudget` between cache instances in the same process. Without one, built-in `MemoryStore` instances use the process default budget. Set this at construction time, not per call.
+</ParamField>
 
 ### RedisStore options
 
@@ -128,6 +134,10 @@ Passed to the `RedisStore` constructor, not to the cache.
   `setupCache` defaults to `10000`. The low-level constructor leaves it unbounded. Cap it if a burst across many distinct cold keys could grow the map faster than loaders drain it.
 
   Past the cap, loads still run, just without dedupe, and each one emits `inflight:bypass`. Setting it to `0` bypasses tracking for every load, which disables dedupe entirely.
+</ParamField>
+
+<ParamField path="originLoad" type="{ enabled?: boolean; maxConcurrent?: number; maxQueued?: number; queueTimeoutMs?: number }">
+  Bounds concurrent executions that reach the origin loader. Defaults are 32 active loaders, 1024 queued distinct keys, and a 1000 ms queue deadline. In-flight dedupe runs before this gate, and waiting for a distributed lock does not consume an origin slot.
 </ParamField>
 
 <ParamField path="negativeCache.enabled" type="boolean" default="true">
@@ -182,6 +192,14 @@ Passed to the `RedisStore` constructor, not to the cache.
   The stale copy lives in this process's memory, so it does not survive a restart and is not shared between servers.
 </ParamField>
 
+<ParamField path="failSafe.maxEntries" type="number">
+  Caps retained stale fallbacks. Defaults to `1000`.
+</ParamField>
+
+<ParamField path="failSafe.maxBytes" type="number">
+  Caps retained stale fallback bytes. Defaults to `16777216` bytes.
+</ParamField>
+
 <ParamField path="timeouts.softMs" type="number">
   No default. Stop waiting on the loader and serve the stale copy.
 
@@ -200,6 +218,10 @@ Both timeouts abort the `AbortSignal` handed to your loader. If you do not pass 
   Stops calling L2 after repeated failures. `enabled` defaults to `true`, `failureThreshold` to `3`, `cooldownMs` to `30000`.
 
   While open, every L2 operation is skipped and emits `l2:skipped`, and reads fall through to L1 alone. A threshold of `1` opens on a single blip. A long cooldown keeps you off a recovered Redis. After the cooldown one probe is allowed through, and a single failure reopens the breaker.
+</ParamField>
+
+<ParamField path="resilience.l2OperationGate" type="{ maxConcurrent?: number; maxQueued?: number; maxQueuedBytes?: number; queueTimeoutMs?: number; operationTimeoutMs?: number }">
+  Bounds L2 work before it reaches the Redis client. Defaults are 64 active operations, 1024 queued operations, 32 MiB queued payload bytes, a 250 ms queue deadline, and a 2000 ms caller deadline. Timed-out Redis work remains accounted until its underlying command settles.
 </ParamField>
 
 <ParamField path="resilience.eventBusCircuitBreaker" type="{ enabled?: boolean; failureThreshold?: number; cooldownMs?: number }">
@@ -444,7 +466,7 @@ export function getAnnualReport(): Promise<Report | undefined> {
 
 Overridable per call: `ttlMs`, `levels`, `inflight`, `negativeCache`, `failSafe`, `timeouts` and `distributedLock`.
 
-Constructor only: `l1`, `l2`, `eventBus`, `source`, `subscribeToEvents`, `resilience`, `events`, `eventDedupeMaxEntries`, `eventDedupeTtlMs`, `logging`, `broadcastSet`, `broadcastSetMaxBytes` and `observability`. `versioning` is accepted per call by the type but read from the constructor options only.
+Constructor only: `memoryBudget`, `originLoad` limits, `l1`, `l2`, `eventBus`, `source`, `subscribeToEvents`, `resilience`, `events`, `eventDedupeMaxEntries`, `eventDedupeTtlMs`, `logging`, `broadcastSet`, `broadcastSetMaxBytes` and `observability`. `versioning` is accepted per call by the type but read from the constructor options only.
 
 ## Where to next
 

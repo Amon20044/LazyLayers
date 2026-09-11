@@ -22,6 +22,8 @@ export type CacheEvent =
   | { type: 'event-bus:publish-skipped'; eventType: string; state: CircuitBreakerState }
   | { type: 'invalidation:received'; eventId: string; eventType: string }
   | { type: 'invalidation:duplicate'; eventId: string }
+  | { type: 'invalidation:untrusted' }
+  | { type: 'invalidation:trusted' }
   | {
     type: 'invalidation:stale';
     eventId: string;

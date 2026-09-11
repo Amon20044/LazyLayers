@@ -18,6 +18,7 @@ import {
   sizeSavings,
 } from '../utils/serializer.js';
 import { DEFAULT_CACHE_TTL_MS } from './defaults.js';
+import { validateRedisPipeline } from './redisPipeline.js';
 
 /** Default keys-per-page (SCAN COUNT) when a dashboard inspects the L2 layer. */
 const DEFAULT_INSPECT_LIMIT = 100;
@@ -48,6 +49,10 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
   }
 
   async set(key: CacheKey, value: V, options: CacheOptions = {}): Promise<void> {
+    await this.setEncoded(key, serialize(value), options);
+  }
+
+  async setEncoded(key: CacheKey, payload: Uint8Array, options: CacheOptions = {}): Promise<void> {
     const ttlMs = options.levels?.L2?.ttlMs
       ?? options.ttlMs
       ?? this.options.levels?.L2?.ttlMs
@@ -55,16 +60,18 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
       ?? DEFAULT_CACHE_TTL_MS;
     const maxEntries = options.levels?.L2?.maxEntries ?? this.options.levels?.L2?.maxEntries;
     const redisKey = this.toRedisKey(key);
-    const payload = serialize(value);
     const pipeline = this.redis.pipeline();
 
-    pipeline.set(redisKey, payload, 'PX', ttlMs);
+    pipeline.set(redisKey, Buffer.from(payload), 'PX', ttlMs);
 
     if (this.useIndex()) {
       pipeline.zadd(this.indexKey, Date.now(), redisKey);
     }
 
-    await pipeline.exec();
+    validateRedisPipeline(await pipeline.exec(), [
+      { command: 'SET', key: redisKey },
+      ...(this.useIndex() ? [{ command: 'ZADD', key: this.indexKey }] : []),
+    ]);
     debugLog('redis set', { key: redisKey, ttlMs, indexed: this.useIndex() });
 
     if (maxEntries !== undefined && this.useIndex()) {
@@ -73,17 +80,27 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
   }
 
   async get(key: CacheKey): Promise<V | undefined> {
-    const raw = await this.redis.getBuffer(this.toRedisKey(key));
+    const encoded = await this.getEncoded(key);
+    return encoded === undefined ? undefined : deserialize(encoded.buffer) as V;
+  }
 
-    if (raw === null) {
-      await this.removeFromIndex(this.toRedisKey(key));
+  async getEncoded(key: CacheKey): Promise<{ buffer: Buffer; ttlRemainingMs: number } | undefined> {
+    const redisKey = this.toRedisKey(key);
+    const tracksTtl = typeof this.redis.pttl === 'function';
+    const [raw, ttlRemainingMs] = await Promise.all([
+      this.redis.getBuffer(redisKey),
+      tracksTtl ? this.redis.pttl(redisKey) : Promise.resolve(-1),
+    ]);
+
+    if (raw === null || ttlRemainingMs === -2) {
+      await this.removeFromIndex(redisKey);
       debugLog('redis miss', { key });
       return undefined;
     }
 
     debugLog('redis hit', { key });
 
-    return deserialize(raw) as V;
+    return { buffer: raw, ttlRemainingMs };
   }
 
   async getOrSet(key: CacheKey, loader: () => Promise<V | undefined>, options?: CacheOptions): Promise<V | undefined> {
@@ -212,7 +229,12 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
         }
       }
 
-      const results = (await pipeline.exec()) ?? [];
+      const commands: { command: string; key?: string }[] = [];
+      for (const redisKey of redisKeys) {
+        commands.push({ command: 'PTTL', key: redisKey });
+        if (includeValues) commands.push({ command: 'GET', key: redisKey });
+      }
+      const results = validateRedisPipeline(await pipeline.exec(), commands);
       let resultIndex = 0;
 
       for (const redisKey of redisKeys) {
@@ -360,7 +382,10 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
         pipeline.zrem(this.indexKey, ...batch);
       }
 
-      await pipeline.exec();
+      validateRedisPipeline(await pipeline.exec(), [
+        { command: this.options.deleteStrategy === 'del' ? 'DEL' : 'UNLINK', key: batch[0] },
+        ...(this.useIndex() ? [{ command: 'ZREM', key: this.indexKey }] : []),
+      ]);
       debugLog('redis delete batch', {
         count: batch.length,
         strategy: this.options.deleteStrategy ?? 'unlink',

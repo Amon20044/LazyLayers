@@ -52,7 +52,8 @@ LazyLayers addresses these costs in the read and write path:
 - 🚦 **Circuit breakers:** unhealthy L2 and event-bus dependencies are skipped during cooldowns.
 - 🕰️ **Stale fallback:** recent values can be served when a loader fails or times out.
 - 🚫 **Negative caching:** short-lived missing-key entries reduce repeated database lookups.
-- 🗜️ **Compact payloads:** MessagePack with size-aware compression reduces L2 wire and storage pressure.
+- 🗜️ **Compact payloads:** MessagePack with size-aware compression reduces L1/L2 memory, wire, and storage pressure.
+- 🧠 **Memory-aware L1:** encoded LRU entries share a process memory budget with byte-aware admission and pressure-driven eviction.
 
 ## System design, in request order
 
@@ -69,7 +70,7 @@ export const cache = await setupCache({
 
 The default production path is designed for the problems in this order:
 
-1. 🧠 **L1 memory:** an in-process LRU gives hot reads local-memory latency and bounds memory by `maxEntries` and `ttlMs`.
+1. 🧠 **L1 memory:** an in-process encoded LRU gives hot reads local-memory latency and bounds retention by `maxEntries`, TTL, byte-aware admission, and a shared memory budget.
 2. 🗄️ **L2 Redis:** shared values survive process restarts and are available to every instance. L2 hits promote back into L1.
 3. 💤 **Read-through loading:** `getOrSet` checks negative cache, L1, and L2 before calling the loader.
 4. 🧵 **Stampede protection:** in-flight dedupe handles callers in one process. A distributed lock handles cold loads across instances.
@@ -77,7 +78,7 @@ The default production path is designed for the problems in this order:
 6. 📡 **Event-bus synchronization:** successful `getOrSet` loads and explicit `prewarm` can broadcast bounded `set` events to prime peer L1 caches; `invalidate` and `deleteByPattern` broadcast `del` and `pattern` events to keep instances aligned.
 7. 🏷️ **Namespaces and patterns:** isolate applications with a namespace, then invalidate one key with `invalidate` or a family with `invalidateByPattern("users:*")`.
 8. 🔢 **Ordering and dedupe:** source identity, event IDs, and generations ignore self-echoes, duplicates, and stale invalidations.
-9. 🛡️ **Resilience:** L2 and event-bus circuit breakers stop repeated calls to unhealthy dependencies. Publish retry queues absorb brief bus failures.
+9. 🛡️ **Resilience:** bounded L2 and origin queues plus circuit breakers stop unhealthy dependencies from accumulating unbounded local work. Publish retry queues absorb brief bus failures.
 10. ⏳ **Graceful degradation:** stale values cover loader errors and timeouts. A missing loader result can be negative-cached.
 11. ❤️ **Health and lifecycle:** configured Redis and subscriptions pass health checks before startup. `close()` performs idempotent shutdown.
 12. 📊 **Observability:** optional dashboard, Prometheus metrics, and `node:diagnostics_channel` telemetry expose hit levels, stale reads, invalidations, compression, and breaker behavior.
@@ -153,12 +154,65 @@ Use the **[memory and cost calculator](https://lazy-layers-cache.vercel.app/#cal
 
 ## Development
 
+### v0.5.2 stress and release checks
+
+`v0.5.2` adds stress coverage for the new memory, queue, and invalidation
+controls. Run the focused safety suite while changing those paths:
+
+```bash
+npm run test:release-safety
+```
+
+It covers encoded-L1 ownership and expiry accounting, shared memory-budget
+pressure, bounded origin and L2 work, delayed L2 promotion, local and remote
+invalidation fencing, Redis reconnects, and retry-queue overflow or mutation.
+
+For hot-key pressure, use the herd benchmark:
+
+```bash
+npm run bench:herd
+# Optional: raise the concurrent caller count.
+LAZY_HERD_CALLERS=50000 npm run bench:herd
+```
+
+The default run creates 10,000 simultaneous `getOrSet` calls for one cold key.
+It reports loader calls, in-flight reuses, elapsed time, and result correctness
+for the default path and an explicitly unsafe comparison with both in-flight
+dedupe and the origin guard disabled. A healthy default run makes one loader
+call and reuses it for the remaining 9,999 callers.
+
+The release-memory harness exercises hot reads, distinct miss surges,
+oversized payload churn, shifting hot sets, an L2-outage shape, and uneven
+three-replica traffic. It also injects a deterministic critical-memory signal
+into an encoded L1 store and verifies that the shared budget enters `critical`,
+evicts to its reduced target, and reports no workload error:
+
+```bash
+npm run bench:release-memory
+LAZY_BENCH_ITERATIONS=10000 LAZY_BENCH_SEED=20250911 \
+  LAZY_BENCH_OUTPUT=benchmarks/release-memory.json npm run bench:release-memory
+```
+
+Its JSON records Node and OS metadata, seed, throughput, latency percentiles,
+event-loop delay, process-memory deltas, errors, and origin-gate statistics.
+Set `LAZY_BASELINE_MODULE` to compare the current build with a published
+baseline. The default harness intentionally has no L2, so Redis transport
+performance must be measured separately against a controlled Redis service.
+All benchmark results are workload- and machine-specific, not universal
+performance guarantees.
+
+For the full release gate, including real Redis when available:
+
 ```bash
 npm ci
 npm run ci
+REDIS_URL=redis://127.0.0.1:6379 npm run ci
 ```
 
-The GitHub Actions workflow runs type checks, ESM/CommonJS builds, unit tests, integration tests, live Redis/RabbitMQ/NATS tests, benchmarks, the site build, and the documentation build.
+The GitHub Actions workflow runs type checks, ESM/CommonJS package checks, unit
+and release-safety tests, integration tests, live Redis/RabbitMQ/NATS tests,
+the 10,000-caller herd benchmark, synthetic memory-pressure benchmark,
+serializer benchmarks, the site build, and the documentation build.
 
 ## License
 
