@@ -9,7 +9,7 @@ export interface EventBusHandlerQueueOptions {
   onOverflow?(details: { bytes: number; maxBytes?: number; maxSize?: number }): void;
 }
 
-interface PendingEvent { event: InvalidationEvent; bytes: number }
+interface PendingEvent { event?: InvalidationEvent; encoded?: Uint8Array; decode?: (raw: Uint8Array) => InvalidationEvent | null; bytes: number }
 
 export const DEFAULT_EVENT_BUS_HANDLER_QUEUE_MAX_SIZE = 10_000;
 export const DEFAULT_EVENT_BUS_HANDLER_QUEUE_MAX_BYTES = 16 * 1024 * 1024;
@@ -31,10 +31,15 @@ export class EventBusHandlerQueue {
   get droppedCount(): number { return this.dropped; }
 
   enqueue(event: InvalidationEvent, encoded?: Uint8Array): boolean {
-    let bytes = encoded?.byteLength ?? 0;
-    if (!encoded) {
-      try { bytes = encodeInvalidationEvent(event).byteLength; } catch { /* handler still gets the object */ }
-    }
+    return this.enqueueItem({ event, encoded, bytes: encoded?.byteLength ?? this.encodedSize(event) });
+  }
+
+  enqueueEncoded(encoded: Uint8Array, decode: (raw: Uint8Array) => InvalidationEvent | null): boolean {
+    return this.enqueueItem({ encoded, decode, bytes: encoded.byteLength });
+  }
+
+  private enqueueItem(item: PendingEvent): boolean {
+    const bytes = item.bytes;
     const maxSize = this.options.maxSize ?? DEFAULT_EVENT_BUS_HANDLER_QUEUE_MAX_SIZE;
     const maxBytes = this.options.maxBytes ?? DEFAULT_EVENT_BUS_HANDLER_QUEUE_MAX_BYTES;
     if ((maxSize !== undefined && this.pending.length + this.active >= Math.max(0, maxSize))
@@ -43,7 +48,7 @@ export class EventBusHandlerQueue {
       this.options.onOverflow?.({ bytes, maxBytes, maxSize });
       return false;
     }
-    this.pending.push({ event, bytes });
+    this.pending.push(item);
     this.drain();
     return true;
   }
@@ -62,7 +67,10 @@ export class EventBusHandlerQueue {
       this.activeBytes += item.bytes;
 
       void Promise.resolve()
-        .then(() => this.handler(item.event))
+        .then(() => {
+          const event = item.event ?? item.decode?.(item.encoded!);
+          if (event) return this.handler(event);
+        })
         .catch((error) => {
           this.options.onError(error);
         })
@@ -71,6 +79,19 @@ export class EventBusHandlerQueue {
           this.activeBytes -= item.bytes;
           this.drain();
         });
+    }
+  }
+
+  private encodedSize(event: InvalidationEvent): number {
+    try { return encodeInvalidationEvent(event).byteLength; } catch { return 0; }
+  }
+
+  close(error = new Error('event handler queue closed')): void {
+    while (this.pending.length) {
+      const item = this.pending.shift()!;
+      this.options.onError(error);
+      this.activeBytes -= 0;
+      void item;
     }
   }
 
