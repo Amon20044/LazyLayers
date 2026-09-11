@@ -52,7 +52,8 @@ LazyLayers addresses these costs in the read and write path:
 - 🚦 **Circuit breakers:** unhealthy L2 and event-bus dependencies are skipped during cooldowns.
 - 🕰️ **Stale fallback:** recent values can be served when a loader fails or times out.
 - 🚫 **Negative caching:** short-lived missing-key entries reduce repeated database lookups.
-- 🗜️ **Compact payloads:** MessagePack with size-aware compression reduces L2 wire and storage pressure.
+- 🗜️ **Compact payloads:** MessagePack with size-aware compression reduces L1/L2 memory, wire, and storage pressure.
+- 🧠 **Memory-aware L1:** encoded LRU entries share a process memory budget with byte-aware admission and pressure-driven eviction.
 
 ## System design, in request order
 
@@ -69,7 +70,7 @@ export const cache = await setupCache({
 
 The default production path is designed for the problems in this order:
 
-1. 🧠 **L1 memory:** an in-process LRU gives hot reads local-memory latency and bounds memory by `maxEntries` and `ttlMs`.
+1. 🧠 **L1 memory:** an in-process encoded LRU gives hot reads local-memory latency and bounds retention by `maxEntries`, TTL, byte-aware admission, and a shared memory budget.
 2. 🗄️ **L2 Redis:** shared values survive process restarts and are available to every instance. L2 hits promote back into L1.
 3. 💤 **Read-through loading:** `getOrSet` checks negative cache, L1, and L2 before calling the loader.
 4. 🧵 **Stampede protection:** in-flight dedupe handles callers in one process. A distributed lock handles cold loads across instances.
@@ -77,7 +78,7 @@ The default production path is designed for the problems in this order:
 6. 📡 **Event-bus synchronization:** successful `getOrSet` loads and explicit `prewarm` can broadcast bounded `set` events to prime peer L1 caches; `invalidate` and `deleteByPattern` broadcast `del` and `pattern` events to keep instances aligned.
 7. 🏷️ **Namespaces and patterns:** isolate applications with a namespace, then invalidate one key with `invalidate` or a family with `invalidateByPattern("users:*")`.
 8. 🔢 **Ordering and dedupe:** source identity, event IDs, and generations ignore self-echoes, duplicates, and stale invalidations.
-9. 🛡️ **Resilience:** L2 and event-bus circuit breakers stop repeated calls to unhealthy dependencies. Publish retry queues absorb brief bus failures.
+9. 🛡️ **Resilience:** bounded L2 and origin queues plus circuit breakers stop unhealthy dependencies from accumulating unbounded local work. Publish retry queues absorb brief bus failures.
 10. ⏳ **Graceful degradation:** stale values cover loader errors and timeouts. A missing loader result can be negative-cached.
 11. ❤️ **Health and lifecycle:** configured Redis and subscriptions pass health checks before startup. `close()` performs idempotent shutdown.
 12. 📊 **Observability:** optional dashboard, Prometheus metrics, and `node:diagnostics_channel` telemetry expose hit levels, stale reads, invalidations, compression, and breaker behavior.

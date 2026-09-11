@@ -179,6 +179,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
         .catch((error) => {
           this.subscriptionError = error;
           errorLog('event-bus subscription failed', { error });
+          throw error;
         });
       this.readyPromise = this.readyPromise.then(() => this.restoreInvalidationTrust());
     } else {
@@ -386,11 +387,16 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       if (!this.invalidationTrusted || readEpoch !== this.mutationEpoch) return l2Value;
       if (encodedL2 && this.isEncodedStore(this.l1)) {
         const configured = this.options.levels?.L1?.ttlMs ?? this.options.ttlMs;
-        const ttlMs = configured === undefined ? encodedL2.ttlRemainingMs
+        const ttlMs = configured === undefined
+          ? (encodedL2.ttlRemainingMs > 0 ? encodedL2.ttlRemainingMs : DEFAULT_CACHE_TTL_MS)
           : Math.min(configured, Math.max(1, encodedL2.ttlRemainingMs));
         await this.l1.setEncoded(storageKey, encodedL2.buffer, { ttlMs });
       } else {
         await this.l1?.set(storageKey, l2Value, this.options);
+      }
+      if (!this.invalidationTrusted || readEpoch !== this.mutationEpoch) {
+        await this.l1?.delete(storageKey);
+        return l2Value;
       }
       this.rememberStale(key, l2Value, this.options);
       this.emit({ type: 'hit', key, level: 'L2' });
@@ -554,8 +560,16 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       // A queued miss can become a hit while waiting; never invoke the origin in that case.
       const queuedCached = await this.get(key);
       if (queuedCached !== undefined || this.hasNegative(key)) return queuedCached;
+      let releaseOrigin: (() => void) | undefined;
+      if (this.originLoadEnabled(options)) {
+        releaseOrigin = await this.originGate.acquire(key);
+      }
+      const guardedLoader: CacheLoader<V> = (context) =>
+        Promise.resolve()
+          .then(() => loader(context))
+          .finally(() => releaseOrigin?.());
       this.emit({ type: 'loader:start', key });
-      const loading = this.runLoaderWithTimeouts(key, loader, controller, options);
+      const loading = this.runLoaderWithTimeouts(key, guardedLoader, controller, options);
       value = await (lease ? Promise.race([loading, lease.lost]) : loading);
       lease?.assertOwned();
     } catch (error) {
@@ -653,29 +667,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
   private async loadWithDistributedLock(key: K, loader: CacheLoader<V>, options: CacheOptions): Promise<V | undefined> {
     this.originGate.ensureOpen();
-    let releaseOrigin: (() => void) | undefined;
-    if (this.originLoadEnabled(options)) {
-      try {
-        releaseOrigin = await this.originGate.acquire(key);
-      } catch (error) {
-        const stale = this.getStale(key);
-        if (stale !== undefined && this.failSafeEnabled(options)) {
-          this.emit({ type: 'stale:hit', key, reason: 'loader-error' });
-          return stale;
-        }
-        throw error;
-      }
-    }
-    let loaderStarted = false;
-    const guardedLoader: CacheLoader<V> = (context) => {
-      loaderStarted = true;
-      return Promise.resolve().then(() => loader(context)).finally(() => releaseOrigin?.());
-    };
-    try {
-      return await this.loadWithDistributedLockInternal(key, guardedLoader, options);
-    } finally {
-      if (!loaderStarted) releaseOrigin?.();
-    }
+    return this.loadWithDistributedLockInternal(key, loader, options);
   }
 
   private async loadWithDistributedLockInternal(key: K, loader: CacheLoader<V>, options: CacheOptions): Promise<V | undefined> {
@@ -746,6 +738,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private async deleteLocal(key: K, generation?: number): Promise<void> {
+    this.mutationEpoch += 1;
     this.inflight.delete(key);
     this.negative.delete(key);
     this.removeStale(key);
@@ -762,7 +755,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     this.mutationEpoch += 1;
     this.inflight.delete(key);
     this.negative.delete(key);
-    this.stale.delete(key);
+    this.removeStale(key);
     this.advanceGenerationAfterDelete(String(key), generation);
     await this.l1?.delete(this.toStorageKey(key));
     this.emit({ type: 'delete', key });
@@ -1022,6 +1015,11 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     this.stale.delete(key);
   }
 
+  private clearStale(): void {
+    this.stale.clear();
+    this.staleBytes = 0;
+  }
+
   private isEncodedStore(store: CacheStore<K, V> | undefined): store is EncodedCacheStore<K, V> {
     return typeof (store as Partial<EncodedCacheStore<K, V>> | undefined)?.setEncoded === 'function'
       && typeof (store as Partial<EncodedCacheStore<K, V>> | undefined)?.getEncoded === 'function';
@@ -1114,24 +1112,22 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   isInvalidationTrusted(): boolean { return this.invalidationTrusted; }
 
   private markInvalidationUntrusted(): void {
-    if (!this.invalidationTrusted) return;
     this.invalidationTrusted = false;
     this.mutationEpoch += 1;
     this.inflight.clear();
     this.negative.clear();
-    this.stale.clear();
+    this.clearStale();
     void this.l1?.deleteByPattern('*').catch((error) => errorLog('failed to flush untrusted L1', { error }));
     this.emit({ type: 'invalidation:untrusted' });
   }
 
   private async restoreInvalidationTrust(): Promise<void> {
-    const revision = this.mutationEpoch;
-    this.mutationEpoch += 1;
+    const revision = ++this.mutationEpoch;
     this.inflight.clear();
     this.negative.clear();
-    this.stale.clear();
+    this.clearStale();
     await this.l1?.deleteByPattern('*');
-    if (revision + 1 !== this.mutationEpoch || this.closePromise) return;
+    if (revision !== this.mutationEpoch || this.closePromise) return;
     this.invalidationTrusted = true;
     this.emit({ type: 'invalidation:trusted' });
   }
@@ -1211,6 +1207,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
   private isStaleGeneration(source: string, key: string, generation?: number): boolean {
     if (generation === undefined) return false;
+    if (generation < this.getGeneration(key)) return true;
     const id = `${source}\0${key}`;
     const prior = this.remoteGenerations.get(id);
     if (prior !== undefined && generation < prior) return true;
@@ -1257,7 +1254,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private async applyRemoteSet(event: SetEvent, eventId: string): Promise<void> {
-    this.mutationEpoch += 1;
+    const setEpoch = ++this.mutationEpoch;
     if (!this.invalidationTrusted) return;
     const localOptions: CacheOptions =
       event.ttlMs !== undefined ? { ...this.options, ttlMs: event.ttlMs } : this.options;
@@ -1275,6 +1272,10 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       const storageKey = this.toStorageKey(key);
 
       await this.l1?.set(storageKey, event.value as V, localOptions);
+      if (setEpoch !== this.mutationEpoch || this.isStaleGeneration(event.source, rawKey, event.generation)) {
+        await this.l1?.delete(storageKey);
+        continue;
+      }
       this.rememberStale(key, event.value as V, localOptions);
       this.negative.delete(key);
       this.inflight.delete(key);

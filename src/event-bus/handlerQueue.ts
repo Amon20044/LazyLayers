@@ -95,6 +95,11 @@ export class EventBusHandlerQueue {
     }
   }
 
+  /** Drop queued deliveries after a transport gap. Active handlers finish normally. */
+  discardPending(): void {
+    this.pending.length = 0;
+  }
+
   private getConcurrency(): number {
     const concurrency = this.options.concurrency ?? 1;
 

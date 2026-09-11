@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## 0.5.2
+
+### Added
+
+- L1 now retains serializer wire values, applies byte-aware admission, and
+  participates in a shared, pressure-aware process memory budget.
+- Added bounded origin-loader and L2-operation queues to keep dependency
+  outages from creating unbounded local work.
+- Added release regressions and a reproducible memory benchmark.
+
+### Changed
+
+- Redis L2 promotions reuse the encoded payload and preserve the remaining
+  Redis TTL when populating L1.
+- Redis Pub/Sub reconnects explicitly resubscribe and discard queued
+  pre-disconnect deliveries before L1 trust is restored.
+
+### Fixed
+
+- Local and remote invalidations fence in-flight loads and L2 promotions so an
+  older result cannot repopulate an invalidated key.
+- Redis pipeline command errors now fail the surrounding cache operation.
+- Retry queues preserve immutable event snapshots and never evict an event
+  while it is being published.
+- Expired L1 entries and stale fallbacks release their accounted memory.
+
 ### Changed
 
 - `getOrSet` coordinates both cold and expired keys automatically with Redis L2.

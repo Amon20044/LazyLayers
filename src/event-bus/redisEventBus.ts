@@ -33,6 +33,7 @@ export class RedisEventBus implements EventBus {
   private handlerQueue: EventBusHandlerQueue | null = null;
   private handler: ((event: InvalidationEvent) => void | Promise<void>) | null = null;
   private resubscribing = false;
+  private transportEpoch = 0;
   private readonly statusListeners = new Set<(status: EventBusStatus) => void>();
 
   constructor(redis: RedisClient, channel: string, private readonly options: RedisEventBusOptions = {}) {
@@ -42,13 +43,17 @@ export class RedisEventBus implements EventBus {
     this.channel = channel;
     this.retryQueue = new EventBusRetryQueue(options.retryQueue);
     for (const status of ['close', 'end', 'reconnecting'] as const) {
-      this.sub.on(status, () => this.emitStatus('disconnected'));
+      this.sub.on(status, () => this.markDisconnected());
     }
     this.sub.on('error', () => this.emitStatus('error'));
     this.sub.on('ready', () => { this.emitStatus('ready'); void this.resubscribe(); });
   }
 
   async connect(): Promise<void> {
+    await Promise.all([
+      this.ensureConnected(this.pub),
+      this.ensureConnected(this.sub),
+    ]);
     await Promise.all([
       this.pub.ping(),
       this.sub.ping(),
@@ -141,9 +146,6 @@ export class RedisEventBus implements EventBus {
     this.handlerQueue = handlerQueue;
     this.subscribed = true;
     this.emitStatus('subscribed');
-    // ioredis re-issues SUBSCRIBE for every channel of a subscriber connection
-    // after a reconnect (autoResubscribe defaults to true), so this bus does not
-    // need its own resubscribe loop.
     debugLog('redis event bus subscribed', { channel: this.channel });
   }
 
@@ -190,11 +192,20 @@ export class RedisEventBus implements EventBus {
     }
   }
 
+  private markDisconnected(): void {
+    this.transportEpoch += 1;
+    this.subscribed = false;
+    this.handlerQueue?.discardPending();
+    this.emitStatus('disconnected');
+  }
+
   private async resubscribe(): Promise<void> {
     if (!this.handler || this.resubscribing || this.subscribed) return;
     this.resubscribing = true;
+    const epoch = this.transportEpoch;
     try {
       await this.sub.subscribe(this.channel);
+      if (epoch !== this.transportEpoch) return;
       this.subscribed = true;
       this.emitStatus('subscribed');
     } catch (error) {
@@ -203,6 +214,26 @@ export class RedisEventBus implements EventBus {
     } finally {
       this.resubscribing = false;
     }
+  }
+
+  private async ensureConnected(client: RedisClient): Promise<void> {
+    if (client.status === 'ready' || typeof client.once !== 'function') return;
+    if (client.status === 'wait') {
+      await client.connect();
+      return;
+    }
+    await new Promise<void>((resolve, reject) => {
+      const ready = () => { cleanup(); resolve(); };
+      const failed = (error: Error) => { cleanup(); reject(error); };
+      const cleanup = () => {
+        client.off('ready', ready);
+        client.off('error', failed);
+        client.off('end', failed);
+      };
+      client.once('ready', ready);
+      client.once('error', failed);
+      client.once('end', failed);
+    });
   }
 
   private async publishNow(event: InvalidationEvent): Promise<void> {

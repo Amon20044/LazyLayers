@@ -86,10 +86,13 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
 
   async getEncoded(key: CacheKey): Promise<{ buffer: Buffer; ttlRemainingMs: number } | undefined> {
     const redisKey = this.toRedisKey(key);
-    const raw = await this.redis.getBuffer(redisKey);
-    const ttlRemainingMs = typeof this.redis.pttl === 'function' ? await this.redis.pttl(redisKey) : -1;
+    const tracksTtl = typeof this.redis.pttl === 'function';
+    const [raw, ttlRemainingMs] = await Promise.all([
+      this.redis.getBuffer(redisKey),
+      tracksTtl ? this.redis.pttl(redisKey) : Promise.resolve(-1),
+    ]);
 
-    if (raw === null) {
+    if (raw === null || ttlRemainingMs === -2) {
       await this.removeFromIndex(redisKey);
       debugLog('redis miss', { key });
       return undefined;

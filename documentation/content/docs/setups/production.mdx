@@ -90,19 +90,21 @@ export const cache = await setupCache({
     },
   },
   levels: {
-    L1: { maxEntries: 20_000, ttlMs: 15_000 },
+    L1: { maxEntries: 20_000, maxMemory: '256MiB', ttlMs: 15_000 },
     L2: { ttlMs: 60 * 60 * 1000 },
   },
   inflight: { ttlMs: 3_000, maxEntries: 20_000 },
+  originLoad: { maxConcurrent: 32, maxQueued: 1_024, queueTimeoutMs: 1_000 },
   distributedLock: {
     ttlMs: 8_000,
     waitTimeoutMs: 2_500,
     pollMs: 50,
   },
   timeouts: { softMs: 800, hardMs: 5_000 },
-  failSafe: { staleTtlMs: 60_000 },
+  failSafe: { staleTtlMs: 60_000, maxEntries: 2_000, maxBytes: 32 * 1024 * 1024 },
   resilience: {
     l2CircuitBreaker: { failureThreshold: 5, cooldownMs: 15_000 },
+    l2OperationGate: { maxConcurrent: 64, maxQueued: 1_024, maxQueuedBytes: 32 * 1024 * 1024 },
     eventBusCircuitBreaker: { failureThreshold: 5, cooldownMs: 15_000 },
   },
   broadcastSetMaxBytes: 64 * 1024,
@@ -125,19 +127,21 @@ export const cache = await setupCache<string, User>({
     },
   },
   levels: {
-    L1: { maxEntries: 20_000, ttlMs: 15_000 },
+    L1: { maxEntries: 20_000, maxMemory: '256MiB', ttlMs: 15_000 },
     L2: { ttlMs: 60 * 60 * 1000 },
   },
   inflight: { ttlMs: 3_000, maxEntries: 20_000 },
+  originLoad: { maxConcurrent: 32, maxQueued: 1_024, queueTimeoutMs: 1_000 },
   distributedLock: {
     ttlMs: 8_000,
     waitTimeoutMs: 2_500,
     pollMs: 50,
   },
   timeouts: { softMs: 800, hardMs: 5_000 },
-  failSafe: { staleTtlMs: 60_000 },
+  failSafe: { staleTtlMs: 60_000, maxEntries: 2_000, maxBytes: 32 * 1024 * 1024 },
   resilience: {
     l2CircuitBreaker: { failureThreshold: 5, cooldownMs: 15_000 },
+    l2OperationGate: { maxConcurrent: 64, maxQueued: 1_024, maxQueuedBytes: 32 * 1024 * 1024 },
     eventBusCircuitBreaker: { failureThreshold: 5, cooldownMs: 15_000 },
   },
   broadcastSetMaxBytes: 64 * 1024,
@@ -145,9 +149,9 @@ export const cache = await setupCache<string, User>({
 ```
 </CodeGroup>
 
-### Size L1 by heap
+### Size L1 by memory budget
 
-L1 uses entry-count LRU eviction. Estimate `maxEntries x typical decoded value bytes`, add application heap and runtime overhead, then leave headroom for bursts and garbage collection. Under Node.js clustering, every worker owns a separate L1, so the instance total is `maxEntries x workers`.
+L1 retains encoded values in LRU order. Use `maxEntries` to bound cardinality and `maxMemory` to bound the built-in stores together in one process. The shared budget samples available memory and cgroup pressure, then lowers its active target during sustained pressure. It is not a process RSS cap, so leave headroom for the application, Node.js runtime, and bursts. Under Node.js clustering, every worker owns a separate process budget.
 
 ### Set lock timing from loader latency
 
