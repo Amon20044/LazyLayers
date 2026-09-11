@@ -9,9 +9,10 @@ import type {
   KeyInspection,
   StoreInspectOptions,
   StoreInspection,
+  EncodedCacheStore,
 } from '../types/index.js';
 import { matchesPattern } from './pattern.js';
-import { estimateValueBytes, serializeWithStats, sizeSavings } from '../utils/serializer.js';
+import { deserialize, estimateValueBytes, inspectBuffer, serializeWithStats, sizeSavings } from '../utils/serializer.js';
 import { DEFAULT_CACHE_TTL_MS, DEFAULT_L1_MAX_ENTRIES } from './defaults.js';
 
 /** Default keys-per-page when a dashboard inspects the L1 layer. */
@@ -19,15 +20,15 @@ const DEFAULT_INSPECT_LIMIT = 100;
 /** Default truncation threshold for decoded values (256 KB). */
 const DEFAULT_MAX_VALUE_BYTES = 256 * 1024;
 
-export class MemoryStore<K extends CacheKey, V> implements CacheStore<K, V>, InspectableStore {
-  private readonly cache: LRUCache<K, CacheEntry<V>>;
+export class MemoryStore<K extends CacheKey, V> implements EncodedCacheStore<K, V>, InspectableStore {
+  private readonly cache: LRUCache<K, CacheEntry<Buffer>>;
   private readonly options: CacheOptions;
 
   constructor(options: CacheOptions = {}) {
     this.options = options;
     const levelOptions = options.levels?.L1;
 
-    this.cache = new LRUCache<K, CacheEntry<V>>({
+    this.cache = new LRUCache<K, CacheEntry<Buffer>>({
       max: levelOptions?.maxEntries ?? DEFAULT_L1_MAX_ENTRIES,
       ttl: levelOptions?.ttlMs ?? options.ttlMs ?? DEFAULT_CACHE_TTL_MS,
     });
@@ -43,11 +44,27 @@ export class MemoryStore<K extends CacheKey, V> implements CacheStore<K, V>, Ins
       ?? this.options.ttlMs
       ?? DEFAULT_CACHE_TTL_MS;
 
-    this.cache.set(key, { value }, { ttl });
+    try {
+      this.cache.set(key, { value: serializeWithStats(value).buffer }, { ttl });
+    } catch {
+      // An unsupported value must not turn a successful loader response into an error.
+    }
+  }
+
+  async setEncoded(key: K, buffer: Uint8Array, options: CacheOptions = {}): Promise<void> {
+    const ttl = options.levels?.L1?.ttlMs ?? options.ttlMs
+      ?? this.options.levels?.L1?.ttlMs ?? this.options.ttlMs ?? DEFAULT_CACHE_TTL_MS;
+    this.cache.set(key, { value: Buffer.from(buffer) }, { ttl });
   }
 
   async get(key: K): Promise<V | undefined> {
-    return this.cache.get(key)?.value;
+    const entry = this.cache.get(key);
+    return entry ? deserialize(entry.value) as V : undefined;
+  }
+
+  async getEncoded(key: K): Promise<{ buffer: Buffer; ttlRemainingMs: number } | undefined> {
+    const entry = this.cache.get(key);
+    return entry ? { buffer: entry.value, ttlRemainingMs: this.cache.getRemainingTTL(key) } : undefined;
   }
 
   async getOrSet(key: K, loader: () => Promise<V | undefined>, options?: CacheOptions): Promise<V | undefined> {
@@ -127,28 +144,20 @@ export class MemoryStore<K extends CacheKey, V> implements CacheStore<K, V>, Ins
       index += 1;
 
       const entry = this.cache.peek(rawKey);
-      const value = entry?.value;
+      const raw = entry?.value;
+      const decoded = raw ? inspectBuffer(raw) : undefined;
+      const value = decoded?.value;
       const deserializedBytes = estimateValueBytes(value);
       const remaining = this.cache.getRemainingTTL(rawKey);
 
       // Compute the prospective wire size so the dashboard can compare in-memory
       // vs serialized footprint — but skip serializing values past the cap so a
       // page of huge objects can't turn inspection into heavy CPU work.
-      let serializedBytes = deserializedBytes;
-      let encoding: KeyInspection['encoding'] = 'msgpack';
+      let serializedBytes = decoded?.storedBytes ?? 0;
+      let encoding: KeyInspection['encoding'] = decoded?.encoding ?? 'msgpack';
       const overCap = deserializedBytes > maxValueBytes;
 
-      if (!overCap) {
-        // Read-only introspection must never fail the page. A value the wire
-        // format cannot represent still deserves a row, just without sizes.
-        try {
-          const stats = serializeWithStats(value);
-          serializedBytes = stats.storedBytes;
-          encoding = stats.encoding;
-        } catch {
-          serializedBytes = 0;
-        }
-      }
+      // The wire buffer is already retained; inspection decodes it but never re-serializes.
 
       const inspection: KeyInspection = {
         key,

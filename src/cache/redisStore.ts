@@ -48,6 +48,10 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
   }
 
   async set(key: CacheKey, value: V, options: CacheOptions = {}): Promise<void> {
+    await this.setEncoded(key, serialize(value), options);
+  }
+
+  async setEncoded(key: CacheKey, payload: Uint8Array, options: CacheOptions = {}): Promise<void> {
     const ttlMs = options.levels?.L2?.ttlMs
       ?? options.ttlMs
       ?? this.options.levels?.L2?.ttlMs
@@ -55,10 +59,9 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
       ?? DEFAULT_CACHE_TTL_MS;
     const maxEntries = options.levels?.L2?.maxEntries ?? this.options.levels?.L2?.maxEntries;
     const redisKey = this.toRedisKey(key);
-    const payload = serialize(value);
     const pipeline = this.redis.pipeline();
 
-    pipeline.set(redisKey, payload, 'PX', ttlMs);
+    pipeline.set(redisKey, Buffer.from(payload), 'PX', ttlMs);
 
     if (this.useIndex()) {
       pipeline.zadd(this.indexKey, Date.now(), redisKey);
@@ -73,17 +76,24 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
   }
 
   async get(key: CacheKey): Promise<V | undefined> {
-    const raw = await this.redis.getBuffer(this.toRedisKey(key));
+    const encoded = await this.getEncoded(key);
+    return encoded === undefined ? undefined : deserialize(encoded.buffer) as V;
+  }
+
+  async getEncoded(key: CacheKey): Promise<{ buffer: Buffer; ttlRemainingMs: number } | undefined> {
+    const redisKey = this.toRedisKey(key);
+    const raw = await this.redis.getBuffer(redisKey);
+    const ttlRemainingMs = typeof this.redis.pttl === 'function' ? await this.redis.pttl(redisKey) : -1;
 
     if (raw === null) {
-      await this.removeFromIndex(this.toRedisKey(key));
+      await this.removeFromIndex(redisKey);
       debugLog('redis miss', { key });
       return undefined;
     }
 
     debugLog('redis hit', { key });
 
-    return deserialize(raw) as V;
+    return { buffer: raw, ttlRemainingMs };
   }
 
   async getOrSet(key: CacheKey, loader: () => Promise<V | undefined>, options?: CacheOptions): Promise<V | undefined> {

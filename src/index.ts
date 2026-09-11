@@ -31,6 +31,7 @@ export type {
   CacheLoader,
   CacheOptions,
   CacheStore,
+  EncodedCacheStore,
   DeleteEvent,
   InflightEntry,
   InflightOptions,

@@ -6,6 +6,7 @@ export type {
   CacheLoader,
   CacheOptions,
   CacheStore,
+  EncodedCacheStore,
   DistributedLockOptions,
   InflightEntry,
   InflightOptions,

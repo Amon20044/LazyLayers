@@ -36,6 +36,8 @@ export interface NegativeCacheOptions {
 export interface FailSafeOptions {
     enabled?: boolean;
     staleTtlMs?: number;
+    maxEntries?: number;
+    maxBytes?: number;
 }
 
 export interface TimeoutOptions {
@@ -82,6 +84,12 @@ export interface CacheStore<K extends CacheKey, V> {
     deleteByPattern(pattern: string): Promise<void>;
     clear(): Promise<void>;
     size(): Promise<number>;
+}
+
+/** Optional internal capability for stores that retain the serializer wire value. */
+export interface EncodedCacheStore<K extends CacheKey, V> extends CacheStore<K, V> {
+    setEncoded(key: K, buffer: Uint8Array, options?: CacheOptions): Promise<void>;
+    getEncoded(key: K): Promise<{ buffer: Buffer; ttlRemainingMs: number } | undefined>;
 }
 
 /** Options for a single page of read-only store introspection (observability). */

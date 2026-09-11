@@ -7,9 +7,11 @@ import type {
   CacheLoader,
   CacheOptions,
   CacheStore,
+  EncodedCacheStore,
   InflightEntry,
   InflightStore,
 } from '../types/index.js';
+import { deserialize, serializeWithStats } from '../utils/serializer.js';
 import { configureCacheLogger, type CacheLoggerOptions } from '../utils/debugLog.js';
 import { debugLog, errorLog } from '../utils/debugLog.js';
 import { CircuitBreaker, type CircuitBreakerOptions } from './circuitBreaker.js';
@@ -52,6 +54,8 @@ import { publishTelemetry, TELEMETRY_CHANNEL_NAME } from '../observability/telem
 
 interface StaleEntry<V> {
   value: V;
+  encoded?: Buffer;
+  bytes: number;
   expiresAt: number;
 }
 
@@ -96,6 +100,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   private readonly l2CircuitBreaker: CircuitBreaker;
   private readonly eventBusCircuitBreaker: CircuitBreaker;
   private readonly stale = new Map<K, StaleEntry<V>>();
+  private staleBytes = 0;
   private readonly negative = new Map<K, NegativeEntry>();
   private readonly generations = new Map<string, number>();
   private readonly seenEvents = new Map<string, number>();
@@ -292,8 +297,17 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   async set(key: K, value: V, options: CacheOptions = {}): Promise<void> {
     const storageKey = this.toStorageKey(key);
 
-    await this.l1?.set(storageKey, value, options);
-    await this.runL2('set', storageKey, () => this.l2?.set(storageKey, value, options) ?? Promise.resolve());
+    let encoded: Buffer | undefined;
+    try { encoded = serializeWithStats(value).buffer; } catch { /* value remains available to caller */ }
+    if (encoded && this.isEncodedStore(this.l1)) {
+      await this.l1.setEncoded(storageKey, encoded, options);
+    } else {
+      await this.l1?.set(storageKey, value, options);
+    }
+    await this.runL2('set', storageKey, () => {
+      if (encoded && this.isEncodedStore(this.l2)) return this.l2.setEncoded(storageKey, encoded, options);
+      return this.l2?.set(storageKey, value, options) ?? Promise.resolve();
+    });
     this.rememberStale(key, value, options);
     this.negative.delete(key);
 
@@ -323,15 +337,29 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       debugLog('cache miss', { key, level: 'L1' });
     }
 
+    let encodedL2: { buffer: Buffer; ttlRemainingMs: number } | undefined;
     const l2Value = await this.runL2(
       'get',
       storageKey,
-      () => this.l2?.get(storageKey) ?? Promise.resolve(undefined),
+      async () => {
+        if (this.isEncodedStore(this.l2)) {
+          encodedL2 = await this.l2.getEncoded(storageKey);
+          return encodedL2 ? deserialize(encodedL2.buffer) as V : undefined;
+        }
+        return this.l2?.get(storageKey) ?? Promise.resolve(undefined);
+      },
       undefined,
     );
 
     if (l2Value !== undefined) {
-      await this.l1?.set(storageKey, l2Value, this.options);
+      if (encodedL2 && this.isEncodedStore(this.l1)) {
+        const configured = this.options.levels?.L1?.ttlMs ?? this.options.ttlMs;
+        const ttlMs = configured === undefined ? encodedL2.ttlRemainingMs
+          : Math.min(configured, Math.max(1, encodedL2.ttlRemainingMs));
+        await this.l1.setEncoded(storageKey, encodedL2.buffer, { ttlMs });
+      } else {
+        await this.l1?.set(storageKey, l2Value, this.options);
+      }
       this.rememberStale(key, l2Value, this.options);
       this.emit({ type: 'hit', key, level: 'L2' });
       debugLog('cache hit', { key, level: 'L2', promotedTo: this.l1 ? 'L1' : undefined });
@@ -648,7 +676,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   private async deleteLocal(key: K, generation?: number): Promise<void> {
     this.inflight.delete(key);
     this.negative.delete(key);
-    this.stale.delete(key);
+    this.removeStale(key);
     const storageKey = this.toStorageKey(key);
     this.advanceGenerationAfterDelete(String(key), generation);
 
@@ -672,7 +700,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
     for (const key of this.stale.keys()) {
       if (matchesPattern(String(key), pattern)) {
-        this.stale.delete(key);
+        this.removeStale(key);
       }
     }
 
@@ -864,7 +892,19 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       return;
     }
 
-    this.stale.set(key, { value, expiresAt: Date.now() + staleTtlMs });
+    let encoded: Buffer | undefined;
+    try { encoded = serializeWithStats(value).buffer; } catch { return; }
+    this.removeStale(key);
+    const entry = { value, encoded, bytes: encoded.byteLength, expiresAt: Date.now() + staleTtlMs };
+    this.stale.set(key, entry);
+    this.staleBytes += entry.bytes;
+    const maxEntries = options.failSafe?.maxEntries ?? this.options.failSafe?.maxEntries ?? 1_000;
+    const maxBytes = options.failSafe?.maxBytes ?? this.options.failSafe?.maxBytes ?? 16 * 1024 * 1024;
+    while (this.stale.size > maxEntries || this.staleBytes > maxBytes) {
+      const oldest = this.stale.keys().next().value;
+      if (oldest === undefined) break;
+      this.removeStale(oldest);
+    }
   }
 
   private getStale(key: K): V | undefined {
@@ -875,11 +915,22 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     }
 
     if (entry.expiresAt <= Date.now()) {
-      this.stale.delete(key);
+      this.removeStale(key);
       return undefined;
     }
 
-    return entry.value;
+    return entry.encoded ? deserialize(entry.encoded) as V : entry.value;
+  }
+
+  private removeStale(key: K): void {
+    const entry = this.stale.get(key);
+    if (entry) this.staleBytes -= entry.bytes;
+    this.stale.delete(key);
+  }
+
+  private isEncodedStore(store: CacheStore<K, V> | undefined): store is EncodedCacheStore<K, V> {
+    return typeof (store as Partial<EncodedCacheStore<K, V>> | undefined)?.setEncoded === 'function'
+      && typeof (store as Partial<EncodedCacheStore<K, V>> | undefined)?.getEncoded === 'function';
   }
 
   /** Opt-out. Serving a slightly stale value beats serving an error. */
