@@ -40,6 +40,11 @@ The first caller's promise is stored and every concurrent caller for that key aw
 - shifting hot sets
 - a cache-only outage shape
 - uneven three-replica traffic
+- synthetic critical-memory pressure against an encoded L1 store
+
+The pressure scenario verifies that the shared budget reaches `critical` and
+evicts retained entries to the reduced target. The harness exits nonzero if any
+workload reports an error, making it suitable for CI.
 
 It records throughput, latency percentiles, event-loop delay, process-memory deltas, error count, and origin-gate statistics. Use a fixed seed for comparisons:
 

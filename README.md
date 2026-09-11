@@ -183,7 +183,9 @@ call and reuses it for the remaining 9,999 callers.
 
 The release-memory harness exercises hot reads, distinct miss surges,
 oversized payload churn, shifting hot sets, an L2-outage shape, and uneven
-three-replica traffic:
+three-replica traffic. It also injects a deterministic critical-memory signal
+into an encoded L1 store and verifies that the shared budget enters `critical`,
+evicts to its reduced target, and reports no workload error:
 
 ```bash
 npm run bench:release-memory
@@ -209,6 +211,7 @@ REDIS_URL=redis://127.0.0.1:6379 npm run ci
 
 The GitHub Actions workflow runs type checks, ESM/CommonJS package checks, unit
 and release-safety tests, integration tests, live Redis/RabbitMQ/NATS tests,
+the 10,000-caller herd benchmark, synthetic memory-pressure benchmark,
 serializer benchmarks, the site build, and the documentation build.
 
 ## License

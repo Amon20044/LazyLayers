@@ -96,6 +96,16 @@ jobs:
       - name: Run Full Test Suite (Unit, Concurrency, E2E, Live Services)
         run: npm test
 
+      - name: Run v0.5.2 synthetic pressure and safety regressions
+        run: npm run test:release-safety
+
+      - name: Run v0.5.2 herd and memory-pressure benchmarks
+        run: |
+          npm run bench:herd
+          LAZY_BENCH_ITERATIONS=200 \
+            LAZY_BENCH_OUTPUT="$RUNNER_TEMP/release-memory.json" \
+            npm run bench:release-memory
+
       - name: Verify Benchmark Pipeline
         run: node benchmarks/run.mjs
 

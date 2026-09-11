@@ -10,7 +10,8 @@
   participates in a shared, pressure-aware process memory budget.
 - Added bounded origin-loader and L2-operation queues to keep dependency
   outages from creating unbounded local work.
-- Added release regressions and a reproducible memory benchmark.
+- Added release regressions plus reproducible memory, herd, and synthetic
+  pressure benchmarks that run in CI.
 
 ### Changed
 
