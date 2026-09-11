@@ -29,6 +29,7 @@ interface Waiter<T> { operation: string; bytes: number; call: () => Promise<T>; 
 
 export class L2OperationGate {
   private active = 0;
+  private activeBytes = 0;
   private queuedBytes = 0;
   private readonly queue: Waiter<unknown>[] = [];
   private closed = false;
@@ -38,31 +39,32 @@ export class L2OperationGate {
   private readonly options: Required<L2OperationGateOptions>;
   constructor(options: L2OperationGateOptions = {}) {
     this.options = defaultL2OperationGateOptions(options);
-    if (!Number.isFinite(this.options.maxConcurrent) || this.options.maxConcurrent <= 0 || !Number.isFinite(this.options.maxQueued) || this.options.maxQueued < 0 || !Number.isFinite(this.options.maxQueuedBytes) || this.options.maxQueuedBytes < 0 || !Number.isFinite(this.options.queueTimeoutMs) || this.options.queueTimeoutMs < 0 || !Number.isFinite(this.options.operationTimeoutMs) || this.options.operationTimeoutMs <= 0) throw new RangeError('Invalid L2 operation gate limits');
+    if (!Number.isSafeInteger(this.options.maxConcurrent) || this.options.maxConcurrent <= 0 || !Number.isSafeInteger(this.options.maxQueued) || this.options.maxQueued < 0 || !Number.isSafeInteger(this.options.maxQueuedBytes) || this.options.maxQueuedBytes < 0 || !Number.isSafeInteger(this.options.queueTimeoutMs) || this.options.queueTimeoutMs < 0 || !Number.isSafeInteger(this.options.operationTimeoutMs) || this.options.operationTimeoutMs <= 0) throw new RangeError('Invalid L2 operation gate limits');
   }
   run<T>(operation: string, call: () => Promise<T>, payloadBytes = 0): Promise<T> {
     const bytes = Math.max(0, Number.isFinite(payloadBytes) ? payloadBytes : 0);
     if (this.closed) return Promise.reject(new L2OperationClosedError());
-    if (this.active < this.options.maxConcurrent && this.queue.length === 0) return this.start(operation, call);
+    if (this.active < this.options.maxConcurrent && this.queue.length === 0) return this.start(operation, call, bytes);
     if (this.queue.length >= this.options.maxQueued || this.queuedBytes + bytes > this.options.maxQueuedBytes) { this.rejected += 1; return Promise.reject(new L2OperationOverloadError(operation)); }
     return new Promise<T>((resolve, reject) => {
       const waiter: Waiter<T> = { operation, bytes, call, resolve, reject, timer: setTimeout(() => { const i = this.queue.indexOf(waiter as Waiter<unknown>); if (i >= 0) { this.queue.splice(i, 1); this.queuedBytes -= bytes; this.expired += 1; reject(new L2OperationOverloadError(operation)); } }, this.options.queueTimeoutMs) };
       this.queue.push(waiter as Waiter<unknown>); this.queuedBytes += bytes;
     });
   }
-  stats() { return { active: this.active, queued: this.queue.length, queuedBytes: this.queuedBytes, rejected: this.rejected, expired: this.expired, commandTimeouts: this.commandTimeouts, closed: this.closed }; }
+  stats() { return { active: this.active, queued: this.queue.length, queuedBytes: this.queuedBytes, activeBytes: this.activeBytes, retainedBytes: this.queuedBytes + this.activeBytes, rejected: this.rejected, expired: this.expired, commandTimeouts: this.commandTimeouts, closed: this.closed }; }
   close(): void { this.closed = true; for (const waiter of this.queue) { clearTimeout(waiter.timer); waiter.reject(new L2OperationClosedError()); } this.queue.length = 0; this.queuedBytes = 0; }
-  private start<T>(operation: string, call: () => Promise<T>): Promise<T> {
+  private start<T>(operation: string, call: () => Promise<T>, bytes = 0): Promise<T> {
     this.active += 1;
+    this.activeBytes += bytes;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => { this.commandTimeouts += 1; reject(new L2OperationTimeoutError(operation, this.options.operationTimeoutMs)); }, this.options.operationTimeoutMs); });
     // The gate retains active work until the underlying operation settles, even
     // when the caller-facing deadline has elapsed.
     const underlying = Promise.resolve().then(call);
-    underlying.finally(() => { if (timer) clearTimeout(timer); this.active -= 1; this.pump(); }).catch(() => undefined);
+    underlying.finally(() => { if (timer) clearTimeout(timer); this.active -= 1; this.activeBytes -= bytes; this.pump(); }).catch(() => undefined);
     return Promise.race([underlying, timeout]);
   }
-  private pump(): void { if (this.closed || this.active >= this.options.maxConcurrent) return; const waiter = this.queue.shift(); if (!waiter) return; this.queuedBytes -= waiter.bytes; clearTimeout(waiter.timer); this.start(waiter.operation, waiter.call).then(waiter.resolve, waiter.reject); }
+  private pump(): void { if (this.closed || this.active >= this.options.maxConcurrent) return; const waiter = this.queue.shift(); if (!waiter) return; this.queuedBytes -= waiter.bytes; clearTimeout(waiter.timer); this.start(waiter.operation, waiter.call, waiter.bytes).then(waiter.resolve, waiter.reject); }
 }
 
 export function defaultL2OperationGateOptions(options: L2OperationGateOptions = {}): Required<L2OperationGateOptions> {

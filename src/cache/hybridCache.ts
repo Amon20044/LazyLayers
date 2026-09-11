@@ -542,23 +542,18 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     };
   }
 
-  private async loadAndStore(key: K, loader: CacheLoader<V>, options: CacheOptions, lease?: LoadLease, releaseOrigin?: () => void): Promise<V | undefined> {
+  private async loadAndStore(key: K, loader: CacheLoader<V>, options: CacheOptions, lease?: LoadLease): Promise<V | undefined> {
     const loadEpoch = this.mutationEpoch;
     const startedAt = Date.now();
     const controller = lease?.controller ?? new AbortController();
     let value: V | undefined;
-    let released = false;
-    let loaderStarted = false;
-    const release = () => { if (!released) { released = true; releaseOrigin?.(); } };
-
     try {
       lease?.assertOwned();
       // A queued miss can become a hit while waiting; never invoke the origin in that case.
       const queuedCached = await this.get(key);
       if (queuedCached !== undefined || this.hasNegative(key)) return queuedCached;
       this.emit({ type: 'loader:start', key });
-      loaderStarted = true;
-      const loading = this.runLoaderWithTimeouts(key, loader, controller, options, release);
+      const loading = this.runLoaderWithTimeouts(key, loader, controller, options);
       value = await (lease ? Promise.race([loading, lease.lost]) : loading);
       lease?.assertOwned();
     } catch (error) {
@@ -582,7 +577,6 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
       throw error;
     } finally {
-      if (!loaderStarted) release();
     }
 
     this.emit({ type: 'loader:success', key, durationMs: Date.now() - startedAt });
@@ -657,14 +651,35 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
   private async loadWithDistributedLock(key: K, loader: CacheLoader<V>, options: CacheOptions): Promise<V | undefined> {
     this.originGate.ensureOpen();
-    const releaseOrigin = this.originLoadEnabled(options) ? await this.originGate.acquire(key) : undefined;
-    return this.loadWithDistributedLockInternal(key, loader, options, releaseOrigin);
+    let releaseOrigin: (() => void) | undefined;
+    if (this.originLoadEnabled(options)) {
+      try {
+        releaseOrigin = await this.originGate.acquire(key);
+      } catch (error) {
+        const stale = this.getStale(key);
+        if (stale !== undefined && this.failSafeEnabled(options)) {
+          this.emit({ type: 'stale:hit', key, reason: 'loader-error' });
+          return stale;
+        }
+        throw error;
+      }
+    }
+    let loaderStarted = false;
+    const guardedLoader: CacheLoader<V> = (context) => {
+      loaderStarted = true;
+      return Promise.resolve().then(() => loader(context)).finally(() => releaseOrigin?.());
+    };
+    try {
+      return await this.loadWithDistributedLockInternal(key, guardedLoader, options);
+    } finally {
+      if (!loaderStarted) releaseOrigin?.();
+    }
   }
 
-  private async loadWithDistributedLockInternal(key: K, loader: CacheLoader<V>, options: CacheOptions, releaseOrigin?: () => void): Promise<V | undefined> {
+  private async loadWithDistributedLockInternal(key: K, loader: CacheLoader<V>, options: CacheOptions): Promise<V | undefined> {
     const l2 = this.l2;
     if (!this.distributedLockEnabled(options) || !supportsDistributedLock(l2)) {
-      return this.loadAndStore(key, loader, options, undefined, releaseOrigin);
+      return this.loadAndStore(key, loader, options);
     }
 
     const lockTtlMs = options.distributedLock?.ttlMs ?? this.options.distributedLock?.ttlMs ?? DEFAULT_LOCK_TTL_MS;
@@ -695,7 +710,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
           const cached = await this.get(key);
           if (cached !== undefined) return cached;
           if (this.hasNegative(key)) return undefined;
-          return await this.loadAndStore(key, loader, options, lease, releaseOrigin);
+          return await this.loadAndStore(key, loader, options, lease);
         } finally {
           lease.stop();
           await this.runL2('releaseLock', key, () => l2.releaseLock(key, token));
@@ -705,7 +720,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       // Preserve fail-open on Redis failure, but do not mistake contention for
       // an outage or bypass an owner we have already observed.
       if (acquired === undefined && !contended) {
-        return this.loadAndStore(key, loader, options, undefined, releaseOrigin);
+        return this.loadAndStore(key, loader, options);
       }
       contended = true;
       const remainingMs = waitUntil - Date.now();
@@ -718,15 +733,13 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     }
 
     this.emit({ type: 'lock:timeout', key, timeoutMs: waitTimeoutMs, onTimeout });
-    if (onTimeout === 'load') return this.loadAndStore(key, loader, options, undefined, releaseOrigin);
+    if (onTimeout === 'load') return this.loadAndStore(key, loader, options);
 
     const stale = this.getStale(key);
     if (stale !== undefined && this.failSafeEnabled(options)) {
-      releaseOrigin?.();
       this.emit({ type: 'stale:hit', key, reason: 'lock-timeout' });
       return stale;
     }
-    releaseOrigin?.();
     throw new DistributedLockTimeoutError(key, waitTimeoutMs);
   }
 
@@ -922,14 +935,12 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     loader: CacheLoader<V>,
     controller: AbortController,
     options: CacheOptions,
-    onLoaderSettled?: () => void,
   ): Promise<V | undefined> {
     const softMs = options.timeouts?.softMs ?? this.options.timeouts?.softMs;
     const hardMs = options.timeouts?.hardMs
       ?? this.options.timeouts?.hardMs
       ?? DEFAULT_LOADER_HARD_TIMEOUT_MS;
     const loaderPromise = Promise.resolve().then(() => loader({ signal: controller.signal }));
-    if (onLoaderSettled) void loaderPromise.then(onLoaderSettled, onLoaderSettled);
     const stale = this.getStale(key);
 
     if (softMs !== undefined && stale !== undefined && this.failSafeEnabled(options)) {
