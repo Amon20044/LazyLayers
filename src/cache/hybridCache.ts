@@ -1,4 +1,4 @@
-import type { EventBus } from '../event-bus/index.js';
+import type { EventBus, EventBusStatus } from '../event-bus/index.js';
 import { encodeInvalidationEvent } from '../event-bus/eventCodec.js';
 import type { DeleteEvent, SetEvent } from '../types/event.types.js';
 import type {
@@ -108,6 +108,9 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   private readonly negative = new Map<K, NegativeEntry>();
   private readonly generations = new Map<string, number>();
   private readonly seenEvents = new Map<string, number>();
+  private invalidationTrusted = true;
+  private mutationEpoch = 0;
+  private removeBusStatusListener?: () => void;
   private readonly eventHandlers = new Set<CacheEventHandler>();
   private readonly readyPromise: Promise<void>;
   private subscriptionError?: unknown;
@@ -129,6 +132,11 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     options.events?.forEach((handler) => this.eventHandlers.add(handler));
 
     if (options.eventBus && options.subscribeToEvents !== false) {
+      this.invalidationTrusted = false;
+      this.removeBusStatusListener = options.eventBus.onStatus?.((status: EventBusStatus) => {
+        if (status === 'disconnected' || status === 'error') this.markInvalidationUntrusted();
+        if (status === 'subscribed') void this.restoreInvalidationTrust();
+      });
       this.readyPromise = options.eventBus
         .subscribe(async (event) => {
           const eventId = event.id ?? this.getLegacyEventId(event);
@@ -171,6 +179,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
           this.subscriptionError = error;
           errorLog('event-bus subscription failed', { error });
         });
+      this.readyPromise = this.readyPromise.then(() => this.restoreInvalidationTrust());
     } else {
       this.readyPromise = Promise.resolve();
     }
@@ -294,6 +303,8 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private async closeResources(): Promise<void> {
+    this.removeBusStatusListener?.();
+    this.removeBusStatusListener = undefined;
     this.originGate.close();
     this.l2Gate.close();
     const results = await Promise.allSettled([
@@ -312,6 +323,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   async set(key: K, value: V, options: CacheOptions = {}): Promise<void> {
+    this.mutationEpoch += 1;
     const storageKey = this.toStorageKey(key);
 
     let encoded: Buffer | undefined;
@@ -333,14 +345,14 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   async get(key: K): Promise<V | undefined> {
-    if (this.hasNegative(key)) {
+    if (this.invalidationTrusted && this.hasNegative(key)) {
       this.emit({ type: 'miss', key, level: 'negative' });
       return undefined;
     }
 
     const storageKey = this.toStorageKey(key);
 
-    if (this.l1) {
+    if (this.invalidationTrusted && this.l1) {
       const l1Value = await this.l1.get(storageKey);
 
       if (l1Value !== undefined) {
@@ -369,6 +381,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     );
 
     if (l2Value !== undefined) {
+      if (!this.invalidationTrusted) return l2Value;
       if (encodedL2 && this.isEncodedStore(this.l1)) {
         const configured = this.options.levels?.L1?.ttlMs ?? this.options.ttlMs;
         const ttlMs = configured === undefined ? encodedL2.ttlRemainingMs
@@ -408,7 +421,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       return cached;
     }
 
-    if (this.hasNegative(key)) {
+    if (this.invalidationTrusted && this.hasNegative(key)) {
       return undefined;
     }
 
@@ -465,7 +478,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
     const storageKey = this.toStorageKey(key);
 
-    if (this.l1 && await this.l1.has(storageKey)) {
+    if (this.invalidationTrusted && this.l1 && await this.l1.has(storageKey)) {
       return true;
     }
 
@@ -530,6 +543,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private async loadAndStore(key: K, loader: CacheLoader<V>, options: CacheOptions, lease?: LoadLease, releaseOrigin?: () => void): Promise<V | undefined> {
+    const loadEpoch = this.mutationEpoch;
     const startedAt = Date.now();
     const controller = lease?.controller ?? new AbortController();
     let value: V | undefined;
@@ -574,6 +588,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     this.emit({ type: 'loader:success', key, durationMs: Date.now() - startedAt });
 
     if (value === undefined) {
+      if (loadEpoch !== this.mutationEpoch) return undefined;
       this.setNegative(key, options);
       const stale = this.getStale(key);
 
@@ -585,6 +600,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     }
 
     lease?.assertOwned();
+    if (loadEpoch !== this.mutationEpoch) return value;
     await this.set(key, value, options);
     lease?.assertOwned();
 
@@ -728,6 +744,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
   /** Received invalidations only evict this process; the publisher owns L2. */
   private async deleteLocalOnly(key: K, generation?: number): Promise<void> {
+    this.mutationEpoch += 1;
     this.inflight.delete(key);
     this.negative.delete(key);
     this.stale.delete(key);
@@ -737,6 +754,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private async deleteByPatternLocal(pattern: string, shared = true): Promise<void> {
+    this.mutationEpoch += 1;
     for (const key of this.inflight.keys()) {
       if (matchesPattern(String(key), pattern)) {
         this.inflight.delete(key);
@@ -1075,6 +1093,29 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     }
 
     this.generations.set(key, Math.max(this.getGeneration(key), generation));
+  }
+
+  isInvalidationTrusted(): boolean { return this.invalidationTrusted; }
+
+  private markInvalidationUntrusted(): void {
+    if (!this.invalidationTrusted) return;
+    this.invalidationTrusted = false;
+    this.mutationEpoch += 1;
+    this.inflight.clear();
+    this.negative.clear();
+    this.stale.clear();
+    void this.l1?.deleteByPattern('*').catch((error) => errorLog('failed to flush untrusted L1', { error }));
+    this.emit({ type: 'invalidation:untrusted' });
+  }
+
+  private async restoreInvalidationTrust(): Promise<void> {
+    this.mutationEpoch += 1;
+    this.inflight.clear();
+    this.negative.clear();
+    this.stale.clear();
+    await this.l1?.deleteByPattern('*');
+    this.invalidationTrusted = true;
+    this.emit({ type: 'invalidation:trusted' });
   }
 
   private emit(event: CacheEvent): void {
