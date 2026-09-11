@@ -55,6 +55,7 @@
     "prepublishOnly": "npm run ci",
     "ci": "npm run clean && npm run typecheck && npm run build && npm test",
     "test": "node --test",
+    "bench:release-memory": "npm run build && node benchmarks/release-memory.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "setup": "node scripts/setup-environment.mjs",
     "example:l1": "node --import tsx examples/01-single-server-l1-only/index.ts",

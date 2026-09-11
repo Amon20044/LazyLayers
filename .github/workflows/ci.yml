@@ -88,6 +88,11 @@ jobs:
       - name: Build Library (ESM + CommonJS)
         run: npm run build
 
+      - name: Smoke test ESM and CommonJS package entrypoints
+        run: |
+          node --input-type=module -e "const m = await import('./dist/index.js'); if (typeof m.createCache !== 'function') process.exit(1)"
+          node -e "const m = require('./dist-cjs/index.js'); if (typeof m.createCache !== 'function') process.exit(1)"
+
       - name: Run Full Test Suite (Unit, Concurrency, E2E, Live Services)
         run: npm test
 

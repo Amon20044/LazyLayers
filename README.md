@@ -153,6 +153,10 @@ Use the **[memory and cost calculator](https://lazy-layers-cache.vercel.app/#cal
 
 ## Development
 
+### Release memory benchmark
+
+Run the reproducible harness with `npm run bench:release-memory`. It compares the current build with a published baseline when `LAZY_BASELINE_MODULE` points to that baseline’s entry module. Set `LAZY_BENCH_ITERATIONS`, `LAZY_BENCH_SEED`, and `LAZY_BENCH_OUTPUT` to control the run. The JSON records Node/OS/seed metadata, throughput, latency percentiles, event-loop delay, memory counters, errors, and origin-gate stats. Redis transport scenarios are explicitly marked skipped because the default harness uses no L2; measure those separately against a controlled Redis service. These results are workload- and machine-specific measurements, not universal performance guarantees.
+
 ```bash
 npm ci
 npm run ci
