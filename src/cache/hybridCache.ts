@@ -528,24 +528,13 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     };
   }
 
-  private async loadAndStore(key: K, loader: CacheLoader<V>, options: CacheOptions, lease?: LoadLease): Promise<V | undefined> {
+  private async loadAndStore(key: K, loader: CacheLoader<V>, options: CacheOptions, lease?: LoadLease, releaseOrigin?: () => void): Promise<V | undefined> {
     const startedAt = Date.now();
     const controller = lease?.controller ?? new AbortController();
     let value: V | undefined;
-    let releaseOrigin: (() => void) | undefined;
-    try {
-      if (this.originLoadEnabled(options)) releaseOrigin = await this.originGate.acquire(key);
-    } catch (error) {
-      const stale = this.getStale(key);
-      if (stale !== undefined && this.failSafeEnabled(options)) {
-        this.emit({ type: 'stale:hit', key, reason: 'loader-error' });
-        return stale;
-      }
-      throw error;
-    }
     let released = false;
-    let settled = false;
-    const release = () => { settled = true; if (!released) { released = true; releaseOrigin?.(); } };
+    let loaderStarted = false;
+    const release = () => { if (!released) { released = true; releaseOrigin?.(); } };
 
     try {
       lease?.assertOwned();
@@ -553,6 +542,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       const queuedCached = await this.get(key);
       if (queuedCached !== undefined || this.hasNegative(key)) return queuedCached;
       this.emit({ type: 'loader:start', key });
+      loaderStarted = true;
       const loading = this.runLoaderWithTimeouts(key, loader, controller, options, release);
       value = await (lease ? Promise.race([loading, lease.lost]) : loading);
       lease?.assertOwned();
@@ -577,7 +567,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
       throw error;
     } finally {
-      if (settled) release();
+      if (!loaderStarted) release();
     }
 
     this.emit({ type: 'loader:success', key, durationMs: Date.now() - startedAt });
@@ -649,9 +639,15 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private async loadWithDistributedLock(key: K, loader: CacheLoader<V>, options: CacheOptions): Promise<V | undefined> {
+    this.originGate.ensureOpen();
+    const releaseOrigin = this.originLoadEnabled(options) ? await this.originGate.acquire(key) : undefined;
+    return this.loadWithDistributedLockInternal(key, loader, options, releaseOrigin);
+  }
+
+  private async loadWithDistributedLockInternal(key: K, loader: CacheLoader<V>, options: CacheOptions, releaseOrigin?: () => void): Promise<V | undefined> {
     const l2 = this.l2;
     if (!this.distributedLockEnabled(options) || !supportsDistributedLock(l2)) {
-      return this.loadAndStore(key, loader, options);
+      return this.loadAndStore(key, loader, options, undefined, releaseOrigin);
     }
 
     const lockTtlMs = options.distributedLock?.ttlMs ?? this.options.distributedLock?.ttlMs ?? DEFAULT_LOCK_TTL_MS;
@@ -682,7 +678,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
           const cached = await this.get(key);
           if (cached !== undefined) return cached;
           if (this.hasNegative(key)) return undefined;
-          return await this.loadAndStore(key, loader, options, lease);
+          return await this.loadAndStore(key, loader, options, lease, releaseOrigin);
         } finally {
           lease.stop();
           await this.runL2('releaseLock', key, () => l2.releaseLock(key, token));
@@ -692,7 +688,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       // Preserve fail-open on Redis failure, but do not mistake contention for
       // an outage or bypass an owner we have already observed.
       if (acquired === undefined && !contended) {
-        return this.loadAndStore(key, loader, options);
+        return this.loadAndStore(key, loader, options, undefined, releaseOrigin);
       }
       contended = true;
       const remainingMs = waitUntil - Date.now();
@@ -705,13 +701,15 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     }
 
     this.emit({ type: 'lock:timeout', key, timeoutMs: waitTimeoutMs, onTimeout });
-    if (onTimeout === 'load') return this.loadAndStore(key, loader, options);
+    if (onTimeout === 'load') return this.loadAndStore(key, loader, options, undefined, releaseOrigin);
 
     const stale = this.getStale(key);
     if (stale !== undefined && this.failSafeEnabled(options)) {
+      releaseOrigin?.();
       this.emit({ type: 'stale:hit', key, reason: 'lock-timeout' });
       return stale;
     }
+    releaseOrigin?.();
     throw new DistributedLockTimeoutError(key, waitTimeoutMs);
   }
 

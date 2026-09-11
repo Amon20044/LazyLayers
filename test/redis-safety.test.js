@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 const { L2OperationGate, L2OperationOverloadError, L2OperationTimeoutError,
-  CircuitBreaker, RedisPipelineCommandError, validateRedisPipeline } = await import('../dist/index.js');
+  CircuitBreaker, RedisPipelineCommandError, validateRedisPipeline,
+  OriginLoadGate, OriginLoadClosedError } = await import('../dist/index.js');
 
 test('pipeline validator preserves cause and redacts key context', () => {
   const cause = new Error('ERR simulated');
@@ -53,4 +54,18 @@ test('half-open breaker admits one probe', () => {
   assert.equal(breaker.currentState, 'open');
   breaker.recordSuccess(epoch);
   assert.equal(breaker.currentState, 'open');
+});
+
+test('origin gate retains duplicate queued callers and releases permits idempotently', async () => {
+  const gate = new OriginLoadGate({ maxConcurrent: 1, maxQueued: 2, queueTimeoutMs: 100 });
+  const first = await gate.acquire('first');
+  const second = gate.acquire('same');
+  const third = gate.acquire('same');
+  assert.equal(gate.stats().queued, 2);
+  first(); first();
+  (await second)();
+  (await third)();
+  assert.equal(gate.stats().active, 0);
+  gate.close();
+  await assert.rejects(gate.acquire('closed'), OriginLoadClosedError);
 });

@@ -65,6 +65,8 @@ export class OriginLoadGate<K extends CacheKey = string> {
     });
   }
 
+  ensureOpen(): void { if (this.closed) throw new OriginLoadClosedError(); }
+
   stats(): { active: number; queued: number; rejected: number; maxObserved: number; closed: boolean } {
     return { active: this.active, queued: this.queued.size, rejected: this.rejected, maxObserved: this.maxObserved, closed: this.closed };
   }

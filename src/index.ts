@@ -72,6 +72,7 @@ export {
   HybridCache,
   LazyLayersCache,
   OriginLoadClosedError,
+  OriginLoadGate,
   OriginLoadOverloadError,
   MemoryStore,
   RedisStore,
