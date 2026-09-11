@@ -18,6 +18,7 @@ import {
   sizeSavings,
 } from '../utils/serializer.js';
 import { DEFAULT_CACHE_TTL_MS } from './defaults.js';
+import { validateRedisPipeline } from './redisPipeline.js';
 
 /** Default keys-per-page (SCAN COUNT) when a dashboard inspects the L2 layer. */
 const DEFAULT_INSPECT_LIMIT = 100;
@@ -67,7 +68,10 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
       pipeline.zadd(this.indexKey, Date.now(), redisKey);
     }
 
-    await pipeline.exec();
+    validateRedisPipeline(await pipeline.exec(), [
+      { command: 'SET', key: redisKey },
+      ...(this.useIndex() ? [{ command: 'ZADD', key: this.indexKey }] : []),
+    ]);
     debugLog('redis set', { key: redisKey, ttlMs, indexed: this.useIndex() });
 
     if (maxEntries !== undefined && this.useIndex()) {
@@ -222,7 +226,12 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
         }
       }
 
-      const results = (await pipeline.exec()) ?? [];
+      const commands: { command: string; key?: string }[] = [];
+      for (const redisKey of redisKeys) {
+        commands.push({ command: 'PTTL', key: redisKey });
+        if (includeValues) commands.push({ command: 'GET', key: redisKey });
+      }
+      const results = validateRedisPipeline(await pipeline.exec(), commands);
       let resultIndex = 0;
 
       for (const redisKey of redisKeys) {
@@ -370,7 +379,10 @@ export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore 
         pipeline.zrem(this.indexKey, ...batch);
       }
 
-      await pipeline.exec();
+      validateRedisPipeline(await pipeline.exec(), [
+        { command: this.options.deleteStrategy === 'del' ? 'DEL' : 'UNLINK', key: batch[0] },
+        ...(this.useIndex() ? [{ command: 'ZREM', key: this.indexKey }] : []),
+      ]);
       debugLog('redis delete batch', {
         count: batch.length,
         strategy: this.options.deleteStrategy ?? 'unlink',
