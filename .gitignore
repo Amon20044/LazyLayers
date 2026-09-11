@@ -8,6 +8,7 @@ dist-cjs/
 # benchmark run artefacts
 benchmarks/results.json
 benchmarks/throughput.json
+benchmarks/herd.json
 benchmarks/node_modules/
 benchmarks/package*.json
 

@@ -154,16 +154,62 @@ Use the **[memory and cost calculator](https://lazy-layers-cache.vercel.app/#cal
 
 ## Development
 
-### Release memory benchmark
+### v0.5.2 stress and release checks
 
-Run the reproducible harness with `npm run bench:release-memory`. It compares the current build with a published baseline when `LAZY_BASELINE_MODULE` points to that baseline’s entry module. Set `LAZY_BENCH_ITERATIONS`, `LAZY_BENCH_SEED`, and `LAZY_BENCH_OUTPUT` to control the run. The JSON records Node/OS/seed metadata, throughput, latency percentiles, event-loop delay, memory counters, errors, and origin-gate stats. Redis transport scenarios are explicitly marked skipped because the default harness uses no L2; measure those separately against a controlled Redis service. These results are workload- and machine-specific measurements, not universal performance guarantees.
+`v0.5.2` adds stress coverage for the new memory, queue, and invalidation
+controls. Run the focused safety suite while changing those paths:
+
+```bash
+npm run test:release-safety
+```
+
+It covers encoded-L1 ownership and expiry accounting, shared memory-budget
+pressure, bounded origin and L2 work, delayed L2 promotion, local and remote
+invalidation fencing, Redis reconnects, and retry-queue overflow or mutation.
+
+For hot-key pressure, use the herd benchmark:
+
+```bash
+npm run bench:herd
+# Optional: raise the concurrent caller count.
+LAZY_HERD_CALLERS=50000 npm run bench:herd
+```
+
+The default run creates 10,000 simultaneous `getOrSet` calls for one cold key.
+It reports loader calls, in-flight reuses, elapsed time, and result correctness
+for the default path and an explicitly unsafe comparison with both in-flight
+dedupe and the origin guard disabled. A healthy default run makes one loader
+call and reuses it for the remaining 9,999 callers.
+
+The release-memory harness exercises hot reads, distinct miss surges,
+oversized payload churn, shifting hot sets, an L2-outage shape, and uneven
+three-replica traffic:
+
+```bash
+npm run bench:release-memory
+LAZY_BENCH_ITERATIONS=10000 LAZY_BENCH_SEED=20250911 \
+  LAZY_BENCH_OUTPUT=benchmarks/release-memory.json npm run bench:release-memory
+```
+
+Its JSON records Node and OS metadata, seed, throughput, latency percentiles,
+event-loop delay, process-memory deltas, errors, and origin-gate statistics.
+Set `LAZY_BASELINE_MODULE` to compare the current build with a published
+baseline. The default harness intentionally has no L2, so Redis transport
+performance must be measured separately against a controlled Redis service.
+All benchmark results are workload- and machine-specific, not universal
+performance guarantees.
+
+For the full release gate, including real Redis when available:
 
 ```bash
 npm ci
 npm run ci
+REDIS_URL=redis://127.0.0.1:6379 npm run ci
 ```
 
-The GitHub Actions workflow runs type checks, ESM/CommonJS builds, unit tests, integration tests, live Redis/RabbitMQ/NATS tests, benchmarks, the site build, and the documentation build.
+The GitHub Actions workflow runs type checks, ESM/CommonJS package checks, unit
+and release-safety tests, integration tests, live Redis/RabbitMQ/NATS tests,
+serializer benchmarks, the site build, and the documentation build.
 
 ## License
 

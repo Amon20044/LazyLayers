@@ -1,7 +1,11 @@
-// Run with NODE_ENV=production to silence the cache's debug logging.
-import { LazyLayersCache } from '../dist/index.js';
+// The benchmark compares the safe default with an explicitly unsafe baseline.
+process.env.NODE_ENV ??= 'production';
+const { LazyLayersCache } = await import('../dist/index.js');
 
-const N = 10_000;
+const N = Number.parseInt(process.env.LAZY_HERD_CALLERS ?? '10000', 10);
+if (!Number.isSafeInteger(N) || N < 1) {
+  throw new RangeError('LAZY_HERD_CALLERS must be a positive safe integer');
+}
 
 async function run(label, makeCache, opts = {}) {
   const cache = makeCache();
@@ -33,7 +37,14 @@ async function run(label, makeCache, opts = {}) {
 console.log('\nThundering herd — 10,000 concurrent getOrSet on one cold key\n');
 
 const deduped = await run('with inflight dedupe (default)', () => new LazyLayersCache({ ttlMs: 60_000 }));
-const naive = await run('with inflight disabled', () => new LazyLayersCache({ ttlMs: 60_000, inflight: { enabled: false } }));
+const naive = await run(
+  'with inflight + origin guard disabled',
+  () => new LazyLayersCache({
+    ttlMs: 60_000,
+    inflight: { enabled: false },
+    originLoad: { enabled: false },
+  }),
+);
 
 console.log(`\ncollapse ratio: ${N} callers -> ${deduped.loaderCalls} loader call` +
             `  (${(N / deduped.loaderCalls).toFixed(0)}x fewer origin hits than the undeduped path's ${naive.loaderCalls})`);

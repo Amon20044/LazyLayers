@@ -55,6 +55,8 @@
     "prepublishOnly": "npm run ci",
     "ci": "npm run clean && npm run typecheck && npm run build && npm test && npm run verify:package",
     "test": "node --test",
+    "test:release-safety": "npm run build && node --test test/encoded-memory.test.js test/memory-budget.test.js test/origin-load-gate.test.js test/redis-safety.test.js test/release-safety-regressions.test.js",
+    "bench:herd": "npm run build && node benchmarks/herd.mjs",
     "bench:release-memory": "npm run build && node benchmarks/release-memory.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "verify:package": "node scripts/verify-package.mjs",
