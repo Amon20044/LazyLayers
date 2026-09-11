@@ -4,6 +4,10 @@ export type CacheKey = string | number;
 export interface CacheLevelOptions {
     maxEntries?: number;
     ttlMs?: number;
+    maxMemory?: number | `${number}%` | `${number}${'B'|'KB'|'MB'|'GB'|'KiB'|'MiB'|'GiB'}`;
+    minMemory?: number | `${number}%` | `${number}${'B'|'KB'|'MB'|'GB'|'KiB'|'MiB'|'GiB'}`;
+    autoEvict?: { enabled?: boolean };
+    admission?: { enabled?: boolean; maxEntryBytes?: number };
 }
 
 export interface CacheLoaderContext {
@@ -70,6 +74,7 @@ export interface DistributedLockOptions {
 }
 
 export interface CacheOptions {
+    memoryBudget?: import('../cache/memoryBudget.js').MemoryBudget;
     ttlMs?: number;
     levels?: Partial<Record<CacheLevel, CacheLevelOptions>>;
     inflight?: InflightOptions;
@@ -99,8 +104,9 @@ export interface CacheStore<K extends CacheKey, V> {
 
 /** Optional internal capability for stores that retain the serializer wire value. */
 export interface EncodedCacheStore<K extends CacheKey, V> extends CacheStore<K, V> {
+    readonly encodedFormat?: 'lazy-layers-hc1';
     setEncoded(key: K, buffer: Uint8Array, options?: CacheOptions): Promise<void>;
-    getEncoded(key: K): Promise<{ buffer: Buffer; ttlRemainingMs: number } | undefined>;
+    getEncoded(key: K): Promise<{ buffer: Buffer; ttlRemainingMs: number; originalBytes?: number } | undefined>;
 }
 
 /** Options for a single page of read-only store introspection (observability). */

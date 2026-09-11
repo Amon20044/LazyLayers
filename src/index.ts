@@ -61,6 +61,11 @@ export type {
   LazyLayersCacheOptions,
   RedisStoreOptions,
   L2OperationGateOptions,
+  MemoryBudgetOptions,
+  MemoryBudgetSnapshot,
+  MemoryCategory,
+  MemoryLimit,
+  MemoryStoreStats,
 } from './cache/index.js';
 export {
   CircuitBreaker,
@@ -84,6 +89,9 @@ export {
   RedisPipelineCommandError,
   redisKeyDigest,
   validateRedisPipeline,
+  MemoryBudget,
+  getDefaultMemoryBudget,
+  resetDefaultMemoryBudget,
 } from './cache/index.js';
 export type { CacheLoggerOptions, CacheRuntimeEnv } from './utils/debugLog.js';
 export type { BufferInspection, CacheEncoding, SerializedCacheValue } from './utils/serializer.js';

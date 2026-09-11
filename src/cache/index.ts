@@ -20,5 +20,10 @@ export {
   OriginLoadOverloadError,
 } from './originLoadGate.js';
 export { MemoryStore } from './memoryStore.js';
+export type { MemoryStoreStats } from './memoryStore.js';
+export { MemoryBudget, getDefaultMemoryBudget, resetDefaultMemoryBudget } from './memoryBudget.js';
+export type { MemoryBudgetOptions, MemoryBudgetSnapshot, MemoryCategory, MemoryLimit } from './memoryBudget.js';
+export { readMemorySignals, resolveEffectiveMemory } from './memorySignals.js';
+export type { MemorySignalReader, MemorySignals } from './memorySignals.js';
 export type { RedisStoreOptions } from './redisStore.js';
 export { RedisStore } from './redisStore.js';
