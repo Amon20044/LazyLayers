@@ -11,6 +11,7 @@ export type {
   InflightEntry,
   InflightOptions,
   InflightStore,
+  OriginLoadOptions,
   InspectableStore,
   KeyInspection,
   StoreInspectOptions,

@@ -36,6 +36,7 @@ export type {
   InflightEntry,
   InflightOptions,
   InflightStore,
+  OriginLoadOptions,
   InspectableStore,
   InvalidationEvent,
   InvalidationType,
@@ -68,6 +69,8 @@ export {
   DEFAULT_L1_MAX_ENTRIES,
   HybridCache,
   LazyLayersCache,
+  OriginLoadClosedError,
+  OriginLoadOverloadError,
   MemoryStore,
   RedisStore,
 } from './cache/index.js';

@@ -27,6 +27,16 @@ export interface InflightOptions {
     maxEntries?: number;
 }
 
+/** Process-local bound on executions that reach the origin loader. */
+export interface OriginLoadOptions {
+    enabled?: boolean;
+    maxConcurrent?: number;
+    /** Maximum number of distinct keys waiting for a slot. */
+    maxQueued?: number;
+    /** How long a queued request may wait before it is rejected. */
+    queueTimeoutMs?: number;
+}
+
 export interface NegativeCacheOptions {
     enabled?: boolean;
     ttlMs?: number;
@@ -63,6 +73,7 @@ export interface CacheOptions {
     ttlMs?: number;
     levels?: Partial<Record<CacheLevel, CacheLevelOptions>>;
     inflight?: InflightOptions;
+    originLoad?: OriginLoadOptions;
     negativeCache?: NegativeCacheOptions;
     failSafe?: FailSafeOptions;
     timeouts?: TimeoutOptions;

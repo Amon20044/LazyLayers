@@ -26,6 +26,7 @@ import {
   DEFAULT_NEGATIVE_TTL_MS,
   DEFAULT_STALE_TTL_MS,
 } from './defaults.js';
+import { OriginLoadGate, OriginLoadOverloadError } from './originLoadGate.js';
 import {
   DistributedLockTimeoutError,
   maintainLock,
@@ -110,6 +111,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   private closePromise?: Promise<void>;
   private observabilityHandler?: ObservabilityRequestHandler;
   private observabilityServer?: ObservabilityServerHandle;
+  private readonly originGate: OriginLoadGate<K>;
 
   constructor(private readonly options: HybridCacheOptions<K, V> = {}) {
     configureCacheLogger(options.logging);
@@ -118,6 +120,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     this.source = options.source ?? createSourceId();
     this.l2CircuitBreaker = new CircuitBreaker(options.resilience?.l2CircuitBreaker);
     this.eventBusCircuitBreaker = new CircuitBreaker(options.resilience?.eventBusCircuitBreaker);
+    this.originGate = new OriginLoadGate(options.originLoad);
     options.events?.forEach((handler) => this.eventHandlers.add(handler));
 
     if (options.eventBus && options.subscribeToEvents !== false) {
@@ -252,6 +255,11 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     return this.observabilityServer;
   }
 
+  /** Bounded origin-load health counters, suitable for a metrics adapter. */
+  getOriginLoadStats(): ReturnType<OriginLoadGate<K>['stats']> {
+    return this.originGate.stats();
+  }
+
   /** Stop the standalone observability server (if any). Safe to call when off. */
   async closeObservability(): Promise<void> {
     if (this.observabilityServer) {
@@ -279,6 +287,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   }
 
   private async closeResources(): Promise<void> {
+    this.originGate.close();
     const results = await Promise.allSettled([
       this.closeObservability(),
       this.options.eventBus?.disconnect?.() ?? Promise.resolve(),
@@ -516,11 +525,28 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     const startedAt = Date.now();
     const controller = lease?.controller ?? new AbortController();
     let value: V | undefined;
+    let releaseOrigin: (() => void) | undefined;
+    try {
+      if (this.originLoadEnabled(options)) releaseOrigin = await this.originGate.acquire(key);
+    } catch (error) {
+      const stale = this.getStale(key);
+      if (stale !== undefined && this.failSafeEnabled(options)) {
+        this.emit({ type: 'stale:hit', key, reason: 'loader-error' });
+        return stale;
+      }
+      throw error;
+    }
+    let released = false;
+    let settled = false;
+    const release = () => { settled = true; if (!released) { released = true; releaseOrigin?.(); } };
 
     try {
       lease?.assertOwned();
+      // A queued miss can become a hit while waiting; never invoke the origin in that case.
+      const queuedCached = await this.get(key);
+      if (queuedCached !== undefined || this.hasNegative(key)) return queuedCached;
       this.emit({ type: 'loader:start', key });
-      const loading = this.runLoaderWithTimeouts(key, loader, controller, options);
+      const loading = this.runLoaderWithTimeouts(key, loader, controller, options, release);
       value = await (lease ? Promise.race([loading, lease.lost]) : loading);
       lease?.assertOwned();
     } catch (error) {
@@ -535,7 +561,16 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
         return stale;
       }
 
+      if (error instanceof OriginLoadOverloadError || (error as { code?: string })?.code === 'ORIGIN_LOAD_CLOSED') {
+        if (stale !== undefined && this.failSafeEnabled(options)) {
+          this.emit({ type: 'stale:hit', key, reason: 'loader-error' });
+          return stale;
+        }
+      }
+
       throw error;
+    } finally {
+      if (settled) release();
     }
 
     this.emit({ type: 'loader:success', key, durationMs: Date.now() - startedAt });
@@ -789,6 +824,10 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     return options.inflight?.enabled === false || this.options.inflight?.enabled === false;
   }
 
+  private originLoadEnabled(options: CacheOptions): boolean {
+    return options.originLoad?.enabled !== false && this.options.originLoad?.enabled !== false;
+  }
+
   /**
    * Opt-out. `loadWithDistributedLock` already falls through when L2 cannot
    * lock, so this costs a single-process cache nothing.
@@ -844,12 +883,14 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     loader: CacheLoader<V>,
     controller: AbortController,
     options: CacheOptions,
+    onLoaderSettled?: () => void,
   ): Promise<V | undefined> {
     const softMs = options.timeouts?.softMs ?? this.options.timeouts?.softMs;
     const hardMs = options.timeouts?.hardMs
       ?? this.options.timeouts?.hardMs
       ?? DEFAULT_LOADER_HARD_TIMEOUT_MS;
-    const loaderPromise = loader({ signal: controller.signal });
+    const loaderPromise = Promise.resolve().then(() => loader({ signal: controller.signal }));
+    if (onLoaderSettled) void loaderPromise.then(onLoaderSettled, onLoaderSettled);
     const stale = this.getStale(key);
 
     if (softMs !== undefined && stale !== undefined && this.failSafeEnabled(options)) {

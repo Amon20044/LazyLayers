@@ -11,6 +11,11 @@ export type {
   LazyLayersCacheOptions,
 } from './hybridCache.js';
 export { HybridCache, LazyLayersCache } from './hybridCache.js';
+export {
+  OriginLoadClosedError,
+  OriginLoadGate,
+  OriginLoadOverloadError,
+} from './originLoadGate.js';
 export { MemoryStore } from './memoryStore.js';
 export type { RedisStoreOptions } from './redisStore.js';
 export { RedisStore } from './redisStore.js';
