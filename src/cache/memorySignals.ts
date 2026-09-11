@@ -1,4 +1,5 @@
 import * as os from 'node:os';
+import { readFileSync } from 'node:fs';
 
 /** Feature-detected memory and Linux cgroup signals. Missing values remain undefined. */
 export interface MemorySignalReader {
@@ -28,7 +29,7 @@ export interface MemorySignals {
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
 
 function cgroupLimit(reader: MemorySignalReader, root = '/sys/fs/cgroup'): number | undefined {
-  const read = reader.readFile;
+  const read = reader.readFile ?? ((path: string) => { try { return readFileSync(path, 'utf8'); } catch { return undefined; } });
   if (!read) return undefined;
   const candidates = [
     `${root}/memory.max`, `${root}/memory/memory.limit_in_bytes`,
@@ -64,7 +65,10 @@ export function readMemorySignals(reader: MemorySignalReader = {}): MemorySignal
   const available = finite(reader.availableMemoryBytes) ? reader.availableMemoryBytes :
     (proc as any)?.availableMemory?.();
   const cgroup = cgroupLimit(reader, (reader as any).cgroupRoot);
-  const psi = finite(reader.psiSomeAvg10) ? reader.psiSomeAvg10 : undefined;
+  const read = reader.readFile ?? ((path: string) => { try { return readFileSync(path, 'utf8'); } catch { return undefined; } });
+  const psiText = read('/proc/pressure/memory');
+  const psiMatch = psiText?.match(/^some\s+avg10=([\d.]+)/m);
+  const psi = finite(reader.psiSomeAvg10) ? reader.psiSomeAvg10 : (psiMatch ? Number(psiMatch[1]) : undefined);
   const result: MemorySignals = { hostBytes: hostBytes ?? undefined, effectiveBytes: undefined, rssBytes: rss, heapUsedBytes: heapUsed, heapTotalBytes: heapTotal, availableBytes: available, psiSomeAvg10: psi, cgroupBytes: cgroup, available: {} };
   for (const [key, value] of Object.entries({ host: result.hostBytes, rss, heapUsed, heapTotal, available, cgroup, psi })) result.available[key] = value !== undefined;
   result.effectiveBytes = [result.hostBytes, result.cgroupBytes].filter(finite).reduce((a, b) => Math.min(a, b), Infinity);
