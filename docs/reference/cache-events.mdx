@@ -52,7 +52,7 @@ Three things are true of every handler:
 
 | Event | Payload | Fires when |
 |---|---|---|
-| `hit` | `key`, `level` | A read is served. `level` is `'L1'` or `'L2'`. An `'L2'` hit also promotes the value into L1 before returning. |
+| `hit` | `key`, `level` | A read is served. `level` is `'L1'` or `'L2'`. An `'L2'` hit is eligible for local promotion before returning. |
 | `miss` | `key`, `level` | A layer had nothing. `level` is `'L1'`, `'L2'` or `'negative'`. |
 | `set` | `key`, `levels` | A value is written locally, including the write that follows a resolved loader. |
 | `delete` | `key` | A key is dropped locally, whether by your `delete` call or by an inbound `del` event from a peer. |
@@ -110,6 +110,7 @@ One gap worth knowing: when a loader resolves `undefined` and a stale copy exist
 |---|---|---|
 | `l2:error` | `operation`, `key`, `state`, `error` | An L2 call threw. The failure is counted against the L2 breaker and the read falls back. |
 | `l2:skipped` | `operation`, `key`, `state` | An L2 call was skipped because the L2 breaker is open. |
+| `promotion:bypassed` | `key`, `reason`, `bytes` | An L2 hit or peer value was returned or accepted without growing L1 because the process was under pressure or the local byte target had no room. |
 | `event-bus:publish-error` | `eventType`, `state`, `error` | A publish threw. The failure is counted against the bus breaker. |
 | `event-bus:publish-skipped` | `eventType`, `state` | A publish was skipped because the bus breaker is open. |
 

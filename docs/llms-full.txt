@@ -59,7 +59,7 @@ const cache = new LazyLayersCache<string, User>({
 
 ### Layers
 
-- **L1**: In-process LRU via lru-cache. Holds live JavaScript objects. Nanosecond reads.
+- **L1**: In-process, byte-bounded LRU via lru-cache. Holds encoded serializer buffers and decodes on reads.
 - **L2**: Shared Redis store via ioredis. Holds MessagePack bytes. Millisecond reads.
 - Layers are opt-in. You can run L1-only, L2-only, or both.
 

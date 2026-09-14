@@ -18,10 +18,13 @@ export type CacheEvent =
   | { type: 'negative:set'; key: CacheKey; ttlMs: number }
   | { type: 'l2:error'; operation: string; key: CacheKey | string; state: CircuitBreakerState; error: unknown }
   | { type: 'l2:skipped'; operation: string; key: CacheKey | string; state: CircuitBreakerState }
+  | { type: 'promotion:bypassed'; key: CacheKey; reason: 'pressure' | 'budget'; bytes?: number }
   | { type: 'event-bus:publish-error'; eventType: string; state: CircuitBreakerState; error: unknown }
   | { type: 'event-bus:publish-skipped'; eventType: string; state: CircuitBreakerState }
   | { type: 'invalidation:received'; eventId: string; eventType: string }
   | { type: 'invalidation:duplicate'; eventId: string }
+  | { type: 'invalidation:untrusted' }
+  | { type: 'invalidation:trusted' }
   | {
     type: 'invalidation:stale';
     eventId: string;

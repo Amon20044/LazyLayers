@@ -14,19 +14,51 @@ They compare `lazy-layers-cache`'s serializer (MessagePack + size-tiered LZ4/Zst
 npm run build                    # the harness imports from dist/
 npm --prefix benchmarks i        # installs bentocache fixture dependency
 node benchmarks/run.mjs          # single pipeline: bytes, round-trip check & median-of-15 throughput
-NODE_ENV=production node benchmarks/herd.mjs   # stampede collapse
+npm run bench:herd               # 10,000-caller stampede collapse
+npm run bench:release-memory     # v0.5.2 memory and queue workload harness
 ```
 
 ## Thundering herd
 
-`herd.mjs` fires 10,000 concurrent `getOrSet` calls at a single cold key within one Node.js process and counts loader executions.
+`herd.mjs` fires 10,000 concurrent `getOrSet` calls at a single cold key within one Node.js process and counts loader executions. Set `LAZY_HERD_CALLERS` to raise or lower the concurrent caller count.
 
 ```txt
 with inflight dedupe (default)   callers=10000  loaderCalls=1      inflightReuse=9999
-with inflight disabled           callers=10000  loaderCalls=10000  inflightReuse=0
+with inflight + origin guard disabled
+                                 callers=10000  loaderCalls=10000  inflightReuse=0
 ```
 
-The first caller's promise is stored and every concurrent caller for that key awaits the same promise, so the origin sees one loader invocation instead of ten thousand. Both runs assert every caller received the correct value.
+The first caller's promise is stored and every concurrent caller for that key awaits the same promise, so the origin sees one loader invocation instead of ten thousand. The comparison deliberately disables both protections to measure the unbounded baseline. Both runs assert every caller received the correct value.
+
+## v0.5.2 release stress harness
+
+`release-memory.mjs` emits JSON for deterministic workloads that match their names:
+
+- hot-key reads
+- concurrent distinct-key surges with measured actual loader concurrency
+- incompressible oversized-object scans
+- two-phase changing hot sets
+- injected L2 failure handling
+- uneven traffic routed across three real cache instances
+- synthetic critical-memory pressure against an encoded L1 store
+
+The pressure scenario (v0.5.2 only) verifies that the shared budget reaches `critical` and
+evicts retained entries to the reduced target. The harness exits nonzero if any
+workload reports an error, making it suitable for CI.
+
+It records throughput, latency percentiles, process CPU time, event-loop delay, before/peak/after process memory, cache telemetry, accounted bytes, error count, and origin-gate statistics. To compare the published baseline, install v0.5.1 outside this repository and pass its ESM entry point:
+
+```bash
+LAZY_BENCH_ITERATIONS=10000 \
+LAZY_BENCH_SEED=20250911 \
+LAZY_BASELINE_MODULE=/tmp/lazy-baseline/node_modules/lazy-layers-cache/dist/index.js \
+LAZY_BENCH_OUTPUT=benchmarks/release-memory.json \
+npm run bench:release-memory
+```
+
+The outage workload uses an intentionally failing `CacheStore`; it does not claim to measure Redis server behavior. Run the live Redis tests with `REDIS_URL` against a controlled Redis 7/8 service when measuring transport behavior. Every release/workload pair uses a fresh child process, so peak memory from one workload cannot contaminate another.
+
+The executable release gates require all workloads to complete without errors, origin concurrency to remain at or below the configured limit of 16, the oversized scan to retain no rejected values, critical pressure to evict below its adaptive target, and every measured workload to report p95/p99 latency, CPU time, and peak RSS. Throughput is reported for comparison but is not given a universal threshold because encoded L1 deliberately trades CPU for bounded retained bytes and results vary by machine.
 
 ## Reading the results
 

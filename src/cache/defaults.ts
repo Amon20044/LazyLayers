@@ -2,6 +2,8 @@ export const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1_000;
 export const DEFAULT_L1_MAX_ENTRIES = 1_000;
 /** Minimum for the automatic in-flight lifetime, extended to cover wait and loader budgets. */
 export const DEFAULT_INFLIGHT_TTL_MS = 5_000;
+/** Finite default prevents an unconfigured miss storm retaining promises forever. */
+export const DEFAULT_INFLIGHT_MAX_ENTRIES = 1_024;
 
 /**
  * Safety defaults.

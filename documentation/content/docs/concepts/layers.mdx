@@ -16,16 +16,19 @@ Two layers is not a compromise between those. L1 answers "how fast is a repeat r
 
 ## L1, the copy in this process
 
-L1 is an LRU inside your process heap, holding live JavaScript objects. A hit costs a map lookup. Nothing is serialized, nothing crosses a socket.
+L1 is an LRU inside your process heap, holding Lazy Layers serializer buffers. A hit costs a map lookup plus a decode, but nothing crosses a socket. Encoding makes retained payload bytes measurable and prevents caller mutation from changing cached state.
 
-It is created for you when you do not pass `l1`, and it has exactly two dials.
+It is created for you when you do not pass `l1`.
 
 | Dial | Default | What it controls |
 | --- | --- | --- |
 | `levels.L1.maxEntries` | `1_000` | How many keys the LRU holds before it evicts the least recently used one |
 | `levels.L1.ttlMs` | falls back to `ttlMs`, then one hour | How long an entry lives regardless of use |
+| `levels.L1.maxMemory` | `20%` | Shared process-local ceiling for encoded payloads and bounded metadata |
+| `levels.L1.autoEvict.enabled` | `true` | Whether machine pressure can lower the active byte target |
+| `levels.L1.admission.enabled` | `true` | Whether a new candidate competes with sampled LRU-tail entries when space is tight |
 
-There is no third dial. The eviction policy is LRU and is not configurable, there is no byte based limit, and there is no LFU or FIFO mode.
+Eviction order remains LRU. The bounded history influences admission only; it does not turn the cache into LFU or add a configurable replacement policy.
 
 L1 lives in the process, so it is per server. Three servers means three L1 caches that know nothing about each other. Closing that gap is the job of the event bus, through the [lazy fan-out](/docs/concepts/lazy-loading#the-lazy-fan-out) and [invalidation](/docs/concepts/invalidation), not of L1 itself.
 
@@ -93,28 +96,28 @@ flowchart TB
     N -->|no| B{L1 hit?}
     B -->|yes| R[return value]
     B -->|no| C{L2 hit?}
-    C -->|yes| P[promote into L1] --> R
+    C -->|yes| P[promote if local budget permits] --> R
     C -->|no| L[run the loader once] --> W[write L1 and L2] --> R
 ```
 
-The promotion step is what makes the second read cheap. A value found in L2 is written into L1 before it is returned, so the next read on that server never touches the network. The round trip is paid once per server per TTL, not once per request.
+The promotion step normally makes the second read cheap. A value found in L2 is written into L1 before it is returned when the local budget permits. During pressure it is returned without promotion, so Redis remains available without immediately refilling the hot set.
 
 ## What each layer is for
 
 | | L1 | L2 |
 | --- | --- | --- |
-| Holds | live objects | encoded bytes |
-| Cost of a hit | a map lookup | a round trip plus a decode |
+| Holds | encoded bytes | encoded bytes |
+| Cost of a hit | a map lookup plus a decode | a round trip plus a decode |
 | Scope | one process | the whole fleet |
 | Survives a restart | no | yes |
 | When it fails | it cannot, it can only evict or expire | treated as a miss, the read continues |
 | A wrong value affects | one server, until its TTL | every server, until it is deleted |
 
-## Sizing L1 by entry count
+## Sizing L1 by bytes and entry count
 
-`maxEntries` is the only size dial, and it counts entries, not bytes. Translating that into memory is your job, and it is arithmetic you have to do with your own value sizes.
+`maxMemory` is the hard process-local accounting ceiling and defaults to `20%` of effective host or container memory. `maxEntries` remains a second guard against a huge population of tiny keys.
 
-Multiply the entry count by a typical decoded value size, then keep the result to a fraction of the heap you are willing to spend.
+Budget encoded payloads, estimated key and metadata overhead, and fail-safe snapshots. Returned decoded objects and values still owned by application code are outside this ledger, so the ceiling is not a process RSS guarantee.
 
 | Typical value | Rough size | 10,000 entries | Reasonable ceiling |
 | --- | --- | --- | --- |
@@ -123,12 +126,12 @@ Multiply the entry count by a typical decoded value size, then keep the result t
 | Rendered list page | ~18 KB | ~180 MB | 1,000 |
 
 <Note>
-  These are estimates, not measurements. There is no byte based limit, so one unexpectedly large value counts as a single entry no matter how big it is, and one of those can blow straight past your estimate.
+  These values are planning examples. Runtime metrics expose the configured hard cap, adaptive target, accounted bytes, categories, pressure state, and admission outcomes.
 </Note>
 
 `ttlMs` is a size dial too, and an easier one to reason about. A shorter L1 TTL means fewer entries are alive at any moment, which caps memory by turnover rather than by count.
 
-Under Node clustering, every worker keeps its own L1 in its own heap. Budget `maxEntries x workers`, not `maxEntries`.
+Under Node clustering, every worker keeps its own L1 and process-local budget. Divide a host allowance across workers or set a container limit for each worker.
 
 ## TTLs resolve from most specific to least
 

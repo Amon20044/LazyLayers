@@ -235,10 +235,17 @@ function createFakeNatsConnection(options = {}) {
     subscribe() {
       return {
         async *[Symbol.asyncIterator]() {
+          if (options.iteratorHangs) {
+            await new Promise(() => {});
+          }
           // An iterator that ends immediately is exactly what a connection that
           // gave up reconnecting looks like from the bus's point of view.
         },
+        unsubscribe() {},
         async drain() {
+          if (options.drainHangs) {
+            await new Promise(() => {});
+          }
           if (options.drainFails) {
             throw new Error("connection is closed");
           }
@@ -294,6 +301,15 @@ test("nats disconnect does not drain a connection it did not create", async () =
   await bus.disconnect();
 
   assert.equal(connection.drained, 0);
+});
+
+test("nats disconnect bounds a subscription drain that never settles", async () => {
+  const connection = createFakeNatsConnection({ iteratorHangs: true, drainHangs: true });
+  const bus = new NatsEventBus({ connection, logging: quiet });
+  await bus.subscribe(async () => {});
+  const started = Date.now();
+  await bus.disconnect();
+  assert.ok(Date.now() - started < 1_500);
 });
 
 test("rabbitmq disconnect before init does not throw and is idempotent", async () => {

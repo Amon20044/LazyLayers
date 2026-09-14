@@ -38,7 +38,7 @@ const user = await cache.getOrSet(`user:${id}`, async () => {
 
 ## Core Concepts
 
-- **L1**: In-process LRU via lru-cache. Nanosecond reads.
+- **L1**: In-process encoded LRU with entry and byte bounds plus pressure-aware admission.
 - **L2**: Shared Redis store via ioredis. MessagePack bytes. Millisecond reads.
 - **Event bus**: Carries del, pattern, set events between instances.
 - **Serialization**: Size-tiered compression — none (< 256 B), lz4 (256 B–4 KB), zstd (4 KB+).

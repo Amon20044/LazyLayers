@@ -33,18 +33,19 @@ the coordinator.
 
 ## The single most important accuracy rule
 
-**L1 has exactly two dials: `maxEntries` and `ttlMs`.**
+**L1 eviction order is always LRU.**
 
-`MemoryStore` wraps `lru-cache` with only `max` and `ttl` set
-(`src/cache/memoryStore.ts:29`). There is:
+`MemoryStore` retains serializer wire values and supports entry-count and
+shared-byte-budget controls. Its L1 options are `maxEntries`, `ttlMs`,
+`maxMemory`, `minMemory`, `autoEvict`, and `admission.maxEntryBytes`. There is:
 
-- no configurable eviction policy (it is LRU, always)
-- no byte-based sizing (`maxSize`, `sizeCalculation` are not exposed)
+- no configurable eviction policy beyond LRU
 - no LFU, FIFO, or TTL-only mode
+- no process RSS guarantee. The shared budget is an application-level ledger
+  that responds to available-memory and cgroup pressure signals
 
-Never write "choose an eviction policy". Write "size the entry count". Sizing
-guidance must be expressed as *entries x approximate value size = memory*, and
-must say it is an estimate.
+Never write "choose an eviction policy". Explain entry count and byte-budget
+sizing separately.
 
 ## Option surface (complete, from source)
 
@@ -52,18 +53,20 @@ must say it is an estimate.
 (`src/cache/hybridCache.ts:960`), which extends `CacheOptions`.
 
 From `CacheOptions` (`src/types/core.types.ts:57`):
-`ttlMs`, `levels` (`{ L1?: { maxEntries?, ttlMs? }, L2?: { maxEntries?, ttlMs? } }`),
-`inflight` (`{ enabled?, ttlMs?, maxEntries? }`),
+`memoryBudget`, `ttlMs`, `levels` (`{ L1?: { maxEntries?, ttlMs?, maxMemory?,
+minMemory?, autoEvict?, admission? }, L2?: { maxEntries?, ttlMs? } }`),
+`inflight` (`{ enabled?, ttlMs?, maxEntries? }`), `originLoad`
+(`{ enabled?, maxConcurrent?, maxQueued?, queueTimeoutMs? }`),
 `negativeCache` (`{ enabled?, ttlMs?, maxEntries? }`),
-`failSafe` (`{ enabled?, staleTtlMs? }`),
+`failSafe` (`{ enabled?, staleTtlMs?, maxEntries?, maxBytes? }`),
 `timeouts` (`{ softMs?, hardMs? }`),
 `versioning` (`{ enabled? }`),
 `distributedLock` (`{ enabled?, ttlMs?, waitTimeoutMs?, pollMs? }`).
 
 From `HybridCacheOptions` (`src/cache/hybridCache.ts:56`):
 `l1`, `l2` (a `CacheStore` or `false` to disable), `eventBus`, `source`,
-`subscribeToEvents`, `resilience` (`{ l2CircuitBreaker?, eventBusCircuitBreaker? }`,
-each `{ enabled?, failureThreshold?, cooldownMs? }`), `distributedLock`, `events`,
+`subscribeToEvents`, `resilience` (`{ l2CircuitBreaker?, l2OperationGate?,
+eventBusCircuitBreaker? }`), `distributedLock`, `events`,
 `eventDedupeMaxEntries`, `eventDedupeTtlMs`, `logging`, `broadcastSet`,
 `broadcastSetMaxBytes`, `observability`.
 

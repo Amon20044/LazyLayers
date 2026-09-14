@@ -1,5 +1,8 @@
 import { FIXTURES } from './fixtures.mjs';
 import { serialize, serializeWithStats, deserialize } from '../dist/utils/serializer.js';
+import { readFileSync, writeFileSync } from 'node:fs';
+
+const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
 // Raw JSON baseline (pure serialization)
 const rawJson = { serialize: (v) => JSON.stringify(v), deserialize: (v) => JSON.parse(v) };
@@ -99,11 +102,10 @@ for (const r of rows) {
   );
 }
 
-const { writeFileSync } = await import('node:fs');
 const outData = {
   node: process.version,
   bentocache: '1.6.1',
-  lazyLayers: '0.5.0',
+  lazyLayers: packageVersion,
   reps: REPS,
   rows,
 };

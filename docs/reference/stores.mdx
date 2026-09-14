@@ -28,13 +28,13 @@ interface CacheStore<K extends CacheKey, V> {
 
 ## MemoryStore
 
-The default L1. It wraps `lru-cache` and holds live object references, so a read is a map lookup with no decoding.
+The default L1. It wraps `lru-cache` and owns tagged serializer buffers. Reads decode a fresh value, so caller mutation cannot change the retained entry.
 
 ```ts
 new MemoryStore<K extends CacheKey, V>(options?: CacheOptions)
 ```
 
-Two type parameters, key first. It takes the same `CacheOptions` the cache takes, and reads exactly two fields out of them.
+Two type parameters, key first. It takes the same `CacheOptions` the cache takes and resolves L1 lifetime, count, memory, pressure, and admission settings.
 
 <CodeGroup>
 ```js src/cache/l1.js
@@ -57,9 +57,7 @@ export const l1 = new MemoryStore<string, User>({
 
 You rarely construct one yourself. The cache builds it for you from the options you already passed, unless you set `l1` explicitly or set `l1: false`.
 
-### L1 has exactly two dials
-
-`MemoryStore` sets only `max` and `ttl` on the underlying `lru-cache`.
+### L1 limits and policy
 
 <ParamField path="levels.L1.maxEntries" type="number" default="1000">
   Becomes `max`. A count of entries, not bytes.
@@ -69,12 +67,28 @@ You rarely construct one yourself. The cache builds it for you from the options 
   Becomes `ttl`. Falls back to the cache-wide `ttlMs`, then to one hour.
 </ParamField>
 
+<ParamField path="levels.L1.maxMemory" type="MemoryLimit" default="20%">
+  Hard ceiling shared by built-in stores in one process. Percentages resolve against effective host or container memory.
+</ParamField>
+
+<ParamField path="levels.L1.minMemory" type="MemoryLimit">
+  Optional lower bound for the adaptive target during pressure.
+</ParamField>
+
+<ParamField path="levels.L1.autoEvict.enabled" type="boolean" default="true">
+  Samples runtime and Linux pressure signals and shrinks or gradually recovers the active target. Disabling sampling does not disable byte enforcement.
+</ParamField>
+
+<ParamField path="levels.L1.admission" type="{ enabled?: boolean; maxEntryBytes?: number }">
+  Rejects oversized entries before they displace the hot set and uses bounded history when the cache must choose whether to admit a new value.
+</ParamField>
+
 That is the whole surface.
 
-- **There is no configurable eviction policy.** Eviction is LRU, always. There is no LFU, no FIFO and no TTL-only mode to select.
-- **There is no byte-based sizing.** `maxSize` and `sizeCalculation` are not set and are not exposed, so a single unexpectedly large value can blow past whatever memory budget you had in mind.
+- **There is no configurable replacement policy.** Retained entries remain ordered by LRU. Bounded frequency history affects admission, not victim ordering.
+- **Byte accounting is explicit.** Encoded payloads, key and metadata estimates, and fail-safe snapshots share the configured budget. It is not an RSS guarantee.
 
-Size the entry count instead. Multiply `maxEntries` by a typical decoded value size and keep the result to a fraction of your heap, treating the answer as an estimate rather than a measurement. Under Node clustering every worker keeps its own `MemoryStore`, so budget `maxEntries x workers`.
+Keep `maxEntries` as a count defense for tiny keys and use `maxMemory` for cache-owned retained bytes. Under Node clustering every worker has an independent process-local budget unless the deployment divides a host allowance explicitly.
 
 ### TTL on write
 
@@ -231,7 +245,7 @@ interface KeyInspection {
 
 `limit` defaults to `100` in both stores, and `includeValues` defaults to `true` via a `!== false` check. `maxValueBytes` defaults to `262144`, which is 256 KB, and a value over it is reported with `truncated: true` instead of its contents. An absent `cursor` in the result means the scan is finished.
 
-The two stores differ in what the numbers mean. `MemoryStore` holds live objects, so `serializedBytes` is the size the value **would** take on the wire, computed on demand and skipped for values over the cap. `RedisStore` holds encoded buffers, so `serializedBytes` is what is actually stored, read back without re-serializing.
+Both built-in stores retain tagged encoded buffers, so `serializedBytes` is the payload actually stored and inspection does not re-serialize it. `deserializedBytes` comes from write-time serializer statistics when available; unknown legacy or directly injected encoded values are left truncated instead of being expanded only for inspection.
 
 ### isInspectableStore
 
