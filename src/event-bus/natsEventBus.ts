@@ -30,6 +30,8 @@ const RESUBSCRIBE_INITIAL_DELAY_MS = 200;
 const RESUBSCRIBE_MAX_DELAY_MS = 30_000;
 /** A subscription that survived this long counts as healthy, so the backoff resets. */
 const RESUBSCRIBE_STABLE_MS = 10_000;
+/** Teardown must remain finite even when a transport iterator does not settle. */
+const TEARDOWN_TIMEOUT_MS = 1_000;
 
 export interface NatsJetStreamOptions {
   stream?: string;
@@ -233,12 +235,21 @@ export class NatsEventBus implements EventBus {
   }
 
   private async closeQuietly(step: string, close: () => Promise<unknown>): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await close();
+      await Promise.race([
+        close(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`NATS teardown timed out after ${TEARDOWN_TIMEOUT_MS}ms`)), TEARDOWN_TIMEOUT_MS);
+          timer.unref?.();
+        }),
+      ]);
     } catch (error) {
       // Teardown must never throw: a connection that is already gone rejects
       // every close, and one rejection would skip the remaining steps.
       warnLog('nats event bus teardown step failed', { subject: this.getSubject(), step, error });
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
