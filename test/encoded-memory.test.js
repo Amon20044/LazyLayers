@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+const { HybridCache } = await import('../dist/cache/hybridCache.js');
 const { MemoryStore } = await import('../dist/cache/memoryStore.js');
 const { MemoryBudget, getDefaultMemoryBudget, resetDefaultMemoryBudget } = await import('../dist/cache/memoryBudget.js');
+const { serialize } = await import('../dist/utils/serializer.js');
 
 const budget = (n = 2 * 1024 * 1024) => new MemoryBudget({ maxMemory: n, sampleIntervalMs: 0 });
 
@@ -39,3 +41,110 @@ test('concurrent writes never exceed byte ceiling', async () => {
 });
 
 test('default singleton rejects conflicting configuration and can be reset cleanly', () => { resetDefaultMemoryBudget(); const a = getDefaultMemoryBudget({ maxMemory: 10000, sampleIntervalMs: 0 }); assert.throws(() => getDefaultMemoryBudget({ maxMemory: 20000, sampleIntervalMs: 0 })); resetDefaultMemoryBudget(); assert.notEqual(getDefaultMemoryBudget({ maxMemory: 10000, sampleIntervalMs: 0 }), a); resetDefaultMemoryBudget(); });
+
+test('fail-safe retains one encoded snapshot and releases its shared budget on close', async () => {
+  const b = budget();
+  const cache = new HybridCache({
+    memoryBudget: b,
+    logging: { enabled: false },
+    levels: { L1: { ttlMs: 5 } },
+    failSafe: { enabled: true, staleTtlMs: 1_000 },
+  });
+  const value = { nested: { count: 1 } };
+  await cache.set('profile', value);
+  value.nested.count = 2;
+  assert.ok(b.snapshot().categories.stale > 0);
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  assert.deepEqual(await cache.getOrSet('profile', async () => { throw new Error('origin down'); }), { nested: { count: 1 } });
+  await cache.close();
+  assert.equal(b.snapshot().accountedBytes, 0);
+});
+
+test('custom L1 stores can use fail-safe without exposing a memory budget', async () => {
+  const entries = new Map();
+  const l1 = {
+    async get(key) { return entries.get(key); },
+    async set(key, value) { entries.set(key, value); },
+    async has(key) { return entries.has(key); },
+    async delete(key) { entries.delete(key); },
+    async deleteByPattern() { entries.clear(); },
+    async clear() { entries.clear(); },
+    async size() { return entries.size; },
+    async getOrSet(key, loader, options) {
+      const existing = await this.get(key);
+      if (existing !== undefined) return existing;
+      const value = await loader();
+      if (value !== undefined) await this.set(key, value, options);
+      return value;
+    },
+  };
+  const cache = new HybridCache({ l1, logging: { enabled: false }, failSafe: { enabled: true, staleTtlMs: 1_000 } });
+  await cache.set('profile', 'old');
+  entries.clear();
+  assert.equal(await cache.getOrSet('profile', async () => { throw new Error('origin down'); }), 'old');
+  await cache.close();
+});
+
+test('encoded fast path requires the Lazy Layers wire-format marker', async () => {
+  const entries = new Map();
+  const store = {
+    async get(key) { return entries.get(key); },
+    async set(key, value) { entries.set(key, value); },
+    async has(key) { return entries.has(key); },
+    async delete(key) { entries.delete(key); },
+    async deleteByPattern() { entries.clear(); },
+    async clear() { entries.clear(); },
+    async size() { return entries.size; },
+    async getOrSet(key, loader, options) {
+      const existing = await this.get(key);
+      if (existing !== undefined) return existing;
+      const value = await loader();
+      if (value !== undefined) await this.set(key, value, options);
+      return value;
+    },
+    async getEncoded() { throw new Error('foreign encoded format must not be read'); },
+    async setEncoded() { throw new Error('foreign encoded format must not be written'); },
+  };
+  const cache = new HybridCache({ l1: store, logging: { enabled: false } });
+  await cache.set('key', { value: 1 });
+  assert.deepEqual(await cache.get('key'), { value: 1 });
+  await cache.close();
+});
+
+test('encoded L2 promotion preserves a shorter remaining TTL', async () => {
+  const b = budget();
+  const l2 = new MemoryStore({ memoryBudget: b, ttlMs: 20 });
+  const cache = new HybridCache({ memoryBudget: b, l2, logging: { enabled: false }, levels: { L1: { ttlMs: 1_000 } } });
+  await l2.set('short', 'value');
+  assert.equal(await cache.get('short'), 'value');
+  await l2.delete('short');
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(await cache.get('short'), undefined);
+  await cache.close();
+  l2.close();
+});
+
+test('persistent encoded L2 values use the configured L1 TTL instead of one millisecond', async () => {
+  let available = true;
+  const l2 = {
+    encodedFormat: 'lazy-layers-hc1',
+    async getEncoded() { return available ? { buffer: serialize('value'), ttlRemainingMs: -1 } : undefined; },
+    async setEncoded() {},
+    async get() { return available ? 'value' : undefined; },
+    async set() {},
+    async has() { return available; },
+    async delete() { available = false; },
+    async deleteByPattern() { available = false; },
+    async clear() { available = false; },
+    async size() { return available ? 1 : 0; },
+    async getOrSet(key, loader) { return (await this.get(key)) ?? loader(); },
+  };
+  const cache = new HybridCache({ l2, logging: { enabled: false }, levels: { L1: { ttlMs: 25 } } });
+  assert.equal(await cache.get('persistent'), 'value');
+  available = false;
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(await cache.get('persistent'), 'value');
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(await cache.get('persistent'), undefined);
+  await cache.close();
+});

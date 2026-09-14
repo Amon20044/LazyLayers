@@ -104,7 +104,7 @@ export interface CacheStore<K extends CacheKey, V> {
 
 /** Optional internal capability for stores that retain the serializer wire value. */
 export interface EncodedCacheStore<K extends CacheKey, V> extends CacheStore<K, V> {
-    readonly encodedFormat?: 'lazy-layers-hc1';
+    readonly encodedFormat: 'lazy-layers-hc1';
     setEncoded(key: K, buffer: Uint8Array, options?: CacheOptions, originalBytes?: number): Promise<void>;
     getEncoded(key: K): Promise<{ buffer: Buffer; ttlRemainingMs: number; originalBytes?: number } | undefined>;
 }

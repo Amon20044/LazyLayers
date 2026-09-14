@@ -37,7 +37,8 @@ import {
   type LoadLease,
 } from './distributedLock.js';
 import type { CacheEvent, CacheEventHandler } from './events.js';
-import { MemoryStore } from './memoryStore.js';
+import { MemoryStore, type MemoryStoreStats } from './memoryStore.js';
+import type { MemoryBudget } from './memoryBudget.js';
 import { matchesPattern } from './pattern.js';
 import { ObservabilityCollector } from '../observability/collector.js';
 import { ObservabilityInspector } from '../observability/inspector.js';
@@ -55,9 +56,8 @@ import {
 } from '../observability/types.js';
 import { publishTelemetry, TELEMETRY_CHANNEL_NAME } from '../observability/telemetry.js';
 
-interface StaleEntry<V> {
-  value: V;
-  encoded?: Buffer;
+interface StaleEntry {
+  encoded: Buffer;
   bytes: number;
   expiresAt: number;
 }
@@ -103,7 +103,10 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
   private readonly source: string;
   private readonly l2CircuitBreaker: CircuitBreaker;
   private readonly eventBusCircuitBreaker: CircuitBreaker;
-  private readonly stale = new Map<K, StaleEntry<V>>();
+  private readonly stale = new Map<K, StaleEntry>();
+  private readonly memoryBudget?: MemoryBudget;
+  private readonly ownsL1: boolean;
+  private readonly unregisterStaleBudget?: () => void;
   private staleBytes = 0;
   private readonly negative = new Map<K, NegativeEntry>();
   private readonly generations = new Map<string, number>();
@@ -123,7 +126,12 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
   constructor(private readonly options: HybridCacheOptions<K, V> = {}) {
     configureCacheLogger(options.logging);
+    this.ownsL1 = options.l1 === undefined;
     this.l1 = options.l1 === false ? undefined : options.l1 ?? new MemoryStore<K, V>(options);
+    this.memoryBudget = (this.l1 as { memoryBudget?: MemoryBudget } | undefined)?.memoryBudget;
+    this.unregisterStaleBudget = this.memoryBudget && options.failSafe?.enabled !== false
+      ? this.memoryBudget.register(() => this.evictOneStale())
+      : undefined;
     this.l2 = options.l2 === false ? undefined : options.l2;
     this.source = options.source ?? createSourceId();
     this.l2CircuitBreaker = new CircuitBreaker(options.resilience?.l2CircuitBreaker);
@@ -276,6 +284,11 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     return this.originGate.stats();
   }
 
+  /** Built-in L1 byte/admission counters, when the selected store exposes them. */
+  getMemoryStats(): MemoryStoreStats | undefined {
+    return this.l1 instanceof MemoryStore ? this.l1.stats() : undefined;
+  }
+
   getL2OperationStats(): ReturnType<L2OperationGate['stats']> { return this.l2Gate.stats(); }
 
   /** Stop the standalone observability server (if any). Safe to call when off. */
@@ -309,6 +322,9 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     this.removeBusStatusListener = undefined;
     this.originGate.close();
     this.l2Gate.close();
+    this.clearStale();
+    this.unregisterStaleBudget?.();
+    if (this.ownsL1 && this.l1 instanceof MemoryStore) this.l1.close();
     const results = await Promise.allSettled([
       this.closeObservability(),
       this.options.eventBus?.disconnect?.() ?? Promise.resolve(),
@@ -339,7 +355,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       if (encoded && this.isEncodedStore(this.l2)) return this.l2.setEncoded(storageKey, encoded, options);
       return this.l2?.set(storageKey, value, options) ?? Promise.resolve();
     }, undefined, encoded?.byteLength ?? 0);
-    this.rememberStale(key, value, options);
+    this.rememberStale(key, value, options, encoded);
     this.negative.delete(key);
 
     this.emit({ type: 'set', key, levels: this.getActiveLevels() });
@@ -356,10 +372,13 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     const storageKey = this.toStorageKey(key);
 
     if (this.invalidationTrusted && this.l1) {
-      const l1Value = await this.l1.get(storageKey);
+      let l1Encoded: { buffer: Buffer; ttlRemainingMs: number; originalBytes?: number } | undefined;
+      const l1Value = this.isEncodedStore(this.l1)
+        ? ((l1Encoded = await this.l1.getEncoded(storageKey)) ? deserialize(l1Encoded.buffer) as V : undefined)
+        : await this.l1.get(storageKey);
 
       if (l1Value !== undefined) {
-        this.rememberStale(key, l1Value, this.options);
+        this.rememberStale(key, l1Value, this.options, l1Encoded?.buffer);
         this.emit({ type: 'hit', key, level: 'L1' });
         debugLog('cache hit', { key, level: 'L1' });
         return l1Value;
@@ -385,22 +404,14 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
     if (l2Value !== undefined) {
       if (!this.invalidationTrusted || readEpoch !== this.mutationEpoch) return l2Value;
-      if (encodedL2 && this.isEncodedStore(this.l1)) {
-        const configured = this.options.levels?.L1?.ttlMs ?? this.options.ttlMs;
-        const ttlMs = configured === undefined
-          ? (encodedL2.ttlRemainingMs > 0 ? encodedL2.ttlRemainingMs : DEFAULT_CACHE_TTL_MS)
-          : Math.min(configured, Math.max(1, encodedL2.ttlRemainingMs));
-        await this.l1.setEncoded(storageKey, encodedL2.buffer, { ttlMs });
-      } else {
-        await this.l1?.set(storageKey, l2Value, this.options);
-      }
+      const promoted = await this.promoteToL1(key, storageKey, l2Value, this.options, encodedL2);
       if (!this.invalidationTrusted || readEpoch !== this.mutationEpoch) {
         await this.l1?.delete(storageKey);
         return l2Value;
       }
-      this.rememberStale(key, l2Value, this.options);
+      this.rememberStale(key, l2Value, this.options, encodedL2?.buffer);
       this.emit({ type: 'hit', key, level: 'L2' });
-      debugLog('cache hit', { key, level: 'L2', promotedTo: this.l1 ? 'L1' : undefined });
+      debugLog('cache hit', { key, level: 'L2', promotedTo: promoted ? 'L1' : undefined });
       return l2Value;
     }
 
@@ -965,7 +976,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     return loaderPromise;
   }
 
-  private rememberStale(key: K, value: V, options: CacheOptions): void {
+  private rememberStale(key: K, value: V, options: CacheOptions, reusable?: Uint8Array): void {
     if (!this.failSafeEnabled(options)) {
       return;
     }
@@ -978,14 +989,18 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       return;
     }
 
-    let encoded: Buffer | undefined;
-    try { encoded = serializeWithStats(value).buffer; } catch { return; }
+    let encoded: Uint8Array;
+    try { encoded = reusable ?? serializeWithStats(value).buffer; } catch { return; }
     this.removeStale(key);
-    const entry = { value, encoded, bytes: encoded.byteLength, expiresAt: Date.now() + staleTtlMs };
-    this.stale.set(key, entry);
-    this.staleBytes += entry.bytes;
     const maxEntries = options.failSafe?.maxEntries ?? this.options.failSafe?.maxEntries ?? 1_000;
     const maxBytes = options.failSafe?.maxBytes ?? this.options.failSafe?.maxBytes ?? 16 * 1024 * 1024;
+    const bytes = encoded.byteLength + Buffer.byteLength(String(key)) * 2 + 80;
+    if (bytes > maxBytes) return;
+    if (this.memoryBudget && !this.memoryBudget.tryReserve(bytes, 'stale')) return;
+    const owned = Buffer.allocUnsafeSlow(encoded.byteLength);
+    owned.set(encoded);
+    this.stale.set(key, { encoded: owned, bytes, expiresAt: Date.now() + staleTtlMs });
+    this.staleBytes += bytes;
     while (this.stale.size > maxEntries || this.staleBytes > maxBytes) {
       const oldest = this.stale.keys().next().value;
       if (oldest === undefined) break;
@@ -1006,23 +1021,69 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       return undefined;
     }
 
-    return entry.encoded ? deserialize(entry.encoded) as V : entry.value;
+    return deserialize(entry.encoded) as V;
   }
 
   private removeStale(key: K): void {
     const entry = this.stale.get(key);
-    if (entry) this.staleBytes -= entry.bytes;
+    if (entry) {
+      this.staleBytes -= entry.bytes;
+      this.memoryBudget?.release(entry.bytes, 'stale');
+    }
     this.stale.delete(key);
   }
 
   private clearStale(): void {
+    if (this.staleBytes > 0) this.memoryBudget?.release(this.staleBytes, 'stale');
     this.stale.clear();
     this.staleBytes = 0;
   }
 
+  private evictOneStale(): boolean {
+    const oldest = this.stale.keys().next().value;
+    if (oldest === undefined) return false;
+    this.removeStale(oldest);
+    return true;
+  }
+
   private isEncodedStore(store: CacheStore<K, V> | undefined): store is EncodedCacheStore<K, V> {
-    return typeof (store as Partial<EncodedCacheStore<K, V>> | undefined)?.setEncoded === 'function'
+    return (store as Partial<EncodedCacheStore<K, V>> | undefined)?.encodedFormat === 'lazy-layers-hc1'
+      && typeof (store as Partial<EncodedCacheStore<K, V>> | undefined)?.setEncoded === 'function'
       && typeof (store as Partial<EncodedCacheStore<K, V>> | undefined)?.getEncoded === 'function';
+  }
+
+  private async promoteToL1(
+    key: K,
+    storageKey: K,
+    value: V,
+    options: CacheOptions,
+    reusable?: { buffer: Buffer; ttlRemainingMs: number },
+    invalidateOnBypass = false,
+  ): Promise<boolean> {
+    if (!this.l1) return false;
+    let encoded = reusable?.buffer;
+    if (!encoded && this.isEncodedStore(this.l1)) {
+      try { encoded = serializeWithStats(value).buffer; } catch { return false; }
+    }
+    const bytes = encoded ? encoded.byteLength + Buffer.byteLength(String(storageKey)) * 2 + 160 : 0;
+    if (this.memoryBudget && !this.memoryBudget.permitsPromotion(bytes)) {
+      if (invalidateOnBypass) await this.l1.delete(storageKey);
+      const reason = this.memoryBudget.snapshot().pressureState === 'normal' ? 'budget' : 'pressure';
+      this.emit({ type: 'promotion:bypassed', key, reason, bytes: encoded?.byteLength });
+      return false;
+    }
+    if (encoded && this.isEncodedStore(this.l1)) {
+      const configured = options.levels?.L1?.ttlMs ?? options.ttlMs;
+      const ttlMs = reusable
+        ? (reusable.ttlRemainingMs > 0
+            ? (configured === undefined ? reusable.ttlRemainingMs : Math.min(configured, reusable.ttlRemainingMs))
+            : (configured ?? DEFAULT_CACHE_TTL_MS))
+        : configured;
+      await this.l1.setEncoded(storageKey, encoded, ttlMs === undefined ? options : { ttlMs });
+      return this.l1 instanceof MemoryStore ? this.l1.has(storageKey) : true;
+    }
+    await this.l1.set(storageKey, value, options);
+    return true;
   }
 
   /** Opt-out. Serving a slightly stale value beats serving an error. */
@@ -1271,7 +1332,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
       const storageKey = this.toStorageKey(key);
 
-      await this.l1?.set(storageKey, event.value as V, localOptions);
+      const promoted = await this.promoteToL1(key, storageKey, event.value as V, localOptions, undefined, true);
       if (setEpoch !== this.mutationEpoch || this.isStaleGeneration(event.source, rawKey, event.generation)) {
         await this.l1?.delete(storageKey);
         continue;
@@ -1279,8 +1340,10 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       this.rememberStale(key, event.value as V, localOptions);
       this.negative.delete(key);
       this.inflight.delete(key);
-      this.emit({ type: 'set:received', key, level: 'L1' });
-      debugLog('cache set:received', { key, level: 'L1' });
+      if (promoted) {
+        this.emit({ type: 'set:received', key, level: 'L1' });
+        debugLog('cache set:received', { key, level: 'L1' });
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import type {
   CacheKey,
   CacheOptions,
   CacheStore,
+  EncodedCacheStore,
   InspectableStore,
   KeyInspection,
   StoreInspectOptions,
@@ -34,7 +35,8 @@ export interface RedisStoreOptions extends CacheOptions {
   deleteStrategy?: 'unlink' | 'del';
 }
 
-export class RedisStore<V> implements CacheStore<CacheKey, V>, InspectableStore {
+export class RedisStore<V> implements EncodedCacheStore<CacheKey, V>, InspectableStore {
+  readonly encodedFormat = 'lazy-layers-hc1' as const;
   private readonly prefix: string;
   private readonly indexKey: string;
   private readonly options: RedisStoreOptions;

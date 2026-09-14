@@ -99,7 +99,7 @@ export class MemoryBudget {
     return this.snapshot();
   }
   /** Admission gate for gradual recovery; callers can use it before promotions. */
-  permitsPromotion(bytes = 0): boolean { return this.state !== 'critical' && Number.isFinite(bytes) && Number.isInteger(bytes) && bytes >= 0 && this.used + bytes <= this.target; }
+  permitsPromotion(bytes = 0): boolean { return this.state === 'normal' && Number.isFinite(bytes) && Number.isInteger(bytes) && bytes >= 0 && this.used + bytes <= this.target; }
   snapshot(): MemoryBudgetSnapshot { return { hardCap: this.hardCap, target: this.target, accountedBytes: this.used, pressureState: this.state, categories: Object.fromEntries(this.categories), clients: this.clients.length, signals: this.signals, evictions: this.evictions, admissions: this.admissions, failedAdmissions: this.failedAdmissions }; }
   close(): void { this.stopSampling(); this.clients.length = 0; }
   private evictBounded(max: number): void { for (let n = 0; n < max && this.clients.length && this.used > this.target; n++) { const c = this.clients[this.cursor++ % this.clients.length]; try { if (c.evictOne()) this.evictions++; } catch { /* an individual client must not extend maintenance work */ } } }
