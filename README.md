@@ -13,9 +13,61 @@
 npm install lazy-layers-cache
 ```
 
-## What changes in v0.5.2
+## Planned for v0.5.3
 
-v0.5.2 makes the built-in L1 an encoded, byte-aware cache instead of a map of live object references. The safe behavior is on by default and remains configurable:
+v0.5.3 is unreleased. It adds two deliberately separate paths: ordinary
+read-through caching and centralized transaction coordination.
+
+- `getOrSet` remains a cache API. It never charges a payment account or decides
+  a durable business result.
+- `lazy-layers-cache/transactions` exposes a primary-only Redis operation store
+  with bounded dispatch, explicit `acquired`/`in_progress`/`completed`/`unknown`
+  outcomes, canonical idempotency fingerprints, and a cached Lua state machine.
+  It never reads, writes, primes, or falls back through L1. Every cluster using
+  one operation must share the same Redis authority and durable database.
+- The ticketing example models a movie-seat hold, payment-provider idempotency,
+  crash recovery, and a race between two buyers. The seat row is claimed in the
+  durable database independently of the request idempotency key.
+- Redis cache publication checks the lease token and writes the encoded value and
+  TTL in one bounded operation. A clean ownership rejection is distinct from a
+  Redis transport error.
+- Capability discovery is bounded and read-only. It reports supported,
+  unavailable, and unknown commands without running `CONFIG` or creating an
+  index.
+- Redis L2 uses native TTL and operator-managed eviction by default. The
+  namespace index is opt-in via `useIndex: true`, or is selected when an explicit
+  `levels.L2.maxEntries` policy needs it. That limit is a bounded, best-effort
+  namespace cache policy under concurrent writers, not a transaction quota or a
+  cross-region authority. Existing indexed deployments should keep
+  `useIndex: true` during migration, then remove the catalogue after the
+  namespace is drained.
+- Real Redis clients default to the v2 per-entry same-slot key layout. During a
+  rolling upgrade, set `keyLayout: "legacy"` on every old writer, drain or
+  backfill the legacy namespace, then move all writers to `keyLayout: "v2"`.
+  The layouts are intentionally not dual-read.
+- L1 and L2 may select different write codecs with
+  `levels.L1.codec` and `levels.L2.codec`. Reads remain backward-compatible with
+  all tagged HC1 payloads. Native Redis HASH/JSON records are not enabled by
+  default because the equal-volume benchmark decision is still deployment and
+  schema specific.
+
+Compression is lossless. Explicit JSON format follows JSON value semantics;
+use it for JSON-compatible records, since types such as Date, Map, and typed
+arrays do not retain their JavaScript types through JSON serialization.
+
+Payment-provider idempotency and the durable database remain authoritative. A
+  Redis lease or Lua script cannot provide exactly-once effects across Redis, a
+  database, and an external provider.
+
+See the [unreleased v0.5.3 changelog](CHANGELOG.md#053-unreleased), the
+[transaction example](examples/transaction-coordination/README.md), and the
+[release verification commands](#v053-release-checks).
+
+## Released in v0.5.2
+
+v0.5.2 is the released baseline. It makes the built-in L1 an encoded,
+byte-aware cache instead of a map of live object references. The safe behavior
+is on by default and remains configurable:
 
 - A shared `maxMemory: "20%"` ceiling resolves against effective host or container memory. Sustained pressure lowers the active target, critical pressure evicts immediately, and recovery grows gradually.
 - Size-aware admission rejects oversized scan traffic before it can evict a useful hot set. Redis L2 hits are still returned during pressure but skip L1 promotion until the local budget is healthy.
@@ -86,7 +138,7 @@ The default production path is designed for the problems in this order:
 2. 🗄️ **L2 Redis:** shared values survive process restarts and are available to every instance. L2 hits promote back into L1 when the local pressure and byte budget permit.
 3. 💤 **Read-through loading:** `getOrSet` checks negative cache, L1, and L2 before calling the loader.
 4. 🧵 **Stampede protection:** in-flight dedupe handles callers in one process. A distributed lock handles cold loads across instances.
-5. 🗜️ **Serialization:** built-in L1 and Redis L2 retain the same tagged MessagePack and size-aware compression format, so matching writes can reuse encoded bytes.
+5. 🗜️ **Serialization:** built-in L1 and Redis L2 use tagged, lossless wire values. Set `levels.L1.codec` and `levels.L2.codec` independently when their workloads need different compression or JSON interoperability. Matching policies reuse immutable bytes.
 6. 📡 **Event-bus synchronization:** successful `getOrSet` loads and explicit `prewarm` can broadcast bounded `set` events to prime peer L1 caches; `invalidate` and `deleteByPattern` broadcast `del` and `pattern` events to keep instances aligned.
 7. 🏷️ **Namespaces and patterns:** isolate applications with a namespace, then invalidate one key with `invalidate` or a family with `invalidateByPattern("users:*")`.
 8. 🔢 **Ordering and dedupe:** source identity, event IDs, and generations ignore self-echoes, duplicates, and stale invalidations.
@@ -171,6 +223,39 @@ Use the **[memory and cost calculator](https://lazy-layers-cache.vercel.app/#cal
 - 🔌 [API reference](https://lazy-layers-cache.vercel.app/docs/reference/api): methods, stores, and custom integrations.
 
 ## Development
+
+### v0.5.3 release checks
+
+Run the complete release gate on the branch before publishing:
+
+```bash
+npm ci
+npm run ci
+npm run bench:representations
+npm run bench:transactions
+```
+
+The transaction benchmark runs a bounded coordination workload without a
+service by default. Set `REDIS_URL` to measure the cached Lua path against a
+controlled Redis primary. It reports p50, p95, p99, and p99.9 latency,
+throughput, event-loop delay, and heap/external/RSS observations. These numbers
+are workload-specific and do not establish a universal fastest implementation.
+
+The representation benchmark records Node/V8 codec timing and compares HC1,
+V8 JSON, and HASH-shaped payloads. Add `--live` with `REDIS_URL` to measure
+Redis `MEMORY USAGE` for a temporary namespace, including native JSON when the
+module is available. It never changes Redis `CONFIG` and does not select a
+production representation.
+
+The seat/payment example is runnable after `npm run build`:
+
+```bash
+node --import tsx examples/transaction-coordination/index.ts
+```
+
+It demonstrates recovery and idempotency. Replace its in-memory durable adapter
+with a database primary and use the provider's documented idempotency and
+reconciliation API before handling real payments.
 
 ### v0.5.2 stress and release checks
 

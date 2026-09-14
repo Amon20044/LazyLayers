@@ -1,5 +1,18 @@
+import type { CompressionMode, CompressionTier } from '../utils/serializer.js';
+
 export type CacheLevel = 'L1' | 'L2';
 export type CacheKey = string | number;
+
+/**
+ * Write policy for one cache tier. Reads accept every HC1 revision so a
+ * rolling deployment can change this policy without a key rewrite.
+ */
+export interface CacheCodecOptions {
+    /** `msgpack` is the compact production format; `json` is interoperable/debug-only. */
+    format?: 'msgpack' | 'json';
+    /** Compression is lossless and applies only to new writes in this tier. */
+    compression?: CompressionMode | CompressionTier[];
+}
 
 export interface CacheLevelOptions {
     maxEntries?: number;
@@ -8,6 +21,8 @@ export interface CacheLevelOptions {
     minMemory?: number | `${number}%` | `${number}${'B'|'KB'|'MB'|'GB'|'KiB'|'MiB'|'GiB'}`;
     autoEvict?: { enabled?: boolean };
     admission?: { enabled?: boolean; maxEntryBytes?: number };
+    /** Independent L1/L2 write representation; omitted means the package default. */
+    codec?: CacheCodecOptions;
 }
 
 export interface CacheLoaderContext {
@@ -107,6 +122,35 @@ export interface EncodedCacheStore<K extends CacheKey, V> extends CacheStore<K, 
     readonly encodedFormat: 'lazy-layers-hc1';
     setEncoded(key: K, buffer: Uint8Array, options?: CacheOptions, originalBytes?: number): Promise<void>;
     getEncoded(key: K): Promise<{ buffer: Buffer; ttlRemainingMs: number; originalBytes?: number } | undefined>;
+}
+
+/**
+ * Result of an ownership-checked cache publication.
+ *
+ * `not-owner` is a normal coordination outcome: the lease was gone (or was
+ * replaced) at the instant Redis evaluated the publication script. It is kept
+ * separate from a rejected promise, which represents a Redis/transport error.
+ */
+export type AtomicPublicationResult = 'published' | 'not-owner';
+
+/**
+ * Optional capability for stores that can publish an encoded value while
+ * checking a distributed lease in the same server-side operation.
+ *
+ * A store must reject with an error when the operation could not be evaluated;
+ * it must return `not-owner` for a clean ownership rejection. This distinction
+ * lets callers retain ordinary cache fail-open behavior without treating an
+ * uncommitted value as an atomic write.
+ */
+export interface AtomicPublishStore<K extends CacheKey = CacheKey> {
+    /** False means the adapter intentionally selected its compatibility path. */
+    readonly atomicPublicationSupported?: boolean;
+    publishIfOwner(
+        key: K,
+        token: string,
+        buffer: Uint8Array,
+        options?: CacheOptions | number,
+    ): Promise<AtomicPublicationResult>;
 }
 
 /** Options for a single page of read-only store introspection (observability). */

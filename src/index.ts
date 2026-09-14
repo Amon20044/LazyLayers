@@ -25,7 +25,10 @@ export {
 
 export type {
   BaseInvalidationEvent,
+  AtomicPublicationResult,
+  AtomicPublishStore,
   CacheEntry,
+  CacheCodecOptions,
   CacheKey,
   CacheLevel,
   CacheLevelOptions,
@@ -50,6 +53,14 @@ export type {
 export { isInspectableStore } from './types/index.js';
 export type {
   CacheLayer,
+  RedisCapabilityClient,
+  RedisCapabilityDiscoveryLimits,
+  RedisCapabilityDiscoveryOptions,
+  RedisCapabilityManifest,
+  RedisCapabilityName,
+  RedisCapabilityReason,
+  RedisCapabilityState,
+  RedisCapabilityStateRecord,
   CircuitBreakerOptions,
   CircuitBreakerState,
   CacheEvent,
@@ -101,6 +112,19 @@ export {
   MemoryBudget,
   getDefaultMemoryBudget,
   resetDefaultMemoryBudget,
+  REDIS_CAPABILITY_CLIENT_CONTRACT,
+  REDIS_CAPABILITY_COMMANDS,
+  DEFAULT_REDIS_CAPABILITY_TIMEOUT_MS,
+  DEFAULT_REDIS_CAPABILITY_MAX_COMMAND_NAMES,
+  DEFAULT_REDIS_CAPABILITY_MAX_INFO_BYTES,
+  DEFAULT_REDIS_CAPABILITY_MAX_COMMAND_REPLY_BYTES,
+  MAX_REDIS_CAPABILITY_COMMAND_NAMES,
+  MAX_REDIS_CAPABILITY_INFO_BYTES,
+  MAX_REDIS_CAPABILITY_COMMAND_REPLY_BYTES,
+  discoverRedisCapabilities,
+  hasRedisCapability,
+  RedisCapabilityRegistry,
+  attachRedisReconnectInvalidation,
 } from './cache/index.js';
 export type { CacheLoggerOptions, CacheRuntimeEnv } from './utils/debugLog.js';
 export type { BufferInspection, CacheEncoding, SerializedCacheValue } from './utils/serializer.js';
@@ -178,4 +202,4 @@ export type {
 } from './event-bus/index.js';
 export { NatsEventBus, RabbitMQEventBus, RedisEventBus } from './event-bus/index.js';
 
-export type { CodecName, CompressionMode, CompressionTier } from './utils/serializer.js';
+export type { CodecName, CompressionMode, CompressionTier, SerializeOptions } from './utils/serializer.js';

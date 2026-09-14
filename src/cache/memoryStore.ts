@@ -1,6 +1,6 @@
 import { LRUCache } from 'lru-cache';
 import type { CacheKey, CacheOptions, EncodedCacheStore, InspectableStore, KeyInspection, StoreInspectOptions, StoreInspection } from '../types/index.js';
-import { deserialize, serializeWithStats, sizeSavings } from '../utils/serializer.js';
+import { deserialize, serializeWithStats, sizeSavings, type SerializeOptions } from '../utils/serializer.js';
 import { DEFAULT_CACHE_TTL_MS, DEFAULT_L1_MAX_ENTRIES } from './defaults.js';
 import { getDefaultMemoryBudget, type MemoryBudget } from './memoryBudget.js';
 import { matchesPattern } from './pattern.js';
@@ -60,7 +60,7 @@ export class MemoryStore<K extends CacheKey, V> implements EncodedCacheStore<K, 
     this.ttl(options);
     if (value === undefined) { await this.delete(key); return; }
     let encoded;
-    try { encoded = serializeWithStats(value); }
+    try { encoded = serializeWithStats(value, this.codecOptions(options)); }
     catch {
       this.cache.delete(key);
       this.rejected++;
@@ -186,6 +186,12 @@ export class MemoryStore<K extends CacheKey, V> implements EncodedCacheStore<K, 
     const ttl = options.levels?.L1?.ttlMs ?? options.ttlMs ?? this.options.levels?.L1?.ttlMs ?? this.options.ttlMs ?? DEFAULT_CACHE_TTL_MS;
     if (!Number.isFinite(ttl) || ttl <= 0) throw new RangeError('L1 ttlMs must be positive and finite');
     return ttl;
+  }
+
+  private codecOptions(options: CacheOptions): SerializeOptions {
+    return options.levels?.L1?.codec
+      ?? this.options.levels?.L1?.codec
+      ?? {};
   }
   private hash(key: K): number {
     const text = String(key);

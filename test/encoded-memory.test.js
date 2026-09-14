@@ -113,12 +113,14 @@ test('encoded fast path requires the Lazy Layers wire-format marker', async () =
 
 test('encoded L2 promotion preserves a shorter remaining TTL', async () => {
   const b = budget();
-  const l2 = new MemoryStore({ memoryBudget: b, ttlMs: 20 });
+  // Keep enough headroom for this test to run alongside the full suite while
+  // still exercising the shorter-than-L1 promotion path.
+  const l2 = new MemoryStore({ memoryBudget: b, ttlMs: 250 });
   const cache = new HybridCache({ memoryBudget: b, l2, logging: { enabled: false }, levels: { L1: { ttlMs: 1_000 } } });
   await l2.set('short', 'value');
   assert.equal(await cache.get('short'), 'value');
   await l2.delete('short');
-  await new Promise((resolve) => setTimeout(resolve, 30));
+  await new Promise((resolve) => setTimeout(resolve, 300));
   assert.equal(await cache.get('short'), undefined);
   await cache.close();
   l2.close();
@@ -139,12 +141,12 @@ test('persistent encoded L2 values use the configured L1 TTL instead of one mill
     async size() { return available ? 1 : 0; },
     async getOrSet(key, loader) { return (await this.get(key)) ?? loader(); },
   };
-  const cache = new HybridCache({ l2, logging: { enabled: false }, levels: { L1: { ttlMs: 25 } } });
+  const cache = new HybridCache({ l2, logging: { enabled: false }, levels: { L1: { ttlMs: 250 } } });
   assert.equal(await cache.get('persistent'), 'value');
   available = false;
   await new Promise((resolve) => setTimeout(resolve, 5));
   assert.equal(await cache.get('persistent'), 'value');
-  await new Promise((resolve) => setTimeout(resolve, 30));
+  await new Promise((resolve) => setTimeout(resolve, 300));
   assert.equal(await cache.get('persistent'), undefined);
   await cache.close();
 });

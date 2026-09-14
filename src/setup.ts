@@ -170,6 +170,8 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
         deleteStrategy: 'unlink',
         scanCount: 500,
         batchSize: 500,
+        levels: cacheOverrides.levels,
+        ttlMs: cacheOverrides.ttlMs,
         ...redisOptions?.store,
       })
     : undefined;

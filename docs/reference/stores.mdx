@@ -150,20 +150,20 @@ export const cache = new LazyLayersCache<string, User>(options)
 
 ### RedisStoreOptions
 
-`RedisStoreOptions` extends `CacheOptions`, so a store can carry its own `ttlMs` and `levels` policy independent of the cache. On top of that it adds exactly six fields.
+`RedisStoreOptions` extends `CacheOptions`, so a store can carry its own `ttlMs` and `levels` policy independent of the cache. It also controls the Redis key layout, optional namespace catalogue, scans, and delete strategy.
 
 <ParamField path="prefix" type="string" default="cache:">
   Prepended to every Redis key. Two applications sharing a Redis instance with the same prefix will invalidate each other's keys.
 </ParamField>
 
-<ParamField path="indexKey" type="string" default="{prefix}__index">
-  The sorted set that tracks live keys, scored by write time. Derived from `prefix` unless you set it. Change it only if it collides with something you already store.
+<ParamField path="indexKey" type="string" default="`${prefix}__index`">
+  The optional sorted set that tracks live keys, scored by their expiry deadline. Derived from `prefix` unless you set it. Change it only if it collides with something you already store.
 </ParamField>
 
-<ParamField path="useIndex" type="boolean" default="true">
-  Maintain the index, so pattern deletes and `size` use `ZSCAN` and `ZCARD` instead of walking the keyspace. The check is `!== false`.
+<ParamField path="useIndex" type="boolean" default="false">
+  Maintain the index, so pattern deletes and `size` use `ZSCAN` and `ZCARD` instead of walking the keyspace. It is also selected when `levels.L2.maxEntries` is set.
 
-  Turning it off saves one `ZADD` per write and costs you a full `SCAN` on every pattern delete and every `size()` call. It also disables `levels.L2.maxEntries` trimming entirely.
+  Leave it off for Redis-native TTL and operator-managed eviction. Turning it on adds a `ZADD` per write and avoids a full `SCAN` for pattern deletes and `size()`.
 </ParamField>
 
 <ParamField path="scanCount" type="number" default="1000">
@@ -178,29 +178,35 @@ export const cache = new LazyLayersCache<string, User>(options)
   `unlink` frees memory on a background thread, so a large delete does not block the Redis event loop. Any value other than the exact string `'del'` resolves to `unlink`. Choose `del` only for a Redis older than 4.0.
 </ParamField>
 
+<ParamField path="keyLayout" type="'auto' | 'legacy' | 'v2'" default="'auto'">
+  `auto` uses the v2 per-entry key layout when the client can execute Redis scripts and otherwise keeps the legacy layout. Set `v2` only after the namespace migration is complete. Set `legacy` while old writers still use the legacy namespace.
+</ParamField>
+
 ### The key layout
 
-Three shapes live under your prefix.
+The legacy layout has three shapes under your prefix.
 
 | Shape | Purpose |
 |---|---|
 | `{prefix}{key}` | One cached value, serialized, with a `PX` expiry |
-| `{prefix}__index` | Sorted set of live key names, scored by write timestamp |
+| `{prefix}__index` | Optional sorted set of live key names, scored by expiry deadline |
 | `{prefix}__lock:{key}` | Distributed lock token, held for the lock TTL |
 
-When `useIndex` is off, `inspect` filters out anything starting with `{prefix}__` so the dashboard does not show you the bookkeeping keys.
+The v2 layout stores each value and lease under `lazy-layers:v2:{encoded-logical-key}:`. The hash tag keeps one value and its lease in the same Redis Cluster slot while unrelated keys still shard independently. It does not dual-read the legacy layout. Drain or backfill the legacy namespace before moving every writer to v2.
+
+When `useIndex` is off, `inspect` filters out internal keys so the dashboard does not show bookkeeping keys.
 
 ### What each operation actually does
 
-`set` pipelines `SET key value PX ttl` with a `ZADD` on the index. When `levels.L2.maxEntries` is set **and** `useIndex` is on, it then reads `ZCARD` and deletes the oldest overflow keys.
+`set` uses a token-fencing script with v2, so a direct write removes an outstanding loader lease in the same Redis operation. The legacy layout pipelines `SET key value PX ttl` with an optional `ZADD`. When `levels.L2.maxEntries` selects the index, the store trims the oldest expiry entries after the write. This is a bounded, best-effort cache policy under concurrent writers, not a transaction quota.
 
-`get` reads with `getBuffer()`, which preserves binary payloads exactly, then deserializes. A miss also removes that key from the index, so an expired key stops being counted by `size()`.
+`get` uses one script execution to read the value and remaining TTL with v2. The legacy layout reads binary data with `getBuffer()` and its TTL separately. A miss removes that key from the optional index, so an expired key stops being counted by `size()`.
 
 `delete` and `deleteByPattern` batch into pipelines of `batchSize`, issuing `UNLINK` or `DEL` alongside a `ZREM` on the index. With the index on, a pattern delete streams `ZSCAN`. With it off, it streams a keyspace `SCAN`.
 
 `clear()` is `deleteByPattern('*')` under your prefix, so it does not touch keys another application put in the same Redis.
 
-`size()` is `ZCARD` on the index, which is cheap. Without the index it is a full `SCAN` of everything under your prefix, which is not.
+`size()` is `ZCARD` when the index is on. Without it, the store performs a full namespace `SCAN`.
 
 ### The two optional capabilities
 
@@ -208,7 +214,7 @@ When `useIndex` is off, `inspect` filters out anything starting with `{prefix}__
 
 `InspectableStore` gives you `inspect`, used by the observability dashboard. It advances one `SCAN` or `ZSCAN` step at a time and pipelines `PTTL` plus the value fetch, so it never blasts the keyspace and never runs unless a dashboard tab is open.
 
-`acquireLock`, `renewLock` and `releaseLock` back `distributedLock`. Acquire is `SET NX PX` on the lock key. Renewal uses Lua to compare the token before extending expiry with `PEXPIRE`. Release compares the token before deleting. An expired owner cannot renew or release another owner's lock. HybridCache manages renewal automatically.
+`acquireLock`, `renewLock` and `releaseLock` back `distributedLock`. Acquire is `SET NX PX` on the lease key. Renewal and release compare the token in a script. `publishIfOwner` checks that same token and writes the encoded value with its TTL in one Redis operation. An expired owner cannot renew, release, or publish over another owner's value. HybridCache manages renewal automatically.
 
 ## Introspection
 

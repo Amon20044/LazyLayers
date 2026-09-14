@@ -89,6 +89,7 @@ class FakeRedis {
     this.deletedBy = [];
     this.published = [];
     this.listeners = new Map();
+    this.onZscore = undefined;
   }
 
   pipeline() {
@@ -194,11 +195,25 @@ class FakeRedis {
     return this.zsets.get(indexKey)?.size ?? 0;
   }
 
-  async zrange(indexKey, start, end) {
+  async zrange(indexKey, start, end, ...options) {
     const members = sortedEntries(this.zsets.get(indexKey) ?? new Map()).map(([member]) => member);
     const last = end < 0 ? members.length + end : end;
+    const selected = members.slice(start, last + 1);
+    if (options.some((option) => String(option).toUpperCase() === "WITHSCORES")) {
+      const set = this.zsets.get(indexKey) ?? new Map();
+      return selected.flatMap((member) => [member, String(set.get(member))]);
+    }
+    return selected;
+  }
 
-    return members.slice(start, last + 1);
+  async zscore(indexKey, member) {
+    if (this.onZscore) {
+      const refresh = this.onZscore;
+      this.onZscore = undefined;
+      await refresh(indexKey, member);
+    }
+    const score = this.zsets.get(indexKey)?.get(member);
+    return score === undefined ? null : String(score);
   }
 
   zscanStream(indexKey, { match }) {
@@ -938,7 +953,7 @@ for (const [label, value] of valueCases) {
 }
 
 test("RedisStore returns undefined for missing key and removes stale index member", async () => {
-  const { redis, store } = makeRedisStore();
+  const { redis, store } = makeRedisStore({ useIndex: true });
 
   await redis.zadd("edge:__index", Date.now(), "edge:missing");
 
@@ -953,6 +968,13 @@ test("RedisStore per-call ttl overrides constructor ttl", async () => {
   await sleep(15);
 
   assert.equal(await store.get("short"), undefined);
+});
+
+test("RedisStore defaults to native TTL accounting without a namespace index", async () => {
+  const { redis, store } = makeRedisStore();
+  await store.set("native-ttl", "value");
+  assert.equal(await redis.zcard("edge:__index"), 0);
+  assert.equal(await store.size(), 1);
 });
 
 test("RedisStore L2 level ttl overrides global ttl", async () => {
@@ -1057,6 +1079,26 @@ test("RedisStore maxEntries trims oldest indexed values", async () => {
   assert.equal(await store.get("a"), undefined);
   assert.equal(await store.get("b"), "b");
   assert.equal(await store.get("c"), "c");
+});
+
+test("RedisStore index trim rechecks a candidate before deleting a refreshed value", async () => {
+  const { redis, store } = makeRedisStore({ levels: { L2: { maxEntries: 1 } } });
+
+  await store.set("a", "old");
+  await sleep(1);
+  const indexKey = "edge:__index";
+  redis.onZscore = async () => {
+    // The trim selected `a`; simulate a writer refreshing it before the
+    // destructive recheck. The refreshed score must cause the candidate to be
+    // skipped rather than deleting the new value.
+    const refreshed = Date.now() + 60_000;
+    await redis.zadd(indexKey, refreshed, "edge:a");
+    await redis.set("edge:a", serialize("fresh"), "PX", 60_000);
+  };
+  await store.set("b", "b");
+
+  assert.equal(await store.get("a"), "fresh");
+  assert.equal(await store.get("b"), "b");
 });
 
 test("RedisStore deleteStrategy del uses DEL path", async () => {

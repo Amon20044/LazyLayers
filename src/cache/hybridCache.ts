@@ -2,6 +2,9 @@ import type { EventBus, EventBusStatus } from '../event-bus/index.js';
 import { encodeInvalidationEvent } from '../event-bus/eventCodec.js';
 import type { DeleteEvent, SetEvent } from '../types/event.types.js';
 import type {
+  AtomicPublishStore,
+  AtomicPublicationResult,
+  CacheCodecOptions,
   CacheKey,
   CacheLevel,
   CacheLoader,
@@ -30,6 +33,7 @@ import {
 import { OriginLoadGate, OriginLoadOverloadError } from './originLoadGate.js';
 import { L2OperationGate, defaultL2OperationGateOptions, type L2OperationGateOptions } from './l2OperationGate.js';
 import {
+  DistributedLockLostError,
   DistributedLockTimeoutError,
   maintainLock,
   supportsDistributedLock,
@@ -344,18 +348,39 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     this.mutationEpoch += 1;
     const storageKey = this.toStorageKey(key);
 
-    let encoded: Buffer | undefined;
-    try { encoded = serializeWithStats(value).buffer; } catch { /* value remains available to caller */ }
-    if (encoded && this.isEncodedStore(this.l1)) {
-      await this.l1.setEncoded(storageKey, encoded, options);
+    const l1EncodedStore = this.isEncodedStore(this.l1);
+    const l2EncodedStore = this.isEncodedStore(this.l2);
+    const samePolicy = l1EncodedStore && l2EncodedStore
+      && this.sameLayerCodecPolicy(options, 'L1', 'L2');
+    let sharedEncoded: Buffer | undefined;
+    let encodedL1: Buffer | undefined;
+    let encodedL2: Buffer | undefined;
+    if (samePolicy) {
+      try { sharedEncoded = serializeWithStats(value, this.layerCodecOptions(options, 'L1')).buffer; }
+      catch { /* value remains available to the caller */ }
+      encodedL1 = sharedEncoded;
+      encodedL2 = sharedEncoded;
+    } else {
+      if (l1EncodedStore) {
+        try { encodedL1 = serializeWithStats(value, this.layerCodecOptions(options, 'L1')).buffer; }
+        catch { /* value remains available to the caller */ }
+      }
+      if (l2EncodedStore) {
+        try { encodedL2 = serializeWithStats(value, this.layerCodecOptions(options, 'L2')).buffer; }
+        catch { /* value remains available to the caller */ }
+      }
+    }
+
+    if (encodedL1 && l1EncodedStore) {
+      await this.l1.setEncoded(storageKey, encodedL1, options);
     } else {
       await this.l1?.set(storageKey, value, options);
     }
     await this.runL2('set', storageKey, () => {
-      if (encoded && this.isEncodedStore(this.l2)) return this.l2.setEncoded(storageKey, encoded, options);
+      if (encodedL2 && l2EncodedStore) return this.l2.setEncoded(storageKey, encodedL2, options);
       return this.l2?.set(storageKey, value, options) ?? Promise.resolve();
-    }, undefined, encoded?.byteLength ?? 0);
-    this.rememberStale(key, value, options, encoded);
+    }, undefined, encodedL2?.byteLength ?? 0);
+    this.rememberStale(key, value, options, encodedL1 ?? encodedL2);
     this.negative.delete(key);
 
     this.emit({ type: 'set', key, levels: this.getActiveLevels() });
@@ -389,6 +414,7 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     }
 
     let encodedL2: { buffer: Buffer; ttlRemainingMs: number } | undefined;
+    const l2ReadStarted = performance.now();
     const l2Value = await this.runL2(
       'get',
       storageKey,
@@ -404,6 +430,9 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
     if (l2Value !== undefined) {
       if (!this.invalidationTrusted || readEpoch !== this.mutationEpoch) return l2Value;
+      if (encodedL2 && encodedL2.ttlRemainingMs >= 0) {
+        encodedL2.ttlRemainingMs = Math.max(0, encodedL2.ttlRemainingMs - (performance.now() - l2ReadStarted));
+      }
       const promoted = await this.promoteToL1(key, storageKey, l2Value, this.options, encodedL2);
       if (!this.invalidationTrusted || readEpoch !== this.mutationEpoch) {
         await this.l1?.delete(storageKey);
@@ -561,7 +590,13 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     };
   }
 
-  private async loadAndStore(key: K, loader: CacheLoader<V>, options: CacheOptions, lease?: LoadLease): Promise<V | undefined> {
+  private async loadAndStore(
+    key: K,
+    loader: CacheLoader<V>,
+    options: CacheOptions,
+    lease?: LoadLease,
+    leaseToken?: string,
+  ): Promise<V | undefined> {
     const loadEpoch = this.mutationEpoch;
     const startedAt = Date.now();
     const controller = lease?.controller ?? new AbortController();
@@ -622,8 +657,90 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
 
     lease?.assertOwned();
     if (loadEpoch !== this.mutationEpoch) return value;
-    await this.set(key, value, options);
-    lease?.assertOwned();
+
+    const atomicPublisher = lease && leaseToken
+      ? this.getAtomicPublisher(this.l2)
+      : undefined;
+
+    if (atomicPublisher && lease && leaseToken) {
+      const ownerToken = leaseToken;
+      let encodedL2: Buffer | undefined;
+      try {
+        encodedL2 = serializeWithStats(value, this.layerCodecOptions(options, 'L2')).buffer;
+      } catch {
+        /* Keep the established fail-open behavior for values that cannot be
+         * represented on the L2 wire. They are still useful to this caller,
+         * but cannot satisfy the encoded atomic publication contract. */
+      }
+
+      if (!encodedL2) {
+        // No authoritative publication occurred. Return the loader's value
+        // without emitting success or creating local/peer cache state.
+        return value;
+      } else {
+        const publication = await this.runL2<AtomicPublicationResult | undefined>(
+          'publishIfOwner',
+          this.toStorageKey(key),
+          () => atomicPublisher.publishIfOwner(this.toStorageKey(key), ownerToken, encodedL2!, options),
+          undefined,
+          encodedL2.byteLength,
+        );
+
+        if (publication === 'not-owner') {
+          /* A clean rejection is not a Redis outage. Re-read the winner when
+           * one exists; otherwise surface lease loss instead of claiming the
+           * uncommitted loader result was cached. */
+          /* Bypass L1 here. A peer may have won in L2 while this process still
+           * holds an older local value from before the lease was acquired. */
+          const winner = await this.runL2<V | undefined>(
+            'read-after-lease-loss',
+            this.toStorageKey(key),
+            async () => {
+              if (this.isEncodedStore(this.l2)) {
+                const encodedWinner = await this.l2.getEncoded(this.toStorageKey(key));
+                return encodedWinner ? deserialize(encodedWinner.buffer) as V : undefined;
+              }
+              return this.l2?.get(this.toStorageKey(key)) ?? Promise.resolve(undefined);
+            },
+            undefined,
+          );
+          if (winner !== undefined) return winner;
+          throw new DistributedLockLostError(key);
+        }
+
+        if (publication !== 'published') {
+          /* The command may have failed before or after Redis applied it. Do
+           * not replay through set() and do not populate L1 from an uncertain
+           * mutation; the caller can use the loader result and the next read
+           * will reconcile against Redis. */
+          return value;
+        }
+
+        /* L2 is committed. L1/stale/event publication is conditional on the
+         * local invalidation epoch, so a concurrent delete cannot be undone by
+         * this asynchronous promotion. */
+        const encodedL1 = this.isEncodedStore(this.l1)
+          ? (this.sameLayerCodecPolicy(options, 'L1', 'L2')
+            ? encodedL2
+            : this.tryEncodeForLayer(value, options, 'L1'))
+          : undefined;
+        await this.setL1Only(this.toStorageKey(key), value, options, encodedL1);
+        if (!this.invalidationTrusted || loadEpoch !== this.mutationEpoch) {
+          await this.l1?.delete(this.toStorageKey(key));
+          return value;
+        }
+        this.rememberStale(key, value, options, encodedL1 ?? encodedL2);
+        this.negative.delete(key);
+        this.emit({ type: 'set', key, levels: this.getActiveLevels() });
+        debugLog('cache set', { key, levels: this.getActiveLevels(), publication: 'atomic' });
+      }
+    } else {
+      /* Custom lock stores from earlier releases do not expose an atomic
+       * publisher. Keep their compatibility path; the optional capability is
+       * what lets RedisStore provide the stronger lease-safe guarantee. */
+      await this.set(key, value, options);
+      lease?.assertOwned();
+    }
 
     if (this.shouldBroadcastSet()) {
       const event: SetEvent = {
@@ -687,6 +804,11 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       return this.loadAndStore(key, loader, options);
     }
 
+    /* Locks and data must be derived from the same versioned storage key. This
+     * matters when per-key generations are enabled: a lease for v0 must never
+     * authorize publication into v1. */
+    const storageKey = this.toStorageKey(key);
+
     const lockTtlMs = options.distributedLock?.ttlMs ?? this.options.distributedLock?.ttlMs ?? DEFAULT_LOCK_TTL_MS;
     const pollMs = options.distributedLock?.pollMs ?? this.options.distributedLock?.pollMs ?? DEFAULT_LOCK_POLL_MS;
     const waitTimeoutMs = this.getLockWaitTimeoutMs(options);
@@ -703,22 +825,22 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     while (true) {
       const acquiredAt = Date.now();
       const acquired = await this.runL2<boolean | undefined>(
-        'acquireLock', key, () => l2.acquireLock(key, token, lockTtlMs), undefined,
+        'acquireLock', storageKey, () => l2.acquireLock(storageKey, token, lockTtlMs), undefined,
       );
 
       if (acquired) {
         const lease = maintainLock(key, lockTtlMs, acquiredAt, l2.renewLock
-          ? () => this.runL2('renewLock', key, () => l2.renewLock!(key, token, lockTtlMs), false)
+          ? () => this.runL2('renewLock', storageKey, () => l2.renewLock!(storageKey, token, lockTtlMs), false)
           : undefined);
         try {
           // A previous owner may have filled L2 between our miss and acquisition.
           const cached = await this.get(key);
           if (cached !== undefined) return cached;
           if (this.hasNegative(key)) return undefined;
-          return await this.loadAndStore(key, loader, options, lease);
+          return await this.loadAndStore(key, loader, options, lease, token);
         } finally {
           lease.stop();
-          await this.runL2('releaseLock', key, () => l2.releaseLock(key, token));
+          await this.runL2('releaseLock', storageKey, () => l2.releaseLock(storageKey, token));
         }
       }
 
@@ -1052,6 +1174,57 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
       && typeof (store as Partial<EncodedCacheStore<K, V>> | undefined)?.getEncoded === 'function';
   }
 
+  private layerCodecOptions(options: CacheOptions, level: CacheLevel): CacheCodecOptions {
+    return options.levels?.[level]?.codec
+      ?? this.options.levels?.[level]?.codec
+      ?? {};
+  }
+
+  private sameLayerCodecPolicy(options: CacheOptions, left: CacheLevel, right: CacheLevel): boolean {
+    try {
+      return JSON.stringify(this.layerCodecOptions(options, left))
+        === JSON.stringify(this.layerCodecOptions(options, right));
+    } catch {
+      // A malformed policy is rejected by the serializer when it is selected;
+      // do not reuse bytes across tiers when equality cannot be established.
+      return false;
+    }
+  }
+
+  private tryEncodeForLayer(value: V, options: CacheOptions, level: CacheLevel): Buffer | undefined {
+    try {
+      return serializeWithStats(value, this.layerCodecOptions(options, level)).buffer;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private getAtomicPublisher(
+    store: CacheStore<K, V> | undefined,
+  ): (CacheStore<K, V> & AtomicPublishStore<K>) | undefined {
+    const capability = store as Partial<AtomicPublishStore<K>> | undefined;
+    // The method alone is not enough to claim the stronger lease/fence
+    // contract. Third-party stores must opt in explicitly so an old adapter
+    // cannot accidentally publish stale loader results through the new path.
+    return capability?.atomicPublicationSupported === true
+      && typeof capability.publishIfOwner === 'function'
+      ? store as CacheStore<K, V> & AtomicPublishStore<K>
+      : undefined;
+  }
+
+  private async setL1Only(
+    storageKey: K,
+    value: V,
+    options: CacheOptions,
+    encoded?: Uint8Array,
+  ): Promise<void> {
+    if (encoded && this.isEncodedStore(this.l1)) {
+      await this.l1.setEncoded(storageKey, encoded, options);
+      return;
+    }
+    await this.l1?.set(storageKey, value, options);
+  }
+
   private async promoteToL1(
     key: K,
     storageKey: K,
@@ -1061,9 +1234,16 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     invalidateOnBypass = false,
   ): Promise<boolean> {
     if (!this.l1) return false;
-    let encoded = reusable?.buffer;
+    const promotionStarted = performance.now();
+    // Reuse L2 bytes only when both tiers deliberately selected the same
+    // representation. An explicit L1 policy must not inherit compression or
+    // JSON choices made for L2 during promotion.
+    let encoded = reusable && this.sameLayerCodecPolicy(options, 'L1', 'L2')
+      ? reusable.buffer
+      : undefined;
     if (!encoded && this.isEncodedStore(this.l1)) {
-      try { encoded = serializeWithStats(value).buffer; } catch { return false; }
+      encoded = this.tryEncodeForLayer(value, options, 'L1');
+      if (!encoded) return false;
     }
     const bytes = encoded ? encoded.byteLength + Buffer.byteLength(String(storageKey)) * 2 + 160 : 0;
     if (this.memoryBudget && !this.memoryBudget.permitsPromotion(bytes)) {
@@ -1074,10 +1254,12 @@ export class HybridCache<K extends CacheKey = string, V = unknown> implements Ca
     }
     if (encoded && this.isEncodedStore(this.l1)) {
       const configured = options.levels?.L1?.ttlMs ?? options.ttlMs;
-      const ttlMs = reusable
-        ? (reusable.ttlRemainingMs > 0
-            ? (configured === undefined ? reusable.ttlRemainingMs : Math.min(configured, reusable.ttlRemainingMs))
-            : (configured ?? DEFAULT_CACHE_TTL_MS))
+      const remaining = reusable && reusable.ttlRemainingMs >= 0
+        ? reusable.ttlRemainingMs - (performance.now() - promotionStarted)
+        : undefined;
+      if (remaining !== undefined && remaining <= 0) return false;
+      const ttlMs = remaining !== undefined
+        ? Math.min(configured ?? DEFAULT_CACHE_TTL_MS, remaining)
         : configured;
       await this.l1.setEncoded(storageKey, encoded, ttlMs === undefined ? options : { ttlMs });
       return this.l1 instanceof MemoryStore ? this.l1.has(storageKey) : true;

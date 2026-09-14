@@ -61,7 +61,20 @@ export const HC1S = Buffer.from('HC1S', 'ascii'); // snappy(msgpack)
 /** Shared first three bytes. Used to recognise a tag we do not know yet. */
 const PREFIX_FAMILY = Buffer.from('HC1', 'ascii');
 
-export type CompressionMode = 'gzip' | 'zstd' | 'auto';
+/** Compression shorthand accepted by a layer-specific codec policy. */
+export type CompressionMode = 'none' | 'gzip' | 'zstd' | 'auto';
+
+/**
+ * Per-layer serialization policy. Reads remain format-agnostic; this policy
+ * only controls new writes. Keeping it next to the serializer makes it
+ * possible for L1 and L2 to choose independently without duplicating codecs.
+ */
+export interface SerializeOptions {
+  /** `json` is intended for interoperable/debug records; `msgpack` is default. */
+  format?: 'msgpack' | 'json';
+  /** Compression shorthand or an explicit, validated size-tier list. */
+  compression?: CompressionMode | CompressionTier[];
+}
 
 /** Active tier list. Reads accept every format regardless of this. */
 let tiers: CompressionTier[] = DEFAULT_TIERS;
@@ -92,6 +105,11 @@ export function configureCompression(mode: CompressionMode | CompressionTier[]):
     return;
   }
 
+  if (mode === 'none') {
+    tiers = [{ codec: 'none' }];
+    return;
+  }
+
   tiers = [{ maxBytes: 1024, codec: 'none' }, { codec: mode }];
 }
 
@@ -100,12 +118,26 @@ export function getCompressionTiers(): readonly CompressionTier[] {
   return tiers;
 }
 
+function resolveTiers(compression: SerializeOptions['compression']): CompressionTier[] {
+  if (compression === undefined) return tiers;
+  if (Array.isArray(compression)) {
+    validateTiers(compression);
+    return compression;
+  }
+  if (compression === 'auto') return autoTiers();
+  if (compression === 'none') return [{ codec: 'none' }];
+  if (compression !== 'gzip' && compression !== 'zstd') {
+    throw new TypeError('compression must be none, auto, gzip, zstd, or a valid tier list');
+  }
+  return [{ maxBytes: 1024, codec: 'none' }, { codec: compression }];
+}
+
 function tiersFromEnv(): void {
   const raw = process.env.CACHE_COMPRESSION;
 
   if (!raw) return;
 
-  if (raw === 'auto' || raw === 'zstd' || raw === 'gzip') {
+  if (raw === 'auto' || raw === 'none' || raw === 'zstd' || raw === 'gzip') {
     configureCompression(raw);
     return;
   }
@@ -190,7 +222,10 @@ function withPrefix(prefix: Buffer, payload: Buffer | Uint8Array): Buffer {
 /**
  * Serialize and return rich stats. `serialize` is just a convenience wrapper around `.buffer`.
  */
-export function serializeWithStats(value: unknown): SerializedCacheValue {
+export function serializeWithStats(value: unknown, options: SerializeOptions = {}): SerializedCacheValue {
+  if (options.format !== undefined && options.format !== 'json' && options.format !== 'msgpack') {
+    throw new TypeError('format must be json or msgpack');
+  }
   // null/undefined sentinel — keep it tiny and prefix-tagged so decode is uniform.
   if (value === null || value === undefined) {
     const buffer = SENTINEL_BUFFER;
@@ -229,7 +264,7 @@ export function serializeWithStats(value: unknown): SerializedCacheValue {
   }
 
   // JSON debug mode — readable values, larger size.
-  if (isDebugJsonMode()) {
+  if (options.format === 'json' || (options.format === undefined && isDebugJsonMode())) {
     const json = JSON.stringify(value);
     const jsonBuffer = Buffer.from(json, 'utf8');
     const buffer = withPrefix(HC1J, jsonBuffer);
@@ -262,7 +297,7 @@ export function serializeWithStats(value: unknown): SerializedCacheValue {
     throw new CacheSerializationError(value, error);
   }
 
-  const codec = selectCodec(tiers, packed.length);
+  const codec = selectCodec(resolveTiers(options.compression), packed.length);
 
   if (codec.tag !== null) {
     const compressed = codec.compress(packed);
@@ -294,8 +329,8 @@ export function serializeWithStats(value: unknown): SerializedCacheValue {
 }
 
 /** Always returns a Buffer suitable for `redis.set(key, buffer, 'EX', ttl)`. */
-export function serialize(value: unknown): Buffer {
-  return serializeWithStats(value).buffer;
+export function serialize(value: unknown, options: SerializeOptions = {}): Buffer {
+  return serializeWithStats(value, options).buffer;
 }
 
 export interface BufferInspection {
