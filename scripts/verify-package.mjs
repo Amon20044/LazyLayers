@@ -36,6 +36,8 @@ const cjs = require('lazy-layers-cache');
 for (const [format, exported] of [['ESM', esm], ['CommonJS', cjs]]) {
   assert.equal(typeof exported.createCache, 'function', `${format} createCache export is unavailable`);
   assert.equal(typeof exported.LazyLayersCache, 'function', `${format} LazyLayersCache export is unavailable`);
+  assert.equal(typeof exported.MemoryBudget, 'function', `${format} MemoryBudget export is unavailable`);
+  assert.equal(typeof exported.getRedisCoreHealth, 'function', `${format} Redis compatibility export is unavailable`);
 }
 
 console.log(`Package verification passed for ${tarball.name}@${tarball.version}.`);
