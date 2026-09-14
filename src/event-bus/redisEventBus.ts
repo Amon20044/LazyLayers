@@ -222,6 +222,9 @@ export class RedisEventBus implements EventBus {
       await client.connect();
       return;
     }
+    if (client.status === 'end') {
+      throw Object.assign(new Error('Redis connection has ended'), { code: 'ECONNRESET' });
+    }
     await new Promise<void>((resolve, reject) => {
       const ready = () => { cleanup(); resolve(); };
       const failed = (error: Error) => { cleanup(); reject(error); };

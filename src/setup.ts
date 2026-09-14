@@ -9,6 +9,12 @@ import type {
 } from './cache/index.js';
 import { LazyLayersCache, RedisStore } from './cache/index.js';
 import {
+  classifyRedisError,
+  getRedisCoreHealth,
+  type RedisCoreHealth,
+  type RedisInfoClient,
+} from './cache/redisHealth.js';
+import {
   DEFAULT_CACHE_TTL_MS,
   DEFAULT_INFLIGHT_TTL_MS,
   DEFAULT_L1_MAX_ENTRIES,
@@ -146,6 +152,7 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
   if (!redis && redisUrl) {
     ownedRedis = new IORedis(redisUrl, {
       maxRetriesPerRequest: 2,
+      enableAutoPipelining: true,
       enableReadyCheck: true,
       enableOfflineQueue: false,
       autoResendUnfulfilledCommands: false,
@@ -205,6 +212,13 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
   let cache: ManagedLazyLayersCache<K, V> | undefined;
 
   try {
+    if (redis) {
+      const redisHealth = await readRedisCoreHealth(redis, startupTimeoutMs);
+      if (!redisHealth.ok && (requireHealthy || redisHealth.issue?.kind !== 'transport')) {
+        throw new CacheSetupError(describeRedisCoreHealthFailure(redisHealth));
+      }
+    }
+
     if (redis && !eventBus) {
       try {
         await withSetupTimeout(redis.ping(), startupTimeoutMs, 'Redis startup health check');
@@ -314,5 +328,49 @@ async function withSetupTimeout<T>(
     if (timeout) {
       clearTimeout(timeout);
     }
+  }
+}
+
+async function readRedisCoreHealth(redis: IORedis, timeoutMs: number): Promise<RedisCoreHealth> {
+  try {
+    await withSetupTimeout(ensureRedisConnected(redis), timeoutMs, 'Redis connection');
+    return await withSetupTimeout(
+      getRedisCoreHealth(redis as unknown as RedisInfoClient),
+      timeoutMs,
+      'Redis core compatibility check',
+    );
+  } catch (error) {
+    return { ok: false, issue: classifyRedisError(error) };
+  }
+}
+
+async function ensureRedisConnected(redis: IORedis): Promise<void> {
+  if (redis.status === 'ready') return;
+  if (redis.status === 'wait') { await redis.connect(); return; }
+  if (redis.status === 'end') throw Object.assign(new Error('Redis connection has ended'), { code: 'ECONNRESET' });
+  await new Promise<void>((resolve, reject) => {
+    const ready = () => { cleanup(); resolve(); };
+    const failed = (error: Error) => { cleanup(); reject(error); };
+    const cleanup = () => { redis.off('ready', ready); redis.off('error', failed); redis.off('end', failed); };
+    redis.once('ready', ready);
+    redis.once('error', failed);
+    redis.once('end', failed);
+  });
+}
+
+function describeRedisCoreHealthFailure(health: RedisCoreHealth): string {
+  switch (health.issue?.kind) {
+    case 'unsupported-version':
+      return `Redis ${health.version?.major ?? 'unknown'}.${health.version?.minor ?? 'unknown'} is unsupported; LazyLayers core cache requires Redis 6 or newer`;
+    case 'acl':
+      return 'Redis ACL denied the INFO command required for Redis 6–8 compatibility checks; grant +info to the cache user';
+    case 'unknown-command':
+      return 'Redis endpoint does not support the INFO command required for Redis 6–8 compatibility checks; use a Redis 6+ core endpoint';
+    case 'malformed-info':
+      return 'Redis returned an unrecognizable INFO server reply; use a Redis 6+ endpoint that returns redis_version';
+    case 'transport':
+      return `Redis transport failed during the core compatibility check${health.issue.code ? ` (${health.issue.code})` : ''}`;
+    default:
+      return 'Redis core compatibility check failed while running INFO; check the Redis endpoint and ACL policy';
   }
 }
