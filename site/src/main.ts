@@ -350,6 +350,86 @@ function initCopy() {
   });
 }
 
+/* ── Public project metrics ─────────────────────────────────────────── */
+
+const METRIC_TIMEOUT_MS = 4_500;
+
+type MetricId = 'npm-downloads' | 'github-stars';
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), METRIC_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      credentials: 'omit',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json() as T;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function formatMetric(value: number): string {
+  return new Intl.NumberFormat('en', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+function setMetric(id: MetricId, value: string, state: 'ready' | 'unavailable') {
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  el.textContent = value;
+  const metric = el.closest<HTMLElement>('.project-metric');
+  if (metric) metric.dataset.state = state;
+}
+
+function setMetricPeriod(id: string, value: string) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+async function loadProjectMetrics() {
+  const panel = document.querySelector<HTMLElement>('.project-metrics');
+  if (!panel) return;
+
+  const npm = (async () => {
+    type Downloads = { downloads?: unknown };
+    const response = await fetchJson<Downloads>(
+      'https://api.npmjs.org/downloads/point/last-month/lazy-layers-cache',
+    );
+    if (typeof response.downloads !== 'number' || !Number.isFinite(response.downloads)) {
+      throw new Error('npm download count unavailable');
+    }
+    setMetric('npm-downloads', formatMetric(response.downloads), 'ready');
+  })().catch(() => {
+    setMetric('npm-downloads', 'Unavailable', 'unavailable');
+    setMetricPeriod('npm-downloads-period', 'view on npm');
+  });
+
+  const github = (async () => {
+    type Repository = { stargazers_count?: unknown };
+    const response = await fetchJson<Repository>(
+      'https://api.github.com/repos/Amon20044/LazyLayers',
+    );
+    if (typeof response.stargazers_count !== 'number' || !Number.isFinite(response.stargazers_count)) {
+      throw new Error('GitHub star count unavailable');
+    }
+    setMetric('github-stars', formatMetric(response.stargazers_count), 'ready');
+  })().catch(() => {
+    setMetric('github-stars', 'Unavailable', 'unavailable');
+    setMetricPeriod('github-stars-period', 'view on GitHub');
+  });
+
+  await Promise.allSettled([npm, github]);
+  panel.setAttribute('aria-busy', 'false');
+}
+
 function announceCopy(message: string) {
   let status = document.querySelector<HTMLElement>('#copy-status');
   if (!status) {
@@ -380,6 +460,7 @@ function boot() {
   safely('initMagnetic', initMagnetic);
   safely('initSpotlight', initSpotlight);
   safely('initCursorGlow', initCursorGlow);
+  void loadProjectMetrics();
 
   const calc = document.getElementById('calc');
   if (calc) initCalculator(calc);

@@ -140,6 +140,21 @@
 .hero__release:hover { color: var(--text); }
 .hero__release-dot { width: 6px; height: 6px; background: var(--hero-accent); border-radius: 50%; }
 .hero__release > span:last-child { margin-left: 4px; color: var(--hero-accent); }
+.project-metrics { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.project-metric {
+  display: grid; grid-template-columns: auto auto; column-gap: 12px; align-items: baseline;
+  min-width: 164px; padding: 10px 13px; border: 1px solid var(--line); border-radius: var(--r-sm);
+  color: var(--text); background: color-mix(in srgb, var(--surface) 72%, transparent); text-decoration: none;
+  transition: border-color .2s ease, transform .2s ease, background .2s ease;
+}
+.project-metric:hover { border-color: var(--hero-accent); background: color-mix(in srgb, var(--surface) 92%, transparent); transform: translateY(-1px); }
+.project-metric:focus-visible { outline: 2px solid var(--hero-accent); outline-offset: 3px; }
+.project-metric__label { grid-column: 1 / -1; color: var(--text-muted); font: 9px/1.4 var(--ff-mono); letter-spacing: .08em; text-transform: uppercase; }
+.project-metric__value { font: 600 18px/1.2 var(--ff-mono); }
+.project-metric__period { color: var(--text-muted); font-size: 10px; }
+.project-metric[data-state='unavailable'] .project-metric__value { font-size: 13px; color: var(--text-muted); }
+.project-metrics[aria-busy='true'] .project-metric__value { animation: metric-pulse 1.4s ease-in-out infinite alternate; }
+@keyframes metric-pulse { from { opacity: .5; } to { opacity: 1; } }
 .btn--start { background: #d3f15d; color: #1b230b; box-shadow: 0 6px 24px -12px #d3f15d80; border-color: #d3f15d; }
 .btn--start:hover { background: #e1fa84; border-color: #e1fa84; box-shadow: 0 8px 30px -12px #d3f15d90; }
 .hero__actions .btn--start { min-height: 50px; padding-inline: 24px; font-size: 14px; gap: 26px; }
@@ -182,6 +197,8 @@
   .hero__docs { font-size: 12px; padding-inline: 8px; }
   .hero__install { width: 100%; gap: 8px; padding-left: 10px; font-size: 10px; }
   .hero__copy { margin-left: auto; min-width: 58px; }
+  .project-metrics { gap: 8px; margin-top: 18px; }
+  .project-metric { flex: 1 1 145px; min-width: 0; padding: 9px 10px; column-gap: 8px; }
   .hero__visual .cv-caption { padding-inline: 14px; font-size: 7px; }
   .hero__code { font-size: 10px; padding-inline: 8px; }
   .hero .stack { gap: 8px; }
