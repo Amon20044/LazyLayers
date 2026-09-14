@@ -96,6 +96,14 @@ jobs:
       - name: Run Full Test Suite (Unit, Concurrency, E2E, Live Services)
         run: npm test
 
+      - name: Verify published package and transaction entrypoints
+        run: npm run verify:package
+
+      - name: Run v0.5.3 Redis coordination and representation smoke workloads
+        run: |
+          LAZY_TX_ITERATIONS=1000 LAZY_TX_CONCURRENCY=32 node benchmarks/transactions.mjs
+          LAZY_REP_ITERATIONS=20 LAZY_REP_WARMUP=2 node benchmarks/representations.mjs --live
+
       - name: Run v0.5.2 synthetic pressure and safety regressions
         run: npm run test:release-safety
 

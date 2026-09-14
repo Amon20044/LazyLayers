@@ -29,8 +29,9 @@ export type RedisOperationClient = RedisScriptClient & {
   readonly isReplica?: boolean;
   readonly readOnly?: boolean;
   readonly options?: Readonly<{
-    enableOfflineQueue?: boolean;
-    autoResendUnfulfilledCommands?: boolean;
+    enableOfflineQueue?: boolean | null;
+    autoResendUnfulfilledCommands?: boolean | null;
+    maxRetriesPerRequest?: number | null;
     keyPrefix?: string;
     readOnly?: boolean;
     role?: string;
@@ -105,20 +106,32 @@ function assertPrimary(
   if (clientOptions?.keyPrefix) {
     throw new OperationConfigurationError('Configure no Redis keyPrefix; transaction keys carry their own namespace');
   }
-  if (clientOptions?.enableOfflineQueue !== undefined && clientOptions.enableOfflineQueue !== false) {
-    throw new OperationConfigurationError('Redis enableOfflineQueue must be false for transaction coordination');
-  }
-  if (clientOptions?.autoResendUnfulfilledCommands !== undefined
-      && clientOptions.autoResendUnfulfilledCommands !== false) {
-    throw new OperationConfigurationError('Redis autoResendUnfulfilledCommands must be false for transaction coordination');
+  if (clientOptions === undefined) {
+    if (options.allowUnknownClientOptions !== true) {
+      // A small fake/client adapter can be used when no ioredis options object
+      // is exposed, but production callers must opt into that fact explicitly.
+      throw new OperationConfigurationError('Redis client routing/retry options are not inspectable');
+    }
+  } else {
+    // Missing/null values are unsafe too: ioredis defaults enable offline
+    // queuing and command resends when callers omit them. The explicit test
+    // adapter escape hatch applies only when the entire options object is
+    // unavailable, never to a partially specified production client.
+    if (clientOptions.enableOfflineQueue !== false) {
+      throw new OperationConfigurationError('Redis enableOfflineQueue must be explicitly false for transaction coordination');
+    }
+    if (clientOptions.autoResendUnfulfilledCommands !== false) {
+      throw new OperationConfigurationError('Redis autoResendUnfulfilledCommands must be explicitly false for transaction coordination');
+    }
+    if (clientOptions.maxRetriesPerRequest === undefined || clientOptions.maxRetriesPerRequest === null
+        || !Number.isSafeInteger(clientOptions.maxRetriesPerRequest)
+        || clientOptions.maxRetriesPerRequest < 0
+        || clientOptions.maxRetriesPerRequest > 1) {
+      throw new OperationConfigurationError('Redis maxRetriesPerRequest must be explicitly 0 or 1 for transaction coordination');
+    }
   }
   if (client.isCluster === true && options.clusterValidated !== true) {
     throw new OperationConfigurationError('Redis Cluster routing requires explicit certification before transaction use');
-  }
-  if (clientOptions === undefined && options.allowUnknownClientOptions !== true) {
-    // A small fake/client adapter can be used when no ioredis options object is
-    // exposed, but production callers must opt into that fact explicitly.
-    throw new OperationConfigurationError('Redis client routing/retry options are not inspectable');
   }
 }
 

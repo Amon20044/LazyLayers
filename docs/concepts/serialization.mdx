@@ -4,7 +4,11 @@ description: "MessagePack by default, a compression codec matched to the payload
 icon: "file-zipper"
 ---
 
-The built-in L1 and Redis L2 both retain the same tagged serializer format. A value is encoded once on the matching-format path, copied into owned storage, and decoded on each read. Invalidation events use the serializer too, but wrap their own event envelope.
+The built-in L1 and Redis L2 both retain tagged serializer values. Matching
+`levels.L1.codec` and `levels.L2.codec` policies reuse one encoded buffer.
+Different policies encode independently, while every reader still dispatches by
+the tag and decodes each supported format. Invalidation events use the
+serializer too, but wrap their own event envelope.
 
 Both go through the same function. `encodeInvalidationEvent` is a call to `serialize`, so a `set` event carrying a loaded value is packed exactly the way that value would be packed in Redis. That is also why `broadcastSetMaxBytes` is measured against the encoded event rather than against your object.
 

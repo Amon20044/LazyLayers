@@ -239,19 +239,23 @@ export class FakeDurableTicketDb {
     const seatId = idPart('seatId', input.seatId);
     const buyerId = idPart('buyerId', input.buyerId);
     const tenant = idPart('tenant', input.tenant);
+    const holdMs = positiveMs(input.holdMs, 5 * 60_000);
     const key = seatKey(showId, seatId);
-    const fingerprint = fingerprintFields('ticket-reservation-v1', [tenant, showId, seatId, buyerId]);
+    const fingerprint = fingerprintFields('ticket-reservation-v1', [tenant, showId, seatId, buyerId, String(holdMs)]);
     const operationKey = `${tenant}|reserve|${idPart('idempotencyKey', input.idempotencyKey)}`;
     const previous = this.operations.get(operationKey);
     if (previous) {
       if (previous.fingerprint !== fingerprint) throw new Error('IDEMPOTENCY_CONFLICT');
       return { operation: previous, isFinal: previous.state === 'completed' };
     }
-    const holdMs = positiveMs(input.holdMs, 5 * 60_000);
     const now = Date.now();
     const seat = this.seats.get(key);
     if (!seat) throw new Error('SEAT_NOT_FOUND');
     this.expireSeat(seat, now);
+    // Let concurrent callers reach the same transaction boundary. A real
+    // adapter replaces this yield with `SELECT ... FOR UPDATE` (or a serializable
+    // transaction) and rechecks the row while holding the database lock.
+    await Promise.resolve();
     const durableId = `reservation-${++this.sequence}`;
     const reservation: ReservationRow = {
       reservationId: durableId,

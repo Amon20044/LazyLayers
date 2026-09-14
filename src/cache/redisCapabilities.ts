@@ -315,6 +315,9 @@ interface ParsedCommandInfo {
   supported: Set<RedisCapabilityName>;
 }
 
+const MAX_RESPONSE_NODES = 4_096;
+const MISSING_COMMAND_INFO_ENTRY = Symbol('missing-command-info-entry');
+
 function parseCommandInfoReply(
   reply: unknown,
   names: readonly RedisCapabilityName[],
@@ -326,11 +329,7 @@ function parseCommandInfoReply(
     // COMMAND INFO returns one entry per requested command. Supporting the
     // single-entry form makes adapters that unwrap one-element RESP arrays
     // compatible without broadening the request.
-    if (
-      names.length === 1
-      && !(reply.length === 1 && (reply[0] === null || reply[0] === undefined))
-      && isCommandInfoEntry(reply)
-    ) {
+    if (names.length === 1 && isCommandInfoEntry(reply, names[0])) {
       entries.push(reply);
     } else {
       entries.push(...reply);
@@ -343,32 +342,72 @@ function parseCommandInfoReply(
     return { valid: false, supported };
   }
 
-  if (entries.length < names.length) {
+  if (entries.length !== names.length) {
     return { valid: false, supported };
   }
 
   for (let index = 0; index < names.length; index += 1) {
     const entry = entries[index];
     if (entry === null || entry === undefined) continue;
-    if (!isCommandInfoEntry(entry)) return { valid: false, supported };
+    if (!isCommandInfoEntry(entry, names[index])) return { valid: false, supported };
     supported.add(names[index]);
   }
 
   return { valid: true, supported };
 }
 
-function isCommandInfoEntry(value: unknown): boolean {
+function isCommandInfoEntry(value: unknown, expectedName: string): boolean {
   if (Array.isArray(value)) {
-    return value.length > 0;
+    return value.length >= 6
+      && commandName(value[0]) === expectedName
+      && isSafeInteger(value[1])
+      && isStringList(value[2])
+      && isSafeInteger(value[3])
+      && isSafeInteger(value[4])
+      && isSafeInteger(value[5]);
   }
 
   if (!isRecord(value)) return false;
 
-  return 'name' in value || 'arity' in value || 'flags' in value || 'firstKey' in value;
+  const name = recordValue(value, ['name', 'command', 'cmd']);
+  const arity = recordValue(value, ['arity']);
+  const flags = recordValue(value, ['flags']);
+  const firstKey = recordValue(value, ['firstKey', 'first-key', 'first_key']);
+  const lastKey = recordValue(value, ['lastKey', 'last-key', 'last_key']);
+  const step = recordValue(value, ['step', 'keyStep', 'key-step', 'key_step']);
+
+  return commandName(name) === expectedName
+    && isSafeInteger(arity)
+    && isStringList(flags)
+    && isSafeInteger(firstKey)
+    && isSafeInteger(lastKey)
+    && isSafeInteger(step);
 }
 
 function findRecordValue(record: Record<string, unknown>, name: string): unknown {
-  return record[name] ?? record[name.toUpperCase()] ?? record[name.toLowerCase()];
+  return recordValue(record, [name, name.toUpperCase(), name.toLowerCase()]);
+}
+
+function recordValue(record: Record<string, unknown>, keys: readonly string[]): unknown {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(record, key)) return record[key];
+  }
+  return MISSING_COMMAND_INFO_ENTRY;
+}
+
+function commandName(value: unknown): string | undefined {
+  if (typeof value === 'string') return value.toLowerCase();
+  if (Buffer.isBuffer(value)) return value.toString('utf8').toLowerCase();
+  return undefined;
+}
+
+function isStringList(value: unknown): boolean {
+  return Array.isArray(value)
+    && value.every((item) => typeof item === 'string' || Buffer.isBuffer(item));
+}
+
+function isSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value);
 }
 
 function createUnknownCapabilities(
@@ -525,14 +564,16 @@ function replyBytes(value: unknown): number {
 function boundedValueBytes(value: unknown, cap: number): number {
   const seen = new Set<object>();
   const stack: unknown[] = [value];
+  let queued = 1;
   let total = 0;
 
-  while (stack.length > 0 && total <= cap) {
+  while (stack.length > 0 && total <= cap && queued <= MAX_RESPONSE_NODES) {
     const current = stack.pop();
     if (current === null || current === undefined) {
       total += 4;
     } else if (typeof current === 'string') {
-      total += Buffer.byteLength(current);
+      // Avoid scanning a string that is already larger than the hard cap.
+      total += current.length > cap ? cap + 1 : Buffer.byteLength(current);
     } else if (typeof current === 'number' || typeof current === 'boolean' || typeof current === 'bigint') {
       total += 16;
     } else if (Buffer.isBuffer(current)) {
@@ -542,18 +583,29 @@ function boundedValueBytes(value: unknown, cap: number): number {
       seen.add(current);
       if (Array.isArray(current)) {
         total += 2;
-        for (const item of current) stack.push(item);
+        if (current.length > MAX_RESPONSE_NODES - queued) return cap + 1;
+        queued += current.length;
+        for (let index = current.length - 1; index >= 0; index -= 1) {
+          stack.push(current[index]);
+        }
       } else {
         total += 2;
-        for (const [key, item] of Object.entries(current as Record<string, unknown>)) {
+        for (const key in current as Record<string, unknown>) {
+          if (!Object.prototype.hasOwnProperty.call(current, key)) continue;
+          if (queued >= MAX_RESPONSE_NODES) return cap + 1;
           total += Buffer.byteLength(key) + 2;
-          stack.push(item);
+          queued += 1;
+          try {
+            stack.push((current as Record<string, unknown>)[key]);
+          } catch {
+            return cap + 1;
+          }
         }
       }
     }
   }
 
-  return total;
+  return stack.length > 0 || queued > MAX_RESPONSE_NODES ? cap + 1 : total;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -583,7 +635,6 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation:
       });
       reject(error);
     }, timeoutMs);
-    timer.unref?.();
   });
 
   try {

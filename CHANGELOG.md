@@ -1,6 +1,50 @@
 # Changelog
 
-## Unreleased
+## 0.5.3 (Unreleased)
+
+### Added
+
+- Added the opt-in `lazy-layers-cache/transactions` subpath with a primary-only
+  Redis operation store, bounded dispatch gate, canonical payment fingerprints,
+  explicit coordination outcomes, and a versioned cached-Lua state machine.
+- Added a ticketing example and recovery tests covering independent seat
+  resource locking, provider idempotency, crash recovery, and duplicate retries.
+- Added bounded, read-only Redis capability discovery with supported,
+  unavailable, and unknown states plus reconnect invalidation.
+- Added `bench:representations` to compare HC1, V8 JSON, HASH-shaped payloads,
+  and optional live Redis memory usage without changing server configuration.
+- Added `bench:transactions` for coordination latency, throughput, event-loop,
+  and memory observations against a local adapter or an explicitly supplied
+  Redis primary.
+
+### Changed
+
+- Redis cache lease release, renewal, publication, and coherent snapshots use
+  registered scripts when the client supports them, with `NOSCRIPT` recovery
+  and no replay of ambiguous transport failures.
+- Redis L2 now prefers native TTL and operator-managed eviction. The sorted-set
+  namespace catalogue is opt-in with `useIndex: true`, or selected when
+  `levels.L2.maxEntries` is explicitly configured. Its entry limit is a
+  bounded, best-effort namespace cache policy under concurrent writers, not a
+  transaction quota.
+- L1 and L2 write codecs can be selected independently with `levels.L1.codec`
+  and `levels.L2.codec`. Existing tagged HC1 values remain readable and no
+  native HASH/JSON representation is enabled by default.
+- Cache publication rejects a stale lease without promoting the value to L1,
+  stale state, or a peer success event. Redis failures remain ordinary cache
+  fail-open outcomes.
+
+### Compatibility and safety
+
+- Transaction coordination never consults or populates L1, uses cache events,
+  or falls back to `getOrSet`. All instances handling one operation must share
+  one authoritative Redis primary/shard and durable database.
+- A Redis lease, Lua script, or provider idempotency key cannot provide
+  exactly-once effects across Redis, a database, and an external payment
+  provider. Unknown outcomes require durable/provider reconciliation.
+- Existing deployments that depend on the namespace index can retain
+  `useIndex: true` during migration. The library never changes Redis `CONFIG`
+  or the server-wide eviction policy.
 
 ## 0.5.2
 

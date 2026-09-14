@@ -49,7 +49,7 @@ export const cache = await setupCache<string, User>(options)
 <ParamField path="levels.L2" type="{ maxEntries?: number; ttlMs?: number }">
   The shared layer. `ttlMs` falls back to the cache-wide `ttlMs`, then to one hour. Keep it well above L1's, because L2 is what survives a deploy.
 
-  `maxEntries` has no default. When set, `RedisStore` trims its index on write, dropping the oldest keys past the limit. It does nothing unless `useIndex` is on.
+  `maxEntries` has no default. When set, `RedisStore` enables its optional namespace index and trims the oldest expiry entries on write. This is a bounded, best-effort cache policy under concurrent writers, not a transaction quota.
 </ParamField>
 
 <ParamField path="l1" type="CacheStore<K, V> | false">
@@ -96,12 +96,12 @@ Passed to the `RedisStore` constructor, not to the cache.
   Prepended to every Redis key. Two applications sharing a Redis instance with the same prefix will invalidate each other's keys.
 </ParamField>
 
-<ParamField path="indexKey" type="string" default="{prefix}__index">
-  The sorted set that tracks live keys. Change it only if it collides with something you already store.
+<ParamField path="indexKey" type="string" default="`${prefix}__index`">
+  The optional sorted set that tracks live keys by expiry deadline. Change it only if it collides with something you already store.
 </ParamField>
 
-<ParamField path="useIndex" type="boolean" default="true">
-  Maintain the index so pattern deletes and `size` use `ZSCAN` instead of scanning the whole keyspace. Turning it off costs one `ZADD` less per write and buys you a full `SCAN` on every pattern delete, and it disables `levels.L2.maxEntries` trimming.
+<ParamField path="useIndex" type="boolean" default="false">
+  Maintain the index so pattern deletes and `size` use `ZSCAN` instead of scanning the whole keyspace. `levels.L2.maxEntries` selects it automatically. Leave it off when Redis-native TTL and operator-managed eviction are sufficient.
 </ParamField>
 
 <ParamField path="scanCount" type="number" default="1000">
@@ -114,6 +114,10 @@ Passed to the `RedisStore` constructor, not to the cache.
 
 <ParamField path="deleteStrategy" type="'unlink' | 'del'" default="unlink">
   `unlink` frees memory on a background thread, so a large delete does not block the Redis event loop. Choose `del` only for a Redis older than 4.0.
+</ParamField>
+
+<ParamField path="keyLayout" type="'auto' | 'legacy' | 'v2'" default="'auto'">
+  `auto` uses v2 per-entry, same-slot data and lease keys when Redis scripts are available. The v2 and legacy layouts do not dual-read. Drain or backfill the legacy namespace before moving all writers to `v2`.
 </ParamField>
 
 ## Stampede protection

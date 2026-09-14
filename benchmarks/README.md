@@ -16,7 +16,25 @@ npm --prefix benchmarks i        # installs bentocache fixture dependency
 node benchmarks/run.mjs          # single pipeline: bytes, round-trip check & median-of-15 throughput
 npm run bench:herd               # 10,000-caller stampede collapse
 npm run bench:release-memory     # v0.5.2 memory and queue workload harness
+npm run bench:representations    # HC1 vs V8 JSON vs HASH-shaped payloads
+npm run bench:transactions       # bounded payment-coordination path
 ```
+
+## v0.5.3 representation and V8 experiment
+
+`representations.mjs` records Node/V8 versions, round-trip correctness, source
+bytes, payload bytes, and p50/p95/p99 codec timings for the HC1 string path, a
+V8 `JSON.stringify` path, and a top-level HASH-shaped payload. The local run
+does not pretend to measure Redis allocator overhead. For a controlled server,
+run `REDIS_URL=... npm run bench:representations -- --live` to add `MEMORY
+USAGE` for opaque strings, HASH records, and native JSON when the JSON module is
+available. The script uses a unique namespace and cleans it up without changing
+Redis `CONFIG`.
+
+The benchmark is a decision aid, not a claim that JSON or HASH is universally
+faster. LazyLayers keeps opaque HC1 strings as the default until a deployment's
+schema, module availability, memory profile, and tail-latency evidence justify
+an explicit representation.
 
 ## Thundering herd
 

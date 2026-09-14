@@ -228,8 +228,8 @@ export class RedisOperationStore implements OperationStore {
     }
     const identity = validateIdentity(input.identity);
     const owner = validateOwner(input.owner);
-    if (!Number.isFinite(input.remainingMs) || input.remainingMs < 0) {
-      throw new OperationError('OPERATION_INVALID_INPUT', 'lease remainingMs must be non-negative');
+    if (!Number.isFinite(input.remainingMs) || input.remainingMs < 0 || input.remainingMs > this.leaseMs) {
+      throw new OperationError('OPERATION_INVALID_INPUT', `lease remainingMs must be from 0 to ${this.leaseMs}`);
     }
     return Object.freeze({ identity, owner, remainingMs: input.remainingMs });
   }

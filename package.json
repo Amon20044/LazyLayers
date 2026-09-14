@@ -1,6 +1,6 @@
 {
   "name": "lazy-layers-cache",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "A TypeScript hybrid L1/L2 cache with lazy loading, inflight dedupe, event-bus invalidation, cross-instance L1 priming, and a live observability dashboard with Prometheus + OpenTelemetry.",
   "type": "module",
   "sideEffects": false,
@@ -32,6 +32,12 @@
       "require": "./dist-cjs/cache/index.js",
       "default": "./dist/cache/index.js"
     },
+    "./transactions": {
+      "types": "./dist/transactions/index.d.ts",
+      "import": "./dist/transactions/index.js",
+      "require": "./dist-cjs/transactions/index.js",
+      "default": "./dist/transactions/index.js"
+    },
     "./observability": {
       "types": "./dist/observability/index.d.ts",
       "import": "./dist/observability/index.js",
@@ -54,10 +60,12 @@
     "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true }); fs.rmSync('dist-cjs', { recursive: true, force: true })\"",
     "prepublishOnly": "npm run ci",
     "ci": "npm run clean && npm run typecheck && npm run build && npm test && npm run verify:package",
-    "test": "node --test",
+    "test": "node --test --test-concurrency=1",
     "test:release-safety": "npm run build && node --test test/encoded-memory.test.js test/memory-budget.test.js test/memory-pressure.test.js test/origin-load-gate.test.js test/redis-safety.test.js test/release-safety-regressions.test.js",
     "bench:herd": "npm run build && node benchmarks/herd.mjs",
     "bench:release-memory": "npm run build && node benchmarks/release-memory.mjs",
+    "bench:representations": "npm run build && node benchmarks/representations.mjs",
+    "bench:transactions": "npm run build && node benchmarks/transactions.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "verify:package": "node scripts/verify-package.mjs",
     "setup": "node scripts/setup-environment.mjs",

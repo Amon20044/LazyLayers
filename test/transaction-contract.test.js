@@ -90,6 +90,21 @@ test('transport failure after dispatch is unknown, while an unready primary is u
   await store.close();
 });
 
+test('a command timeout after dispatch is unknown and does not free the gate early', async () => {
+  const transport = new ScriptTransport();
+  transport.execute = async (...args) => {
+    transport.calls.push({ key: args[0], args: args[1] });
+    return new Promise(() => undefined);
+  };
+  const store = new tx.RedisOperationStore(transport, {
+    namespace: 'contract', leaseMs: 100, retentionMs: 500, operationTimeoutMs: 5,
+    maxConcurrent: 1, maxQueued: 0,
+  });
+  await assert.rejects(store.begin(identity({ idempotencyKey: 'timeout-1' })), (error) => error.code === 'OPERATION_UNKNOWN');
+  assert.equal(store.stats().active, 1, 'the underlying command still owns the active slot');
+  await store.close();
+});
+
 test('canonical operation keys share a Redis Cluster hash tag per operation', () => {
   const first = tx.operationKey('contract', identity());
   const second = tx.operationKey('contract', identity({ operation: 'ticket-confirm' }));
