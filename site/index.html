@@ -143,6 +143,16 @@
       <a class="nav__link" href="#quickstart">Quickstart</a>
       <a class="nav__link" href="#benchmarks">Benchmarks</a>
       <a class="nav__link" href="/docs" target="_blank" rel="noopener">Docs</a>
+      <div class="nav__metrics" aria-label="Live project metrics" aria-busy="true">
+        <a class="nav-metric" href="https://www.npmjs.com/package/lazy-layers-cache/v/__LAZY_LAYERS_VERSION__" target="_blank" rel="noopener" aria-label="View LazyLayers lifetime downloads on npm">
+          <span class="nav-metric__label">Lifetime downloads</span>
+          <strong class="nav-metric__value" id="npm-downloads" aria-live="polite">Loading…</strong>
+        </a>
+        <a class="nav-metric" href="https://github.com/Amon20044/LazyLayers" target="_blank" rel="noopener" aria-label="View LazyLayers stars on GitHub">
+          <span class="nav-metric__label">GitHub stars</span>
+          <strong class="nav-metric__value" id="github-stars" aria-live="polite">Loading…</strong>
+        </a>
+      </div>
     </nav>
 
     <div class="nav__cta">
@@ -203,19 +213,6 @@
           <button class="hero__copy" type="button" data-copy="npm i lazy-layers-cache" aria-label="Copy npm install command"><span data-copy-label>Copy</span></button>
         </div>
         <p class="hero__reassurance">MIT licensed <span aria-hidden="true">·</span> No Redis required to start</p>
-
-        <div class="project-metrics" aria-label="Live project metrics" aria-busy="true">
-          <a class="project-metric" href="https://www.npmjs.com/package/lazy-layers-cache/v/__LAZY_LAYERS_VERSION__" target="_blank" rel="noopener" aria-label="View lazy-layers-cache v__LAZY_LAYERS_VERSION__ on npm">
-            <span class="project-metric__label">npm downloads</span>
-            <strong class="project-metric__value" id="npm-downloads" aria-live="polite">Loading…</strong>
-            <span class="project-metric__period" id="npm-downloads-period">last 30 days</span>
-          </a>
-          <a class="project-metric" href="https://github.com/Amon20044/LazyLayers" target="_blank" rel="noopener" aria-label="View LazyLayers on GitHub">
-            <span class="project-metric__label">GitHub stars</span>
-            <strong class="project-metric__value" id="github-stars" aria-live="polite">Loading…</strong>
-            <span class="project-metric__period" id="github-stars-period">repository total</span>
-          </a>
-        </div>
       </div>
 
       <!--@cache-hero-->
