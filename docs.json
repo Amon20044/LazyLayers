@@ -64,6 +64,7 @@
         "pages": [
           "docs/reference/api",
           "docs/reference/configuration",
+          "docs/reference/transactions",
           "docs/reference/environment-variables",
           "docs/reference/stores",
           "docs/reference/event-buses",

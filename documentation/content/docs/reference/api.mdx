@@ -9,6 +9,14 @@ description: "Managed production setup, every LazyLayersCache method, and the co
   Tuning this API for production means changing **numbers**, not turning safety off. In-flight dedupe, fail-open behaviour and `broadcastSet` are on for a reason. Size the entry counts, TTLs, byte ceilings and thresholds instead.
 </Note>
 
+## Transaction coordination is a separate API
+
+`lazy-layers-cache/transactions` coordinates attempts for a durable operation through a primary Redis record. It is not part of `LazyLayersCache`, `setupCache`, L1, L2, or the event bus. Do not use a cache loader or a cache lock to authorize a payment, order transition, or other business side effect.
+
+The coordinator exposes `begin`, `renew`, `complete`, and `readStatus`. Its result unions distinguish acquired, in-progress, completed, and conflict. Its classified unavailable and unknown errors tell your application when to retry before dispatch or reconcile durable state instead of guessing. It does not execute your business action or return its business result.
+
+[Transaction coordination](/docs/reference/transactions) documents the exact import, client requirements, result unions, recovery flow, and the database, provider, and outbox responsibilities that remain outside the library.
+
 ## Production setup
 
 ```ts

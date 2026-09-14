@@ -437,6 +437,16 @@ Every option above has an environment variable equivalent. They are listed in th
   Logger configuration is process-wide. The last cache you construct wins for every cache in the process.
 </Note>
 
+## Transaction coordination
+
+`lazy-layers-cache/transactions` is a separate, primary-only Redis coordination API. It is not configured through `setupCache`, `LazyLayersCacheOptions`, `CacheOptions`, L1, L2, or the event bus. A cache's Redis client is not automatically a transaction authority.
+
+Configure `RedisOperationTransport` with an isolated `namespace`, a diagnostic `authorityId`, and a client that is known to reach a Redis primary. Production clients must explicitly set `enableOfflineQueue: false`, `autoResendUnfulfilledCommands: false`, and `maxRetriesPerRequest` to `0` or `1`. Cluster use additionally requires explicit `clusterValidated: true`. The transport rejects replicas, read-only clients, `keyPrefix`, and uninspectable routing options by default.
+
+`RedisOperationStore` separately controls its lease, retention, and bounded dispatcher. Its defaults are a 30 second lease, seven day retention, 64 active commands, 1,024 queued commands, 4 MiB of queued command data, a 250 ms queue wait, and a 2 second command deadline. These limits constrain coordination traffic. They do not configure cache memory, Redis eviction, or a business transaction.
+
+Read [transaction coordination](/docs/reference/transactions) before using the API. It defines the required durable-record, provider-idempotency, reconciliation, and transactional-outbox responsibilities.
+
 ## Per-call overrides
 
 `getOrSet` takes a third argument of the same `CacheOptions` shape, so one call can differ from the cache-wide policy.

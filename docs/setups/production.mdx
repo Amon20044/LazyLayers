@@ -54,7 +54,7 @@ There is no global cache mutex. A global mutex would make unrelated keys wait be
 LazyLayers protects the origin at two useful scopes:
 
 1. In one process, callers for the same key share one in-flight promise.
-2. Across processes, `RedisStore` takes one distributed lock per cold key. A server that loses the lock polls for the winner's value, then runs its own loader only after the bounded wait expires.
+2. Across processes, `RedisStore` takes one distributed lock per cold key. A server that loses the lock polls for the winner's value. At the bounded deadline it serves eligible stale data or throws by default. It runs unlocked only when you explicitly set `distributedLock.onTimeout: 'load'`.
 
 This keeps `user:1` from stampeding without making `user:2` wait for it. The in-flight map is capped at 10,000 tracked keys by `setupCache`, so a burst over many distinct keys cannot grow that bookkeeping without a bound.
 
@@ -69,7 +69,7 @@ This keeps `user:1` from stampeding without making `user:2` wait for it. The in-
 | L1 | 1,000 entries, 10 second TTL | Heap entry count and worst case staleness after a missed event |
 | L2 | One hour TTL | Shared retention across restarts |
 | In-flight dedupe | 5 second join window, 10,000 keys | Duplicate loaders and bookkeeping growth |
-| Distributed lock | 10 second lock, 2 second wait, 50 ms poll | Cross-process duplicate loaders and waiter latency |
+| Distributed lock | 10 second lease, derived 10.05 second wait, 50 ms poll | Cross-process duplicate loaders and waiter latency |
 | Loader timeout | 10 seconds | A loader that never settles |
 | Stale fallback | 30 seconds | How long an expired value can cover an origin failure |
 | Negative cache | 10 seconds, 10,000 misses | Repeated absent-key loads and miss-map growth |
@@ -167,7 +167,7 @@ L1 retains encoded values in LRU order. Use `maxEntries` to bound cardinality an
 
 ### Set lock timing from loader latency
 
-Keep the lock TTL above the slowest legitimate loader. Keep `waitTimeoutMs` around the time a losing server should wait for the winner before it accepts duplicate work. The loader receives an `AbortSignal`, so pass it to database or HTTP calls.
+Keep the lock TTL above the slowest legitimate loader. Keep `waitTimeoutMs` around the time a losing server should wait for the winner before it can serve stale data or report contention. The loader receives an `AbortSignal`, so pass it to database or HTTP calls.
 
 ### Set the broadcast ceiling from payloads
 
@@ -186,6 +186,12 @@ Runtime is fail open:
 - A loader returning `undefined` creates a short negative entry.
 
 Set `startup.requireHealthy: false` only when accepting traffic with degraded shared infrastructure is an explicit operational decision.
+
+## Operate pressure and contention
+
+When the shared L1 memory budget enters pressure, the cache evicts LRU entries and can bypass new L1 promotions. An L2 hit still returns to the caller, but it may not become a local hit. Watch `promotion:bypassed` with its `pressure` or `budget` reason before raising `maxMemory`. Raising the number without leaving heap headroom only moves the incident to Node.js.
+
+For a Redis lock timeout, do not treat the error as permission to repeat the business operation. It means the cache did not observe the winner's value within `waitTimeoutMs`. Keep loaders read-only and idempotent, pass their abort signal to I/O, and investigate `lock:timeout` alongside origin latency and Redis health. The lock coordinates cache fills, not side effects or a global origin overload.
 
 ## Invalidate and pre-warm
 

@@ -98,7 +98,7 @@ Tune with numbers. `failureThreshold` defaults to 3 and `cooldownMs` to 30,000. 
 
 When a loader fails, you often have a perfectly serviceable slightly older answer sitting in memory. Stale fallback returns it instead of propagating the error.
 
-It is on by default with a 30,000 ms window. Set `staleTtlMs` when you want a different one, and `enabled: false` when you would rather an outage surface as an error than as a slightly old value.
+It is on by default with a 30,000 ms window. Set `staleTtlMs` when you need a different recovery window.
 
 <CodeGroup>
 ```js title="src/cache/index.js"
@@ -152,10 +152,18 @@ cache.on((event: CacheEvent) => {
 </CodeGroup>
 
 <Warning>
-  Stale data is still stale. This is the right trade for a product page and the wrong trade for a permission check. Scope it per call rather than globally when only some reads can tolerate an old answer.
+  Stale data is still stale. This is the right trade for a product page and the wrong trade for a permission check, payment state, or order transition. Scope it per call rather than globally when only some reads can tolerate an old answer.
 </Warning>
 
 Stale fallback is also what makes a soft timeout meaningful, which is the next section.
+
+## L1 pressure does not turn an L2 hit into a miss
+
+The built-in L1 shares a byte budget with its stale snapshots. During memory pressure it evicts LRU entries and can reject a new L1 promotion. An L2 hit still returns to the caller. It simply does not consume more local heap, and emits `promotion:bypassed` with `pressure` or `budget`.
+
+Peer priming follows the same rule. Under pressure, a received value removes an obsolete L1 entry before the replacement promotion is bypassed. The server then reads the shared value from L2 on demand instead of knowingly serving the old L1 copy.
+
+Treat sustained `promotion:bypassed` events as a capacity signal. Check the instance memory limit, payload sizes, `admission.maxEntryBytes`, and L2 latency before increasing `maxMemory`. The budget is not a process RSS guarantee, so an oversized L1 ceiling can still leave too little heap for the application.
 
 ## Loader timeouts
 

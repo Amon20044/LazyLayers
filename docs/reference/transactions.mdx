@@ -1,0 +1,95 @@
+---
+title: "Transaction coordination"
+description: "Primary-only Redis coordination for durable operations, with explicit recovery boundaries."
+---
+
+`lazy-layers-cache/transactions` coordinates who may work on one durable operation. It does not cache the result, run your business callback, or decide whether a payment or order succeeded.
+
+<Warning>
+  This is not distributed ACID and it does not provide exactly-once effects across Redis, a database, and an external provider. The durable database record, resource constraints, provider idempotency, reconciliation, and outbox remain your application's responsibilities.
+</Warning>
+
+## Use it after preparing durable state
+
+Write or find the durable operation before calling `begin`. The identity names one operation and must contain `tenant`, `operation`, `idempotencyKey`, a canonical SHA-256 `fingerprint`, and a durable `durableId`. The coordinator records only that identity and a result reference.
+
+For an order or payment, use a short database transaction to:
+
+1. Find or create the durable operation for the request idempotency key.
+2. Enforce resource ownership with database constraints that are independent of that key, such as a unique seat hold or inventory reservation.
+3. Persist the final business result and its transactional outbox record together.
+
+The outbox publisher runs after that database commit. If Redis completion or publishing fails, reconcile the durable record and deliver the outbox later. Do not rerun the provider merely because a coordination command or response was lost.
+
+## Build a primary-only coordinator
+
+```js src/operations/coordinator.js
+import Redis from 'ioredis'
+import {
+  RedisOperationStore,
+  RedisOperationTransport,
+} from 'lazy-layers-cache/transactions'
+
+const redis = new Redis(process.env.REDIS_URL, {
+  enableOfflineQueue: false,
+  autoResendUnfulfilledCommands: false,
+  maxRetriesPerRequest: 1,
+})
+
+const transport = new RedisOperationTransport(redis, {
+  namespace: 'billing-operations',
+  authorityId: 'billing-redis-primary',
+})
+
+export const operations = new RedisOperationStore(transport)
+```
+
+`RedisOperationTransport` owns no Redis client. `close()` marks the transport closed, while your application remains responsible for closing the injected client.
+
+The transport accepts primary routing only. It rejects a replica, a read-only client, a client with `keyPrefix`, or a client whose retry and routing options cannot be inspected. A Redis Cluster client also needs `clusterValidated: true`. `authorityId` is a diagnostic label, not proof that every server uses the same authority.
+
+`RedisOperationStore` defaults to a 30 second lease and seven day retention. It bounds dispatch to 64 active commands, 1,024 queued commands, and 4 MiB of queued command data, with a 250 ms queue deadline and a 2 second command deadline. `leaseMs` cannot exceed one hour and `retentionMs` cannot exceed 30 days.
+
+## Coordinate and reconcile
+
+```ts
+begin(identity: Identity): Promise<BeginResult>
+renew(lease: Lease): Promise<RenewResult>
+complete(lease: Lease, committedResultRef: string): Promise<CompleteResult>
+readStatus(identity: Identity): Promise<Status>
+```
+
+`begin` has four results:
+
+- `acquired` gives the caller a token-bound lease and `mustReconcile: true`. Re-read the durable operation and, for a payment, query the provider with its stable idempotency key before doing work.
+- `in_progress` means another owner still holds the lease. Return a pending response or retry status, not another execution.
+- `completed` returns the durable `resultRef`. Resolve the business result from the database.
+- `conflict` means the same coordination record was presented with a different fingerprint or durable ID. Treat it as a rejected idempotency-key reuse.
+
+Call `complete` only after the durable transaction has committed. Repeating it with the same result reference returns `completed`. A different result reference returns `conflict`. `renew` and `complete` return `lost` if the token no longer owns the lease. `readStatus` can return `missing`, `in_progress`, `recovery_required`, `completed`, or `conflict`.
+
+`OperationUnavailableError` means the command did not dispatch and can be retried with the same identity. `OperationUnknownError` means delivery may have happened, including after a caller-side command timeout. Reconcile the database and provider before issuing another business action.
+
+## Payment-provider identity is not a lease
+
+Build the request fingerprint from canonical business input. `paymentFingerprint` validates tenant, source account, destination account, ISO currency, and positive minor-unit amount. Build the provider idempotency key from the durable ID, not the Redis lease owner:
+
+```ts
+paymentFingerprint(input: PaymentFingerprintInput): string
+paymentProviderKey(durableId: string, providerAccount: string): string
+```
+
+The lease owner changes after expiry or recovery. The provider key must not. If a process crashes after dispatching a charge but before committing the database result, the next owner looks up the provider with the same stable key, finalizes the durable operation, writes the outbox in that database transaction, and only then repairs Redis coordination.
+
+## What this API does not coordinate
+
+- No L1, L2, stale fallback, loader, or event bus participates in this API.
+- No Redis lease authorizes a business write or replaces database uniqueness constraints.
+- No cache invalidation makes a payment, order, inventory, or permission decision atomic.
+- No coordinator result proves that an external provider did not receive a request. Unknown outcomes require reconciliation.
+
+## Where to next
+
+- [Configuration](/docs/reference/configuration#transaction-coordination) separates the coordinator's transport and gate settings from cache settings.
+- [API reference](/docs/reference/api#transaction-coordination-is-a-separate-api) shows where the cache API ends.
+- [Event ordering](/docs/architecture/event-ordering#what-is-not-guaranteed) explains why cache event delivery is not a transaction protocol.

@@ -3,13 +3,13 @@ title: "Prevent stampedes"
 description: "Collapse concurrent callers to one loader call inside a process, and to one across the cluster."
 ---
 
-A cache is a load absorber, and a stampede is the moment it stops absorbing. This page covers the concept, the mechanism that already handles it, and the extra mechanism you add when one process is not the whole picture.
+A cache is a load absorber, and a stampede is the moment it stops absorbing. This page covers the concept, the mechanism that already handles it, and the automatic Redis coordination that applies when one process is not the whole picture.
 
 ## The thundering herd
 
 The thundering herd is a general system design failure, not a caching quirk. A single event wakes many waiters at once, all of them do the same work, and the resource they contend for collapses under a load spike it never sees during normal operation.
 
-In a cache it looks like this. A popular key expires. The next second brings 10,000 requests for it, every one of them misses, and every one of them calls your database with the identical query. Your steady state was one query per key per TTL. Your worst second is 10,000 queries, and it arrives precisely when the key is hottest.
+In a cache it looks like this. A popular key expires, a deploy starts servers with cold L1 caches, or a new key suddenly becomes hot. The next second brings 10,000 requests for it, every one of them misses, and every one of them calls your database with the identical query. Your steady state was one query per key per TTL. Your worst second is 10,000 queries, and it arrives precisely when the key is hottest.
 
 The damage is not linear. Those 10,000 queries take connections from a bounded pool, so unrelated requests queue behind them, and the slower the origin gets the longer each caller holds its slot. That is a feedback loop, which is why a stampede tends to show up as a full outage rather than a latency bump.
 

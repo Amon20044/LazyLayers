@@ -35,6 +35,8 @@ Lazy loading declines the guess. A key enters the cache because a request asked 
 
 The cost is real and worth naming. The first reader of each key pays full price. Everything below is about making sure only one reader pays it, and that everybody else gets the result for free.
 
+A cold L1 after a deploy, an L1 eviction, and an expired value all create the same first-reader problem. L1 expiry does not necessarily run the loader because L2 can refill it. A cold or expired L2 key does. [Stampede protection](/docs/guides/stampede-protection#what-happens-on-a-cold-or-expired-key) explains how the cache coordinates that case across servers.
+
 ## Load once, or the thundering herd
 
 Picture one key that a lot of people want. A pricing table, a feature flag document, the front page of a marketplace. It expires, or it gets evicted, or a fresh server comes up with an empty L1.

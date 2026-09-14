@@ -57,11 +57,19 @@ This page is the order to read things in. Each step names the system design conc
 <Step title="Ten thousand callers, one cold key" icon="users-line">
   **Concept: the thundering herd**
 
-  A popular key expires. Every in-flight request misses at the same instant and every one of them calls your database. The cache did not protect you, it synchronised the stampede.
+  A popular key expires, a server starts with an empty L1, or a newly popular key has never been read. Each is the same failure shape: many callers discover one missing value together, then all try to run the same loader.
 
   The fix is in-flight dedupe: the first caller runs the loader, everyone else waits on the same promise. It is on by default.
 
   Read [The thundering herd](/docs/guides/stampede-protection#the-thundering-herd), then [In-flight dedupe](/docs/guides/stampede-protection#in-flight-dedupe).
+</Step>
+
+<Step title="One cold key per server can still be too much" icon="lock">
+  **Concept: per-key coordination**
+
+  In-flight dedupe only shares work within one process. After a cold deploy or shared-key expiry, every server can still run one loader. Redis L2 coordinates that cold load per key: one owner loads, while other servers poll the layers for its result. It is a lease, not an exactly-once business-operation guarantee.
+
+  Read [When one process's dedupe is not enough](/docs/guides/stampede-protection#when-one-processs-dedupe-is-not-enough), then [What happens on a cold or expired key](/docs/guides/stampede-protection#what-happens-on-a-cold-or-expired-key).
 </Step>
 
 <Step title="One server pays, the whole fleet gets warm" icon="tower-broadcast">
