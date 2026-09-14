@@ -50,7 +50,7 @@ Every L2 call goes through the same wrapper. If the breaker is open the call is 
 </Step>
 
 <Step title="Promote an L2 hit into L1">
-On a hit the value is written into L1 **before** being returned, then remembered as stale, then `hit` with level `L2` is emitted. That promotion is what makes the second read of the key on this server free.
+On a healthy hit the encoded value is written into L1 **before** being returned, then remembered as stale, then `hit` with level `L2` is emitted. Under memory pressure or without enough room in the local byte target, `promotion:bypassed` is emitted and the L2 value is returned without growing L1.
 </Step>
 
 <Step title="Re-check the negative cache">
@@ -212,9 +212,9 @@ A write touches five things and, on its own, tells nobody.
 
 <Steps>
 <Step title="Resolve the storage key">Appending the generation when versioning is on.</Step>
-<Step title="Write L1">Awaited. The live object is stored as it is, with no encoding.</Step>
-<Step title="Write L2 through the circuit breaker">Awaited. The value is serialized here. A failure emits `l2:error` and is swallowed, so the L1 write stands alone.</Step>
-<Step title="Remember it as stale">Only when fail-safe is enabled and `staleTtlMs` is positive.</Step>
+<Step title="Encode and write L1">Awaited. The built-in store owns the encoded buffer and enforces byte admission before retaining it.</Step>
+<Step title="Write L2 through the circuit breaker">Awaited. A matching-format Redis store reuses the encoded value. A failure emits `l2:error` and is swallowed, so the L1 write stands alone.</Step>
+<Step title="Remember it as stale">Only when fail-safe is enabled, `staleTtlMs` is positive, and the shared stale-byte budget permits it.</Step>
 <Step title="Clear the negative entry and emit">Any recorded miss for this key is dropped, then `set` is emitted with the active levels.</Step>
 </Steps>
 

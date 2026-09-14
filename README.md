@@ -13,6 +13,18 @@
 npm install lazy-layers-cache
 ```
 
+## What changes in v0.5.2
+
+v0.5.2 makes the built-in L1 an encoded, byte-aware cache instead of a map of live object references. The safe behavior is on by default and remains configurable:
+
+- A shared `maxMemory: "20%"` ceiling resolves against effective host or container memory. Sustained pressure lowers the active target, critical pressure evicts immediately, and recovery grows gradually.
+- Size-aware admission rejects oversized scan traffic before it can evict a useful hot set. Redis L2 hits are still returned during pressure but skip L1 promotion until the local budget is healthy.
+- Same-key callers share one in-flight loader. Different-key misses pass through a bounded origin gate, and a timed-out caller does not release capacity while uncancelled origin work is still running.
+- Fail-safe snapshots, L2 work, event queues, Redis retries, and reconnect recovery are bounded and observable. Stale invalidation state is flushed before Redis Pub/Sub trust is restored.
+- Managed setup validates the Redis 6 through 8 core path and ACL access without enabling Search, vectors, embeddings, semantic caching, or payload indexes.
+
+See the [full changelog](CHANGELOG.md#052) and the [release verification commands](#v052-stress-and-release-checks). The byte ceiling covers cache-owned retained allocations, not total process RSS, and encoded L1 reads deliberately spend decode CPU to make retained payload memory measurable and bounded.
+
 ## Why this package?
 
 Most Node.js caches solve one part of the problem. An in-process cache is fast but private to one server. A shared cache survives restarts but adds a network hop to every read. A cache invalidation bus can keep instances aligned, but it adds failure modes of its own.
@@ -71,10 +83,10 @@ export const cache = await setupCache({
 The default production path is designed for the problems in this order:
 
 1. 🧠 **L1 memory:** an in-process encoded LRU gives hot reads local-memory latency and bounds retention by `maxEntries`, TTL, byte-aware admission, and a shared memory budget.
-2. 🗄️ **L2 Redis:** shared values survive process restarts and are available to every instance. L2 hits promote back into L1.
+2. 🗄️ **L2 Redis:** shared values survive process restarts and are available to every instance. L2 hits promote back into L1 when the local pressure and byte budget permit.
 3. 💤 **Read-through loading:** `getOrSet` checks negative cache, L1, and L2 before calling the loader.
 4. 🧵 **Stampede protection:** in-flight dedupe handles callers in one process. A distributed lock handles cold loads across instances.
-5. 🗜️ **Serialization:** values use MessagePack and size-aware compression before they cross the Redis connection.
+5. 🗜️ **Serialization:** built-in L1 and Redis L2 retain the same tagged MessagePack and size-aware compression format, so matching writes can reuse encoded bytes.
 6. 📡 **Event-bus synchronization:** successful `getOrSet` loads and explicit `prewarm` can broadcast bounded `set` events to prime peer L1 caches; `invalidate` and `deleteByPattern` broadcast `del` and `pattern` events to keep instances aligned.
 7. 🏷️ **Namespaces and patterns:** isolate applications with a namespace, then invalidate one key with `invalidate` or a family with `invalidateByPattern("users:*")`.
 8. 🔢 **Ordering and dedupe:** source identity, event IDs, and generations ignore self-echoes, duplicates, and stale invalidations.
@@ -130,10 +142,16 @@ const cache = await setupCache({
 
 This path includes health checks, startup readiness, L1/L2 layering, invalidation, per-key locks, in-flight dedupe, stale fallback, negative caching, circuit breakers, bounded peer priming, and managed shutdown. Tune the numbers for your traffic rather than removing the safety mechanisms.
 
+### Redis 6 through 8 compatibility
+
+The cache core supports Redis 6, 7, and 8 with ordinary Redis commands. During managed setup, `setupCache` calls `INFO server` and rejects unsupported versions, malformed version replies, and ACL denials with classified errors that do not expose the raw server response.
+
+Grant the cache user `+info` for that startup check, together with the commands used by the configured store and event bus. Scope key and channel patterns to your namespace. Redis Search, vector indexes, embeddings, semantic caching, and AI features are not initialized or required by the v0.5.2 cache core.
+
 For memory planning, estimate:
 
 ```txt
-L1 memory ≈ maxEntries × typical decoded value size + application headroom
+L1 accounted bytes ≈ encoded payloads + estimated key/metadata overhead + bounded stale snapshots
 ```
 
 Use the **[memory and cost calculator](https://lazy-layers-cache.vercel.app/#calculator)** to compare L1 sizing, Redis payload size, compression, and infrastructure costs. Payload bytes are an estimate of wire/storage pressure, not total Redis memory usage.
@@ -181,8 +199,8 @@ for the default path and an explicitly unsafe comparison with both in-flight
 dedupe and the origin guard disabled. A healthy default run makes one loader
 call and reuses it for the remaining 9,999 callers.
 
-The release-memory harness exercises hot reads, distinct miss surges,
-oversized payload churn, shifting hot sets, an L2-outage shape, and uneven
+The release-memory harness exercises hot reads, concurrent distinct-key surges,
+incompressible oversized scans, changing hot sets, injected L2 failures, and uneven
 three-replica traffic. It also injects a deterministic critical-memory signal
 into an encoded L1 store and verifies that the shared budget enters `critical`,
 evicts to its reduced target, and reports no workload error:
@@ -194,7 +212,11 @@ LAZY_BENCH_ITERATIONS=10000 LAZY_BENCH_SEED=20250911 \
 ```
 
 Its JSON records Node and OS metadata, seed, throughput, latency percentiles,
-event-loop delay, process-memory deltas, errors, and origin-gate statistics.
+CPU time, event-loop delay, before/peak/after process memory, errors, cache
+telemetry, byte accounting, and origin-gate statistics. Executable gates require
+origin concurrency to stay at or below its configured limit, rejected oversized
+objects to stay out of L1, critical pressure to evict below target, and required
+metrics to be present.
 Set `LAZY_BASELINE_MODULE` to compare the current build with a published
 baseline. The default harness intentionally has no L2, so Redis transport
 performance must be measured separately against a controlled Redis service.

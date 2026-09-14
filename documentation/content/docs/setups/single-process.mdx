@@ -156,7 +156,7 @@ The loader receives an `AbortSignal` that your `timeouts` actually fire. Pass it
 ## Why these numbers
 
 <ParamField path="levels.L1.maxEntries" type="10_000">
-  The default is 1,000, which is low for most services. Entries are live objects in your heap, so the real cost is your average value size times this number. Start here and raise it if your hit rate is poor and you have the headroom.
+  The default is 1,000. Keep this as a count guard even when the byte ceiling is the primary memory control. Raise it only when hit-rate evidence shows that many small entries are being displaced.
 </ParamField>
 
 <ParamField path="levels.L1.ttlMs" type="30_000">
@@ -186,9 +186,9 @@ The question is not how long you can cache something. It is how wrong it can be 
 
 ## Sizing L1
 
-`maxEntries` counts entries, not bytes. L1 is an LRU and that is not configurable, so the only thing you decide is how many entries fit in your heap.
+`maxMemory` defaults to `20%` of effective host or container memory and is shared by built-in L1 stores in one process. `maxEntries` remains a separate count guard. LRU remains the replacement order, with bounded frequency and size signals used for admission when space is tight.
 
-Multiply the entry count by a typical decoded value size. A decoded JavaScript object usually costs more heap than its JSON byte length, so budget roughly twice the wire size plus per-entry bookkeeping.
+Plan for encoded payload bytes plus estimated key and metadata overhead and bounded fail-safe snapshots. Decoded values returned to application code are outside cache-owned accounting.
 
 | Typical value | Wire size | Budget per entry | 10,000 entries |
 | --- | --- | --- | --- |
@@ -197,7 +197,7 @@ Multiply the entry count by a typical decoded value size. A decoded JavaScript o
 | Rendered list page | ~20 KB | ~56 KB | ~560 MB |
 
 <Note>
-  These are estimates, not measurements. There is no byte-based limit on L1, so one unexpectedly large value can blow past your estimate. If your values vary wildly in size, keep `maxEntries` conservative or give the large ones their own cache instance.
+  The byte ceiling controls retained cache allocations, not process RSS. Codec scratch buffers, application values, V8 overhead, and delayed allocator release still require headroom.
 </Note>
 
 ## Measuring it

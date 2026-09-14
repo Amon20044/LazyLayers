@@ -12,13 +12,23 @@
   outages from creating unbounded local work.
 - Added release regressions plus reproducible memory, herd, and synthetic
   pressure benchmarks that run in CI.
+- Managed Redis setup now validates the Redis 6+ core baseline through
+  `INFO server` and returns classified version, ACL, command, or transport
+  failures without copying raw server responses into errors.
 
 ### Changed
 
 - Redis L2 promotions reuse the encoded payload and preserve the remaining
   Redis TTL when populating L1.
+- L2 and peer values bypass L1 promotion while the local budget is pressured
+  or full, emitting `promotion:bypassed` without blocking a successful L2 read.
 - Redis Pub/Sub reconnects explicitly resubscribe and discard queued
   pre-disconnect deliveries before L1 trust is restored.
+- Managed ioredis clients enable auto-pipelining, readiness checks, finite
+  command timeouts and retries, and disable offline command queues and
+  uncertain command replay. Injected clients remain caller-owned and unchanged.
+- Built-in L1 reads now return a decoded copy rather than preserving object
+  identity. Custom `CacheStore` implementations keep their value-based contract.
 
 ### Fixed
 
@@ -28,6 +38,20 @@
 - Retry queues preserve immutable event snapshots and never evict an event
   while it is being published.
 - Expired L1 entries and stale fallbacks release their accounted memory.
+- Fail-safe snapshots retain only immutable encoded bytes and participate in
+  the same pressure-aware budget as fresh built-in L1 entries.
+- NATS consumer and subscription teardown is deadline-bounded so a stuck
+  JetStream close cannot hold process shutdown indefinitely.
+
+### Compatibility
+
+- Redis Search, vector indexes, embeddings, semantic caching, payload indexing,
+  and AI connection setup are not part of the v0.5.2 core path.
+- Redis `CLIENT TRACKING`, Redis Cluster certification, native Redis value
+  layouts, and alternative L1 replacement algorithms remain later roadmap work.
+- Set `levels.L1.autoEvict.enabled: false` to disable adaptive pressure sampling,
+  or `levels.L1.admission.enabled: false` to disable admission competition. The
+  configured byte ceiling remains enforced.
 
 ### Changed
 

@@ -116,7 +116,7 @@ Every join emits `inflight:reuse`, so the collapse ratio is something you can gr
 
 ## Load small
 
-L1 holds live JavaScript objects, so nothing is encoded there. Everything that leaves the process gets packed: values written to L2, and the invalidation events that travel between servers.
+The built-in L1 and Redis L2 hold tagged serializer buffers. Matching-format writes reuse the encoded value, while reads decode a fresh value for the caller. Invalidation events are packed separately because they include event metadata.
 
 The wire format is MessagePack, and gzip is applied on top only when the payload is at least 64 KB and compression saves at least 15%. A session record that costs 212 bytes as JSON is 123 bytes packed. A 400 record catalogue that costs 125,568 bytes as JSON is 9,903 bytes packed and gzipped.
 

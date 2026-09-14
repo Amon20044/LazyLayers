@@ -82,7 +82,7 @@ TTL resolution runs most specific to least: per-call level, per-call `ttlMs`, co
 | User record | ~2 KB | ~20 MB | 10,000 |
 | Rendered list page | ~18 KB | ~180 MB | 1,000 |
 
-Under Node clustering, every worker keeps its own L1. Budget `maxEntries x workers`.
+Under Node clustering, every worker keeps its own L1 and process-local byte budget. Divide the host allowance across workers or give each container an explicit memory limit. Lazy Layers does not coordinate one host-wide budget.
 
 <ParamField path="memoryBudget" type="MemoryBudget">
   Share an explicit `MemoryBudget` between cache instances in the same process. Without one, built-in `MemoryStore` instances use the process default budget. Set this at construction time, not per call.

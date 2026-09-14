@@ -16,6 +16,18 @@ export const cache = await setupCache({
 
 `setupCache` reads `REDIS_URL`, creates the client, L2, and Redis event bus, checks health, attaches the subscription, and only then returns the cache. A missing or unhealthy Redis stops startup because `required: true` and healthy startup are the defaults for that configured dependency.
 
+## Redis 6 through 8 migration and ACLs
+
+The cache core supports Redis 6, 7, and 8 with ordinary Redis commands. During `setupCache`, `INFO server` validates the server version. Redis below 6, malformed version replies, and ACL denials fail startup with a classified `CacheSetupError`. Raw Redis responses are not copied into that error.
+
+Grant the cache user `+info` for this check. Grant the commands used by your configured store and event bus: `+ping`, `+get`, `+set`, `+pttl`, `+exists`, `+scan`, `+zadd`, `+zrem`, `+zcard`, `+zrange`, `+zscan`, `+unlink` or `+del`, `+eval`, `+pexpire`, and `+publish`, `+subscribe`, and `+unsubscribe` when Redis Pub/Sub is enabled. Restrict key and channel patterns to the cache namespace, for example `~billing-api:cache:*` and `&billing-api:cache:events`.
+
+Managed ioredis clients use readiness checks, finite command timeouts and retries, auto-pipelining, no offline command queue, and no automatic replay of unfulfilled commands. These settings bound application-side work but do not cancel a command that Redis may already have applied. An injected client keeps its own settings and ownership.
+
+Lazy Layers owns its local invalidation trust lifecycle, so v0.5.2 does not enable Redis `CLIENT TRACKING`. Redis memory limits and eviction remain deployment settings; L1 pressure never rewrites Redis server policy.
+
+Redis Search, vector indexes, embeddings, semantic caching, and AI features are not probed or initialized by the v0.5.2 cache core.
+
 ## Resolution rules
 
 The setup path is conditional without hiding the result.
