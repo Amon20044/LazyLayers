@@ -1,6 +1,9 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
 import { appName, gitConfig } from './shared';
+import packageMetadata from '../../../package.json';
 import React from 'react';
+
+const packageVersion = packageMetadata.version;
 
 export function BrandLogo() {
   return (
@@ -19,7 +22,7 @@ export function BrandLogo() {
       </svg>
       <span className="font-semibold text-[15px]">{appName}</span>
       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-fd-secondary border border-fd-border text-fd-muted-foreground font-normal">
-        v0.5
+        v{packageVersion}
       </span>
     </div>
   );
