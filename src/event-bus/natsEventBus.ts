@@ -241,7 +241,9 @@ export class NatsEventBus implements EventBus {
         close(),
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => reject(new Error(`NATS teardown timed out after ${TEARDOWN_TIMEOUT_MS}ms`)), TEARDOWN_TIMEOUT_MS);
-          timer.unref?.();
+          // This timeout resolves an awaited teardown operation. It must keep
+          // the event loop alive, otherwise Node 20/22 can cancel disconnect()
+          // before the timeout settles.
         }),
       ]);
     } catch (error) {
