@@ -350,6 +350,132 @@ function initCopy() {
   });
 }
 
+/* ── Public project metrics ─────────────────────────────────────────── */
+
+const METRIC_TIMEOUT_MS = 4_500;
+const NPM_PACKAGE = 'lazy-layers-cache';
+const NPM_RANGE_DAYS = 365;
+
+type MetricId = 'npm-downloads' | 'github-stars';
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), METRIC_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      credentials: 'omit',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json() as T;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function formatMetric(value: number): string {
+  return new Intl.NumberFormat('en', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+function setMetric(id: MetricId, value: string, state: 'ready' | 'unavailable') {
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  el.textContent = value;
+  const metric = el.closest<HTMLElement>('.nav-metric');
+  if (metric) metric.dataset.state = state;
+}
+
+function utcDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function getFirstPublishDate(time: Record<string, unknown>): Date {
+  const versionDates = Object.entries(time)
+    .filter(([key]) => key !== 'created' && key !== 'modified')
+    .map(([, value]) => new Date(String(value)))
+    .filter((date) => Number.isFinite(date.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  if (!versionDates.length) throw new Error('npm publish date unavailable');
+  return versionDates[0];
+}
+
+function npmDownloadRanges(firstPublished: Date, today = new Date()): string[] {
+  const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  let start = new Date(Date.UTC(
+    firstPublished.getUTCFullYear(),
+    firstPublished.getUTCMonth(),
+    firstPublished.getUTCDate(),
+  ));
+  const ranges: string[] = [];
+
+  while (start <= end) {
+    const rangeEnd = new Date(Math.min(
+      start.getTime() + (NPM_RANGE_DAYS - 1) * 86_400_000,
+      end.getTime(),
+    ));
+    ranges.push(`${utcDate(start)}:${utcDate(rangeEnd)}`);
+    start = new Date(rangeEnd.getTime() + 86_400_000);
+  }
+
+  return ranges;
+}
+
+async function getLifetimeNpmDownloads(): Promise<number> {
+  type Registry = { time?: Record<string, unknown> };
+  type Downloads = { downloads?: unknown };
+
+  const registry = await fetchJson<Registry>(`https://registry.npmjs.org/${NPM_PACKAGE}`);
+  if (!registry.time) throw new Error('npm registry timestamps unavailable');
+
+  const ranges = npmDownloadRanges(getFirstPublishDate(registry.time));
+  const totals = await Promise.all(ranges.map(async (range) => {
+    const response = await fetchJson<Downloads>(
+      `https://api.npmjs.org/downloads/point/${range}/${NPM_PACKAGE}`,
+    );
+    if (typeof response.downloads !== 'number' || !Number.isFinite(response.downloads)) {
+      throw new Error('npm download count unavailable');
+    }
+    return response.downloads;
+  }));
+
+  return totals.reduce((total, downloads) => total + downloads, 0);
+}
+
+async function loadProjectMetrics() {
+  const metrics = document.querySelector<HTMLElement>('.nav__metrics');
+  if (!metrics) return;
+
+  const npm = (async () => {
+    setMetric('npm-downloads', formatMetric(await getLifetimeNpmDownloads()), 'ready');
+  })().catch(() => {
+    setMetric('npm-downloads', 'Unavailable', 'unavailable');
+  });
+
+  const github = (async () => {
+    type Repository = { stargazers_count?: unknown };
+    const response = await fetchJson<Repository>(
+      'https://api.github.com/repos/Amon20044/LazyLayers',
+    );
+    if (typeof response.stargazers_count !== 'number' || !Number.isFinite(response.stargazers_count)) {
+      throw new Error('GitHub star count unavailable');
+    }
+    setMetric('github-stars', formatMetric(response.stargazers_count), 'ready');
+  })().catch(() => {
+    setMetric('github-stars', 'Unavailable', 'unavailable');
+  });
+
+  await Promise.allSettled([npm, github]);
+  metrics.setAttribute('aria-busy', 'false');
+}
+
 function announceCopy(message: string) {
   let status = document.querySelector<HTMLElement>('#copy-status');
   if (!status) {
@@ -380,6 +506,7 @@ function boot() {
   safely('initMagnetic', initMagnetic);
   safely('initSpotlight', initSpotlight);
   safely('initCursorGlow', initCursorGlow);
+  void loadProjectMetrics();
 
   const calc = document.getElementById('calc');
   if (calc) initCalculator(calc);
