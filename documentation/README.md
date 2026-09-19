@@ -1,45 +1,24 @@
-# documentation
+# LazyLayers documentation
 
-This is a Next.js application generated with
-[Create Fumadocs](https://github.com/fuma-nama/fumadocs).
+The production documentation site uses Fumadocs and Next.js. Public pages live in `content/docs/`. Matching MDX source under `../docs/` also supports Mintlify compatibility checks.
 
-Run development server:
+## Edit content
+
+Read `../docs/AGENTS.md` and verify behavior against `../src/` and `../test/`. Update a page in `../docs/`, then copy the same content to its matching `content/docs/` path. Keep both copies aligned. Navigation for this site lives in `content/docs/**/meta.json`, while the Mintlify navigation lives in `../docs.json`.
+
+Keep the introduction and quickstart focused on the first successful cache integration. Put method signatures and exhaustive option details in the reference pages, and link to them from guides.
+
+## Preview and validate
+
+From the repository root:
 
 ```bash
-npm run dev
-# or
-pnpm dev
-# or
-yarn dev
+npm run docs:dev
+npm run docs:build
+mint broken-links
+mint validate
 ```
 
-Open http://localhost:3000 with your browser to see the result.
+The development site runs at http://localhost:3000. The build compiles the MDX pages and generates their documentation routes.
 
-## Explore
-
-In the project, you can see:
-
-- `lib/source.ts`: Code for content source adapter, [`loader()`](https://fumadocs.dev/docs/headless/source-api) provides the interface to access your content.
-- `lib/layout.shared.tsx`: Shared options for layouts, optional but preferred to keep.
-
-| Route                     | Description                                            |
-| ------------------------- | ------------------------------------------------------ |
-| `app/(home)`              | The route group for your landing page and other pages. |
-| `app/docs`                | The documentation layout and pages.                    |
-| `app/api/search/route.ts` | The Route Handler for search.                          |
-
-### Fumadocs MDX
-
-Collections are defined with the [Macro API](https://fumadocs.dev/docs/mdx/macro) in `lib/source.ts`.
-
-Read the [Introduction](https://fumadocs.dev/docs/mdx) for further details.
-
-## Learn More
-
-To learn more about Next.js and Fumadocs, take a look at the following
-resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js
-  features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [Fumadocs](https://fumadocs.dev) - learn about Fumadocs
+The live `/llms.txt`, `/llms-full.txt`, and `/llms.mdx/docs/...` routes derive content from the same Fumadocs source. Files in `../docs/llms*.txt` are compatibility entry points that link readers to these generated routes.

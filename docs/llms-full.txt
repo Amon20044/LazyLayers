@@ -1,169 +1,46 @@
-# lazy-layers-cache — Full Documentation Context for LLMs
+# lazy-layers-cache 0.5.3 documentation context
 
-> Complete documentation for lazy-layers-cache, a TypeScript hybrid L1/L2 cache for Node.js with lazy loading, stampede protection, fail-open resilience, size-tiered compression, and distributed invalidation.
+The complete current documentation is generated from the live site's pages at:
+https://lazy-layers-cache.vercel.app/llms-full.txt
 
-## What It Is
+This repository file is a compact entry point. Use the generated document for full API signatures, options, and guides.
 
-lazy-layers-cache is a Promise-based caching library for Node.js that provides a two-layer cache (L1 in-memory LRU + L2 Redis) with automatic distributed invalidation. It starts as an in-process LRU with no infrastructure and grows into a distributed cache layer as you need one.
+## Start with managed setup
 
-## Installation
+Requires Node.js 20 or 22+. Install with `npm install lazy-layers-cache`.
 
-```bash
-npm install lazy-layers-cache
+```js
+import { setupCache } from 'lazy-layers-cache'
+
+const cache = await setupCache({ namespace: 'demo', redis: false })
+try {
+  const user = await cache.getOrSet('user:42', async () => ({ id: '42', name: 'Ada' }))
+  console.log(user)
+  await cache.invalidate('user:42')
+} finally {
+  await cache.close()
+}
 ```
 
-Requires Node.js 20 or 22+.
+For multiple instances, set REDIS_URL and use `redis: { required: true }`. setupCache creates Redis L2 and Redis Pub/Sub, waits for readiness, and closes the client it owns. Use getOrSet for reads, prewarm for warm-up, invalidate after committed writes, and invalidateByPattern for key families.
 
-## Core API
+## Verified behavior
 
-### Creating a Cache
+- In-flight dedupe shares tracked same-key work within a process. Redis leases coordinate loads across instances, without guaranteeing exactly-once effects.
+- Built-in L1 retains encoded values, with LRU eviction, a shared byte budget, and pressure-aware admission. The budget does not cap total process RSS.
+- setupCache defaults to a 10 second L1 TTL and 32 KiB peer-broadcast ceiling. Oversized events skip peer priming.
+- Compression defaults to no compression below 256 packed bytes, LZ4 below 4 KiB, then Zstd when available or LZ4 otherwise. Compression is retained only when it saves at least 15%.
+- levels.L1.codec and levels.L2.codec independently select write formats and compression. JSON follows JSON value semantics.
+- Redis L2 uses native TTL and operator-managed eviction by default. Namespace indexing is opt-in, or selected by an explicit L2 entry limit.
+- Normal ioredis clients use the v2 key layout. Legacy and v2 keys are not dual-read. Review migration and ACL requirements before upgrading an existing namespace.
+- A managed Redis Pub/Sub subscription gap makes local invalidation state untrusted until reconnect recovery. Loader errors, overload, and lock deadlines may still reach callers.
+- The default observability route is /__lazylayers on 127.0.0.1:7077. /observelazyily remains a historical alias.
+- lazy-layers-cache/transactions is a separate primary-only coordination API. It does not use L1/L2 or execute business actions. Durable state, resource constraints, provider idempotency, and reconciliation remain application responsibilities.
 
-```ts
-import { LazyLayersCache, RedisStore, RedisEventBus } from "lazy-layers-cache";
-import Redis from "ioredis";
+## Read more
 
-const redis = new Redis(process.env.REDIS_URL!);
-const eventBus = new RedisEventBus(redis, "cache:invalidations");
-const l2 = new RedisStore<User>(redis, { prefix: "users:" });
-
-const cache = new LazyLayersCache<string, User>({
-  l2,
-  eventBus,
-  source: process.env.INSTANCE_ID,
-  ttlMs: 60_000,
-  levels: {
-    L1: { maxEntries: 1_000, ttlMs: 10_000 },
-    L2: { maxEntries: 100_000, ttlMs: 60_000 },
-  },
-  inflight: { enabled: true, ttlMs: 5_000 },
-  failSafe: { enabled: true, staleTtlMs: 300_000 },
-  broadcastSet: true,
-});
-```
-
-### Key Methods
-
-| Method | Description |
-| --- | --- |
-| `cache.get(key)` | Read from L1 first, then L2. L2 hits promoted to L1. |
-| `cache.set(key, value)` | Store a value. Does NOT broadcast to peers. |
-| `cache.getOrSet(key, loader)` | Read through layers. Loader runs once for concurrent callers. Broadcasts result to peers. |
-| `cache.delete(key)` | Delete locally and publish invalidation to all instances. |
-| `cache.deleteByPattern(pattern)` | Delete matching keys locally and publish pattern invalidation. |
-| `cache.clear()` | Delete all keys via deleteByPattern("*"). |
-| `cache.has(key)` | Check if a key exists in any layer. |
-| `cache.size()` | Return the active store size. |
-| `cache.on(handler)` | Subscribe to cache events. Returns unsubscribe function. |
-
-## Concepts
-
-### Layers
-
-- **L1**: In-process, byte-bounded LRU via lru-cache. Holds encoded serializer buffers and decodes on reads.
-- **L2**: Shared Redis store via ioredis. Holds MessagePack bytes. Millisecond reads.
-- Layers are opt-in. You can run L1-only, L2-only, or both.
-
-### Lazy Loading
-
-`getOrSet(key, loader)` reads through the layers. If nothing has the key, the loader runs once. All concurrent callers for the same key reuse the same promise. The result is broadcast to peers so they never call the loader.
-
-### Invalidation
-
-Three event types travel between instances:
-
-| Event | Trigger | What peers do |
-| --- | --- | --- |
-| `del` | `cache.delete(key)` | Drop key from all maps |
-| `pattern` | `cache.deleteByPattern(p)` | Drop every matching local entry |
-| `set` | A `getOrSet` loader returns | Write value straight into L1 (L1 priming) |
-
-### Serialization
-
-Size-tiered binary compression with 4-byte magic prefixes for O(1) decode:
-
-| Size | Codec | Wire prefix | Why |
-| --- | --- | --- | --- |
-| < 256 B | none | HC1M | Compression makes small payloads bigger |
-| 256 B – 4 KB | lz4 | HC1L | Smaller and ~5x faster than zstd at these sizes |
-| 4 KB+ | zstd | HC1Z | Best ratio at scale; falls back to lz4 on Node 20 |
-
-### Resilience
-
-| Feature | What it does |
-| --- | --- |
-| Fail-open | L2 and event-bus failures are logged and swallowed. Local L1 continues serving. |
-| Stale fallback | Last-known-good values returned on loader errors or timeouts. |
-| Negative caching | Loader misses briefly cached to avoid hammering databases. |
-| Circuit breakers | After configurable failures, the circuit opens and external calls are skipped until cooldown. |
-| Soft timeout | Returns stale immediately when available. |
-| Hard timeout | Aborts the loader entirely with AbortSignal. |
-| Distributed lock | Automatic getOrSet coordination for cold and expired keys. RedisStore renews leases, and contention deadlines serve eligible stale data or throw DistributedLockTimeoutError. |
-
-## Event Buses
-
-| Transport | Delivery | Use when |
-| --- | --- | --- |
-| Redis Pub/Sub | At-most-once, ephemeral | Fastest option, zero extra infra |
-| RabbitMQ | Durable, retryable | Cannot afford to miss invalidations |
-| NATS Core | At-most-once, fastest | Low-latency fanout, no replay needed |
-| NATS JetStream | Durable, replayable | Need durable delivery with ack and replay |
-
-## Guides
-
-### Stampede Protection
-
-- In-flight promise deduplication (default)
-- Automatic Redis-backed locking and renewal for cold and expired keys across instances
-- Configurable via `inflight` and `distributedLock` options
-
-### Failure Handling
-
-- Fail-open by default: L2/bus failures are swallowed
-- Circuit breakers with configurable thresholds and cooldowns
-- Soft and hard timeouts with AbortSignal support
-
-### Observability
-
-- 20+ typed cache events via `cache.on(handler)`
-- Live dashboard at /observelazyily
-- Prometheus /metrics endpoint
-- OpenTelemetry via node:diagnostics_channel
-
-## Environment Variables
-
-| Variable | Purpose | Default |
-| --- | --- | --- |
-| `INSTANCE_ID` | Unique identifier for this cache instance | random per process |
-| `REDIS_URL` | Redis connection URL | — |
-| `RABBITMQ_URL` | RabbitMQ AMQP URL | — |
-| `NATS_URL` | NATS connection URL | — |
-| `CACHE_COMPRESSION` | Compression mode or custom tier list | auto |
-| `CACHE_FORMAT` | Force JSON encoding for debugging | — |
-| `LAZY_OBS_ENABLED` | Enable the dashboard | false |
-| `LAZY_OBS_ROUTE` | Dashboard base route | /observelazyily |
-| `LAZY_OBS_HOST` / `LAZY_OBS_PORT` | Dashboard server bind | 127.0.0.1 / 7077 |
-| `LAZY_OBS_USER` / `LAZY_OBS_PASSWORD` | Dashboard auth | lazydev / lazydev |
-| `LAZY_OBS_PROMETHEUS` | Expose /metrics | false |
-
-## Production Checklist
-
-- Short L1 TTLs, longer L2 TTLs
-- Run eventBus.healthCheck() before starting HTTP server
-- Unique INSTANCE_ID per deployment
-- Durable queues: own queue per instance
-- NATS JetStream: own durableName per instance
-- Prefer negative caching over Bloom filters
-- Automatic distributed locking and renewal with Redis L2
-- Idempotent, timeout-aware loader functions
-
-## Links
-
-- Landing page: https://lazy-layers-cache.vercel.app/
-- GitHub: https://github.com/Amon20044/LazyLayers
-- npm: https://www.npmjs.com/package/lazy-layers-cache
-- Changelog: https://github.com/Amon20044/LazyLayers/blob/main/CHANGELOG.md
-- LLM summary: https://lazy-layers-cache.vercel.app/llms.txt
-
-## License
-
-MIT
+- https://lazy-layers-cache.vercel.app/docs/quickstart
+- https://lazy-layers-cache.vercel.app/docs/reference/api
+- https://lazy-layers-cache.vercel.app/docs/reference/configuration
+- https://lazy-layers-cache.vercel.app/docs/reference/stores
+- https://lazy-layers-cache.vercel.app/docs/reference/transactions

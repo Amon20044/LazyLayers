@@ -7,14 +7,12 @@ A cache sits between your users and everything slow. That position is also what 
 
 ## Fail open is the stance
 
-An L2 error is treated as a miss, not an exception. The read falls through to the loader, the request completes, and the failure is reported as an event rather than raised into your handler. The same holds for the event bus: a publish that fails does not fail the write that triggered it.
+L2 read failures become cache misses, allowing `getOrSet` to reach the loader. An event-bus publish failure is reported without rejecting a successful cache load. Circuit breakers and bounded queues limit repeated work against unavailable dependencies.
 
-This applies to every L2 operation, including `get`, `set`, `delete`, pattern deletes, and lock acquisition. Each one emits `l2:error` carrying the operation and the breaker state, so a broken store is loud in your telemetry and invisible to your users.
-
-You do not configure this. It is the default posture of every store call in the library.
+Fail-open does not guarantee a successful request. Loader failures, origin overload, contention deadlines, and detected lease loss can still reach the caller when no eligible stale value exists. [Stampede protection](/docs/guides/stampede-protection) explains the distinction between a Redis transport failure and a contended or lost lease.
 
 <Warning>
-  Failing open trades consistency for availability, and you should know which one you just traded. While L2 is down, servers stop hearing invalidations that travelled through it and keep serving their own L1 until TTLs expire. Short L1 TTLs are what bound that window.
+  With managed Redis Pub/Sub, a subscription gap makes local invalidation state untrusted. The cache flushes and bypasses L1, negative entries, and stale fallbacks until recovery restores trust. With a bus that cannot report such gaps, missed events can leave local copies unchanged until expiry. Choose TTLs and stale windows for the freshness your reads tolerate.
 </Warning>
 
 ## Circuit breakers
@@ -24,7 +22,7 @@ Failing open still means trying, and trying costs a connection, a socket timeout
 Two independent breakers exist, one for L2 and one for the event bus. Both take the same `CircuitBreakerOptions`, and both are constructed for every cache you build, so their defaults are already live: three consecutive failures to open, then a thirty second cooldown. Configuring them is how you replace those numbers with numbers that fit your dependency.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { LazyLayersCache, RedisStore } from 'lazy-layers-cache'
 import { redis } from './redis.js'
 import { bus } from './bus.js'
@@ -49,7 +47,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { LazyLayersCache, RedisStore, type LazyLayersCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 import { redis } from './redis.js'
@@ -101,7 +99,7 @@ When a loader fails, you often have a perfectly serviceable slightly older answe
 It is on by default with a 30,000 ms window. Set `staleTtlMs` when you need a different recovery window.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
 
@@ -112,7 +110,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 const options: LazyLayersCacheOptions<string, User> = {
   ttlMs: 5 * 60 * 1000,
 
@@ -129,7 +127,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 Values are remembered as stale when they are written, and kept for `staleTtlMs` beyond their normal lifetime. If the loader then throws, the stale value is returned and `stale:hit` is emitted with a reason of `loader-error`, `soft-timeout`, or `hard-timeout`.
 
 <CodeGroup>
-```js src/cache/metrics.js
+```js title="src/cache/metrics.js"
 import { cache } from './index.js'
 
 cache.on((event) => {
@@ -139,7 +137,7 @@ cache.on((event) => {
 })
 ```
 
-```ts src/cache/metrics.ts
+```ts title="src/cache/metrics.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from './index.js'
 
@@ -170,7 +168,7 @@ Treat sustained `promotion:bypassed` events as a capacity signal. Check the inst
 A loader with no ceiling can hold a request open for as long as the origin is willing to keep the socket alive, which on a struggling database can be minutes. Two timeouts bound that, and they exist for different reasons.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
 
@@ -185,7 +183,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 const options: LazyLayersCacheOptions<string, User> = {
   ttlMs: 5 * 60 * 1000,
 
@@ -215,7 +213,7 @@ The soft timeout is a latency budget. You already hold an answer that is slightl
 Both timeouts abort the loader's `AbortSignal`. That is the only lever the cache has, because it cannot reach inside your database client and cancel a query it never issued.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 
 export async function getUser(id) {
@@ -228,7 +226,7 @@ export async function getUser(id) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import { cache } from '../cache/index.js'
 import type { User } from '../types/user.js'
 
@@ -254,7 +252,7 @@ Asking repeatedly for something that does not exist means running the loader rep
 Negative caching records the absence. A loader that resolves to `undefined` writes a short lived negative entry, and later reads for that key return `undefined` without calling the loader, emitting `miss` with level `negative`.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
 
@@ -267,7 +265,7 @@ export const cache = new LazyLayersCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 const options: LazyLayersCacheOptions<string, User> = {
   ttlMs: 5 * 60 * 1000,
 
@@ -292,7 +290,7 @@ Ten seconds is usually enough to absorb a retry storm while staying short enough
 Every failure path emits an event. A reasonable production subscription:
 
 <CodeGroup>
-```js src/cache/metrics.js
+```js title="src/cache/metrics.js"
 import { cache } from './index.js'
 
 cache.on((event) => {
@@ -321,7 +319,7 @@ cache.on((event) => {
 })
 ```
 
-```ts src/cache/metrics.ts
+```ts title="src/cache/metrics.ts"
 import type { CacheEvent } from 'lazy-layers-cache'
 import { cache } from './index.js'
 

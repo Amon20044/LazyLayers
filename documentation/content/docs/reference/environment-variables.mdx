@@ -3,11 +3,11 @@ title: "Environment variables"
 description: "Every variable the library reads, the exact strings it accepts, and what happens when you leave it unset."
 ---
 
-The library reads nineteen environment variables. Four affect the process globally, fifteen configure the observability dashboard.
+Environment variables configure managed setup, process-wide serialization and logging, and the observability dashboard.
 
 For every observability variable the order is: an explicit constructor option wins, then the environment variable, then the built-in default. One variable breaks that rule, and it is called out below.
 
-## How values are parsed
+## How observability values are parsed
 
 The parsing is strict. A variable that does not match is treated as unset, or as `false`, with no warning.
 
@@ -19,80 +19,50 @@ The parsing is strict. A variable that does not match is treated as unset, or as
 
 So `LAZY_OBS_ENABLED=yes` does not enable anything, and `LAZY_OBS_ENABLED=TRUE` does.
 
+## Managed setup
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `REDIS_URL` | unset | Redis URL when `setupCache` has no explicit client or URL. Ignored with `redis: false` |
+| `LAZY_LAYERS_NAMESPACE` | `npm_package_name`, then `app` | Namespace when no explicit `namespace` is passed |
+| `npm_package_name` | `app` | Package-name fallback for the managed namespace |
+
+Use an explicit namespace for instances that must share a cache. See [setup options](/docs/reference/api#production-setup).
+
 ## Serialization
 
 | Variable | Accepted values | Default | Effect |
-|---|---|---|---|
-| `CACHE_COMPRESSION` | Exactly `gzip`, `zstd`, `auto`, or a JSON tier array | `gzip` | Picks the codec used for each payload size band |
-| `CACHE_FORMAT` | Exactly `json` | unset | Encodes values with `JSON.stringify` under the `HC1J` prefix instead of msgpack |
-| `CACHE_DEBUG_SERIALIZATION` | Exactly `true` | unset | The same switch, under a second name |
+| --- | --- | --- | --- |
+| `CACHE_COMPRESSION` | Exactly `none`, `gzip`, `zstd`, `auto`, or a JSON tier array | Size tiers equivalent to `auto` | Process-wide compression default |
+| `CACHE_FORMAT` | Exactly `json` | unset | Selects tagged JSON when the write has no explicit format |
+| `CACHE_DEBUG_SERIALIZATION` | Exactly `true` | unset | Same JSON switch |
 
 ### CACHE_COMPRESSION
 
-The three word values are shorthands for tier lists.
+| Value | Tiers |
+| --- | --- |
+| `auto` | None below 256 B, LZ4 below 4 KiB, then Zstd when available or LZ4 otherwise |
+| `none` | No compression |
+| `gzip` | None below 1 KiB, then gzip |
+| `zstd` | None below 1 KiB, then Zstd, falling back to LZ4 when unavailable |
 
-| Value | Tiers it installs |
-|---|---|
-| `gzip` | `none` under 1 KB, then `gzip`. Same as leaving it unset |
-| `zstd` | `none` under 1 KB, then `zstd` |
-| `auto` | `none` under 1 KB, the fastest installed codec up to 256 KB, then the densest installed codec |
+The variable is read once when the serializer is imported. A later `configureCompression` call replaces the process default. Explicit `levels.L1.codec.compression` and `levels.L2.codec.compression` override it for their layer.
 
-Anything else is parsed as JSON and used as a tier list, which is how you set a boundary the shorthands do not cover.
+For custom size bands:
 
 ```bash
-CACHE_COMPRESSION='[{"maxBytes":1024,"codec":"none"},{"maxBytes":262144,"codec":"lz4"},{"codec":"zstd"}]'
+CACHE_COMPRESSION='[{"maxBytes":256,"codec":"none"},{"maxBytes":4096,"codec":"lz4"},{"codec":"zstd"}]'
 ```
 
-Two things about this one behave differently from the code path.
-
-It is read **once**, when the serializer module is first imported, so setting it after your application has loaded changes nothing. A later `configureCompression` call overrides it, because the variable is a starting value rather than a floor.
-
-A malformed value is **silently ignored**. `CACHE_COMPRESSION=lz4` is not one of the three accepted words, does not parse as JSON, and leaves the default tiers in place with no warning. So does a tier array with descending bounds, which would throw if you passed the same array to `configureCompression`. Starting the process always wins over rejecting the configuration. Log `getCompressionTiers()` at startup if you want to know what actually took effect.
-
-<Note>
-  `auto` resolves per machine, so the same variable can produce different tiers on different servers depending on whether the optional native modules installed. Every codec it can pick is readable by every server on a current build, so this is a throughput difference and not a correctness one.
-</Note>
+Malformed JSON or an invalid tier array is ignored. Log `getCompressionTiers()` at startup to inspect the active process default. See [serialization configuration](/docs/reference/configuration#serialization) for tier validation rules.
 
 ### The JSON debug switches
 
-Either one on its own selects JSON encoding. Both use an exact string comparison rather than the boolean parser above, so `CACHE_FORMAT=JSON` and `CACHE_DEBUG_SERIALIZATION=1` do nothing at all.
+`CACHE_FORMAT=json` and `CACHE_DEBUG_SERIALIZATION=true` each select uncompressed JSON for writes without an explicit format. These comparisons are case-sensitive. `CACHE_FORMAT=JSON` and `CACHE_DEBUG_SERIALIZATION=1` do not enable JSON.
 
-They are checked before packing, so they override `CACHE_COMPRESSION` completely. Nothing is compressed while either is on.
+A layer's explicit `format: 'msgpack'` overrides these switches. Explicit `format: 'json'` selects JSON without environment variables. JSON follows JSON value semantics, so Date, Map, and typed arrays do not retain their JavaScript types.
 
-<CodeGroup>
-```js title="src/users/repository.js"
-import { cache } from '../cache/index.js'
-import { db } from '../db.js'
-
-// With CACHE_FORMAT=json set, the value this loader returns lands in Redis as
-// readable JSON, so you can inspect it with redis-cli while debugging.
-export async function getUser(id) {
-  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
-    const row = await db.users.findById(id, { signal })
-    return row ?? undefined
-  })
-}
-```
-
-```ts title="src/users/repository.ts"
-import { cache } from '../cache/index.js'
-import type { User } from '../types/user.js'
-import { db } from '../db.js'
-
-// With CACHE_FORMAT=json set, the value this loader returns lands in Redis as
-// readable JSON, so you can inspect it with redis-cli while debugging.
-export async function getUser(id: string): Promise<User | undefined> {
-  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
-    const row = await db.users.findById(id, { signal })
-    return row ?? undefined
-  })
-}
-```
-</CodeGroup>
-
-Reading is unaffected by any of the three. Every encoding carries a four byte prefix, so values written as msgpack before you set `CACHE_FORMAT` keep decoding normally, and values written as JSON keep decoding after you unset it. The same holds for a change of codec. What the JSON switches cost you is size and speed on everything written while they are on, which is why neither belongs in production.
-
-There is no constructor option for any of the three, because serialization is process-wide rather than per cache. `CACHE_COMPRESSION` has a code equivalent in `configureCompression`, covered in the [configuration reference](/docs/reference/configuration#serialization). The JSON encoding has no code equivalent at all.
+Reads continue to use the stored tag. Changing a write policy does not rewrite existing values, and readers need the codec required by each stored value.
 
 ## Logging
 
@@ -115,7 +85,7 @@ These are resolved in the cache constructor, so they have to be set before you c
 | Variable | Kind | Default | Effect |
 |---|---|---|---|
 | `LAZY_OBS_ENABLED` | boolean | `false` | Master switch for the dashboard |
-| `LAZY_OBS_ROUTE` | string | `/observelazyily` | Base route, normalised to a leading slash with no trailing slash |
+| `LAZY_OBS_ROUTE` | string | `/__lazylayers` | Base route, normalised to a leading slash with no trailing slash |
 | `LAZY_OBS_HOST` | string | `127.0.0.1` | Interface the standalone server binds |
 | `LAZY_OBS_PORT` | integer | `7077` | Port the standalone server listens on |
 | `LAZY_OBS_NO_SERVER` | boolean | `false` | Skip the standalone server and expose only the mountable handler |

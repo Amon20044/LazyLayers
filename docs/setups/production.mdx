@@ -20,13 +20,21 @@ export const cache = await setupCache({
 
 The cache core supports Redis 6, 7, and 8 with ordinary Redis commands. During `setupCache`, `INFO server` validates the server version. Redis below 6, malformed version replies, and ACL denials fail startup with a classified `CacheSetupError`. Raw Redis responses are not copied into that error.
 
-Grant the cache user `+info` for this check. Grant the commands used by your configured store and event bus: `+ping`, `+get`, `+set`, `+pttl`, `+exists`, `+scan`, `+zadd`, `+zrem`, `+zcard`, `+zrange`, `+zscan`, `+unlink` or `+del`, `+eval`, `+pexpire`, and `+publish`, `+subscribe`, and `+unsubscribe` when Redis Pub/Sub is enabled. Restrict key and channel patterns to the cache namespace, for example `~billing-api:cache:*` and `&billing-api:cache:events`.
+Grant `INFO` and `PING` for readiness checks, plus the commands required by the configured store and event bus. The v2 path uses cached scripts (`EVAL`/`EVALSHA`) and their underlying value, TTL, and lease commands. Namespace indexing adds sorted-set commands only when enabled. Redis Pub/Sub needs publish and subscription permissions.
+
+Scope ACL key patterns to the actual key layout. With namespace `billing-api`, v2 value and lease keys match `~lazy-layers:v2:*:billing-api:cache:*`. Legacy and optional index keys use `~billing-api:cache:*`. The Pub/Sub channel is `&billing-api:cache:events`. A legacy-only ACL will reject the default v2 layout. See [Redis store layout](/docs/reference/stores#the-key-layout) before changing permissions or rolling out an upgrade.
 
 Managed ioredis clients use readiness checks, finite command timeouts and retries, auto-pipelining, no offline command queue, and no automatic replay of unfulfilled commands. These settings bound application-side work but do not cancel a command that Redis may already have applied. An injected client keeps its own settings and ownership.
 
-Lazy Layers owns its local invalidation trust lifecycle, so v0.5.2 does not enable Redis `CLIENT TRACKING`. Redis memory limits and eviction remain deployment settings; L1 pressure never rewrites Redis server policy.
+Lazy Layers owns its local invalidation trust lifecycle, so v0.5.3 does not enable Redis `CLIENT TRACKING`. Redis memory limits and eviction remain deployment settings; L1 pressure never rewrites Redis server policy.
 
-Redis Search, vector indexes, embeddings, semantic caching, and AI features are not probed or initialized by the v0.5.2 cache core.
+Redis Search, vector indexes, embeddings, semantic caching, and AI features are not probed or initialized by the v0.5.3 cache core.
+
+## Upgrade an existing Redis namespace
+
+0.5.3 uses the v2 key layout for normal ioredis clients. During a mixed-version rollout, configure upgraded writers with `redis.store.keyLayout: 'legacy'` while older writers remain. Drain or explicitly backfill the namespace, then move all writers to `v2`. The layouts are not dual-read.
+
+If the deployment relies on the namespace catalogue, retain `redis.store.useIndex: true` during migration. New deployments use Redis-native TTL and operator-managed eviction by default. Read the [store reference](/docs/reference/stores#the-key-layout) for key shapes and compatibility limits.
 
 ## Resolution rules
 
@@ -66,9 +74,9 @@ This keeps `user:1` from stampeding without making `user:2` wait for it. The in-
 
 | Protection | Default | What it bounds |
 | --- | --- | --- |
-| L1 | 1,000 entries, 10 second TTL | Heap entry count and worst case staleness after a missed event |
+| L1 | 1,000 entries, 10 second TTL | Fresh entry count and lifetime. Eligible fail-safe values have a separate stale window |
 | L2 | One hour TTL | Shared retention across restarts |
-| In-flight dedupe | 5 second join window, 10,000 keys | Duplicate loaders and bookkeeping growth |
+| In-flight dedupe | Lifetime derived from lock-wait and loader budgets, at least 5 seconds, 10,000 keys | Duplicate loaders and bookkeeping growth |
 | Distributed lock | 10 second lease, derived 10.05 second wait, 50 ms poll | Cross-process duplicate loaders and waiter latency |
 | Loader timeout | 10 seconds | A loader that never settles |
 | Stale fallback | 30 seconds | How long an expired value can cover an origin failure |

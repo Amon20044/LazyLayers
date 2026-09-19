@@ -153,7 +153,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 `RedisStoreOptions` extends `CacheOptions`, so a store can carry its own `ttlMs` and `levels` policy independent of the cache. It also controls the Redis key layout, optional namespace catalogue, scans, and delete strategy.
 
 <ParamField path="prefix" type="string" default="cache:">
-  Prepended to every Redis key. Two applications sharing a Redis instance with the same prefix will invalidate each other's keys.
+  Namespaces the logical keys. In the v2 layout, it follows the `lazy-layers:v2:{encoded-logical-key}:` prefix. Two applications sharing a Redis instance with the same prefix will invalidate each other's keys.
 </ParamField>
 
 <ParamField path="indexKey" type="string" default="`${prefix}__index`">
@@ -179,7 +179,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 </ParamField>
 
 <ParamField path="keyLayout" type="'auto' | 'legacy' | 'v2'" default="'auto'">
-  `auto` uses the v2 per-entry key layout when the client can execute Redis scripts and otherwise keeps the legacy layout. Set `v2` only after the namespace migration is complete. Set `legacy` while old writers still use the legacy namespace.
+  `auto` uses the v2 per-entry key layout when the client exposes `defineCommand` and otherwise keeps the legacy layout. Set `v2` only after the namespace migration is complete. Set `legacy` while old writers still use the legacy namespace.
 </ParamField>
 
 ### The key layout
@@ -192,7 +192,7 @@ The legacy layout has three shapes under your prefix.
 | `{prefix}__index` | Optional sorted set of live key names, scored by expiry deadline |
 | `{prefix}__lock:{key}` | Distributed lock token, held for the lock TTL |
 
-The v2 layout stores each value and lease under `lazy-layers:v2:{encoded-logical-key}:`. The hash tag keeps one value and its lease in the same Redis Cluster slot while unrelated keys still shard independently. It does not dual-read the legacy layout. Drain or backfill the legacy namespace before moving every writer to v2.
+The v2 layout stores values as `lazy-layers:v2:{encoded-logical-key}:{prefix}{key}` and leases as `lazy-layers:v2:{encoded-logical-key}:{prefix}__lock:{key}`. The hash tag keeps one value and its lease in the same Redis Cluster slot while unrelated keys still shard independently. It does not dual-read the legacy layout. During a mixed-version rollout, set `keyLayout: 'legacy'` on upgraded writers while older writers remain. Drain or explicitly backfill the legacy namespace before moving every writer to v2. Update Redis ACL key patterns to cover the v2 prefix as described in [production setup](/docs/setups/production#redis-6-through-8-migration-and-acls).
 
 When `useIndex` is off, `inspect` filters out internal keys so the dashboard does not show bookkeeping keys.
 

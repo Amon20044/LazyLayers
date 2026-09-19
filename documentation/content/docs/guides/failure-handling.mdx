@@ -7,14 +7,12 @@ A cache sits between your users and everything slow. That position is also what 
 
 ## Fail open is the stance
 
-An L2 error is treated as a miss, not an exception. The read falls through to the loader, the request completes, and the failure is reported as an event rather than raised into your handler. The same holds for the event bus: a publish that fails does not fail the write that triggered it.
+L2 read failures become cache misses, allowing `getOrSet` to reach the loader. An event-bus publish failure is reported without rejecting a successful cache load. Circuit breakers and bounded queues limit repeated work against unavailable dependencies.
 
-This applies to every L2 operation, including `get`, `set`, `delete`, pattern deletes, and lock acquisition. Each one emits `l2:error` carrying the operation and the breaker state, so a broken store is loud in your telemetry and invisible to your users.
-
-You do not configure this. It is the default posture of every store call in the library.
+Fail-open does not guarantee a successful request. Loader failures, origin overload, contention deadlines, and detected lease loss can still reach the caller when no eligible stale value exists. [Stampede protection](/docs/guides/stampede-protection) explains the distinction between a Redis transport failure and a contended or lost lease.
 
 <Warning>
-  Failing open trades consistency for availability, and you should know which one you just traded. While L2 is down, servers stop hearing invalidations that travelled through it and keep serving their own L1 until TTLs expire. Short L1 TTLs are what bound that window.
+  With managed Redis Pub/Sub, a subscription gap makes local invalidation state untrusted. The cache flushes and bypasses L1, negative entries, and stale fallbacks until recovery restores trust. With a bus that cannot report such gaps, missed events can leave local copies unchanged until expiry. Choose TTLs and stale windows for the freshness your reads tolerate.
 </Warning>
 
 ## Circuit breakers

@@ -113,9 +113,10 @@ export const cache = new LazyLayersCache<string, User>(options)
 ```
 </CodeGroup>
 
-That starts a standalone server bound to `127.0.0.1` on port `7077` and serves the dashboard at `/observelazyily`, behind basic auth with the default credentials `lazydev` and `lazydev`. So the URL you open is:
+That starts a standalone server bound to `127.0.0.1` on port `7077` and serves the dashboard at `/__lazylayers`, behind basic auth with the default credentials `lazydev` and `lazydev`. So the URL you open is:
 
-```txt title="http://127.0.0.1:7077/observelazyily"
+```txt
+http://127.0.0.1:7077/__lazylayers
 ```
 
 Turning it on prints a one time warning to `console.warn`, deliberately outside the gated logger, because production is exactly where you do not want this left running.
@@ -328,6 +329,8 @@ const unsubscribe = subscribeTelemetry((event: CacheEvent) => {
 
 The publish path is guarded by a `hasSubscribers` check, so with nothing attached it costs one boolean test on the hot path.
 
+The historical `/observelazyily` route remains an alias for the default dashboard.
+
 ## Where to next
 
 <CardGroup cols={2}>
@@ -337,7 +340,7 @@ The publish path is guarded by a `hasSubscribers` check, so with nothing attache
   <Card title="Environment variables" icon="terminal" href="/docs/reference/environment-variables#observability">
     The full `LAZY_OBS_*` surface, with defaults, for configuring staging without a deploy.
   </Card>
-  <Card title="Production checklist" icon="clipboard-check" href="/docs/setups/production#what-to-alert-on">
+  <Card title="Production checklist" icon="clipboard-check" href="/docs/setups/production#operate-pressure-and-contention">
     Which of these numbers deserves a page, and which is just a graph.
   </Card>
 </CardGroup>

@@ -1,200 +1,91 @@
 ---
 title: "Installation"
-description: "Install LazyLayers, wire up TypeScript, and confirm it runs."
+description: "Install lazy-layers-cache and check Node.js, module, and TypeScript requirements."
 icon: "download"
 ---
 
-## Requirements
+LazyLayers 0.5.3 supports Node.js 20 or 22+. It ships ESM, CommonJS, and TypeScript declarations. You can run an L1-only cache without Redis or a broker.
 
-<CardGroup cols={2}>
-  <Card title="Node 20 or newer" icon="node-js">
-    The package ships ESM and CommonJS builds. Both are exercised in CI.
-  </Card>
-  <Card title="Redis, only if you want L2" icon="database">
-    LazyLayers runs happily with no infrastructure at all. Redis is what turns one process's cache into a shared one.
-  </Card>
-</CardGroup>
-
-## Install the package
+## Install
 
 <CodeGroup>
-```bash npm
+```bash title="npm"
 npm install lazy-layers-cache
 ```
 
-```bash pnpm
+```bash title="pnpm"
 pnpm add lazy-layers-cache
 ```
 
-```bash yarn
+```bash title="yarn"
 yarn add lazy-layers-cache
-```
-
-```bash bun
-bun add lazy-layers-cache
 ```
 </CodeGroup>
 
-That is enough for an in-process cache. Nothing below is required until you want a second server to agree with the first.
+The package includes `ioredis`, `amqplib`, the modular NATS clients, and the LZ4 and Snappy codecs as dependencies. `setupCache` can create the Redis client for you. If your application imports a client directly to supply its own connection, declare that client as a direct application dependency too.
 
-## Add a transport
+## Choose a module format
 
-Install only the client you actually use. None of these are dependencies of the package, so an unused transport costs you nothing.
+<CodeGroup>
+```js title="ESM: cache.mjs"
+import { setupCache } from 'lazy-layers-cache'
 
-<Tabs>
-  <Tab title="Redis (default)">
-    Covers both the L2 store and the event bus.
+const cache = await setupCache({ namespace: 'demo', redis: false })
+try {
+  console.log(await cache.getOrSet('greeting', async () => 'Hello'))
+} finally {
+  await cache.close()
+}
+```
 
-    ```bash
-    npm install ioredis
-    ```
-  </Tab>
-  <Tab title="RabbitMQ">
-    Event bus only. You still need a store for L2.
+```js title="CommonJS: cache.cjs"
+const { setupCache } = require('lazy-layers-cache')
 
-    ```bash
-    npm install amqplib
-    ```
-  </Tab>
-  <Tab title="NATS">
-    One install covers both Core and JetStream mode.
+async function main() {
+  const cache = await setupCache({ namespace: 'demo', redis: false })
+  try {
+    console.log(await cache.getOrSet('greeting', async () => 'Hello'))
+  } finally {
+    await cache.close()
+  }
+}
 
-    ```bash
-    npm install @nats-io/transport-node @nats-io/jetstream
-    ```
-  </Tab>
-</Tabs>
+main().catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})
+```
+</CodeGroup>
 
-<Note>
-  The NATS clients are the modular v3 packages. The older single `nats` package is deprecated and is not what LazyLayers builds against.
-</Note>
+Run `node cache.mjs` or `node cache.cjs`. Both print `Hello`. For ESM in `.js` files, set `"type": "module"` in your application's `package.json`.
 
 ## TypeScript
 
-Types ship inside the package, so there is no `@types/lazy-layers-cache` to install and nothing to configure. Import the types you need alongside the values.
+Import types from the package without installing a separate `@types` package. Set the key and value types once when you create a cache:
 
-```ts
-import {
-  LazyLayersCache,
-  RedisStore,
-  RedisEventBus,
-  type LazyLayersCacheOptions,
-  type CacheEvent,
-} from 'lazy-layers-cache'
-```
+```ts title="src/cache/index.ts"
+import { setupCache } from 'lazy-layers-cache'
 
-### Make the cache generic over your value
-
-This is the one piece of setup worth doing properly. Naming the options type checks your whole configuration in one place, and it changes what reads give you back.
-
-```ts src/types/user.ts
-export interface User {
+interface User {
   id: string
-  email: string
-  plan: 'free' | 'pro' | 'enterprise'
-  updatedAt: string
-}
-```
-
-```ts src/cache/index.ts
-import { LazyLayersCache, type LazyLayersCacheOptions } from 'lazy-layers-cache'
-import type { User } from '../types/user.js'
-
-const options: LazyLayersCacheOptions<string, User> = {
-  ttlMs: 5 * 60 * 1000,
-  levels: { L1: { maxEntries: 10_000, ttlMs: 60 * 1000 } },
+  name: string
 }
 
-export const cache = new LazyLayersCache<string, User>(options)
+export const cache = await setupCache<string, User>({
+  namespace: 'users-api',
+  redis: false,
+})
 ```
 
-Now the loader's return type is checked against `User`, and reads are typed for you:
+`getOrSet` now returns `Promise<User | undefined>` and checks the loader's return type. For a Node.js ESM project, use `"module": "NodeNext"` and `"moduleResolution": "NodeNext"` with `"type": "module"`. Keep the `.js` extension in relative imports that will run as compiled JavaScript.
 
-```ts
-// user is User | undefined, not unknown
-const user = await cache.getOrSet(`user:${id}`, () => db.users.findById(id))
-```
+## Connect shared infrastructure
 
-Without the generic, values come back as `unknown` and you end up casting at every call site.
+Managed Redis setup requires Redis 6 or newer, a reachable `REDIS_URL`, and access to the commands used by the cache and event bus. Set `redis: { required: true }` when your deployment depends on shared caching so missing configuration fails at startup.
 
-### tsconfig
-
-Nothing special is required. If you are on TypeScript 7, note that `moduleResolution: "node10"` was removed, so a CommonJS project wants:
-
-```json tsconfig.json
-{
-  "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "Bundler",
-    "target": "ES2022",
-    "strict": true
-  }
-}
-```
-
-ESM projects can use `"module": "NodeNext"` with `"moduleResolution": "NodeNext"`.
-
-## Confirm it runs
-
-No Redis needed for this. It exercises the loader, the L1 write, and the read back.
-
-<CodeGroup>
-```js check.js
-import { LazyLayersCache } from 'lazy-layers-cache'
-
-const cache = new LazyLayersCache({ ttlMs: 10_000 })
-
-let loaderCalls = 0
-const load = async () => {
-  loaderCalls++
-  await new Promise((r) => setTimeout(r, 50))
-  return { id: 42, plan: 'pro' }
-}
-
-// Fire a hundred concurrent reads at one cold key.
-const results = await Promise.all(
-  Array.from({ length: 100 }, () => cache.getOrSet('user:42', load)),
-)
-
-console.log('loader calls:', loaderCalls)        // 1
-console.log('all resolved:', results.length)     // 100
-console.log('value:', results[0])                // { id: 42, plan: 'pro' }
-```
-
-```ts check.ts
-import { LazyLayersCache } from 'lazy-layers-cache'
-
-interface User { id: number; plan: string }
-
-const cache = new LazyLayersCache<string, User>({ ttlMs: 10_000 })
-
-let loaderCalls = 0
-const load = async (): Promise<User> => {
-  loaderCalls++
-  await new Promise((r) => setTimeout(r, 50))
-  return { id: 42, plan: 'pro' }
-}
-
-// Fire a hundred concurrent reads at one cold key.
-const results = await Promise.all(
-  Array.from({ length: 100 }, () => cache.getOrSet('user:42', load)),
-)
-
-console.log('loader calls:', loaderCalls)        // 1
-console.log('all resolved:', results.length)     // 100
-console.log('value:', results[0])                // { id: 42, plan: 'pro' }
-```
-</CodeGroup>
-
-`loader calls: 1` is the whole point. A hundred callers arrived at a cold key and one of them did the work. You did not configure that, it is how `getOrSet` behaves.
+See [production setup](/docs/setups/production) for Redis ACLs and upgrade guidance. RabbitMQ and NATS are alternative [event buses](/docs/guides/event-buses), not requirements for starting with Redis.
 
 ## Where to next
 
-<CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/docs/quickstart">
-    Build the real thing, one file at a time, in JavaScript or TypeScript.
-  </Card>
-  <Card title="Learn the system design" icon="graduation-cap" href="/docs/learn">
-    The reading path, from why caches disagree to how this one keeps them honest.
-  </Card>
-</CardGroup>
+- [Quickstart](/docs/quickstart) shows reads, invalidation, and cleanup.
+- [API reference](/docs/reference/api#production-setup) describes `setupCache` options and ownership.

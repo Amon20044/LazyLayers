@@ -165,14 +165,23 @@ const CustomTab = ({ title, value, children, ...props }: React.ComponentProps<ty
   );
 };
 
+const CustomStep = ({ title, children }: React.ComponentProps<typeof Step> & { title?: string }) => (
+  <Step>
+    {title && <h3>{title}</h3>}
+    {children}
+  </Step>
+);
+
 export function ParamField({
   name,
+  path,
   type,
   required,
   default: defaultValue,
   children,
 }: {
-  name: string;
+  name?: string;
+  path?: string;
   type?: string;
   required?: boolean;
   default?: string;
@@ -181,7 +190,7 @@ export function ParamField({
   return (
     <div className="my-3 rounded-lg border border-fd-border bg-fd-card p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2 font-mono">
-        <span className="font-semibold text-fd-primary">{name}</span>
+        <span className="font-semibold text-fd-primary">{name ?? path}</span>
         {type && <span className="text-xs text-fd-muted-foreground">({type})</span>}
         {required && (
           <span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-xs font-semibold text-rose-500">required</span>
@@ -309,7 +318,7 @@ export function getMDXComponents(components?: MDXComponents) {
     Tab: CustomTab,
     Tabs,
     CodeGroup,
-    Step,
+    Step: CustomStep,
     Steps,
     File,
     Folder,

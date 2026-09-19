@@ -1,45 +1,60 @@
 ---
 title: "Quickstart"
-description: "Set up a production cache, read through it, invalidate it, and pre-warm it."
+description: "Run a cache, connect Redis, and add reads and invalidation to your application."
 icon: "rocket"
 ---
 
-`setupCache` gives you the production path in one awaited call. When Redis is configured, it creates L1, Redis L2, Redis Pub/Sub, distributed per-key locks, circuit breakers, health checks, and managed shutdown. Without Redis, the same call resolves to a protected L1-only cache.
-
-<Note>
-  The setup is safe before you tune it. Tune numbers for your traffic. You do not need to enable the safety features one by one.
-</Note>
+Start with a runnable L1 cache, then connect the same API to Redis. You need Node.js 20 or 22+. The first example needs no database or Redis.
 
 <Steps>
+<Step title="Install the package">
 
-<Step title="Install LazyLayers">
-
-<CodeGroup>
-```bash title="npm"
+```bash
 npm install lazy-layers-cache
 ```
 
-```bash title="pnpm"
-pnpm add lazy-layers-cache
+</Step>
+<Step title="Run your first cached read">
+
+Save this file and run `node cache-demo.mjs`.
+
+```js title="cache-demo.mjs"
+import { setupCache } from 'lazy-layers-cache'
+
+const cache = await setupCache({ namespace: 'demo', redis: false })
+let loaderCalls = 0
+
+try {
+  const loadUser = async () => {
+    loaderCalls++
+    return { id: '42', name: 'Ada' }
+  }
+
+  await cache.getOrSet('user:42', loadUser)
+  const user = await cache.getOrSet('user:42', loadUser)
+  console.log(user.name, loaderCalls) // Ada 1
+
+  await cache.invalidate('user:42')
+  await cache.getOrSet('user:42', loadUser)
+  console.log(loaderCalls) // 2
+} finally {
+  await cache.close()
+}
 ```
 
-```bash title="yarn"
-yarn add lazy-layers-cache
-```
-</CodeGroup>
+The first read runs the loader. The second reuses the value. Invalidating the key makes the next read load it again.
 
 </Step>
+<Step title="Share values across instances">
 
-<Step title="Set up L1, L2, and the event bus">
-
-Set `REDIS_URL` in the process environment. `required: true` makes a missing URL or failed health check stop startup instead of accidentally running a multi-server deployment with isolated caches.
+Set `REDIS_URL` to your Redis 6+ service. Create one cache per application process:
 
 <CodeGroup>
 ```js title="src/cache/index.js"
 import { setupCache } from 'lazy-layers-cache'
 
 export const cache = await setupCache({
-  namespace: 'billing-api',
+  namespace: 'users-api',
   redis: { required: true },
 })
 ```
@@ -49,35 +64,27 @@ import { setupCache } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 
 export const cache = await setupCache<string, User>({
-  namespace: 'billing-api',
+  namespace: 'users-api',
   redis: { required: true },
 })
 ```
 </CodeGroup>
 
-This one call waits until Redis and the event subscription are ready. It also namespaces the Redis keys and channel so another application cannot collide with them.
+For the TypeScript example, define the value your application reads:
 
-<AccordionGroup>
-<Accordion title="What setupCache already resolved">
+```ts title="src/types/user.ts"
+export interface User {
+  id: string
+  name: string
+}
+```
 
-| Concern | Production behaviour |
-| --- | --- |
-| L1 | In-process LRU, 1,000 entries, 10 second TTL |
-| L2 | Redis, one hour TTL, indexed pattern invalidation, non-blocking `UNLINK` deletes |
-| Event bus | Redis Pub/Sub with 16 concurrent handlers and a bounded 10,000-event retry queue |
-| Stampede protection | Per-key in-flight dedupe in the process plus a Redis per-key distributed lock |
-| Overload bounds | 10,000 tracked in-flight keys and a 32 KB peer-priming payload ceiling |
-| Failure handling | 10 second loader timeout, 30 second stale fallback, negative caching, and L2/event-bus circuit breakers |
-| Startup and shutdown | Health check plus subscription readiness before return, and one idempotent `close()` |
-
-</Accordion>
-</AccordionGroup>
+Use the same namespace and Redis service for instances that share values. Setup waits for Redis and the event subscription to be ready. `required: true` prevents a missing URL from silently starting isolated L1 caches.
 
 </Step>
+<Step title="Connect your database reads and writes">
 
-<Step title="Read with getOrSet">
-
-`getOrSet` checks L1, checks L2, and runs the loader only on a miss. Concurrent callers for the same key share the same loader promise. With Redis L2, cold and expired keys also use a per-key Redis lock across servers.
+The following repository assumes you provide `src/db.js`. Adapt the database calls to your client. Return `undefined` for a missing record, and pass the abort signal when your client supports cancellation.
 
 <CodeGroup>
 ```js title="src/users/repository.js"
@@ -85,35 +92,12 @@ import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
 export function getUser(id) {
-  return cache.getOrSet(`user:${id}`, ({ signal }) =>
-    db.users.findById(id, { signal }),
-  )
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const user = await db.users.findById(id, { signal })
+    return user ?? undefined
+  })
 }
-```
 
-```ts title="src/users/repository.ts"
-import { cache } from '../cache/index.js'
-import type { User } from '../types/user.js'
-import { db } from '../db.js'
-
-export function getUser(id: string): Promise<User | undefined> {
-  return cache.getOrSet(`user:${id}`, ({ signal }) =>
-    db.users.findById(id, { signal }),
-  )
-}
-```
-</CodeGroup>
-
-When the loader resolves, the value lands in L1 and L2. A small value is also published to every peer, which warms each peer's L1 without another database query.
-
-</Step>
-
-<Step title="Invalidate after a write">
-
-Commit the database write first, then invalidate. `invalidate` deletes the key from local state and Redis, advances its generation, and publishes the delete to every peer.
-
-<CodeGroup>
-```js title="src/users/repository.js"
 export async function updateUser(id, patch) {
   const user = await db.users.update(id, patch)
   await cache.invalidate(`user:${id}`)
@@ -122,6 +106,17 @@ export async function updateUser(id, patch) {
 ```
 
 ```ts title="src/users/repository.ts"
+import { cache } from '../cache/index.js'
+import { db } from '../db.js'
+import type { User } from '../types/user.js'
+
+export function getUser(id: string): Promise<User | undefined> {
+  return cache.getOrSet(`user:${id}`, async ({ signal } = {}) => {
+    const user = await db.users.findById(id, { signal })
+    return user ?? undefined
+  })
+}
+
 export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
   const user = await db.users.update(id, patch)
   await cache.invalidate(`user:${id}`)
@@ -130,263 +125,41 @@ export async function updateUser(id: string, patch: Partial<User>): Promise<User
 ```
 </CodeGroup>
 
-Use `invalidateByPattern('tenant:42:*')` when one write makes a known key family stale.
+Commit the database write before invalidating. Invalidation clears cached state and publishes a delete event to peers. Event delivery is asynchronous, so it does not make the database write and every cached read atomic.
 
 </Step>
+<Step title="Close the cache on shutdown">
 
-<Step title="Pre-warm a key">
+After your server stops accepting requests and drains active work, call:
 
-`prewarm` uses the same protected path as `getOrSet`. It loads a cold key once, stores it in L1 and L2, and primes peer L1 caches. If the key is already warm, the loader does not run.
-
-<CodeGroup>
-```js title="src/jobs/prewarm.js"
-await cache.prewarm('plans:active', ({ signal }) =>
-  db.plans.findActive({ signal }),
-)
+```js title="Application shutdown"
+await cache.close()
 ```
 
-```ts title="src/jobs/prewarm.ts"
-await cache.prewarm('plans:active', ({ signal }) =>
-  db.plans.findActive({ signal }),
-)
-```
-</CodeGroup>
+`close()` is idempotent. It disconnects the event bus, stops observability, and closes a Redis client created by `setupCache`. Your application closes any client it supplied itself.
 
 </Step>
-
-<Step title="Close on shutdown">
-
-`close` stops observability, disconnects the event bus, and closes the Redis client only when `setupCache` created it. It is idempotent.
-
-```js title="src/server.js"
-async function shutdown() {
-  await cache.close()
-  process.exit(0)
-}
-
-process.once('SIGTERM', shutdown)
-process.once('SIGINT', shutdown)
-```
-
-</Step>
-
 </Steps>
 
-## Coordinate a payment or order operation
+## What is already configured
 
-Use the opt-in `lazy-layers-cache/transactions` subpath when duplicate requests must coordinate around a durable order or payment operation. It is separate from the cache. It has no L1, cache events, stale fallback, or `getOrSet` path.
+In-flight dedupe shares concurrent same-key loads in one process. Redis per-key leases coordinate loads between instances. Loader timeouts, bounded origin work, stale fallback, negative caching, and circuit breakers are already active.
 
-Point it at an explicit Redis primary. The transport rejects a replica and requires offline queueing and automatic command replay to be disabled, because a command that may have reached Redis has an unknown outcome.
+A successful loader can also prime peer L1 caches. `setupCache` limits the encoded broadcast to 32 KiB. Larger events skip priming, and memory pressure can prevent L1 admission. The [configuration reference](/docs/reference/configuration) documents every default and override.
 
-<CodeGroup>
-```js title="src/payments/operations.js"
-import Redis from 'ioredis'
-import {
-  RedisOperationStore,
-  RedisOperationTransport,
-} from 'lazy-layers-cache/transactions'
+Redis or bus failures can degrade to origin reads. Your application must still handle loader errors, overload, and lock deadlines. See [failure handling](/docs/guides/failure-handling).
 
-const redisUrl = process.env.REDIS_URL
-if (!redisUrl) throw new Error('REDIS_URL is required for payment coordination')
+## Add only what your application needs
 
-const primary = new Redis(redisUrl, {
-  enableOfflineQueue: false,
-  autoResendUnfulfilledCommands: false,
-  maxRetriesPerRequest: 1,
-})
-
-export const operations = new RedisOperationStore(
-  new RedisOperationTransport(primary, {
-    namespace: 'billing-operations',
-    authorityId: process.env.INSTANCE_ID ?? 'billing-api',
-  }),
-)
-```
-
-```ts title="src/payments/operations.ts"
-import Redis from 'ioredis'
-import {
-  RedisOperationStore,
-  RedisOperationTransport,
-} from 'lazy-layers-cache/transactions'
-
-const redisUrl = process.env.REDIS_URL
-if (!redisUrl) throw new Error('REDIS_URL is required for payment coordination')
-
-const primary = new Redis(redisUrl, {
-  enableOfflineQueue: false,
-  autoResendUnfulfilledCommands: false,
-  maxRetriesPerRequest: 1,
-})
-
-export const operations = new RedisOperationStore(
-  new RedisOperationTransport(primary, {
-    namespace: 'billing-operations',
-    authorityId: process.env.INSTANCE_ID ?? 'billing-api',
-  }),
-)
-```
-</CodeGroup>
-
-First create or read the durable operation in a short database transaction. Then use its stable id and request fingerprint to coordinate one attempt. An acquired lease always has `mustReconcile: true`, so read durable state before taking the external action.
-
-<CodeGroup>
-```js title="src/payments/confirm-order.js"
-import { fingerprintFields, paymentProviderKey } from 'lazy-layers-cache/transactions'
-import { operations } from './operations.js'
-import { db, payments } from '../services.js'
-
-export async function confirmOrder(input) {
-  const operation = await db.operations.preparePayment(input)
-  const identity = {
-    tenant: input.tenant,
-    operation: 'payment-confirm',
-    idempotencyKey: input.idempotencyKey,
-    fingerprint: fingerprintFields('payment-confirm-v1', [
-      input.tenant,
-      input.orderId,
-      input.currency,
-      input.amountMinor,
-    ]),
-    durableId: operation.id,
-  }
-  const claim = await operations.begin(identity)
-
-  if (claim.kind === 'completed') return db.operations.read(operation.id)
-  if (claim.kind === 'in_progress') return { kind: 'pending', operationId: operation.id }
-  if (claim.kind === 'conflict') throw new Error('idempotency key has different payment fields')
-
-  const providerKey = paymentProviderKey(operation.id, 'payments-provider')
-  const outcome = await payments.charge(operation, { idempotencyKey: providerKey })
-  const completed = await db.operations.finalize(operation.id, outcome)
-
-  try {
-    await operations.complete(claim.lease, completed.resultRef)
-  } catch {
-    // The durable result is still authoritative and is reconciled on retry.
-  }
-  return completed.result
-}
-```
-
-```ts title="src/payments/confirm-order.ts"
-import { fingerprintFields, paymentProviderKey } from 'lazy-layers-cache/transactions'
-import { operations } from './operations.js'
-import { db, payments } from '../services.js'
-
-export async function confirmOrder(input: PaymentInput) {
-  const operation = await db.operations.preparePayment(input)
-  const identity = {
-    tenant: input.tenant,
-    operation: 'payment-confirm',
-    idempotencyKey: input.idempotencyKey,
-    fingerprint: fingerprintFields('payment-confirm-v1', [
-      input.tenant,
-      input.orderId,
-      input.currency,
-      input.amountMinor,
-    ]),
-    durableId: operation.id,
-  }
-  const claim = await operations.begin(identity)
-
-  if (claim.kind === 'completed') return db.operations.read(operation.id)
-  if (claim.kind === 'in_progress') return { kind: 'pending', operationId: operation.id }
-  if (claim.kind === 'conflict') throw new Error('idempotency key has different payment fields')
-
-  const providerKey = paymentProviderKey(operation.id, 'payments-provider')
-  const outcome = await payments.charge(operation, { idempotencyKey: providerKey })
-  const completed = await db.operations.finalize(operation.id, outcome)
-
-  try {
-    await operations.complete(claim.lease, completed.resultRef)
-  } catch {
-    // The durable result is still authoritative and is reconciled on retry.
-  }
-  return completed.result
-}
-```
-</CodeGroup>
-
-This is coordination, not distributed ACID or a payment-provider guarantee. Keep the database transaction that creates and finalizes the operation, persist an outbox for work that must be delivered, and send the provider's stable idempotency key. On `OperationUnknownError`, `recovery_required`, or a lost lease, reconcile the durable operation and provider result before attempting another charge. [Transaction coordination](/docs/reference/transactions) covers the recovery boundary and every result.
-
-## Keep L1 within a memory budget
-
-Built-in L1 uses a shared, process-local `MemoryBudget` automatically. Without configuration, it has a 20% budget of effective host or cgroup memory. L1 stores encoded values, uses LRU eviction, rejects oversized or low-value admissions, and lowers its active target during memory pressure. The budget is an application-level ledger, not a process RSS limit, so leave room for Node.js and the rest of your service.
-
-Pass one explicit budget to every cache in the process when you need a known ceiling. `maxEntries` still limits key count, while `maxEntryBytes` stops one payload from evicting the working set.
-
-<CodeGroup>
-```js title="src/cache/index.js"
-import { MemoryBudget, setupCache } from 'lazy-layers-cache'
-
-const memoryBudget = new MemoryBudget({
-  maxMemory: '256MiB',
-  minMemory: '128MiB',
-})
-
-export const cache = await setupCache({
-  namespace: 'billing-api',
-  redis: { required: true },
-  memoryBudget,
-  levels: {
-    L1: {
-      maxEntries: 10_000,
-      admission: { maxEntryBytes: 512 * 1024 },
-    },
-  },
-})
-```
-
-```ts title="src/cache/index.ts"
-import { MemoryBudget, setupCache } from 'lazy-layers-cache'
-import type { User } from '../types/user.js'
-
-const memoryBudget = new MemoryBudget({
-  maxMemory: '256MiB',
-  minMemory: '128MiB',
-})
-
-export const cache = await setupCache<string, User>({
-  namespace: 'billing-api',
-  redis: { required: true },
-  memoryBudget,
-  levels: {
-    L1: {
-      maxEntries: 10_000,
-      admission: { maxEntryBytes: 512 * 1024 },
-    },
-  },
-})
-```
-</CodeGroup>
-
-For one cache, `levels.L1.maxMemory` and `minMemory` can configure the shared built-in budget instead. See [L1 sizing and memory budgets](/docs/reference/configuration#sizing-l1).
-
-## Absorb cold and expiry stampedes
-
-You already use the protected path when you call `getOrSet`. Within one server, the first caller records an in-flight promise and every concurrent caller for that key shares it. Each server has its own in-flight dedupe.
-
-With Redis L2, one server acquires the per-key lock for a cold or expired key, rechecks both layers, runs the loader, renews its lease while it loads and writes, then releases the lock. Other servers poll L1 and L2 for the winner's value and retry the lock if the owner fails or expires. At the default contention deadline, they receive eligible stale data or `DistributedLockTimeoutError`. A Redis failure before contention is observed remains fail-open and can use the origin path.
-
-The lock reduces duplicate cache loads. It does not make the loader exactly once, so keep database constraints and upstream idempotency where they matter. [Stampede protection](/docs/guides/stampede-protection#what-happens-on-a-cold-or-expired-key) covers the wait, retry, timeout, and failure cases.
-
-## Local-only setup
-
-Make local-only mode explicit when the process should never use Redis.
-
-```js title="src/cache/index.js"
-export const cache = await setupCache({
-  namespace: 'thumbnail-worker',
-  redis: false,
-})
-```
-
-If you omit `redis`, setup uses `REDIS_URL` when present and otherwise resolves to L1 only. Use that conditional mode for the same code across local development and hosted environments. Use `redis.required: true` for a multi-server production service.
+| Need | Next step |
+| --- | --- |
+| Warm a known key before traffic | [`prewarm`](/docs/reference/api#prewarm), using the same loader |
+| Invalidate a key family | [`invalidateByPattern`](/docs/reference/api#invalidatebypattern) |
+| Tune memory, TTLs, and concurrency | [Production setup](/docs/setups/production) |
+| Coordinate a durable payment or order attempt | [Transaction coordination](/docs/reference/transactions), a separate API |
 
 ## Where to next
 
-- [Production setup](/docs/setups/production) explains each default, conditional branch, and tuning number.
-- [Configuration reference](/docs/reference/configuration) covers L1 memory budgets, admission, and lock timing.
-- [Stampede protection](/docs/guides/stampede-protection) explains the in-flight and Redis lock paths in detail.
-- [Failure handling](/docs/guides/failure-handling) shows what happens when Redis, the bus, or a loader fails.
+- [Walkthrough](/docs/walkthrough) follows one key through reads, writes, and failures.
+- [Production setup](/docs/setups/production) covers deployment and capacity choices.
+- [API reference](/docs/reference/api) gives the complete method list.

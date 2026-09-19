@@ -104,7 +104,7 @@ await bus.connect()
 ```
 </CodeGroup>
 
-If you cannot tolerate a missed event, the durable transports are laid out tab by tab on the [production checklist](/docs/setups/production#the-event-bus).
+If you cannot tolerate a missed event, the durable transports are laid out tab by tab on the [production checklist](/docs/guides/event-buses).
 
 </Step>
 
@@ -285,7 +285,7 @@ Give two servers the same `source` and that check misfires. Each one sees the ot
 | Node.js clustering | `${INSTANCE_ID}-${cluster.worker.id}`, because every worker is a separate cache |
 | Local development | `dev-local` |
 
-Running under Node.js clustering makes this sharper, because a single machine now hosts several caches that must not be confused with each other. The [production checklist](/docs/setups/production#node-js-clustering) works through it.
+Running under Node.js clustering makes this sharper, because a single machine now hosts several caches that must not be confused with each other. The [production checklist](/docs/setups/serverful) works through it.
 
 ## The staleness window
 

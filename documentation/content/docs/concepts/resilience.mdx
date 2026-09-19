@@ -25,19 +25,13 @@ So there is one rule underneath every mechanism on this page. **A cache failure 
 
 ## Fail open
 
-Failing open is a stance, not a setting. There is no option that turns it on, because every store call in the library already goes through a wrapper that converts a rejection into the fallback value.
+An L2 read failure becomes a miss, so `getOrSet` can use the origin loader. A bus publish failure is reported without rejecting an already successful cache load. Errors and skipped calls remain visible through the [cache event stream](/docs/reference/cache-events).
 
-For `get` the fallback is `undefined`, so an L2 error is indistinguishable from a cache miss and the read falls through to your loader. For `set` and `delete` the fallback is nothing at all, so the local write still happened and the L2 write silently did not. Lock acquisition falls back to `false`, so a broken Redis degrades to unlocked loading rather than blocking.
+This does not suppress loader errors, origin overload, lock contention deadlines, or detected lease loss. Those can reach the caller when no eligible stale value exists.
 
-Every one of those emits `l2:error` carrying the operation, the key and the breaker state. The failure is loud in your telemetry and invisible to your users, which is the correct place for it to be loud.
+With managed Redis Pub/Sub, a subscription gap makes local invalidation state untrusted. L1, negative entries, and stale fallbacks are flushed or bypassed until reconnect recovery restores trust. For other buses, account for their delivery and recovery behavior when choosing TTLs.
 
-The same holds on the bus. `publishInvalidation` catches the rejection, records it against the breaker, emits `event-bus:publish-error`, and returns normally. The `getOrSet` that triggered the publish resolves with its value.
-
-<Warning>
-  Failing open trades consistency for availability, and you should know which one you just traded. While L2 is unreachable, servers stop hearing invalidations that travelled through it and keep serving their own L1 until entries expire. The L1 TTL is what bounds that window, so a short one is worth paying for precisely because of this page.
-</Warning>
-
-The same stance runs through the decoder. A truncated or damaged buffer returns `null` instead of throwing, so a corrupted cache entry becomes a miss rather than an error. [Serialization](/docs/concepts/serialization#corruption-is-not-an-exception) covers the rest of that path.
+Corrupt encoded values also become misses. See [read compatibility](/docs/concepts/serialization#read-compatibility) for unavailable decoders and damaged payloads.
 
 ## Circuit breakers
 
@@ -138,7 +132,7 @@ Tuning is numbers. A threshold of three trips on a single blip during a Redis fa
 
 When a loader fails you often have a perfectly serviceable slightly older answer sitting in memory. Fail-safe returns it instead of propagating the error.
 
-Values are remembered as stale at write time, kept for `staleTtlMs` past their normal lifetime, and returned when the loader throws. Serving one emits `stale:hit` with a reason of `loader-error`, `soft-timeout` or `hard-timeout`.
+Values are remembered as stale at write time, kept for `staleTtlMs` past their normal lifetime, and returned when the loader throws. Serving one emits `stale:hit` with a reason of `loader-error`, `soft-timeout`, `hard-timeout`, or `lock-timeout`.
 
 <Warning>
   **This is opt-out.** Fail-safe runs with a 30,000 ms stale window unless you say otherwise. Earlier releases required an explicit `enabled: true` and silently did nothing without it, so if you are reading an older configuration, the flag in it is now redundant rather than load-bearing.
@@ -150,8 +144,6 @@ export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
 
   failSafe: {
-    // Required. Without this the staleTtlMs below is dead configuration.
-    enabled: true,
     // How long past normal expiry a value stays usable as a fallback.
     staleTtlMs: 60_000,
   },
@@ -163,8 +155,6 @@ const options: LazyLayersCacheOptions<string, User> = {
   ttlMs: 5 * 60 * 1000,
 
   failSafe: {
-    // Required. Without this the staleTtlMs below is dead configuration.
-    enabled: true,
     // How long past normal expiry a value stays usable as a fallback.
     staleTtlMs: 60_000,
   },
@@ -174,10 +164,10 @@ export const cache = new LazyLayersCache<string, User>(options)
 ```
 </CodeGroup>
 
-`staleTtlMs` also has to be greater than zero. Both conditions are checked separately, in different places, so setting one without the other fails silently in both directions.
+`staleTtlMs` must be positive. Fail-safe is already enabled with a 30 second stale window, so the example only changes that window.
 
 <Warning>
-  Stale data is still stale. This is the right trade for a product page and the wrong trade for a permission check. `getOrSet` takes per-call options, so scope it to the reads that can tolerate an old answer rather than turning it on globally.
+  Stale data is still stale. This is the right trade for a product page and the wrong trade for a permission check. `getOrSet` takes per-call options, so scope it to the reads that can tolerate an old answer and keep authoritative permission or payment decisions on your database path.
 </Warning>
 
 ## Negative caching
@@ -192,8 +182,7 @@ export const cache = new LazyLayersCache({
   ttlMs: 5 * 60 * 1000,
 
   negativeCache: {
-    // Required. There is no default lifetime, and without a positive value
-    // here nothing is ever recorded.
+    // Already defaults to 10 seconds. Tune for your freshness needs.
     ttlMs: 10_000,
     // Bounds the map. The oldest entry is dropped when the cap is reached.
     maxEntries: 5_000,
@@ -206,8 +195,7 @@ const options: LazyLayersCacheOptions<string, User> = {
   ttlMs: 5 * 60 * 1000,
 
   negativeCache: {
-    // Required. There is no default lifetime, and without a positive value
-    // here nothing is ever recorded.
+    // Already defaults to 10 seconds. Tune for your freshness needs.
     ttlMs: 10_000,
     // Bounds the map. The oldest entry is dropped when the cap is reached.
     maxEntries: 5_000,
@@ -218,7 +206,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 ```
 </CodeGroup>
 
-The TTL is the window in which a newly created record still looks absent, so keep it short. Ten seconds absorbs a retry storm while staying well inside human patience. A `delete` on the key clears the negative entry immediately, and so does a `set` event arriving from a peer, so writing through your own API stays consistent regardless of the number.
+The TTL is the window in which a newly created record still looks absent, so keep it short. Ten seconds absorbs a retry storm while staying well inside human patience. An `invalidate` call on the key clears the negative entry immediately, and so does a `set` event arriving from a peer, so writing through your own API stays consistent regardless of the number.
 
 ## Timeouts, and the signal you have to pass on
 

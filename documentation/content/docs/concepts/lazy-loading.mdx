@@ -51,7 +51,7 @@ A TTL does not save you here. Nothing about "this value expires in 60 seconds" s
 
 The first caller for a key stores its promise in a map keyed by that key. Every caller that arrives while the promise is unsettled is handed the same promise. The loader body runs once, and everyone resolves from the one result.
 
-```mermaid title="In-flight Deduplication"
+```mermaid
 sequenceDiagram
     participant C1 as Caller 1
     participant C2 as Callers 2 to 10000
@@ -113,7 +113,7 @@ An in-flight entry expires after `inflight.ttlMs`, which defaults to 5,000 ms. P
 Every join emits `inflight:reuse`, so the collapse ratio is something you can graph rather than assume.
 
 <Warning>
-  Dedupe is per process. Four servers, each with a cold L1, produce four loader calls rather than one. The lazy fan-out below narrows that after the first load. To narrow it during the first load, see [stampede protection](/docs/guides/stampede-protection#across-instances).
+  Dedupe is per process. Four servers, each with a cold L1, produce four loader calls rather than one. The lazy fan-out below narrows that after the first load. To narrow it during the first load, see [stampede protection](/docs/guides/stampede-protection#when-one-processs-dedupe-is-not-enough).
 </Warning>
 
 ## Load small
@@ -132,7 +132,7 @@ Per-process dedupe solves the herd inside one server. It does nothing across a f
 
 So when a `getOrSet` loader resolves, the value does not just get stored. It gets published.
 
-```mermaid title="Lazy Invalidation Fan-Out"
+```mermaid
 sequenceDiagram
     participant DB as Database
     participant A as Server A
@@ -160,11 +160,11 @@ One server pays for the query. The whole fleet gets warm. The first request for 
 ### Two things you have to know about it
 
 <Warning>
-  **Only `getOrSet` broadcasts.** A direct `cache.set()` writes L1 and L2 and emits a local event, but never publishes to the bus. Peers find out about that value only when they read L2 themselves, or when a later invalidation reaches them. If you want the fan-out, the write has to come from a loader.
+  **Only `getOrSet` broadcasts.** Lower-level writes do not publish loader results. See the [API comparison](/docs/reference/api#choosing-between-getorset-get-and-set). Peers find out about that value only when they read L2 themselves, or when a later invalidation reaches them. If you want the fan-out, the write has to come from a loader.
 </Warning>
 
 <Warning>
-  **`broadcastSetMaxBytes` has no default.** Without it, a 5 MB value is encoded and sent in full to every server on the bus. Set a ceiling. Above it the broadcast is skipped and `set:broadcast-skipped` is emitted with `reason: 'max-bytes'`, the value is still written to L1 and L2 normally, and peers load it from L2 when they need it.
+  **`setupCache` sets `broadcastSetMaxBytes` to 32 KiB.** The low-level constructor has no ceiling unless you set one. Without a ceiling, a 5 MB value is encoded and sent in full to every server on the bus. Set a ceiling. Above it the broadcast is skipped and `set:broadcast-skipped` is emitted with `reason: 'max-bytes'`, the value is still written to L1 and L2 normally, and peers load it from L2 when they need it.
 </Warning>
 
 <CodeGroup>
@@ -216,7 +216,7 @@ The first reader of every key waits for the origin. That is the deal, and it is 
 
 When one specific key genuinely cannot afford a cold first request, ask for it yourself at boot. Calling `getOrSet` for that key during startup is still the lazy path, with a synthetic first caller standing in for a real one, and it stays honest about the difference between one key you decided to pre-load and a catalogue you guessed at.
 
-Misses are lazy too. A loader that returns `undefined` records a negative entry, so a key that does not exist stops costing a query on every request. That needs `negativeCache.ttlMs` set, because there is no default lifetime for a remembered miss.
+Misses are lazy too. A loader that returns `undefined` records a negative entry, so a key that does not exist stops costing a query on every request. Negative caching is already enabled with a 10 second TTL and a 10,000-entry limit. Tune these in the [configuration reference](/docs/reference/configuration#resilience).
 
 ## Where to next
 

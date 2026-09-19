@@ -6,7 +6,7 @@ description: "Every option, its exact type, its real default, and what it costs 
 `setupCache` is the production entry point. It accepts the full `LazyLayersCache` option surface, resolves L1, Redis L2, and Redis Pub/Sub, then applies the bounded setup defaults called out below. The subset that also exists on `CacheOptions` can be overridden per call on `getOrSet` or `prewarm`.
 
 <CodeGroup>
-```js src/cache/index.js
+```js title="src/cache/index.js"
 import { setupCache } from 'lazy-layers-cache'
 
 export const cache = await setupCache({
@@ -15,7 +15,7 @@ export const cache = await setupCache({
 })
 ```
 
-```ts src/cache/index.ts
+```ts title="src/cache/index.ts"
 import { setupCache, type SetupCacheOptions } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
 
@@ -46,7 +46,7 @@ export const cache = await setupCache<string, User>(options)
   Eviction order is LRU and is not configurable. Values are retained in the serializer wire format, so L1 can enforce a shared byte budget as well as an entry count.
 </ParamField>
 
-<ParamField path="levels.L2" type="{ maxEntries?: number; ttlMs?: number }">
+<ParamField path="levels.L2" type="{ maxEntries?: number; ttlMs?: number; codec?: CacheCodecOptions }">
   The shared layer. `ttlMs` falls back to the cache-wide `ttlMs`, then to one hour. Keep it well above L1's, because L2 is what survives a deploy.
 
   `maxEntries` has no default. When set, `RedisStore` enables its optional namespace index and trims the oldest expiry entries on write. This is a bounded, best-effort cache policy under concurrent writers, not a transaction quota.
@@ -93,7 +93,7 @@ Under Node clustering, every worker keeps its own L1 and process-local byte budg
 Passed to the `RedisStore` constructor, not to the cache.
 
 <ParamField path="prefix" type="string" default="cache:">
-  Prepended to every Redis key. Two applications sharing a Redis instance with the same prefix will invalidate each other's keys.
+  Namespaces logical keys. The v2 layout adds its version prefix and hash tag before this namespace. Two applications sharing a Redis instance with the same prefix will invalidate each other's keys.
 </ParamField>
 
 <ParamField path="indexKey" type="string" default="`${prefix}__index`">
@@ -294,82 +294,73 @@ Full constructor options for each transport are in the [event bus reference](/do
 
 ## Serialization
 
-Values are packed with msgpack, then compressed with a codec chosen from the payload's size. A four byte prefix records which encoding was used, so decoding never has to guess.
+`levels.L1.codec` and `levels.L2.codec` select independent write policies for built-in stores. Reads dispatch on the stored HC1 tag, independently of the write policy.
 
-This is not a cache option. It is process-wide, set by `configureCompression` or by the `CACHE_COMPRESSION` environment variable, because the serializer is a module rather than a member of a cache instance. The last call wins for every cache in the process.
-
-<ParamField path="configureCompression(mode)" type="'gzip' | 'zstd' | 'auto' | CompressionTier[]" default="'gzip'">
-  Replaces the active tier list. Pass one of the three shorthands, or an explicit list of size bands.
+<ParamField path="levels.L1.codec / levels.L2.codec" type="CacheCodecOptions">
+  `{ format?: 'msgpack' | 'json', compression?: 'none' | 'gzip' | 'zstd' | 'auto' | CompressionTier[] }`. Omitted fields use the process defaults. Set these at construction or pass level-specific overrides to `getOrSet` or `prewarm`.
 </ParamField>
 
-| Shorthand | Expands to |
-|---|---|
-| `'gzip'` | `none` under 1 KB, then `gzip`. The shipped default |
-| `'zstd'` | `none` under 1 KB, then `zstd` |
-| `'auto'` | `none` under 1 KB, the fastest installed codec up to 256 KB, then the densest installed codec |
+`format: 'json'` stores tagged, uncompressed JSON. It follows JSON value semantics, so use JSON-compatible records. Explicit `format: 'msgpack'` overrides the JSON environment switches for that layer. Without an explicit format, `CACHE_FORMAT=json` or `CACHE_DEBUG_SERIALIZATION=true` selects JSON.
 
-A `CompressionTier` is `{ maxBytes?: number, codec: CodecName }`, and `CodecName` is `'none'`, `'gzip'`, `'zstd'`, `'lz4'` or `'snappy'`.
+### Compression modes
+
+| Mode | Packed-size tiers |
+| --- | --- |
+| `auto` | None below 256 B, LZ4 below 4 KiB, then Zstd when available or LZ4 otherwise. This is the shipped default |
+| `none` | No compression |
+| `gzip` | None below 1 KiB, then gzip |
+| `zstd` | None below 1 KiB, then Zstd, falling back to LZ4 when unavailable |
+
+All compression modes retain the compressed result only when it saves at least 15% against packed MessagePack.
+
+### Process-wide policy
+
+```ts
+configureCompression(mode: CompressionMode | CompressionTier[]): void
+getCompressionTiers(): readonly CompressionTier[]
+```
+
+`configureCompression` changes the process-wide default for subsequent writes that omit a layer-specific compression policy. `CACHE_COMPRESSION` initializes that default when the serializer is imported. The last `configureCompression` call wins. `getCompressionTiers` reports this process default, not per-layer overrides.
 
 <CodeGroup>
-```js src/cache/compression.js
+```js title="src/cache/compression.js"
 import { configureCompression } from 'lazy-layers-cache'
 
-// Import this file once, before the cache is constructed.
 configureCompression([
-  { maxBytes: 1024, codec: 'none' },
-  { maxBytes: 262144, codec: 'lz4' },
+  { maxBytes: 256, codec: 'none' },
+  { maxBytes: 4096, codec: 'lz4' },
   { codec: 'zstd' },
 ])
 ```
 
-```ts src/cache/compression.ts
+```ts title="src/cache/compression.ts"
 import { configureCompression } from 'lazy-layers-cache'
 
-// Import this file once, before the cache is constructed.
 configureCompression([
-  { maxBytes: 1024, codec: 'none' },
-  { maxBytes: 262144, codec: 'lz4' },
+  { maxBytes: 256, codec: 'none' },
+  { maxBytes: 4096, codec: 'lz4' },
   { codec: 'zstd' },
 ])
 ```
 </CodeGroup>
 
-<ParamField path="maxBytes" type="number">
-  Exclusive upper bound for the tier, measured against the **packed msgpack** buffer rather than your object. Bounds must ascend, and only the last tier may omit this. Omitting it there means "and above". Anything else throws when you call `configureCompression`, not when a value is written.
+<ParamField path="CompressionTier.maxBytes" type="number">
+  Exclusive upper bound in packed bytes. Bounds must ascend. Only the last tier may omit this field, meaning all remaining sizes. If every tier has a bound, larger payloads remain uncompressed.
 </ParamField>
 
-<ParamField path="codec" type="'none' | 'gzip' | 'zstd' | 'lz4' | 'snappy'">
-  The codec for that band. An unrecognised name throws. A recognised codec this process cannot run falls back to `gzip` at write time, so one list can ship to a mixed fleet.
-</ParamField>
-
-<Warning>
-  Keep `maxBytes` off the last tier. If every tier has a bound, payloads larger than the highest one fall off the end of the list and are stored uncompressed.
-</Warning>
-
-<ParamField path="getCompressionTiers()" type="readonly CompressionTier[]">
-  The list currently in effect. Read this rather than the configuration you believe you shipped.
+<ParamField path="CompressionTier.codec" type="'none' | 'gzip' | 'zstd' | 'lz4' | 'snappy'">
+  Codec attempted for this band. Unknown names are rejected during tier validation. Unavailable Zstd falls back to LZ4 at write time.
 </ParamField>
 
 <ParamField path="ZSTD_AVAILABLE" type="boolean">
-  Whether `node:zlib` on this runtime exposes zstd. It arrived in Node 22.15 and 23.8, and this package supports Node 20, so it is detected rather than assumed. A constant, not a function.
+  Whether the current `node:zlib` provides Zstd compression and decompression.
 </ParamField>
 
 <ParamField path="LZ4_AVAILABLE() / SNAPPY_AVAILABLE()" type="() => boolean">
-  Whether the `lz4-napi` and `snappy` native modules resolved. Both are `optionalDependencies`, so the package installs cleanly without them. These are functions because the module is resolved lazily on first call.
+  Compatibility helpers that return `true` in this release. LZ4 and Snappy are package dependencies.
 </ParamField>
 
-Compression still has to earn its place. Whatever codec a tier names, the compressed result is kept only when it saves at least 15 percent against the packed buffer. Otherwise the plain msgpack buffer is stored.
-
-Two environment variables force JSON encoding for debugging, at a real size and speed cost. They are checked before packing, so they bypass the tier list entirely. Neither belongs in production.
-
-| Variable | Effect |
-|---|---|
-| `CACHE_FORMAT=json` | Encodes with `JSON.stringify` under the `HC1J` prefix |
-| `CACHE_DEBUG_SERIALIZATION=true` | Same |
-
-`deserialize` returns `null` on corrupt input rather than throwing, so a poisoned key degrades to a miss instead of taking down the read path. The same applies to a prefix the reader does not recognise, which is what makes it safe to add codecs.
-
-Full tables of what each codec costs are in [serialization](/docs/concepts/serialization#choosing-a-codec).
+`serializeWithStats(value, policy)` reports encoding, original bytes, stored bytes, and compression savings. `deserialize` returns `null` for corrupt data or an unavailable decoder, so a built-in store treats that entry as a miss. See [serialization](/docs/concepts/serialization) for compatibility and measurement guidance.
 
 ## Observability
 
@@ -385,7 +376,7 @@ Full tables of what each codec costs are in [serialization](/docs/concepts/seria
   Master switch. Also enabled by a truthy `LAZY_OBS_ENABLED`.
 </ParamField>
 
-<ParamField path="observability.route" type="string" default="/observelazyily">
+<ParamField path="observability.route" type="string" default="/__lazylayers">
   Base route. Normalised to a leading slash with no trailing slash.
 </ParamField>
 
@@ -452,7 +443,7 @@ Read [transaction coordination](/docs/reference/transactions) before using the A
 `getOrSet` takes a third argument of the same `CacheOptions` shape, so one call can differ from the cache-wide policy.
 
 <CodeGroup>
-```js src/reports/annual.js
+```js title="src/reports/annual.js"
 import { cache } from '../cache/index.js'
 import { buildReport } from './build.js'
 
@@ -464,7 +455,7 @@ export function getAnnualReport() {
 }
 ```
 
-```ts src/reports/annual.ts
+```ts title="src/reports/annual.ts"
 import { cache } from '../cache/index.js'
 import { buildReport } from './build.js'
 import type { Report } from '../types/report.js'

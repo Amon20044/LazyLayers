@@ -27,12 +27,12 @@ Worse, TTL gives you no way to say "this one is wrong now". A price changed, a p
 
 ## Saying it out loud instead
 
-An event bus lets the server that made the change tell everyone else. Staleness stops being a function of your TTL and becomes a function of how long the bus takes to deliver, which is typically milliseconds.
+An event bus lets the server that made the change tell everyone else. Peers that receive the event can discard their copy before its TTL expires. Delivery can be delayed or missed, so the bus does not provide a fixed staleness guarantee.
 
 TTL does not go away. It changes job, from being the mechanism that keeps the cache honest to being the safety net for the case where a message did not arrive.
 
 <CodeGroup>
-```js src/users/repository.js
+```js title="src/users/repository.js"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 
@@ -52,7 +52,7 @@ export async function updateUser(id, patch) {
 }
 ```
 
-```ts src/users/repository.ts
+```ts title="src/users/repository.ts"
 import { cache } from '../cache/index.js'
 import { db } from '../db.js'
 import type { User } from '../types/user.js'

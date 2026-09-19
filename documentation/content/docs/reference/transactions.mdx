@@ -13,13 +13,15 @@ description: "Primary-only Redis coordination for durable operations, with expli
 
 Write or find the durable operation before calling `begin`. The identity names one operation and must contain `tenant`, `operation`, `idempotencyKey`, a canonical SHA-256 `fingerprint`, and a durable `durableId`. The coordinator records only that identity and a result reference.
 
-For an order or payment, use a short database transaction to:
+For an order or payment, the application owns these steps:
 
-1. Find or create the durable operation for the request idempotency key.
-2. Enforce resource ownership with database constraints that are independent of that key, such as a unique seat hold or inventory reservation.
-3. Persist the final business result and its transactional outbox record together.
+1. In a short database transaction, find or create the durable operation and enforce resource ownership with constraints independent of the request idempotency key, such as a unique seat hold.
+2. Coordinate an attempt with Redis, reconcile existing durable/provider state, and perform any external work using the stable provider idempotency key.
+3. In a separate short database transaction, persist the final business result and its outbox record together.
 
 The outbox publisher runs after that database commit. If Redis completion or publishing fails, reconcile the durable record and deliver the outbox later. Do not rerun the provider merely because a coordination command or response was lost.
+
+All instances handling the same operation must use the same authoritative Redis primary/shard and durable database. Independent regional Redis stores cannot coordinate one operation.
 
 ## Build a primary-only coordinator
 
@@ -30,7 +32,10 @@ import {
   RedisOperationTransport,
 } from 'lazy-layers-cache/transactions'
 
-const redis = new Redis(process.env.REDIS_URL, {
+const redisUrl = process.env.REDIS_URL
+if (!redisUrl) throw new Error('REDIS_URL is required for operation coordination')
+
+const redis = new Redis(redisUrl, {
   enableOfflineQueue: false,
   autoResendUnfulfilledCommands: false,
   maxRetriesPerRequest: 1,
@@ -87,6 +92,8 @@ The lease owner changes after expiry or recovery. The provider key must not. If 
 - No Redis lease authorizes a business write or replaces database uniqueness constraints.
 - No cache invalidation makes a payment, order, inventory, or permission decision atomic.
 - No coordinator result proves that an external provider did not receive a request. Unknown outcomes require reconciliation.
+
+The [runnable ticketing example](https://github.com/Amon20044/LazyLayers/tree/main/examples/transaction-coordination) demonstrates resource ownership, retries, and crash recovery with a replaceable in-memory durable adapter.
 
 ## Where to next
 
