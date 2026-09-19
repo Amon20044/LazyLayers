@@ -1,10 +1,10 @@
 ---
-title: "Layers"
-description: "Why the value lives in two places, what each one costs when it is wrong, and how to size the one in your heap."
+title: "L1/L2 cache system design"
+description: "Design a hybrid Node.js cache with in-memory L1 and Redis L2: trade-offs, sizing, TTLs, and when each layer is the right fit."
 icon: "layer-group"
 ---
 
-Pick one cache layer and you have picked a failure mode. The two layers exist because "fast" and "shared" are different questions, and answering them with one piece of infrastructure means answering one of them badly.
+A hybrid L1/L2 cache system puts the same value in two places for different reasons: L1 answers fast local reads, while Redis L2 answers shared reads across a fleet. Pick one cache layer and you have picked a failure mode. The two layers exist because "fast" and "shared" are different questions, and answering them with one piece of infrastructure means answering one of them badly.
 
 ## One layer, two ways to be unhappy
 

@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-<title>LazyLayers — Lightweight L1/L2 caching for Node.js</title>
-<meta name="description" content="A lightweight TypeScript hybrid L1/L2 cache for Node.js. Start with in-memory LRU, add Redis, and coordinate instances with invalidation, stampede protection, stale fallback, compression, and observability." />
+<title>LazyLayers — Node.js L1/L2 cache with Redis</title>
+<meta name="description" content="A TypeScript tiered cache system for Node.js: in-memory L1, optional Redis L2, and cross-instance invalidation. Add read-through caching, stampede protection, resilience, and observability." />
 <link rel="canonical" href="https://lazy-layers-cache.vercel.app/" />
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
 <meta name="author" content="Amon20044" />
@@ -21,18 +21,18 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="LazyLayers" />
 <meta property="og:url" content="https://lazy-layers-cache.vercel.app/" />
-<meta property="og:title" content="LazyLayers — Lightweight L1/L2 caching for Node.js" />
-<meta property="og:description" content="A lightweight TypeScript hybrid L1/L2 cache for Node.js with in-memory LRU, Redis, stampede protection, invalidation, compression, and observability." />
+<meta property="og:title" content="LazyLayers — Node.js L1/L2 cache with Redis" />
+<meta property="og:description" content="A TypeScript tiered cache system for Node.js with in-memory L1, optional Redis L2, cross-instance invalidation, and stampede protection." />
 <meta property="og:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="LazyLayers — Lightweight L1/L2 caching for Node.js" />
+<meta property="og:image:alt" content="LazyLayers — Node.js L1/L2 cache with Redis" />
 <meta property="og:locale" content="en_US" />
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="LazyLayers — Lightweight L1/L2 caching for Node.js" />
-<meta name="twitter:description" content="A lightweight TypeScript hybrid L1/L2 cache for Node.js with in-memory LRU, Redis, stampede protection, invalidation, compression, and observability." />
+<meta name="twitter:title" content="LazyLayers — Node.js L1/L2 cache with Redis" />
+<meta name="twitter:description" content="A TypeScript tiered cache system for Node.js with in-memory L1, optional Redis L2, cross-instance invalidation, and stampede protection." />
 <meta name="twitter:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 <link rel="alternate" type="text/plain" href="/llms.txt" title="LazyLayers AI-readable overview" />
 <link rel="alternate" type="text/plain" href="/llms-full.txt" title="LazyLayers full AI-readable documentation" />
@@ -69,7 +69,7 @@
       "@id": "https://lazy-layers-cache.vercel.app/#website",
       "url": "https://lazy-layers-cache.vercel.app/",
       "name": "LazyLayers",
-      "description": "Lightweight L1/L2 caching for Node.js and TypeScript.",
+      "description": "A Node.js tiered cache system with in-memory L1 and optional Redis L2.",
       "inLanguage": "en-US"
     },
     {
@@ -77,7 +77,7 @@
       "@id": "https://lazy-layers-cache.vercel.app/#software",
       "name": "lazy-layers-cache",
       "alternateName": "LazyLayers",
-      "description": "A lightweight TypeScript hybrid L1/L2 cache for Node.js. Start with in-memory LRU, add Redis for shared caching, and coordinate instances with event-bus invalidation.",
+      "description": "A TypeScript hybrid L1/L2 cache for Node.js. Start with in-memory LRU, add Redis L2 for shared caching, and coordinate instances with event-bus invalidation.",
       "url": "https://lazy-layers-cache.vercel.app/",
       "codeRepository": "https://github.com/Amon20044/LazyLayers",
       "downloadUrl": "https://www.npmjs.com/package/lazy-layers-cache",
@@ -86,7 +86,7 @@
       "runtimePlatform": "Node.js 20+",
       "programmingLanguage": ["TypeScript", "JavaScript"],
       "license": "https://opensource.org/licenses/MIT",
-      "keywords": "Node.js cache, TypeScript cache, L1 L2 cache, Redis cache, cache stampede protection, distributed cache invalidation",
+      "keywords": "Node.js cache, TypeScript cache, tiered cache, L1 L2 cache, Redis cache, hybrid cache, cache system design, cache stampede protection, distributed cache invalidation",
       "author": { "@id": "https://lazy-layers-cache.vercel.app/#author" },
       "publisher": { "@id": "https://lazy-layers-cache.vercel.app/#author" }
     },
@@ -101,8 +101,8 @@
       "@type": "WebPage",
       "@id": "https://lazy-layers-cache.vercel.app/#webpage",
       "url": "https://lazy-layers-cache.vercel.app/",
-      "name": "LazyLayers — Lightweight L1/L2 caching for Node.js",
-      "description": "A lightweight TypeScript hybrid L1/L2 cache for Node.js with in-memory LRU, Redis, invalidation, stampede protection, compression, and observability.",
+      "name": "LazyLayers — Node.js L1/L2 cache with Redis",
+      "description": "A TypeScript tiered cache system for Node.js with in-memory L1, optional Redis L2, invalidation, stampede protection, compression, and observability.",
       "isPartOf": { "@id": "https://lazy-layers-cache.vercel.app/#website" },
       "about": { "@id": "https://lazy-layers-cache.vercel.app/#software" },
       "mainEntity": { "@id": "https://lazy-layers-cache.vercel.app/#software" },
@@ -189,13 +189,13 @@
         </a>
 
         <h1 class="hero__title">
-          Fast reads.<br />
-          <em>Less database work.</em>
+          Node.js cache.<br />
+          <em>Built in layers.</em>
         </h1>
 
         <p class="hero__lead">
-          LazyLayers is a lightweight hybrid L1/L2 cache for <strong>Node.js &amp; TypeScript.</strong>
-          Keep hot reads in memory, collapse duplicate loads, and coordinate instances as your app scales.
+          LazyLayers is a TypeScript <strong>tiered cache system for Node.js.</strong>
+          Keep hot reads in memory with L1, add Redis L2 when instances share data, and coordinate invalidation as your app scales.
         </p>
 
         <div class="hero__actions">
