@@ -2,7 +2,7 @@ import type { CacheKey, CacheOptions, CacheStore } from '../types/index.js';
 import type { CloudflareKVNamespace } from '../cache/cloudflareKvStore.js';
 import { matchesPattern } from '../cache/pattern.js';
 import { decodeKVRecord, encodeKVRecord } from './kvWire.js';
-import { deserializePortable, serializePortable } from '../utils/portableSerializer.js';
+import { deserializeCacheValue, serializeCacheValue } from '../utils/cacheSerializer.js';
 import { validateKVCompression, type CloudflareKVCompression } from '../utils/serializerPolicy.js';
 import type { CloudflareInvalidationPublisher } from './invalidationQueue.js';
 export {
@@ -18,6 +18,7 @@ export type {
 } from './invalidationQueue.js';
 export type { CloudflareKVNamespace } from '../cache/cloudflareKvStore.js';
 export type { CloudflareKVCompression } from '../utils/serializerPolicy.js';
+export { cacheSerializer, deserializeCacheValue, serializeCacheValue } from '../utils/cacheSerializer.js';
 
 const DEFAULT_TTL_MS = 60 * 60 * 1_000;
 
@@ -49,7 +50,7 @@ export class CloudflareWorkerKVStore<V> implements CacheStore<CacheKey, V> {
   async set(key: CacheKey, value: V, options: CacheOptions = {}): Promise<void> {
     if (value === undefined) return this.delete(key);
     const ttlMs = this.ttl(options);
-    const payload = await serializePortable(value, this.options.compression);
+    const payload = await serializeCacheValue(value, this.options.compression);
     const raw = encodeKVRecord(payload, Date.now() + ttlMs);
     await this.namespace.put(this.key(key), raw, { expirationTtl: Math.max(60, Math.ceil(ttlMs / 1_000)) });
   }
@@ -63,7 +64,7 @@ export class CloudflareWorkerKVStore<V> implements CacheStore<CacheKey, V> {
     if (raw === null) return undefined;
     const entry = decodeKVRecord(raw);
     if (entry.ttlRemainingMs <= 0) return undefined;
-    return { value: await deserializePortable(entry.payload) as V, ttlRemainingMs: entry.ttlRemainingMs };
+    return { value: await deserializeCacheValue(entry.payload) as V, ttlRemainingMs: entry.ttlRemainingMs };
   }
 
   async getOrSet(key: CacheKey, loader: () => Promise<V | undefined>, options?: CacheOptions): Promise<V | undefined> {

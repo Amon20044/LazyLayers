@@ -1,6 +1,17 @@
 
 import { pack, unpack } from 'msgpackr';
-import { MIN_COMPRESSION_SAVINGS, PORTABLE_GZIP_MIN_BYTES } from './serializerPolicy.js';
+import {
+  CACHE_NULL_SENTINEL,
+  HC1_FAMILY,
+  HC1_GZIP_TAG,
+  HC1_JSON_TAG,
+  HC1_LZ4_TAG,
+  HC1_MSGPACK_TAG,
+  HC1_SNAPPY_TAG,
+  HC1_ZSTD_TAG,
+  MIN_COMPRESSION_SAVINGS,
+  PORTABLE_GZIP_MIN_BYTES,
+} from './serializerPolicy.js';
 import {
   autoTiers,
   codecByTag,
@@ -30,7 +41,7 @@ import {
  *   - memory                  : O(stored bytes)
  */
 
-export const NULL_SENTINEL = '__hybridcache_null__';
+export const NULL_SENTINEL = CACHE_NULL_SENTINEL;
 
 /**
  * Thrown when a value cannot be represented on the wire. Carries the original
@@ -52,15 +63,15 @@ export class CacheSerializationError extends Error {
 }
 
 const PREFIX_LEN = 4;
-export const HC1M = Buffer.from('HC1M', 'ascii'); // msgpack
-export const HC1G = Buffer.from('HC1G', 'ascii'); // gzip(msgpack)
-export const HC1J = Buffer.from('HC1J', 'ascii'); // JSON debug
-export const HC1Z = Buffer.from('HC1Z', 'ascii'); // zstd(msgpack)
-export const HC1L = Buffer.from('HC1L', 'ascii'); // lz4(msgpack)
-export const HC1S = Buffer.from('HC1S', 'ascii'); // snappy(msgpack)
+export const HC1M = Buffer.from(HC1_MSGPACK_TAG, 'ascii');
+export const HC1G = Buffer.from(HC1_GZIP_TAG, 'ascii');
+export const HC1J = Buffer.from(HC1_JSON_TAG, 'ascii');
+export const HC1Z = Buffer.from(HC1_ZSTD_TAG, 'ascii');
+export const HC1L = Buffer.from(HC1_LZ4_TAG, 'ascii');
+export const HC1S = Buffer.from(HC1_SNAPPY_TAG, 'ascii');
 
 /** Shared first three bytes. Used to recognise a tag we do not know yet. */
-const PREFIX_FAMILY = Buffer.from('HC1', 'ascii');
+const PREFIX_FAMILY = Buffer.from(HC1_FAMILY, 'ascii');
 
 /** Compression shorthand accepted by a layer-specific codec policy. */
 export type CompressionMode = 'none' | 'gzip' | 'zstd' | 'auto';
@@ -155,9 +166,13 @@ tiersFromEnv();
 const PACKED_SENTINEL = pack(NULL_SENTINEL);
 const SENTINEL_BUFFER: Buffer = Buffer.concat([HC1M, Buffer.from(PACKED_SENTINEL)]);
 
-/** Payloads smaller than this are never gzipped. */
-export const GZIP_MIN_BYTES = 64 * 1024; // 64 KB
-/** Required minimum savings ratio for gzip to be worth it. */
+/**
+ * Historical shorthand floor. Layer gzip policy now uses
+ * {@link PORTABLE_GZIP_MIN_BYTES} so Node and Workers agree. This export
+ * remains for callers that compared against the old 64 KiB constant.
+ */
+export const GZIP_MIN_BYTES = 64 * 1024;
+/** Required minimum savings ratio for compression to be worth it. */
 export const GZIP_SAVINGS_THRESHOLD = MIN_COMPRESSION_SAVINGS;
 
 export { ZSTD_AVAILABLE, LZ4_AVAILABLE, SNAPPY_AVAILABLE } from './codecs.js';

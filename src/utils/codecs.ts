@@ -1,6 +1,7 @@
 import { compressSync as lz4Compress, uncompressSync as lz4Uncompress } from 'lz4-napi';
 import { compressSync as snappyCompress, uncompressSync as snappyUncompress } from 'snappy';
 import zlib from 'node:zlib';
+import { HC1_GZIP_TAG, HC1_LZ4_TAG, HC1_SNAPPY_TAG, HC1_ZSTD_TAG } from './serializerPolicy.js';
 
 /**
  * Compression codecs and the size tiers that pick between them.
@@ -57,25 +58,25 @@ const CODECS: Record<CodecName, Codec> = {
   },
   gzip: {
     name: 'gzip',
-    tag: 'HC1G',
+    tag: HC1_GZIP_TAG,
     compress: (input) => zlib.gzipSync(input),
     decompress: (input) => zlib.gunzipSync(input),
   },
   zstd: {
     name: 'zstd',
-    tag: 'HC1Z',
+    tag: HC1_ZSTD_TAG,
     compress: (input) => Buffer.from(zstdCompress!(input)),
     decompress: (input) => Buffer.from(zstdDecompress!(input)),
   },
   lz4: {
     name: 'lz4',
-    tag: 'HC1L',
+    tag: HC1_LZ4_TAG,
     compress: (input) => lz4Compress(input),
     decompress: (input) => lz4Uncompress(input),
   },
   snappy: {
     name: 'snappy',
-    tag: 'HC1S',
+    tag: HC1_SNAPPY_TAG,
     compress: (input) => snappyCompress(input),
     // snappy types the return as string | Buffer depending on options. We never
     // pass options, so it is always a Buffer.

@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { CloudflareKVRestNamespace, setupCache } from 'lazy-layers-cache';
+// KV payloads use serializeCacheValue from this package. Do not JSON-encode them here.
 import { CloudflareQueueInvalidationPublisher, CloudflareQueueRestSender } from 'lazy-layers-cache/cloudflare';
 
 interface User { id: string; name: string }

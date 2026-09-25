@@ -7,6 +7,6 @@ This Worker uses a KV binding as L2 and an optional per-isolate L1. `getOrSet` r
 3. From the repository root, run `npm run cloudflare:hono:dry-run` to validate the bundle.
 4. Deploy with `npx wrangler deploy --config examples/cloudflare-kv-hono/wrangler.jsonc`.
 
-The Node.js root entrypoint contains native dependencies. Workers import `lazy-layers-cache/cloudflare`. Keep one `CloudflareWorkerMemoryStore` per KV namespace and application prefix. The L1 is local to an isolate and its short TTL bounds how long it can retain a value after another isolate invalidates it.
+The Node.js root entrypoint contains native dependencies. Workers import `lazy-layers-cache/cloudflare`. Cache values go through `serializeCacheValue` and `deserializeCacheValue` from that entrypoint; do not JSON-encode or gzip KV payloads in the Worker. Keep one `CloudflareWorkerMemoryStore` per KV namespace and application prefix. The L1 is local to an isolate and its short TTL bounds how long it can retain a value after another isolate invalidates it.
 
 `invalidate` and `invalidateByPattern` delete KV and publish a durable application invalidation. The consumer retries the deletion. Queue delivery does not clear L1 in every isolate. The optional module-level L1 is only reused while that isolate lives and may disappear at any time; it is never shared across isolates. See the [Cloudflare KV guide](../../documentation/content/docs/setups/cloudflare-kv.mdx) for limits and pattern deletion behavior.

@@ -205,7 +205,16 @@ KV requires at least 60 seconds of physical expiration. LazyLayers writes the re
 
 ## Serialization and KV cost
 
-Worker and Node KV stores share the existing HC1 MessagePack format. Values below 1 KiB stay as raw `HC1M` MessagePack. For packed values at least 1 KiB, `compression: 'auto'` (the default) tries gzip; Workers use the web `CompressionStream` API and Node uses the existing serializer. It stores `HC1G` only if gzip saves at least 15% of the packed bytes. Otherwise it keeps `HC1M`. Both readers decode `HC1M` and `HC1G`, and Worker decompression is capped at 25 MiB. They can also read earlier `HC1J` records. Set `compression: 'none'` for already compressed or incompressible values where the trial would waste CPU. This option changes new writes; readers continue to accept both formats.
+Worker and Node KV stores call the same cache serializer. Import it from `lazy-layers-cache` on Node or from `lazy-layers-cache/cloudflare` in a Worker:
+
+```ts
+import { serializeCacheValue, deserializeCacheValue } from 'lazy-layers-cache/cloudflare'
+
+const stored = await serializeCacheValue({ id: '42' }, 'auto')
+const value = await deserializeCacheValue(stored)
+```
+
+Do not tag, gzip, or JSON-encode a cache record in an adapter. `serializeCacheValue` writes the shared HC1 policy: packed values below 1 KiB stay raw `HC1M` MessagePack. At 1 KiB or more, `compression: 'auto'` (the default) tries gzip and stores `HC1G` only when it saves at least 15%. Otherwise it keeps `HC1M`. The Worker facade uses `CompressionStream`; the Node gzip policy uses the same thresholds and tags. Both readers decode `HC1M` and `HC1G`, and Worker decompression is capped at 25 MiB. They also read earlier `HC1J` records, including a stored copy of the null sentinel string. A cached `null` is the packed sentinel inside `HC1M`. Dates and `Uint8Array` values keep their types. Node-only `HC1L`, `HC1Z`, and `HC1S` records decode as a miss on Workers. Set `compression: 'none'` for already compressed or incompressible values where the trial would waste CPU. This option changes new writes; readers continue to accept both portable formats.
 
 Cloudflare [charges KV by stored GB-month and per-key reads, writes, deletes, and list requests](https://developers.cloudflare.com/kv/platform/pricing/). Compression can reduce stored bytes and help values fit the 25 MiB limit. It does **not** reduce the number of billed KV operations, and KV has no egress charge. L1 hits can avoid some KV reads; the gain depends on how often the same isolate or Node.js process serves a key. Pattern invalidation can add list and delete operations. Measure your own payload mix, hit rate, CPU time, and operation counts before claiming a dollar saving.
 

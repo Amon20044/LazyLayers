@@ -73,6 +73,8 @@ Changing a write policy does not rewrite existing entries. Readers choose the de
 
 An unknown tag, unavailable decoder, or corrupt payload decodes to `null`, which built-in stores treat as a miss. That can increase origin traffic. Before changing a fleet's write codec, verify every reader supports it. See the [Redis key-layout migration](/docs/reference/stores#the-key-layout) separately when upgrading the storage layout.
 
+Cloudflare KV uses one runtime-safe facade, `serializeCacheValue` / `deserializeCacheValue`, from `lazy-layers-cache` or `lazy-layers-cache/cloudflare`. Adapters call that facade. They do not apply their own JSON, gzip, or HC1 tags. The Worker implementation cannot load Node LZ4, Zstd, or Snappy, so a shared KV namespace writes `HC1M` or `HC1G` only. The Node gzip policy uses the same 1 KiB floor and 15% savings rule, so the two runtimes read each other's records.
+
 ## Measure your values
 
 Use a representative application value and an explicit policy when comparing encodings:

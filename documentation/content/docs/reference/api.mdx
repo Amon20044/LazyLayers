@@ -559,6 +559,8 @@ Everything below is a runtime export of `lazy-layers-cache`.
     `serialize`, `serializeWithStats`, `deserialize`, `inspectBuffer`, `estimateValueBytes`, `getCompressionSavings`, `sizeSavings`, `shouldGzip`, `hasPrefix`, `stripPrefix`.
 
     `serialize` returns a `Buffer`. `serializeWithStats` returns that buffer plus `encoding`, `originalBytes`, `storedBytes`, `compressionRatio` and `compressed`. `deserialize` accepts a `Buffer` or `Uint8Array` and returns `null` on corrupt input rather than throwing, so one poisoned key cannot take down a read path.
+
+    Shared cache records, including Cloudflare KV, use `serializeCacheValue` and `deserializeCacheValue`. Import them from `lazy-layers-cache` on Node or `lazy-layers-cache/cloudflare` in a Worker. That facade writes `HC1M`, `HC1G`, or `HC1J` with the shared 1 KiB gzip floor and 15% savings rule. The Node `serialize` function remains the full codec set for Redis and L1, including LZ4, Zstd, and Snappy.
   </Accordion>
 
   <Accordion title="Observability and telemetry">

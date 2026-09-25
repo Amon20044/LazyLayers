@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.2 (unreleased)
+
+### Changed
+
+- Centralized portable cache value encoding behind `serializeCacheValue` and `deserializeCacheValue`, sharing HC1 tags, null handling, gzip thresholds, and Worker-safe decoding between Node.js and Workers.
+- Cloudflare KV adapters now call the shared serializer facade instead of maintaining their own encoding implementations.
+
 ## 0.6.1
 
 ### Added

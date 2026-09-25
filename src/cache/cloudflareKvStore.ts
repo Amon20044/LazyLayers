@@ -1,5 +1,5 @@
-import type { CacheKey, CacheOptions, EncodedCacheStore } from '../types/index.js';
-import { deserialize, serialize } from '../utils/serializer.js';
+import type { CacheKey, CacheOptions, CacheStore } from '../types/index.js';
+import { deserializeCacheValue, serializeCacheValue } from '../utils/cacheSerializer.js';
 import { decodeKVRecord, encodeKVRecord } from '../cloudflare/kvWire.js';
 import { validateKVCompression, type CloudflareKVCompression } from '../utils/serializerPolicy.js';
 import { DEFAULT_CACHE_TTL_MS } from './defaults.js';
@@ -33,8 +33,7 @@ export interface CloudflareKVStoreOptions extends CacheOptions {
  * KV has no atomic compare-and-set, so this store deliberately does not expose
  * distributed locks or lease-checked publication.
  */
-export class CloudflareKVStore<V> implements EncodedCacheStore<CacheKey, V> {
-  readonly encodedFormat = 'lazy-layers-hc1' as const;
+export class CloudflareKVStore<V> implements CacheStore<CacheKey, V> {
   private readonly prefix: string;
 
   constructor(
@@ -54,30 +53,26 @@ export class CloudflareKVStore<V> implements EncodedCacheStore<CacheKey, V> {
       await this.delete(key);
       return;
     }
-    await this.setEncoded(key, serialize(value, this.codecOptions(options)), options);
-  }
-
-  async setEncoded(key: CacheKey, buffer: Uint8Array, options: CacheOptions = {}): Promise<void> {
     const ttlMs = this.ttl(options);
     const expiresAt = Date.now() + ttlMs;
     // KV only accepts physical expiration of at least 60 seconds. The wire
     // header enforces shorter logical TTLs during the extra retention time.
     const expirationTtl = Math.max(60, Math.ceil(ttlMs / 1_000));
-    const value = encodeKVRecord(buffer, expiresAt);
-    await this.namespace.put(this.key(key), value, { expirationTtl });
+    const valueBytes = encodeKVRecord(await serializeCacheValue(value, this.compression()), expiresAt);
+    await this.namespace.put(this.key(key), valueBytes, { expirationTtl });
   }
 
   async get(key: CacheKey): Promise<V | undefined> {
-    const entry = await this.getEncoded(key);
-    return entry ? deserialize(entry.buffer) as V : undefined;
+    const entry = await this.readEncoded(key);
+    return entry ? await deserializeCacheValue(entry.buffer) as V : undefined;
   }
 
-  async getEncoded(key: CacheKey): Promise<{ buffer: Buffer; ttlRemainingMs: number } | undefined> {
+  private async readEncoded(key: CacheKey): Promise<{ buffer: Uint8Array; ttlRemainingMs: number } | undefined> {
     const raw = await this.namespace.get(this.key(key), 'arrayBuffer');
     if (raw === null) return undefined;
     const { payload, ttlRemainingMs } = decodeKVRecord(raw);
     if (ttlRemainingMs <= 0) return undefined;
-    return { buffer: Buffer.from(payload), ttlRemainingMs };
+    return { buffer: payload, ttlRemainingMs };
   }
 
   async getOrSet(key: CacheKey, loader: () => Promise<V | undefined>, options?: CacheOptions): Promise<V | undefined> {
@@ -89,7 +84,7 @@ export class CloudflareKVStore<V> implements EncodedCacheStore<CacheKey, V> {
   }
 
   async has(key: CacheKey): Promise<boolean> {
-    return (await this.getEncoded(key)) !== undefined;
+    return (await this.readEncoded(key)) !== undefined;
   }
 
   async delete(key: CacheKey): Promise<void> {
@@ -146,8 +141,7 @@ export class CloudflareKVStore<V> implements EncodedCacheStore<CacheKey, V> {
     return ttlMs;
   }
 
-  private codecOptions(options: CacheOptions) {
-    return options.levels?.L2?.codec ?? this.options.levels?.L2?.codec
-      ?? { format: 'msgpack' as const, compression: this.options.compression === 'none' ? 'none' as const : 'gzip' as const };
+  private compression(): CloudflareKVCompression {
+    return this.options.compression === 'none' ? 'none' : 'auto';
   }
 }

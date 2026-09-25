@@ -7,6 +7,9 @@ import {
   type CloudflareQueueSender,
 } from 'lazy-layers-cache/cloudflare';
 
+// Cache records use serializeCacheValue / deserializeCacheValue from this
+// same entrypoint. The store calls that facade; this Worker does not encode.
+
 interface User {
   id: string;
   name: string;

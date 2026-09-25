@@ -130,6 +130,28 @@ test('adaptive KV gzip saves large MessagePack values and remains readable in bo
   assert.deepEqual(await node.get('from-worker'), value);
 });
 
+test('existing HC1J records and cached null stay readable across both KV stores', async () => {
+  const namespace = fakeNamespace();
+  const { encodeKVRecord } = await import('../dist/cloudflare/kvWire.js');
+  const { NULL_SENTINEL, serialize } = await import('../dist/index.js');
+  const legacy = encodeKVRecord(
+    serialize({ legacy: true }, { format: 'json', compression: 'none' }),
+    Date.now() + 60_000,
+  );
+  namespace.entries.set('shared:legacy', { bytes: legacy });
+  const node = new CloudflareKVStore(namespace, { prefix: 'shared:' });
+  const worker = new CloudflareWorkerKVStore(namespace, { prefix: 'shared:' });
+  assert.deepEqual(await node.get('legacy'), { legacy: true });
+  assert.deepEqual(await worker.get('legacy'), { legacy: true });
+  await node.set('empty', null);
+  assert.equal(await worker.get('empty'), null);
+  await worker.set('sentinel', NULL_SENTINEL);
+  assert.equal(await node.get('sentinel'), NULL_SENTINEL);
+  const unsupported = encodeKVRecord(Buffer.concat([Buffer.from('HC1Z'), Buffer.from([1])]), Date.now() + 60_000);
+  namespace.entries.set('shared:zstd', { bytes: unsupported });
+  assert.equal(await worker.get('zstd'), null);
+});
+
 test('KV compression opt-out and small values retain interoperable MessagePack', async () => {
   const namespace = fakeNamespace();
   const node = new CloudflareKVStore(namespace, { prefix: 'raw:', compression: 'none' });

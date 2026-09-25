@@ -157,6 +157,12 @@ export {
   stripPrefix,
 } from './utils/serializer.js';
 export {
+  cacheSerializer,
+  deserializeCacheValue,
+  serializeCacheValue,
+} from './utils/cacheSerializer.js';
+export type { CacheSerializer } from './utils/cacheSerializer.js';
+export {
   ALIAS_OBSERVABILITY_ROUTE,
   DEFAULT_OBSERVABILITY_MAX_EVENTS,
   DEFAULT_OBSERVABILITY_MAX_VALUE_BYTES,

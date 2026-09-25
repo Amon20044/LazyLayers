@@ -9,4 +9,4 @@ This example uses Cloudflare's KV REST API as the shared L2 of the full Node.js 
 
 `GET /tenants/:tenantId/users/:userId` loads from the origin on a miss. Integrate `invalidateTenantUsers()` into your own write path after the authoritative write commits. The cache deletes KV and publishes an invalidation to the Queue. The example does not expose an unauthenticated cache purge endpoint.
 
-The token remains in Node.js and is never sent to the browser. KV is eventually consistent, so choose a TTL and data type that tolerate cross-location propagation delay. See the [Cloudflare KV guide](../../documentation/content/docs/setups/cloudflare-kv.mdx).
+The token remains in Node.js and is never sent to the browser. KV is eventually consistent, so choose a TTL and data type that tolerate cross-location propagation delay. `setupCache({ kv })` writes records through `serializeCacheValue` from `lazy-layers-cache`, the same facade a Worker imports from `lazy-layers-cache/cloudflare`. See the [Cloudflare KV guide](../../documentation/content/docs/setups/cloudflare-kv.mdx).

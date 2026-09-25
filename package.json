@@ -1,6 +1,6 @@
 {
   "name": "lazy-layers-cache",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "A TypeScript hybrid L1/L2 cache with lazy loading, inflight dedupe, event-bus invalidation, cross-instance L1 priming, and a live observability dashboard with Prometheus + OpenTelemetry.",
   "type": "module",
   "sideEffects": false,

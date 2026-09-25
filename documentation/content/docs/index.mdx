@@ -10,7 +10,7 @@ LazyLayers is a cache for Node.js services and Cloudflare Workers. Your applicat
 Start with L1 in one process. Add Redis or Cloudflare KV as shared L2. Node.js can use an event bus to fan out invalidations. Cloudflare Workers can publish application invalidations to a Queue for retryable KV deletion. `setupCache` configures the Node.js layers, waits for readiness, and provides managed cleanup.
 
 <Note>
-  These docs describe **0.6.1**, available on npm. Review the [Redis store reference](/docs/reference/stores#the-key-layout) when upgrading an existing Redis namespace.
+  These docs describe the **0.6.2 source release**. Review the [Redis store reference](/docs/reference/stores#the-key-layout) when upgrading an existing Redis namespace.
 </Note>
 
 ## Start here
