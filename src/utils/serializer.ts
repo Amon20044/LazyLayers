@@ -1,5 +1,6 @@
 
 import { pack, unpack } from 'msgpackr';
+import { MIN_COMPRESSION_SAVINGS, PORTABLE_GZIP_MIN_BYTES } from './serializerPolicy.js';
 import {
   autoTiers,
   codecByTag,
@@ -129,7 +130,7 @@ function resolveTiers(compression: SerializeOptions['compression']): Compression
   if (compression !== 'gzip' && compression !== 'zstd') {
     throw new TypeError('compression must be none, auto, gzip, zstd, or a valid tier list');
   }
-  return [{ maxBytes: 1024, codec: 'none' }, { codec: compression }];
+  return [{ maxBytes: PORTABLE_GZIP_MIN_BYTES, codec: 'none' }, { codec: compression }];
 }
 
 function tiersFromEnv(): void {
@@ -157,7 +158,7 @@ const SENTINEL_BUFFER: Buffer = Buffer.concat([HC1M, Buffer.from(PACKED_SENTINEL
 /** Payloads smaller than this are never gzipped. */
 export const GZIP_MIN_BYTES = 64 * 1024; // 64 KB
 /** Required minimum savings ratio for gzip to be worth it. */
-export const GZIP_SAVINGS_THRESHOLD = 0.15;
+export const GZIP_SAVINGS_THRESHOLD = MIN_COMPRESSION_SAVINGS;
 
 export { ZSTD_AVAILABLE, LZ4_AVAILABLE, SNAPPY_AVAILABLE } from './codecs.js';
 export type { CompressionTier, CodecName } from './codecs.js';

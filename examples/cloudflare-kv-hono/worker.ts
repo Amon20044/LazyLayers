@@ -19,6 +19,7 @@ interface Bindings {
 }
 
 const app = new Hono<{ Bindings: Bindings }>();
+// Optional hot cache for this isolate only. It can vanish on isolate eviction.
 const l1 = new CloudflareWorkerMemoryStore<User>(1_000);
 
 app.get('/tenants/:tenantId/users/:userId', async (c) => {

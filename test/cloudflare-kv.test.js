@@ -66,6 +66,8 @@ test('setupCache selects KV L2 without implicitly using REDIS_URL', async () => 
     try {
       assert.equal(await cache.getOrSet('item', async () => 42), 42);
       assert.equal(namespace.entries.has('sample:cache:item'), true);
+      const worker = new CloudflareWorkerKVStore(namespace, { prefix: 'sample:cache:' });
+      assert.equal(await worker.get('item'), 42);
     } finally {
       await cache.close();
     }
@@ -94,7 +96,7 @@ test('Cloudflare platform event parser accepts build and KV lifecycle events onl
   assert.equal(parseCloudflarePlatformEvent({ type: 'cf.kv.namespace.deleted', source: { type: 'kv' }, payload: {}, metadata }), null);
 });
 
-test('Node and Worker KV stores share the same JSON wire format', async () => {
+test('Node and Worker KV stores share the same HC1 MessagePack wire format', async () => {
   const namespace = fakeNamespace();
   const node = new CloudflareKVStore(namespace, { prefix: 'shared:' });
   const worker = new CloudflareWorkerKVStore(namespace, { prefix: 'shared:' });
@@ -102,6 +104,41 @@ test('Node and Worker KV stores share the same JSON wire format', async () => {
   assert.deepEqual(await worker.get('from-node'), { id: 1 });
   await worker.set('from-worker', { id: 2 });
   assert.deepEqual(await node.get('from-worker'), { id: 2 });
+  const typed = { when: new Date('2026-01-01T00:00:00.000Z'), bytes: new Uint8Array([1, 2, 3]) };
+  await node.set('typed-node', typed);
+  const workerTyped = await worker.get('typed-node');
+  assert.deepEqual(workerTyped.when, typed.when);
+  assert.deepEqual(Array.from(workerTyped.bytes), [1, 2, 3]);
+  await worker.set('typed-worker', typed);
+  const nodeTyped = await node.get('typed-worker');
+  assert.deepEqual(nodeTyped.when, typed.when);
+  assert.deepEqual(Array.from(nodeTyped.bytes), [1, 2, 3]);
+});
+
+test('adaptive KV gzip saves large MessagePack values and remains readable in both runtimes', async () => {
+  const namespace = fakeNamespace();
+  const node = new CloudflareKVStore(namespace, { prefix: 'shared:' });
+  const worker = new CloudflareWorkerKVStore(namespace, { prefix: 'shared:' });
+  const value = { id: 1, description: 'repeat-me-'.repeat(2_000) };
+  await node.set('from-node', value);
+  const nodeBytes = namespace.entries.get('shared:from-node').bytes;
+  assert.equal(new TextDecoder().decode(nodeBytes.subarray(12, 16)), 'HC1G');
+  assert.ok(nodeBytes.byteLength < JSON.stringify(value).length * 0.85);
+  assert.deepEqual(await worker.get('from-node'), value);
+  await worker.set('from-worker', value);
+  assert.equal(new TextDecoder().decode(namespace.entries.get('shared:from-worker').bytes.subarray(12, 16)), 'HC1G');
+  assert.deepEqual(await node.get('from-worker'), value);
+});
+
+test('KV compression opt-out and small values retain interoperable MessagePack', async () => {
+  const namespace = fakeNamespace();
+  const node = new CloudflareKVStore(namespace, { prefix: 'raw:', compression: 'none' });
+  const worker = new CloudflareWorkerKVStore(namespace, { prefix: 'raw:' });
+  await node.set('large', { description: 'repeat-me-'.repeat(2_000) });
+  assert.equal(new TextDecoder().decode(namespace.entries.get('raw:large').bytes.subarray(12, 16)), 'HC1M');
+  await worker.set('small', { id: 1 });
+  assert.equal(new TextDecoder().decode(namespace.entries.get('raw:small').bytes.subarray(12, 16)), 'HC1M');
+  assert.deepEqual(await worker.get('large'), { description: 'repeat-me-'.repeat(2_000) });
 });
 
 test('Worker cache deduplicates loaders and invalidates a key family', async () => {
@@ -121,13 +158,13 @@ test('Worker cache deduplicates loaders and invalidates a key family', async () 
   assert.equal(await cache.get('user:2'), undefined);
 });
 
-test('Worker L1 isolates prefixes and returns the same JSON shape as KV', async () => {
+test('Worker L1 isolates prefixes and preserves the same value types as KV', async () => {
   const namespace = fakeNamespace();
   const l1 = new CloudflareWorkerMemoryStore(10);
   const first = new CloudflareWorkerCache(namespace, { prefix: 'first:', l1 });
   const second = new CloudflareWorkerCache(namespace, { prefix: 'second:', l1 });
   await first.set('item', { when: new Date('2026-01-01T00:00:00.000Z') });
-  assert.deepEqual(await first.get('item'), { when: '2026-01-01T00:00:00.000Z' });
+  assert.deepEqual(await first.get('item'), { when: new Date('2026-01-01T00:00:00.000Z') });
   assert.equal(await second.get('item'), undefined);
   await second.set('item', { value: 2 });
   await first.invalidateByPattern('item*');

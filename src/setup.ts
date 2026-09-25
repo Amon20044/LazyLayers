@@ -234,6 +234,8 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
       },
       L2: {
         ttlMs: DEFAULT_CACHE_TTL_MS,
+        ...(kvOptions ? { codec: kvOptions.store?.levels?.L2?.codec
+          ?? { format: 'msgpack', compression: kvOptions.store?.compression === 'none' ? 'none' : 'gzip' } as const } : {}),
         ...cacheOverrides.levels?.L2,
       },
     },

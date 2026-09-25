@@ -1,6 +1,7 @@
 import type { CacheKey, CacheOptions, EncodedCacheStore } from '../types/index.js';
 import { deserialize, serialize } from '../utils/serializer.js';
 import { decodeKVRecord, encodeKVRecord } from '../cloudflare/kvWire.js';
+import { validateKVCompression, type CloudflareKVCompression } from '../utils/serializerPolicy.js';
 import { DEFAULT_CACHE_TTL_MS } from './defaults.js';
 import { matchesPattern } from './pattern.js';
 
@@ -23,6 +24,8 @@ export interface CloudflareKVNamespace {
 export interface CloudflareKVStoreOptions extends CacheOptions {
   /** Isolates this store's keys in a shared KV namespace. Default: `cache:`. */
   prefix?: string;
+  /** Adaptive gzip for HC1 MessagePack values (default), or none. KV operation charges are unchanged. */
+  compression?: CloudflareKVCompression;
 }
 
 /**
@@ -40,6 +43,7 @@ export class CloudflareKVStore<V> implements EncodedCacheStore<CacheKey, V> {
   ) {
     this.prefix = options.prefix ?? 'cache:';
     if (!this.prefix) throw new RangeError('Cloudflare KV prefix cannot be empty');
+    validateKVCompression(options.compression);
     if (options.levels?.L2?.maxEntries !== undefined) {
       throw new RangeError('Cloudflare KV does not support L2 maxEntries');
     }
@@ -143,6 +147,7 @@ export class CloudflareKVStore<V> implements EncodedCacheStore<CacheKey, V> {
   }
 
   private codecOptions(options: CacheOptions) {
-    return options.levels?.L2?.codec ?? this.options.levels?.L2?.codec ?? { format: 'json' as const, compression: 'none' as const };
+    return options.levels?.L2?.codec ?? this.options.levels?.L2?.codec
+      ?? { format: 'msgpack' as const, compression: this.options.compression === 'none' ? 'none' as const : 'gzip' as const };
   }
 }

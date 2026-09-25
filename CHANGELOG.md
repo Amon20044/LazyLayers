@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.0 (unreleased)
+## 0.6.1 (unreleased)
 
 ### Added
 
@@ -9,6 +9,7 @@
 - Added a separate `lazy-layers-cache/cloudflare-events` entrypoint and Queue consumer example for Workers Builds and KV namespace lifecycle events.
 - Added application invalidation publication from both Worker bindings and Node.js REST, with a separate Queue consumer that retries KV deletions.
 - Added Hono examples for both Cloudflare Workers and Node.js, plus a Cloudflare KV guide in the Fumadocs site.
+- Added Worker/Node interoperable HC1 MessagePack and adaptive gzip for KV values, using the existing serializer's 1 KiB gzip floor and 15% minimum saving. The Worker decoder is bounded and compression can be disabled. Compression changes stored bytes, not KV operation counts.
 
 ### Changed
 

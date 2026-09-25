@@ -63,7 +63,7 @@ export const cache = await setupCache<string, User>(options)
 </ParamField>
 
 <ParamField path="kv" type="SetupCloudflareKVOptions | false">
-  Pass `{ namespace: CloudflareKVNamespace, store?: CloudflareKVStoreOptions }` to select Cloudflare KV for L2. An explicit KV selection suppresses implicit `REDIS_URL` discovery. Setup checks the namespace with a bounded `list` request. Set `redis` explicitly if you also need its Pub/Sub bus. [Cloudflare KV setup](/docs/setups/cloudflare-kv) covers Workers and Node.js.
+  Pass `{ namespace: CloudflareKVNamespace, store?: CloudflareKVStoreOptions }` to select Cloudflare KV for L2. An explicit KV selection suppresses implicit `REDIS_URL` discovery. Setup checks the namespace with a bounded `list` request and defaults L2 serialization to Worker-compatible HC1 MessagePack with adaptive gzip. `store.compression` defaults to `auto`; set it to `none` to skip compression attempts. Set `redis` explicitly if you also need its Pub/Sub bus. [Cloudflare KV setup](/docs/setups/cloudflare-kv) covers Workers, Node.js, and cost trade-offs.
 </ParamField>
 
 <ParamField path="invalidationPublisher" type="CloudflareInvalidationPublisher">

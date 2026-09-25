@@ -60,6 +60,7 @@
 .cf-code code { font: inherit; }
 .cf-code__foot { flex-wrap: wrap; border-top: 1px solid rgba(255, 255, 255, .09); color: #a9abb8; }
 .cf-code__foot b { font-weight: 400; color: #f9bc73; }
+.cf-code__note { padding: 0 1rem .9rem; color: #898d96; font: .68rem/1.55 var(--ff-mono); }
 .cf-comparison { grid-column: 1 / -1; min-width: 0; border-top: 1px solid var(--line-strong); background: color-mix(in srgb, var(--bg) 24%, transparent); }
 .cf-comparison__head { display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem; padding: 1.7rem clamp(1.5rem, 4vw, 3rem); }
 .cf-comparison__head h3 { font-size: clamp(1.35rem, 2vw, 1.8rem); white-space: nowrap; }
@@ -75,6 +76,8 @@
 .cf-table tbody td:last-child { color: var(--text); }
 .cf-table tbody tr:hover { background: color-mix(in srgb, var(--cf-orange) 4%, transparent); }
 .cf-limit { margin: 0; padding: 1.3rem clamp(1.5rem, 4vw, 3rem); border-top: 1px solid var(--line); color: var(--text-dim); font: .72rem/1.7 var(--ff-mono); }
+.cf-limit a { color: var(--cf-orange); text-decoration: underline; text-underline-offset: .2em; }
+.cf-limit a:hover { color: var(--text); }
 :root[data-theme='light'] .cf-shell { background: radial-gradient(ellipse 70% 38% at 3% 0%, rgba(243, 128, 32, 0.1), transparent 80%), var(--surface); }
 :root[data-theme='light'] .cf-intro h2 span, :root[data-theme='light'] .cf-table thead th:nth-child(3) { color: #bd5900; }
 @media (max-width: 900px) {

@@ -33,14 +33,15 @@ flowchart LR
   P[Cloudflare account Event Subscriptions] --> PQ[Separate platform event Queue]
 ```
 
-On a read, `getOrSet` checks L1, then KV, then your read-only loader. The Worker entrypoint keeps in-flight dedupe within the request-scoped cache object. The Node.js cache adds its existing bounded origin gate, failure handling, and optional Redis or other event bus. Both KV stores use an `LLK1` expiry envelope around a JSON HC1 value, so they can share records when they use the **same KV namespace and key prefix**.
+On a read, `getOrSet` checks L1, then KV, then your read-only loader. The Worker entrypoint keeps in-flight dedupe within the request-scoped cache object. The Node.js cache adds its existing bounded origin gate, failure handling, and optional Redis or other event bus. Both KV stores use an `LLK1` expiry envelope around a MessagePack HC1 value. `setupCache({ kv })` selects the interoperable MessagePack and gzip L2 codec by default. Worker and Node.js readers can share records when they use the **same KV namespace and key prefix**.
 
 After an authoritative write commits, `invalidate` or `invalidateByPattern` removes the caller's L1 entry and deletes matching KV entries. With `invalidationPublisher` configured, the call also enqueues an application invalidation. A separate Queue consumer repeats the KV deletion, retries transient failures, and sends exhausted messages to a dead-letter queue. Queue publication failure reaches the caller, so the write path can record and retry it.
 
 | Problem | Design choice | Remaining limit |
 | --- | --- | --- |
-| Native Node dependencies cannot run in a Worker | Small `lazy-layers-cache/cloudflare` entrypoint | Worker values use JSON-compatible data |
+| Native Node dependencies cannot run in a Worker | Small `lazy-layers-cache/cloudflare` entrypoint with the portable HC1 MessagePack/gzip subset | Node-only LZ4, Zstd, and Snappy tags are not readable in Workers |
 | KV physical expiry has a 60-second minimum | Logical expiry in the value header | Expired bytes can remain until physical expiry |
+| Large values consume KV storage | Existing HC1 serializer with adaptive gzip shared by Worker and Node readers | Compression spends CPU and does not reduce per-key operation charges |
 | Many callers miss the same key | Local in-flight dedupe | KV has no cross-instance atomic lease |
 | Delete a key family | Prefix-filtered, paginated `deleteByPattern` | KV listing is eventually consistent and Worker scans are bounded |
 | Invalidations need retry | Application Queue and dedicated consumer | Queue messages go to a consumer, not every isolate's L1 |
@@ -62,7 +63,7 @@ const l1 = new CloudflareWorkerMemoryStore(1000)
 
 app.get('/users/:id', async (c) => {
   const cache = new CloudflareWorkerCache(c.env.CACHE, {
-    prefix: 'users-api:', ttlMs: 5 * 60_000, l1,
+    prefix: 'users-api:', ttlMs: 5 * 60_000, l1, compression: 'auto',
     invalidationPublisher: new CloudflareQueueInvalidationPublisher(c.env.INVALIDATIONS, 'users-api'),
   })
   const id = c.req.param('id')
@@ -95,7 +96,7 @@ const l1 = new CloudflareWorkerMemoryStore<User>(1000)
 
 app.get('/users/:id', async (c) => {
   const cache = new CloudflareWorkerCache<User>(c.env.CACHE, {
-    prefix: 'users-api:', ttlMs: 5 * 60_000, l1,
+    prefix: 'users-api:', ttlMs: 5 * 60_000, l1, compression: 'auto',
     invalidationPublisher: new CloudflareQueueInvalidationPublisher(c.env.INVALIDATIONS, 'users-api'),
   })
   const id = c.req.param('id')
@@ -112,7 +113,7 @@ export default app
 ```
 </CodeGroup>
 
-Create the cache inside the request so the KV and Queue bindings belong to that request. The optional `CloudflareWorkerMemoryStore` retains JSON values across requests handled by the same isolate. Share one L1 only among caches that use the same KV namespace. Keys are isolated by prefix. It has a 1,000-entry limit here. In-flight dedupe is request-scoped. A Worker restart or another isolate has its own L1.
+Create the cache inside the request so the KV and Queue bindings belong to that request. The optional `CloudflareWorkerMemoryStore` retains cloned values **only while the same isolate is reused**. It is an opportunistic, bounded hot cache; Cloudflare can evict the isolate at any time, and later requests can land on another isolate with an empty L1. Share one L1 only among caches that use the same KV namespace, and key authorized data by every required tenant/user scope. Keys are isolated by prefix. It has a 1,000-entry limit here. In-flight dedupe is request-scoped. Omit `l1` when this short-lived extra staleness is unacceptable; KV itself remains eventually consistent.
 
 After an authoritative write commits, call `cache.invalidate('user:42')` or `cache.invalidateByPattern('tenant:42:user:*')`. Encode untrusted key segments before constructing a pattern so a `*` in a tenant ID cannot widen the deletion. The [runnable example](https://github.com/Amon20044/LazyLayers/blob/main/examples/cloudflare-kv-hono/worker.ts) includes this pattern.
 
@@ -134,7 +135,7 @@ const kv = new CloudflareKVRestNamespace({
 export const cache = await setupCache({
   namespace: 'users-api',
   redis: false,
-  kv: { namespace: kv, store: { prefix: 'users-api:' } },
+  kv: { namespace: kv, store: { prefix: 'users-api:', compression: 'auto' } },
   invalidationPublisher: new CloudflareQueueInvalidationPublisher(
     new CloudflareQueueRestSender({
       accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
@@ -160,7 +161,7 @@ const kv = new CloudflareKVRestNamespace({
 export const cache = await setupCache({
   namespace: 'users-api',
   redis: false,
-  kv: { namespace: kv, store: { prefix: 'users-api:' } },
+  kv: { namespace: kv, store: { prefix: 'users-api:', compression: 'auto' } },
   invalidationPublisher: new CloudflareQueueInvalidationPublisher(
     new CloudflareQueueRestSender({
       accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
@@ -202,7 +203,13 @@ KV listings and deletions are eventually consistent. A concurrent writer can rec
 
 KV requires at least 60 seconds of physical expiration. LazyLayers writes the requested expiry inside each value and treats it as a miss after that time, so a 10-second TTL works on reads even while KV retains the bytes longer. KV limits values to 25 MiB and keys to 512 bytes, and limits writes to the same key to one per second. `levels.L2.maxEntries` is unsupported and rejected. KV provides no distributed lock or atomic publication, so cold loads can run concurrently across instances. The transaction API remains Redis-only.
 
-The Node KV store writes JSON HC1 records by default so Worker and Node readers can share a namespace. Set a different L2 codec only when every reader supports it.
+## Serialization and KV cost
+
+Worker and Node KV stores share the existing HC1 MessagePack format. Values below 1 KiB stay as raw `HC1M` MessagePack. For packed values at least 1 KiB, `compression: 'auto'` (the default) tries gzip; Workers use the web `CompressionStream` API and Node uses the existing serializer. It stores `HC1G` only if gzip saves at least 15% of the packed bytes. Otherwise it keeps `HC1M`. Both readers decode `HC1M` and `HC1G`, and Worker decompression is capped at 25 MiB. They can also read earlier `HC1J` records. Set `compression: 'none'` for already compressed or incompressible values where the trial would waste CPU. This option changes new writes; readers continue to accept both formats.
+
+Cloudflare [charges KV by stored GB-month and per-key reads, writes, deletes, and list requests](https://developers.cloudflare.com/kv/platform/pricing/). Compression can reduce stored bytes and help values fit the 25 MiB limit. It does **not** reduce the number of billed KV operations, and KV has no egress charge. L1 hits can avoid some KV reads; the gain depends on how often the same isolate or Node.js process serves a key. Pattern invalidation can add list and delete operations. Measure your own payload mix, hit rate, CPU time, and operation counts before claiming a dollar saving.
+
+The Node cache's Redis/L1 LZ4 and Zstd savings are separate measurements. Do not apply those Redis benchmark percentages to Cloudflare KV. For a shared Worker/Node namespace, keep the default KV L2 codec or explicitly use `{ format: 'msgpack', compression: 'gzip' }` or `{ format: 'msgpack', compression: 'none' }`. Worker readers do not decode Node-only `HC1L`, `HC1Z`, or `HC1S` records. During a rolling upgrade from an older source build that understands only `HC1J`, do not start HC1 MessagePack writes until every reader has been upgraded; `compression: 'none'` still writes `HC1M`.
 
 ## Cloudflare account event subscriptions
 

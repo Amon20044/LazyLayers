@@ -56,6 +56,8 @@ The [quickstart](https://lazy-layers-cache.vercel.app/docs/quickstart) takes you
 
 Use the [Workers Hono example](examples/cloudflare-kv-hono) with the Worker-safe `lazy-layers-cache/cloudflare` import and a KV binding. Use the [Node.js Hono example](examples/cloudflare-kv-node-hono) with `CloudflareKVRestNamespace` and `setupCache({ kv: { namespace } })`. Both support `getOrSet` and `invalidateByPattern` with the same key pattern syntax. An optional [Cloudflare Queue consumer](examples/cloudflare-kv-invalidation) retries application invalidations from either runtime. The [Cloudflare KV guide](https://lazy-layers-cache.vercel.app/docs/setups/cloudflare-kv) covers setup, TTLs, and KV limits.
 
+KV writes use the existing HC1 MessagePack serializer with adaptive gzip: payloads at least 1 KiB are compressed only when gzip saves at least 15% of the packed bytes. Set `compression: 'none'` in a KV store to skip the trial. Compression saves stored bytes, while per-key KV read/write/list/delete charges remain unchanged. Local L1 hits can avoid some KV reads. See the guide for the full cost model and consistency limits.
+
 Cloudflare [Event Subscriptions](examples/cloudflare-event-subscriptions) report build and KV namespace lifecycle events to their own platform-monitoring Queue consumer. They do not report individual cache key changes. Application invalidations use the separate [invalidation Queue consumer](examples/cloudflare-kv-invalidation).
 
 ## The methods you need

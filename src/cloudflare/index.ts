@@ -2,6 +2,8 @@ import type { CacheKey, CacheOptions, CacheStore } from '../types/index.js';
 import type { CloudflareKVNamespace } from '../cache/cloudflareKvStore.js';
 import { matchesPattern } from '../cache/pattern.js';
 import { decodeKVRecord, encodeKVRecord } from './kvWire.js';
+import { deserializePortable, serializePortable } from '../utils/portableSerializer.js';
+import { validateKVCompression, type CloudflareKVCompression } from '../utils/serializerPolicy.js';
 import type { CloudflareInvalidationPublisher } from './invalidationQueue.js';
 export {
   CloudflareQueueInvalidationPublisher,
@@ -15,10 +17,8 @@ export type {
   CloudflareQueueSender,
 } from './invalidationQueue.js';
 export type { CloudflareKVNamespace } from '../cache/cloudflareKvStore.js';
+export type { CloudflareKVCompression } from '../utils/serializerPolicy.js';
 
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
-const JSON_PREFIX = 'HC1J';
 const DEFAULT_TTL_MS = 60 * 60 * 1_000;
 
 export interface CloudflareWorkerKVStoreOptions {
@@ -28,15 +28,18 @@ export interface CloudflareWorkerKVStoreOptions {
   ttlMs?: number;
   /** Bound a Worker pattern purge before it consumes too many KV operations. Default: 400. */
   maxPatternScanKeys?: number;
+  /** Adaptive gzip for HC1 MessagePack values (default), or none. */
+  compression?: CloudflareKVCompression;
 }
 
-/** Workers-safe KV store. Its JSON wire format is readable by CloudflareKVStore on Node. */
+/** Workers-safe KV store. It reads/writes the portable HC1 formats used by Node. */
 export class CloudflareWorkerKVStore<V> implements CacheStore<CacheKey, V> {
   private readonly prefix: string;
 
   constructor(private readonly namespace: CloudflareKVNamespace, private readonly options: CloudflareWorkerKVStoreOptions = {}) {
     this.prefix = options.prefix ?? 'cache:';
     if (!this.prefix) throw new RangeError('Cloudflare KV prefix cannot be empty');
+    validateKVCompression(options.compression);
     const max = options.maxPatternScanKeys ?? 400;
     if (!Number.isSafeInteger(max) || max < 1 || max > 900) {
       throw new RangeError('Cloudflare KV maxPatternScanKeys must be between 1 and 900');
@@ -46,9 +49,8 @@ export class CloudflareWorkerKVStore<V> implements CacheStore<CacheKey, V> {
   async set(key: CacheKey, value: V, options: CacheOptions = {}): Promise<void> {
     if (value === undefined) return this.delete(key);
     const ttlMs = this.ttl(options);
-    const json = JSON.stringify(value);
-    if (json === undefined) throw new TypeError('Cloudflare KV value is not JSON serializable');
-    const raw = encodeKVRecord(encoder.encode(JSON_PREFIX + json), Date.now() + ttlMs);
+    const payload = await serializePortable(value, this.options.compression);
+    const raw = encodeKVRecord(payload, Date.now() + ttlMs);
     await this.namespace.put(this.key(key), raw, { expirationTtl: Math.max(60, Math.ceil(ttlMs / 1_000)) });
   }
 
@@ -61,11 +63,7 @@ export class CloudflareWorkerKVStore<V> implements CacheStore<CacheKey, V> {
     if (raw === null) return undefined;
     const entry = decodeKVRecord(raw);
     if (entry.ttlRemainingMs <= 0) return undefined;
-    const text = decoder.decode(entry.payload);
-    if (!text.startsWith(JSON_PREFIX)) {
-      throw new TypeError('Cloudflare Workers KV requires the JSON L2 codec for this key');
-    }
-    return { value: JSON.parse(text.slice(JSON_PREFIX.length)) as V, ttlRemainingMs: entry.ttlRemainingMs };
+    return { value: await deserializePortable(entry.payload) as V, ttlRemainingMs: entry.ttlRemainingMs };
   }
 
   async getOrSet(key: CacheKey, loader: () => Promise<V | undefined>, options?: CacheOptions): Promise<V | undefined> {
@@ -121,7 +119,7 @@ export class CloudflareWorkerKVStore<V> implements CacheStore<CacheKey, V> {
 
   private key(key: CacheKey): string {
     const value = this.prefix + String(key);
-    if (encoder.encode(value).byteLength > 512) throw new RangeError('Cloudflare KV key exceeds 512 bytes');
+    if (new TextEncoder().encode(value).byteLength > 512) throw new RangeError('Cloudflare KV key exceeds 512 bytes');
     return value;
   }
 
@@ -146,7 +144,7 @@ export interface CloudflareWorkerCacheOptions<V> extends CloudflareWorkerKVStore
 
 /** In-memory L1 values only. Safe to reuse across Worker requests. */
 export class CloudflareWorkerMemoryStore<V> {
-  private readonly entries = new Map<string, { json: string; expiresAt: number }>();
+  private readonly entries = new Map<string, { value: V; expiresAt: number }>();
   constructor(readonly maxEntries = 1_000) {
     if (!Number.isSafeInteger(maxEntries) || maxEntries <= 0) throw new RangeError('L1 maxEntries must be positive');
   }
@@ -157,15 +155,14 @@ export class CloudflareWorkerMemoryStore<V> {
     if (entry.expiresAt <= Date.now()) { this.entries.delete(name); return undefined; }
     this.entries.delete(name);
     this.entries.set(name, entry);
-    return JSON.parse(entry.json) as V;
+    return structuredClone(entry.value);
   }
   set(key: CacheKey, value: V, ttlMs: number): void {
     if (!Number.isSafeInteger(ttlMs) || ttlMs <= 0) throw new RangeError('L1 TTL must be positive');
-    const json = JSON.stringify(value);
-    if (json === undefined) throw new TypeError('Worker L1 value is not JSON serializable');
+    const snapshot = structuredClone(value);
     const name = String(key);
     this.entries.delete(name);
-    this.entries.set(name, { json, expiresAt: Date.now() + ttlMs });
+    this.entries.set(name, { value: snapshot, expiresAt: Date.now() + ttlMs });
     while (this.entries.size > this.maxEntries) this.entries.delete(this.entries.keys().next().value!);
   }
   delete(key: CacheKey): void { this.entries.delete(String(key)); }
