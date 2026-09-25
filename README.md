@@ -83,9 +83,9 @@ Built-in L1 retains encoded values with LRU eviction, entry limits, and a shared
 
 Use [production setup](https://lazy-layers-cache.vercel.app/docs/setups/production) for deployment decisions and [configuration](https://lazy-layers-cache.vercel.app/docs/reference/configuration) for defaults and tuning. Redis Pub/Sub, RabbitMQ, NATS Core, and NATS JetStream have different [delivery guarantees](https://lazy-layers-cache.vercel.app/docs/guides/event-buses).
 
-## Released in v0.5.3
+## Previous release: v0.5.3
 
-**0.5.3 is released and available on npm.** It adds:
+`0.5.3` introduced:
 
 - **Transaction coordination:** the opt-in `lazy-layers-cache/transactions` API coordinates attempts around a durable operation using a Redis primary. It stays separate from the cache. Your database, provider idempotency, and reconciliation determine the business result.
 - **Lease-checked Redis publication:** the store checks ownership and writes the value with its TTL in one Redis operation. A rejected lease cannot publish a successful cache fill.

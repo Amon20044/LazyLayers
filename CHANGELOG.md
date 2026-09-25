@@ -1,11 +1,11 @@
 # Changelog
 
-## 0.6.1 (unreleased)
+## 0.6.1
 
 ### Added
 
 - Added Cloudflare KV as an L2 choice in `setupCache`, with a Workers KV binding adapter and a Node.js REST namespace client.
-- Added a Worker-safe `lazy-layers-cache/cloudflare` entrypoint with JSON-compatible L1/L2 stores, `getOrSet`, and pattern invalidation.
+- Added a Worker-safe `lazy-layers-cache/cloudflare` entrypoint with HC1 MessagePack L2, optional isolate L1, `getOrSet`, and pattern invalidation.
 - Added a separate `lazy-layers-cache/cloudflare-events` entrypoint and Queue consumer example for Workers Builds and KV namespace lifecycle events.
 - Added application invalidation publication from both Worker bindings and Node.js REST, with a separate Queue consumer that retries KV deletions.
 - Added Hono examples for both Cloudflare Workers and Node.js, plus a Cloudflare KV guide in the Fumadocs site.
