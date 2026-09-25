@@ -1,5 +1,6 @@
 import { LazyLayersCache, type LazyLayersCacheOptions } from './cache/index.js';
 import type { CacheKey } from './types/index.js';
+export type { CloudflareInvalidationPublisher } from './cloudflare/invalidationQueue.js';
 
 export function createCache<K extends CacheKey = string, V = unknown>(
   options?: LazyLayersCacheOptions<K, V>,
@@ -11,6 +12,7 @@ export type {
   CacheStartupOptions,
   SetupCacheOptions,
   SetupRedisOptions,
+  SetupCloudflareKVOptions,
 } from './setup.js';
 export {
   CacheSetupError,
@@ -71,6 +73,9 @@ export type {
   HybridCacheResilienceOptions,
   LazyLayersCacheOptions,
   RedisStoreOptions,
+  CloudflareKVNamespace,
+  CloudflareKVRestOptions,
+  CloudflareKVStoreOptions,
   RedisCoreHealth,
   RedisHealthIssue,
   RedisHealthIssueKind,
@@ -98,6 +103,8 @@ export {
   OriginLoadOverloadError,
   MemoryStore,
   RedisStore,
+  CloudflareKVStore,
+  CloudflareKVRestNamespace,
   L2OperationGate,
   L2OperationOverloadError,
   L2OperationTimeoutError,

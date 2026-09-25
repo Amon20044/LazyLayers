@@ -1,16 +1,16 @@
 ---
 title: "Introduction"
 sidebarTitle: "Introduction"
-description: "Add read-through caching to a Node.js service, then share values and invalidations across instances."
+description: "Add read-through caching to Node.js or Cloudflare Workers, with Redis or Cloudflare KV as L2."
 icon: "layer-group"
 ---
 
-LazyLayers is a cache for Node.js services. Your application reads with `getOrSet`, supplies a loader for misses, and invalidates cached values after database writes.
+LazyLayers is a cache for Node.js services and Cloudflare Workers. Your application reads with `getOrSet`, supplies a loader for misses, and invalidates cached values after database writes.
 
-Start with L1 in one process. Add Redis L2 and an event bus when several instances need to share values and receive invalidations. `setupCache` configures the layers, waits for readiness, and provides managed cleanup.
+Start with L1 in one process. Add Redis or Cloudflare KV as shared L2. Node.js can use an event bus to fan out invalidations. Cloudflare Workers can publish application invalidations to a Queue for retryable KV deletion. `setupCache` configures the Node.js layers, waits for readiness, and provides managed cleanup.
 
 <Note>
-  These docs cover **0.5.3, released on npm**. See the [release notes](https://github.com/Amon20044/LazyLayers/blob/main/CHANGELOG.md#053) for changes and the [Redis store reference](/docs/reference/stores#the-key-layout) before upgrading an existing Redis namespace.
+  These docs describe the **0.6.0 source release candidate**. The currently published 0.5.3 release is documented in the [changelog](https://github.com/Amon20044/LazyLayers/blob/main/CHANGELOG.md#053). Review the [Redis store reference](/docs/reference/stores#the-key-layout) when upgrading an existing Redis namespace.
 </Note>
 
 ## Start here
@@ -29,8 +29,8 @@ Start with L1 in one process. Add Redis L2 and an event bus when several instanc
 | Part | What it does |
 | --- | --- |
 | L1 | Keeps encoded values in this process, with LRU eviction and memory bounds |
-| L2 | Shares cached values in Redis, so another instance can reuse a loaded value |
-| Event bus | Sends invalidations and eligible loader results to peer instances |
+| L2 | Shares cached values through Redis or Cloudflare KV |
+| Event bus | On Node.js, sends invalidations and eligible loader results to peer instances |
 
 In-flight dedupe shares same-key loader work within a process. Redis leases coordinate loads across instances. A successful loader can prime peer L1 caches when delivery, payload size, and memory admission allow it.
 
@@ -42,6 +42,7 @@ The database remains the source of truth. Cache events can be delayed or missed,
 | --- | --- |
 | Check runtime, modules, or TypeScript requirements | [Installation](/docs/installation) |
 | Deploy a service with Redis | [Production setup](/docs/setups/production) |
+| Use Cloudflare KV from Workers or Node.js | [Cloudflare KV system design](/docs/setups/cloudflare-kv) |
 | Set memory and freshness limits | [Configuration](/docs/reference/configuration) |
 | Handle slow loaders or dependency failures | [Failure handling](/docs/guides/failure-handling) |
 | Inspect entries, events, and metrics | [Observability](/docs/guides/observability) |

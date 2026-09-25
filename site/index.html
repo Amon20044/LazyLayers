@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-<title>LazyLayers — Node.js L1/L2 cache with Redis</title>
-<meta name="description" content="A TypeScript tiered cache system for Node.js: in-memory L1, optional Redis L2, and cross-instance invalidation. Add read-through caching, stampede protection, resilience, and observability." />
+<title>LazyLayers — Layered caching for Node.js and Cloudflare Workers</title>
+<meta name="description" content="A TypeScript L1/L2 cache for Node.js and Cloudflare Workers. Use Redis or Cloudflare KV for shared storage, with lazy loading, scoped invalidation, and local miss deduplication." />
 <link rel="canonical" href="https://lazy-layers-cache.vercel.app/" />
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
 <meta name="author" content="Amon20044" />
@@ -21,18 +21,18 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="LazyLayers" />
 <meta property="og:url" content="https://lazy-layers-cache.vercel.app/" />
-<meta property="og:title" content="LazyLayers — Node.js L1/L2 cache with Redis" />
-<meta property="og:description" content="A TypeScript tiered cache system for Node.js with in-memory L1, optional Redis L2, cross-instance invalidation, and stampede protection." />
+<meta property="og:title" content="LazyLayers — Layered caching for Node.js and Cloudflare Workers" />
+<meta property="og:description" content="Cloudflare KV or Redis as L2, with lazy loading, scoped invalidation, and local miss deduplication." />
 <meta property="og:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="LazyLayers — Node.js L1/L2 cache with Redis" />
+<meta property="og:image:alt" content="LazyLayers — layered caching for Node.js and Cloudflare Workers" />
 <meta property="og:locale" content="en_US" />
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="LazyLayers — Node.js L1/L2 cache with Redis" />
-<meta name="twitter:description" content="A TypeScript tiered cache system for Node.js with in-memory L1, optional Redis L2, cross-instance invalidation, and stampede protection." />
+<meta name="twitter:title" content="LazyLayers — Layered caching for Node.js and Cloudflare Workers" />
+<meta name="twitter:description" content="Cloudflare KV or Redis as L2, with lazy loading, scoped invalidation, and local miss deduplication." />
 <meta name="twitter:image" content="https://lazy-layers-cache.vercel.app/og.png" />
 <link rel="alternate" type="text/plain" href="/llms.txt" title="LazyLayers AI-readable overview" />
 <link rel="alternate" type="text/plain" href="/llms-full.txt" title="LazyLayers full AI-readable documentation" />
@@ -69,7 +69,7 @@
       "@id": "https://lazy-layers-cache.vercel.app/#website",
       "url": "https://lazy-layers-cache.vercel.app/",
       "name": "LazyLayers",
-      "description": "A Node.js tiered cache system with in-memory L1 and optional Redis L2.",
+      "description": "Layered caching for Node.js and Cloudflare Workers with Redis or Cloudflare KV L2.",
       "inLanguage": "en-US"
     },
     {
@@ -77,16 +77,16 @@
       "@id": "https://lazy-layers-cache.vercel.app/#software",
       "name": "lazy-layers-cache",
       "alternateName": "LazyLayers",
-      "description": "A TypeScript hybrid L1/L2 cache for Node.js. Start with in-memory LRU, add Redis L2 for shared caching, and coordinate instances with event-bus invalidation.",
+      "description": "A TypeScript L1/L2 cache for Node.js and Cloudflare Workers with Redis or Cloudflare KV, lazy loading, and scoped invalidation.",
       "url": "https://lazy-layers-cache.vercel.app/",
       "codeRepository": "https://github.com/Amon20044/LazyLayers",
       "downloadUrl": "https://www.npmjs.com/package/lazy-layers-cache",
       "documentation": "https://lazy-layers-cache.vercel.app/docs",
       "softwareVersion": "__LAZY_LAYERS_VERSION__",
-      "runtimePlatform": "Node.js 20+",
+      "runtimePlatform": ["Node.js 20+", "Cloudflare Workers"],
       "programmingLanguage": ["TypeScript", "JavaScript"],
       "license": "https://opensource.org/licenses/MIT",
-      "keywords": "Node.js cache, TypeScript cache, tiered cache, L1 L2 cache, Redis cache, hybrid cache, cache system design, cache stampede protection, distributed cache invalidation",
+      "keywords": "Node.js cache, Cloudflare Workers cache, Cloudflare KV cache, TypeScript cache, tiered cache, L1 L2 cache, Redis cache, cache stampede protection, cache invalidation",
       "author": { "@id": "https://lazy-layers-cache.vercel.app/#author" },
       "publisher": { "@id": "https://lazy-layers-cache.vercel.app/#author" }
     },
@@ -101,8 +101,8 @@
       "@type": "WebPage",
       "@id": "https://lazy-layers-cache.vercel.app/#webpage",
       "url": "https://lazy-layers-cache.vercel.app/",
-      "name": "LazyLayers — Node.js L1/L2 cache with Redis",
-      "description": "A TypeScript tiered cache system for Node.js with in-memory L1, optional Redis L2, invalidation, stampede protection, compression, and observability.",
+      "name": "LazyLayers — Layered caching for Node.js and Cloudflare Workers",
+      "description": "A TypeScript L1/L2 cache for Node.js and Cloudflare Workers with Redis or Cloudflare KV, lazy loading, and scoped invalidation.",
       "isPartOf": { "@id": "https://lazy-layers-cache.vercel.app/#website" },
       "about": { "@id": "https://lazy-layers-cache.vercel.app/#software" },
       "mainEntity": { "@id": "https://lazy-layers-cache.vercel.app/#software" },
@@ -136,15 +136,16 @@
       </svg>
       <span class="brand__name">LazyLayers</span>
     </a>
-    <a class="brand__tag" href="https://github.com/Amon20044/LazyLayers/releases/tag/v__LAZY_LAYERS_VERSION__" target="_blank" rel="noopener" aria-label="View LazyLayers release v__LAZY_LAYERS_VERSION__">v__LAZY_LAYERS_VERSION__</a>
+    <a class="brand__tag" href="https://github.com/Amon20044/LazyLayers" target="_blank" rel="noopener" aria-label="View LazyLayers source">v__LAZY_LAYERS_VERSION__</a>
 
     <nav class="nav__links" id="navlinks" aria-label="Primary">
       <a class="nav__link" href="#architecture">Architecture</a>
+      <a class="nav__link" href="#cloudflare">Cloudflare KV</a>
       <a class="nav__link" href="#quickstart">Quickstart</a>
       <a class="nav__link" href="#benchmarks">Benchmarks</a>
       <a class="nav__link" href="/docs" target="_blank" rel="noopener">Docs</a>
       <div class="nav__metrics" aria-label="Live project metrics" aria-busy="true">
-        <a class="nav-metric" href="https://www.npmjs.com/package/lazy-layers-cache/v/__LAZY_LAYERS_VERSION__" target="_blank" rel="noopener" aria-label="View LazyLayers lifetime downloads on npm">
+        <a class="nav-metric" href="https://www.npmjs.com/package/lazy-layers-cache" target="_blank" rel="noopener" aria-label="View LazyLayers lifetime downloads on npm">
           <span class="nav-metric__label">Lifetime downloads</span>
           <strong class="nav-metric__value" id="npm-downloads" aria-live="polite">Loading…</strong>
         </a>
@@ -182,20 +183,20 @@
   <div class="wrap hero__inner">
     <div class="hero__grid">
       <div class="hero__content">
-        <a class="hero__release" href="https://github.com/Amon20044/LazyLayers/releases/tag/v__LAZY_LAYERS_VERSION__" target="_blank" rel="noopener">
+        <a class="hero__release" href="/docs/setups/cloudflare-kv">
           <span class="hero__release-dot" aria-hidden="true"></span>
-          V__LAZY_LAYERS_VERSION__ · OPEN SOURCE. READY TO BUILD WITH.
+          V__LAZY_LAYERS_VERSION__ · CLOUDFLARE KV SUPPORT
           <span aria-hidden="true">↗</span>
         </a>
 
         <h1 class="hero__title">
-          Node.js cache.<br />
-          <em>Built in layers.</em>
+          Cache in layers.<br />
+          <em>Run it your way.</em>
         </h1>
 
         <p class="hero__lead">
-          LazyLayers is a TypeScript <strong>tiered cache system for Node.js.</strong>
-          Keep hot reads in memory with L1, add Redis L2 when instances share data, and coordinate invalidation as your app scales.
+          LazyLayers gives Node.js and Cloudflare Workers a <strong>shared cache read path.</strong>
+          Keep hot reads in memory, back them with Redis or Cloudflare KV, and load missing values through one call.
         </p>
 
         <div class="hero__actions">
@@ -212,7 +213,7 @@
           <code>npm i lazy-layers-cache</code>
           <button class="hero__copy" type="button" data-copy="npm i lazy-layers-cache" aria-label="Copy npm install command"><span data-copy-label>Copy</span></button>
         </div>
-        <p class="hero__reassurance">MIT licensed <span aria-hidden="true">·</span> No Redis required to start</p>
+        <p class="hero__reassurance">MIT licensed <span aria-hidden="true">·</span> Start local, add Redis or Cloudflare KV</p>
       </div>
 
       <!--@cache-hero-->
@@ -243,13 +244,20 @@
   </div>
 </section>
 
+<!-- ═══ CLOUDFLARE KV ═══ -->
+<section class="section section--cloudflare" id="cloudflare" aria-labelledby="cloudflare-title">
+  <div class="wrap">
+    <!--@cloudflare-->
+  </div>
+</section>
+
 <!-- ═══ 3. 30-SECOND QUICKSTART ═══ -->
 <section class="section section--tight" id="quickstart">
   <div class="wrap">
     <div class="sec-head">
       <span class="eyebrow">Quickstart</span>
       <h2 class="sec-title">Your first cache, in a few lines.</h2>
-      <p class="sec-lead">Start in memory. Add Redis and an event bus when your service needs them.</p>
+      <p class="sec-lead">Start in memory. Add Redis for Node.js or Cloudflare KV for Workers and Node.js when your service needs shared storage.</p>
     </div>
 
     <div class="reveal">
@@ -567,7 +575,7 @@
     <div class="cta reveal">
       <h2 class="cta__title grad-text">Start local.<br />Scale distributed.</h2>
       <p class="cta__lead">
-        MIT licensed · TypeScript first · ESM + CommonJS · Node 20+. Start as an in-process LRU with zero external dependencies, then add Redis and event buses as your architecture demands.
+        MIT licensed · TypeScript first · ESM + CommonJS · Node 20+ and Cloudflare Workers. Start in memory, then add Redis or Cloudflare KV when you need a shared L2.
       </p>
       <div class="cta__actions">
         <a class="btn btn--primary btn--lg" href="https://www.npmjs.com/package/lazy-layers-cache" target="_blank" rel="noopener" data-magnetic>
@@ -597,13 +605,14 @@
           <span class="brand__name">LazyLayers</span>
         </a>
         <p class="footer__blurb">
-          Local-speed caching for distributed Node.js applications, built around progressive architecture and byte-conscious Redis storage.
+          Layered caching for Node.js and Cloudflare Workers, with Redis or Cloudflare KV as shared storage.
         </p>
       </div>
       <div>
         <div class="footer__h">Architecture</div>
         <ul class="footer__list">
           <li><a href="#architecture">Cache at scale</a></li>
+          <li><a href="#cloudflare">Cloudflare KV</a></li>
           <li><a href="#resilience">Failure handling</a></li>
           <li><a href="#wire">Wire protocol</a></li>
           <li><a href="#transports">Transports</a></li>
@@ -631,9 +640,9 @@
     <div class="footer__bottom">
       <span>
         MIT licensed. Benchmarks reproducible from the fixtures in the repository.<br />
-        Node.js, TypeScript, Redis, RabbitMQ, and NATS are trademarks of their respective owners.
+        Node.js, TypeScript, Redis, RabbitMQ, NATS, and Cloudflare are trademarks of their respective owners. Cloudflare integration does not imply endorsement.
       </span>
-      <a class="mono" href="https://www.npmjs.com/package/lazy-layers-cache/v/__LAZY_LAYERS_VERSION__" target="_blank" rel="noopener" aria-label="View lazy-layers-cache v__LAZY_LAYERS_VERSION__ on npm">v__LAZY_LAYERS_VERSION__</a>
+      <a class="mono" href="https://github.com/Amon20044/LazyLayers" target="_blank" rel="noopener" aria-label="View lazy-layers-cache v__LAZY_LAYERS_VERSION__ source">v__LAZY_LAYERS_VERSION__ source</a>
     </div>
   </div>
 </footer>

@@ -1,0 +1,21 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "lazy-layers-kv-hono",
+  "main": "worker.ts",
+  "compatibility_date": "2026-09-25",
+  "observability": {
+    "enabled": true,
+    "traces": { "enabled": true }
+  },
+  "kv_namespaces": [
+    { "binding": "CACHE" }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "INVALIDATIONS", "queue": "lazy-layers-cache-invalidations" }
+    ]
+  },
+  "vars": {
+    "ORIGIN_BASE_URL": "https://api.example.com"
+  }
+}

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.6.0 (unreleased)
+
+### Added
+
+- Added Cloudflare KV as an L2 choice in `setupCache`, with a Workers KV binding adapter and a Node.js REST namespace client.
+- Added a Worker-safe `lazy-layers-cache/cloudflare` entrypoint with JSON-compatible L1/L2 stores, `getOrSet`, and pattern invalidation.
+- Added a separate `lazy-layers-cache/cloudflare-events` entrypoint and Queue consumer example for Workers Builds and KV namespace lifecycle events.
+- Added application invalidation publication from both Worker bindings and Node.js REST, with a separate Queue consumer that retries KV deletions.
+- Added Hono examples for both Cloudflare Workers and Node.js, plus a Cloudflare KV guide in the Fumadocs site.
+
+### Changed
+
+- Removed the duplicate Mintlify documentation tree and configuration. `documentation/content/docs` is the only documentation source.
+
+### Compatibility
+
+- Redis remains available. An explicit KV selection replaces Redis L2 and does not implicitly connect to `REDIS_URL`. An explicit Redis configuration may still provide the Redis event bus.
+- Cloudflare KV is eventually consistent and has no atomic lease or key-level Event Subscription. The transaction API remains Redis-only.
+
 ## 0.5.3
 
 ### Added

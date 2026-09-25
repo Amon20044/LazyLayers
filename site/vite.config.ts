@@ -32,6 +32,7 @@ function staticContent(): Plugin {
       const r = await import('./src/lib/render');
       const slots: Record<string, string> = {
         '<!--@stack-->': r.stack(),
+        '<!--@cloudflare-->': r.cloudflareSection(),
         '<!--@statbar-->': r.statbar(),
         '<!--@iso-->': r.iso(),
         '<!--@stale-->': r.stale(),

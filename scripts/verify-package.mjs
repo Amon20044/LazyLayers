@@ -8,7 +8,8 @@ const output = execFileSync(
   ['pack', '--dry-run', '--json', '--ignore-scripts'],
   { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
 );
-const [tarball] = JSON.parse(output);
+const packResult = JSON.parse(output);
+const tarball = Array.isArray(packResult) ? packResult[0] : packResult['lazy-layers-cache'];
 
 assert.ok(tarball, 'npm pack did not return tarball metadata');
 
@@ -20,8 +21,14 @@ for (const path of [
   'dist/index.d.ts',
   'dist/transactions/index.js',
   'dist/transactions/index.d.ts',
+  'dist/cloudflare-events/index.js',
+  'dist/cloudflare-events/index.d.ts',
+  'dist/cloudflare/index.js',
+  'dist/cloudflare/index.d.ts',
   'dist-cjs/index.js',
   'dist-cjs/transactions/index.js',
+  'dist-cjs/cloudflare-events/index.js',
+  'dist-cjs/cloudflare/index.js',
   'dist-cjs/package.json',
 ]) {
   assert.ok(packagedPaths.has(path), `published package is missing ${path}`);
@@ -37,12 +44,24 @@ const require = createRequire(import.meta.url);
 const cjs = require('lazy-layers-cache');
 const txEsm = await import('lazy-layers-cache/transactions');
 const txCjs = require('lazy-layers-cache/transactions');
+const cfEsm = await import('lazy-layers-cache/cloudflare-events');
+const cfCjs = require('lazy-layers-cache/cloudflare-events');
+const edgeEsm = await import('lazy-layers-cache/cloudflare');
+const edgeCjs = require('lazy-layers-cache/cloudflare');
 
 for (const [format, exported] of [['ESM', esm], ['CommonJS', cjs]]) {
   assert.equal(typeof exported.createCache, 'function', `${format} createCache export is unavailable`);
   assert.equal(typeof exported.LazyLayersCache, 'function', `${format} LazyLayersCache export is unavailable`);
   assert.equal(typeof exported.MemoryBudget, 'function', `${format} MemoryBudget export is unavailable`);
   assert.equal(typeof exported.getRedisCoreHealth, 'function', `${format} Redis compatibility export is unavailable`);
+}
+
+for (const [format, exported] of [['ESM', cfEsm], ['CommonJS', cfCjs]]) {
+  assert.equal(typeof exported.parseCloudflarePlatformEvent, 'function', `${format} Cloudflare events export is unavailable`);
+}
+
+for (const [format, exported] of [['ESM', edgeEsm], ['CommonJS', edgeCjs]]) {
+  assert.equal(typeof exported.CloudflareWorkerCache, 'function', `${format} Cloudflare cache export is unavailable`);
 }
 
 for (const [format, exported] of [['ESM', txEsm], ['CommonJS', txCjs]]) {

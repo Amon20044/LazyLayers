@@ -8,6 +8,8 @@ L1 lives in one process heap. A write handled by server A does nothing to the L1
 
 The event bus closes that window. A `delete` on A becomes a message that every peer applies to its own L1, so the window is one network hop instead of a TTL.
 
+For Cloudflare KV, the [Cloudflare setup](/docs/setups/cloudflare-kv) uses an application Queue to retry deletion in the shared KV namespace. A Queue delivers each message to one consumer; it does not broadcast to every Worker isolate's L1. Cloudflare Event Subscriptions only report supported platform events such as namespace lifecycle and build status. They do not emit cache key invalidations.
+
 ## What crosses the bus
 
 Three things, and they are the same on every transport.
@@ -154,7 +156,6 @@ One file, four ways to fill it. The rest of your configuration does not change, 
       // Required. The queue is asserted durable only when it is named,
       // so without this you get a transient, broker-named queue.
       queueName: `lazylayers.${process.env.INSTANCE_ID}`,
-      queueName: `${process.env.INSTANCE_ID}-cache`,
       // No default. Without it one slow handler lets the queue run away.
       prefetch: 32,
       retryQueue: { maxSize: 1000 },

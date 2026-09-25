@@ -1,6 +1,6 @@
 # lazy-layers-cache
 
-L1/L2 caching for Node.js services. Read through an in-process cache, share values in Redis, and invalidate peer caches when your data changes.
+L1/L2 caching for Node.js services and Cloudflare Workers. Use Redis or Cloudflare KV as shared L2, with `getOrSet` and pattern invalidation in Hono or other frameworks.
 
 [![npm version](https://img.shields.io/npm/v/lazy-layers-cache.svg)](https://www.npmjs.com/package/lazy-layers-cache)
 [![CI](https://github.com/Amon20044/LazyLayers/actions/workflows/ci.yml/badge.svg)](https://github.com/Amon20044/LazyLayers/actions/workflows/ci.yml)
@@ -51,6 +51,12 @@ const cache = await setupCache({
 `setupCache` creates Redis L2 and Redis Pub/Sub, checks readiness, and manages shutdown. Each instance keeps its own L1. Use the same namespace and Redis service for instances that share cached data.
 
 The [quickstart](https://lazy-layers-cache.vercel.app/docs/quickstart) takes you from this example to database reads, invalidation, and shutdown.
+
+## Cloudflare KV
+
+Use the [Workers Hono example](examples/cloudflare-kv-hono) with the Worker-safe `lazy-layers-cache/cloudflare` import and a KV binding. Use the [Node.js Hono example](examples/cloudflare-kv-node-hono) with `CloudflareKVRestNamespace` and `setupCache({ kv: { namespace } })`. Both support `getOrSet` and `invalidateByPattern` with the same key pattern syntax. An optional [Cloudflare Queue consumer](examples/cloudflare-kv-invalidation) retries application invalidations from either runtime. The [Cloudflare KV guide](https://lazy-layers-cache.vercel.app/docs/setups/cloudflare-kv) covers setup, TTLs, and KV limits.
+
+Cloudflare [Event Subscriptions](examples/cloudflare-event-subscriptions) report build and KV namespace lifecycle events to their own platform-monitoring Queue consumer. They do not report individual cache key changes. Application invalidations use the separate [invalidation Queue consumer](examples/cloudflare-kv-invalidation).
 
 ## The methods you need
 

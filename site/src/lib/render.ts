@@ -322,6 +322,7 @@ export function wireEvents(): string {
 
 const STACK: Array<{ id: IconName; name?: string; role: string }> = [
   { id: 'node',    name: 'Node.js 20+', role: 'runtime' },
+  { id: 'cloudflare', name: 'Cloudflare', role: 'Workers · KV · Queues' },
   { id: 'ts',                           role: 'types built in' },
   { id: 'redis',                        role: 'L2 store · pub/sub' },
   { id: 'rabbit',                       role: 'durable bus' },
@@ -341,6 +342,72 @@ export function stack(): string {
           <span class="stack__role">${esc(t.role)}</span>
         </li>`).join('')}
     </ul>
+  </div>`;
+}
+
+/* ── Cloudflare integration ───────────────────────────────────────────── */
+
+export function cloudflareSection(): string {
+  const rows = [
+    {
+      capability: 'Shared cache',
+      platform: 'Workers KV stores and reads keys across locations.',
+      library: 'One L2 adapter for Worker bindings and Node.js REST, with a shared JSON wire format.',
+    },
+    {
+      capability: 'Lazy loading',
+      platform: 'KV exposes reads and writes. Your application owns the origin loader.',
+      library: 'getOrSet runs that loader on a miss and fills L1 and KV for the next read.',
+    },
+    {
+      capability: 'Thundering herd',
+      platform: 'KV has no atomic per-key loader lease.',
+      library: 'In-flight calls share one loader within a Worker cache or Node.js process. Cross-instance misses can still duplicate.',
+    },
+    {
+      capability: 'Expiry and purge',
+      platform: 'KV has a 60-second minimum physical expiry and prefix listing.',
+      library: 'Logical TTLs, scoped wildcard deletion, and a bounded Worker scan.',
+    },
+    {
+      capability: 'Invalidation delivery',
+      platform: 'Queues deliver application messages to a consumer with retries.',
+      library: 'invalidate and invalidateByPattern publish key or pattern messages; the consumer repeats KV deletion.',
+    },
+  ];
+  return `
+  <div class="cf-shell">
+    <div class="cf-intro">
+      <div class="cf-brand">${icon('cloudflare', 38)}<span>Cloudflare KV + LazyLayers</span></div>
+      <h2 id="cloudflare-title">Global KV storage.<br><span>A complete cache read path.</span></h2>
+      <p>Run the same cache API in Hono on Workers, Hono on Node.js, or another Node.js framework. Cloudflare stores the shared values. LazyLayers handles lazy reads, local dedupe, TTLs, pattern deletion, and application invalidation messages.</p>
+      <div class="cf-actions">
+        <a class="btn btn--primary btn--sm" href="/docs/setups/cloudflare-kv">Build with Cloudflare KV <span aria-hidden="true">→</span></a>
+        <a class="cf-source" href="https://developers.cloudflare.com/kv/concepts/how-kv-works/" target="_blank" rel="noopener">Cloudflare KV docs ↗</a>
+      </div>
+    </div>
+    <div class="cf-code" aria-label="Cloudflare Worker cache example">
+      <div class="cf-code__top"><span class="cf-code__dot" aria-hidden="true"></span><span>worker.ts</span><span class="cf-code__runtime">Hono · Workers</span></div>
+      <pre><code><span class="t-key">const</span> cache = <span class="t-key">new</span> <span class="t-fn">CloudflareWorkerCache</span>(env.CACHE, {
+  prefix: <span class="t-str">'users-api:'</span>,
+  l1,
+  invalidationPublisher: queuePublisher,
+})
+
+<span class="t-key">const</span> user = <span class="t-key">await</span> cache.<span class="t-fn">getOrSet</span>(key, loadUser)
+
+<span class="t-com">// After the database write commits:</span>
+<span class="t-key">await</span> cache.<span class="t-fn">invalidateByPattern</span>(<span class="t-str">'tenant:42:user:*'</span>)</code></pre>
+      <div class="cf-code__foot"><span>Worker L1</span><b aria-hidden="true">→</b><span>Cloudflare KV</span><b aria-hidden="true">→</b><span>origin loader</span></div>
+    </div>
+    <div class="cf-comparison">
+      <div class="cf-comparison__head"><h3>What each layer does</h3><p>Cloudflare provides the platform primitives. LazyLayers supplies the cache behavior your app calls.</p></div>
+      <div class="cf-table-wrap"><table class="cf-table">
+        <thead><tr><th scope="col">Concern</th><th scope="col">Cloudflare provides</th><th scope="col">LazyLayers adds</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr><th scope="row">${esc(r.capability)}</th><td data-label="Cloudflare provides">${esc(r.platform)}</td><td data-label="LazyLayers adds">${esc(r.library)}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <p class="cf-limit">KV is eventually consistent. Queue delivery retries KV deletion but does not push into every isolate's L1. Use the authoritative origin for reads that require strict read-after-write behavior. Cloudflare Event Subscriptions report builds and namespace lifecycle, not individual cache key changes.</p>
+    </div>
   </div>`;
 }
 

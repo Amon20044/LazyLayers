@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "lazy-layers-cache-invalidation-consumer",
+  "main": "worker.ts",
+  "compatibility_date": "2026-09-25",
+  "observability": {
+    "enabled": true,
+    "traces": { "enabled": true }
+  },
+  "kv_namespaces": [
+    { "binding": "CACHE" }
+  ],
+  "queues": {
+    "consumers": [
+      {
+        "queue": "lazy-layers-cache-invalidations",
+        "max_batch_size": 10,
+        "max_retries": 5,
+        "dead_letter_queue": "lazy-layers-cache-invalidations-dlq"
+      }
+    ]
+  }
+}

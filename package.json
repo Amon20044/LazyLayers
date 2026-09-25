@@ -1,6 +1,6 @@
 {
   "name": "lazy-layers-cache",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "A TypeScript hybrid L1/L2 cache with lazy loading, inflight dedupe, event-bus invalidation, cross-instance L1 priming, and a live observability dashboard with Prometheus + OpenTelemetry.",
   "type": "module",
   "sideEffects": false,
@@ -25,6 +25,18 @@
       "import": "./dist/event-bus/index.js",
       "require": "./dist-cjs/event-bus/index.js",
       "default": "./dist/event-bus/index.js"
+    },
+    "./cloudflare-events": {
+      "types": "./dist/cloudflare-events/index.d.ts",
+      "import": "./dist/cloudflare-events/index.js",
+      "require": "./dist-cjs/cloudflare-events/index.js",
+      "default": "./dist/cloudflare-events/index.js"
+    },
+    "./cloudflare": {
+      "types": "./dist/cloudflare/index.d.ts",
+      "import": "./dist/cloudflare/index.js",
+      "require": "./dist-cjs/cloudflare/index.js",
+      "default": "./dist/cloudflare/index.js"
     },
     "./cache": {
       "types": "./dist/cache/index.d.ts",
@@ -68,6 +80,9 @@
     "bench:transactions": "npm run build && node benchmarks/transactions.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "verify:package": "node scripts/verify-package.mjs",
+    "cloudflare:events:dry-run": "npm run build && wrangler deploy --dry-run --config examples/cloudflare-event-subscriptions/wrangler.jsonc",
+    "cloudflare:invalidation:dry-run": "npm run build && wrangler deploy --dry-run --config examples/cloudflare-kv-invalidation/wrangler.jsonc",
+    "cloudflare:hono:dry-run": "npm run build && wrangler deploy --dry-run --config examples/cloudflare-kv-hono/wrangler.jsonc",
     "setup": "node scripts/setup-environment.mjs",
     "example:l1": "node --import tsx examples/01-single-server-l1-only/index.ts",
     "example:l2": "node --import tsx examples/02-single-server-l2-only/index.ts",
@@ -81,7 +96,8 @@
     "docs:build": "npm --prefix documentation run build",
     "example:fullstack": "cd examples/fullstack-hono-vite && npm run dev",
     "example:fullstack:server": "cd examples/fullstack-hono-vite && npm run start:server",
-    "example:fullstack:client": "cd examples/fullstack-hono-vite && npm run start:client"
+    "example:fullstack:client": "cd examples/fullstack-hono-vite && npm run start:client",
+    "example:cloudflare:node-hono": "node --import tsx examples/cloudflare-kv-node-hono/server.ts"
   },
   "keywords": [
     "cache",
@@ -92,6 +108,10 @@
     "l2-cache",
     "in-memory-cache",
     "redis-cache",
+    "cloudflare-kv",
+    "workers-kv",
+    "cloudflare-workers",
+    "hono",
     "distributed-cache",
     "cache-layer",
     "cache-invalidation",
@@ -144,9 +164,12 @@
     "url": "git+https://github.com/Amon20044/LazyLayers.git"
   },
   "devDependencies": {
+    "@hono/node-server": "^1.19.17",
     "@types/node": "^26.2.0",
+    "hono": "^4.13.9",
     "tsx": "^4.23.12",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "wrangler": "^4.140.0"
   },
   "dependencies": {
     "@nats-io/jetstream": "^3.4.0",

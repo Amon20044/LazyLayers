@@ -3,7 +3,7 @@ title: "Configuration"
 description: "Every option, its exact type, its real default, and what it costs you when it is wrong."
 ---
 
-`setupCache` is the production entry point. It accepts the full `LazyLayersCache` option surface, resolves L1, Redis L2, and Redis Pub/Sub, then applies the bounded setup defaults called out below. The subset that also exists on `CacheOptions` can be overridden per call on `getOrSet` or `prewarm`.
+`setupCache` is the production entry point for Node.js. It accepts the full `LazyLayersCache` option surface, resolves L1, a configured Redis or Cloudflare KV L2, and an optional event bus, then applies the bounded setup defaults called out below. The subset that also exists on `CacheOptions` can be overridden per call on `getOrSet` or `prewarm`.
 
 <CodeGroup>
 ```js title="src/cache/index.js"
@@ -59,7 +59,15 @@ export const cache = await setupCache<string, User>(options)
 </ParamField>
 
 <ParamField path="l2" type="CacheStore<K, V> | false">
-  The shared store, usually a `RedisStore`. `setupCache` creates one when a Redis client or URL is available. The low-level constructor has no L2 default.
+  The shared store. `setupCache` creates a `CloudflareKVStore` when `kv` is set, otherwise a `RedisStore` when a Redis client or URL is available. An explicit `l2` takes precedence. The low-level constructor has no L2 default.
+</ParamField>
+
+<ParamField path="kv" type="SetupCloudflareKVOptions | false">
+  Pass `{ namespace: CloudflareKVNamespace, store?: CloudflareKVStoreOptions }` to select Cloudflare KV for L2. An explicit KV selection suppresses implicit `REDIS_URL` discovery. Setup checks the namespace with a bounded `list` request. Set `redis` explicitly if you also need its Pub/Sub bus. [Cloudflare KV setup](/docs/setups/cloudflare-kv) covers Workers and Node.js.
+</ParamField>
+
+<ParamField path="invalidationPublisher" type="CloudflareInvalidationPublisher">
+  Optional managed-cache Queue publisher for application invalidations. It acts after local deletion. Node.js can use `CloudflareQueueRestSender`, while a Worker uses a Queue binding. [Application invalidation Queue](/docs/setups/cloudflare-kv#application-invalidation-queue) explains the consumer and delivery limits.
 </ParamField>
 
 <ParamField path="versioning.enabled" type="boolean" default="false">

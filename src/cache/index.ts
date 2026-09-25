@@ -35,6 +35,10 @@ export {
 } from './originLoadGate.js';
 export { MemoryStore } from './memoryStore.js';
 export type { MemoryStoreStats } from './memoryStore.js';
+export { CloudflareKVStore } from './cloudflareKvStore.js';
+export type { CloudflareKVNamespace, CloudflareKVStoreOptions } from './cloudflareKvStore.js';
+export { CloudflareKVRestNamespace } from './cloudflareKvRest.js';
+export type { CloudflareKVRestOptions } from './cloudflareKvRest.js';
 export { MemoryBudget, getDefaultMemoryBudget, resetDefaultMemoryBudget } from './memoryBudget.js';
 export type { MemoryBudgetOptions, MemoryBudgetSnapshot, MemoryCategory, MemoryLimit } from './memoryBudget.js';
 export { readMemorySignals, resolveEffectiveMemory } from './memorySignals.js';

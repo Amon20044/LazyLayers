@@ -36,6 +36,8 @@ function setupCache<K extends CacheKey = string, V = unknown>(
 
 `setupCache` resolves infrastructure, checks health, waits for the event subscription, and returns a cache with idempotent cleanup. It reads `REDIS_URL` when no client or URL is passed.
 
+For Cloudflare KV on Node.js, pass `kv: { namespace }` with a KV binding-compatible client such as `CloudflareKVRestNamespace`. An explicit KV selection suppresses implicit Redis discovery. Workers use the separate `lazy-layers-cache/cloudflare` entrypoint. See [Cloudflare KV setup](/docs/setups/cloudflare-kv).
+
 ```ts title="src/cache/index.ts"
 import { setupCache } from 'lazy-layers-cache'
 import type { User } from '../types/user.js'
@@ -60,6 +62,10 @@ export const cache = await setupCache<string, User>({
 
 <ParamField path="eventBus" type="EventBus | false">
   Explicit bus override. It wins over generated Redis Pub/Sub. Pass `false` to disable peer fan-out.
+</ParamField>
+
+<ParamField path="invalidationPublisher" type="CloudflareInvalidationPublisher">
+  Publishes `invalidate` and `invalidateByPattern` operations to a dedicated Cloudflare Queue after local deletion. The separate consumer retries KV deletion. Queue delivery does not fan out to every L1. See [Cloudflare KV setup](/docs/setups/cloudflare-kv#application-invalidation-queue).
 </ParamField>
 
 <ParamField path="startup.requireHealthy" type="boolean" default="true">
@@ -525,7 +531,7 @@ Everything below is a runtime export of `lazy-layers-cache`.
 
 <AccordionGroup>
   <Accordion title="Cache and stores">
-    `ManagedLazyLayersCache`, `LazyLayersCache`, `HybridCache`, `MemoryStore`, `RedisStore`, `CircuitBreaker`, `setupCache`, `createCache`, and `CacheSetupError`.
+    `ManagedLazyLayersCache`, `LazyLayersCache`, `HybridCache`, `MemoryStore`, `RedisStore`, `CloudflareKVStore`, `CloudflareKVRestNamespace`, `CircuitBreaker`, `setupCache`, `createCache`, and `CacheSetupError`.
 
     `MemoryStore` is the L1 implementation and is created for you when you do not pass `l1`. `RedisStore` is generic over the value type only, as `RedisStore<V>`, because its key type is fixed to `CacheKey`.
   </Accordion>
@@ -568,7 +574,7 @@ Everything below is a runtime export of `lazy-layers-cache`.
 
 <AccordionGroup>
   <Accordion title="Cache and options">
-    `SetupCacheOptions<K, V>`, `SetupRedisOptions`, `CacheStartupOptions`, `LazyLayersCacheOptions<K, V>`, `HybridCacheOptions<K, V>`, `HybridCacheResilienceOptions`, `CacheOptions`, `CacheLevelOptions`, `CacheLevel`, `CacheKey`, `CacheLayer<K, V>`, `CacheEntry<V>`, `CacheStore<K, V>`, `CacheLoader<V>`, `InflightEntry<K, V>`, `InflightOptions`, `InflightStore<K, V>`, `DistributedLock`, `DistributedLockOptions`, `CircuitBreakerOptions`, `CircuitBreakerState`, `RedisStoreOptions`, `CacheLoggerOptions`, `CacheRuntimeEnv`.
+    `SetupCacheOptions<K, V>`, `SetupRedisOptions`, `SetupCloudflareKVOptions`, `CacheStartupOptions`, `LazyLayersCacheOptions<K, V>`, `HybridCacheOptions<K, V>`, `HybridCacheResilienceOptions`, `CacheOptions`, `CacheLevelOptions`, `CacheLevel`, `CacheKey`, `CacheLayer<K, V>`, `CacheEntry<V>`, `CacheStore<K, V>`, `CacheLoader<V>`, `InflightEntry<K, V>`, `InflightOptions`, `InflightStore<K, V>`, `DistributedLock`, `DistributedLockOptions`, `CircuitBreakerOptions`, `CircuitBreakerState`, `RedisStoreOptions`, `CloudflareKVStoreOptions`, `CloudflareKVRestOptions`, `CloudflareKVNamespace`, `CacheLoggerOptions`, `CacheRuntimeEnv`.
 
     `CacheStore<K, V>` is the interface any custom layer must satisfy: `set`, `get`, `getOrSet`, `has`, `delete`, `deleteByPattern`, `clear` and `size`. `CacheLayer<K, V>` is `CacheStore<K, V> | false`, which is why `l1: false` and `l2: false` typecheck.
   </Accordion>

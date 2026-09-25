@@ -6,8 +6,10 @@ import type {
   CacheLayer,
   LazyLayersCacheOptions,
   RedisStoreOptions,
+  CloudflareKVNamespace,
+  CloudflareKVStoreOptions,
 } from './cache/index.js';
-import { LazyLayersCache, RedisStore } from './cache/index.js';
+import { CloudflareKVStore, LazyLayersCache, RedisStore } from './cache/index.js';
 import {
   classifyRedisError,
   getRedisCoreHealth,
@@ -20,6 +22,7 @@ import {
   DEFAULT_L1_MAX_ENTRIES,
 } from './cache/defaults.js';
 import type { CacheKey } from './types/index.js';
+import type { CloudflareInvalidationPublisher } from './cloudflare/invalidationQueue.js';
 
 export const PRODUCTION_L1_TTL_MS = 10_000;
 export const PRODUCTION_INFLIGHT_MAX_ENTRIES = 10_000;
@@ -44,6 +47,13 @@ export interface SetupRedisOptions {
   channel?: string;
 }
 
+export interface SetupCloudflareKVOptions {
+  /** A Workers KV binding or a compatible namespace client. */
+  namespace: CloudflareKVNamespace;
+  /** KV L2 tuning. Prefix defaults to `<namespace>:cache:`. */
+  store?: CloudflareKVStoreOptions;
+}
+
 export interface CacheStartupOptions {
   /** Refuse to return a cache whose configured shared infrastructure is unhealthy. */
   requireHealthy?: boolean;
@@ -57,10 +67,14 @@ export interface SetupCacheOptions<K extends CacheKey = string, V = unknown>
   namespace?: string;
   /** Auto-configure Redis L2 and Redis Pub/Sub, or `false` for L1 only. */
   redis?: SetupRedisOptions | false;
+  /** Use Cloudflare KV for L2. An explicit Redis config may still supply a Redis event bus. */
+  kv?: SetupCloudflareKVOptions | false;
   /** Explicit store override. `false` keeps the managed Redis bus but disables L2. */
   l2?: CacheLayer<K, V>;
   /** Explicit bus override. `false` disables event fan-out. */
   eventBus?: EventBus | false;
+  /** Publish application invalidations to a durable Queue for a separate KV consumer. */
+  invalidationPublisher?: CloudflareInvalidationPublisher;
   startup?: CacheStartupOptions;
 }
 
@@ -77,8 +91,19 @@ export class ManagedLazyLayersCache<
   constructor(
     options: LazyLayersCacheOptions<K, V>,
     private readonly ownedRedis?: IORedis,
+    private readonly invalidationPublisher?: CloudflareInvalidationPublisher,
   ) {
     super(options);
+  }
+
+  override async delete(key: K): Promise<void> {
+    await super.delete(key);
+    await this.invalidationPublisher?.publishKey(String(key));
+  }
+
+  override async deleteByPattern(pattern: string): Promise<void> {
+    await super.deleteByPattern(pattern);
+    await this.invalidationPublisher?.publishPattern(pattern);
   }
 
   override async close(): Promise<void> {
@@ -121,9 +146,11 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
   const {
     namespace: rawNamespace,
     redis: redisInput,
+    kv: kvInput,
     startup,
     l2: l2Override,
     eventBus: eventBusOverride,
+    invalidationPublisher,
     ...cacheOverrides
   } = options;
 
@@ -133,8 +160,11 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
       ?? process.env.npm_package_name
       ?? 'app',
   );
-  const redisOptions = redisInput === false ? undefined : redisInput ?? {};
-  const redisUrl = redisOptions?.url ?? process.env.REDIS_URL;
+  const kvOptions = kvInput === false ? undefined : kvInput;
+  // An explicit KV selection must not silently reconnect to REDIS_URL.
+  const redisOptions = redisInput === false || (kvOptions && redisInput === undefined)
+    ? undefined : redisInput ?? {};
+  const redisUrl = redisOptions ? redisOptions.url ?? process.env.REDIS_URL : undefined;
   const requireHealthy = startup?.requireHealthy !== false;
   const startupTimeoutMs = startup?.timeoutMs ?? PRODUCTION_STARTUP_TIMEOUT_MS;
 
@@ -164,7 +194,14 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
     redis = ownedRedis;
   }
 
-  const generatedL2 = redis
+  const generatedL2 = kvOptions
+    ? new CloudflareKVStore<V>(kvOptions.namespace, {
+        prefix: `${namespace}:cache:`,
+        levels: cacheOverrides.levels,
+        ttlMs: cacheOverrides.ttlMs,
+        ...kvOptions.store,
+      })
+    : redis
     ? new RedisStore<V>(redis, {
         prefix: `${namespace}:cache:`,
         deleteStrategy: 'unlink',
@@ -214,6 +251,18 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
   let cache: ManagedLazyLayersCache<K, V> | undefined;
 
   try {
+    if (kvOptions && l2Override !== false && l2Override === undefined) {
+      try {
+        await withSetupTimeout(
+          kvOptions.namespace.list({ prefix: kvOptions.store?.prefix ?? `${namespace}:cache:`, limit: 1 }),
+          startupTimeoutMs,
+          'Cloudflare KV startup health check',
+        );
+      } catch (error) {
+        if (requireHealthy) throw error;
+      }
+    }
+
     if (redis) {
       const redisHealth = await readRedisCoreHealth(redis, startupTimeoutMs);
       if (!redisHealth.ok && (requireHealthy || redisHealth.issue?.kind !== 'transport')) {
@@ -254,7 +303,7 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
       }
     }
 
-    cache = new ManagedLazyLayersCache<K, V>(cacheOptions, ownedRedis);
+    cache = new ManagedLazyLayersCache<K, V>(cacheOptions, ownedRedis, invalidationPublisher);
 
     if (requireHealthy) {
       await withSetupTimeout(cache.ready(), startupTimeoutMs, 'Event-bus subscription');

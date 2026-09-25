@@ -17,6 +17,7 @@ import {
   siRedis,
   siRabbitmq,
   siNatsdotio,
+  siCloudflare,
 } from 'simple-icons';
 
 interface Mark {
@@ -48,6 +49,7 @@ const MARKS = {
   redis:   si(siRedis),
   rabbit:  si(siRabbitmq),
   nats:    si(siNatsdotio),
+  cloudflare: si(siCloudflare),
   msgpack: { title: 'MessagePack', path: MSGPACK_GLYPH, colour: '#22D3EE' },
 } satisfies Record<string, Mark>;
 

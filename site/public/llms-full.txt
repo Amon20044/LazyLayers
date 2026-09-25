@@ -1,10 +1,14 @@
 # lazy-layers-cache — Full Context for LLMs
 
-> A focused TypeScript hybrid L1/L2 cache for Node.js with lazy loading, stampede protection, fail-open resilience, size-tiered compression, and distributed invalidation over Redis Pub/Sub, RabbitMQ, or NATS.
+> A TypeScript layered cache for Node.js and Cloudflare Workers, with Redis or Cloudflare KV as L2.
 
 ## What It Is
 
-lazy-layers-cache is a Promise-based caching library for Node.js that provides a two-layer cache (L1 in-memory LRU + L2 Redis) with automatic distributed invalidation. It is designed around one production rule: the first instance to lazily load a key broadcasts it to every peer, so peers populate their L1 from the broadcast with no second loader call.
+lazy-layers-cache is a Promise-based L1/L2 caching library. Node.js supports Redis or Cloudflare KV L2; a Worker-safe entrypoint supports KV bindings. With an explicit Node.js event bus, a loaded value can prime peer L1 caches. Cloudflare KV has no atomic loader lease or peer L1 fan-out.
+
+## Cloudflare KV
+
+Use `lazy-layers-cache/cloudflare` with a Workers KV binding, or use `CloudflareKVRestNamespace` and `setupCache({ kv: { namespace } })` on Node.js. Both support `getOrSet`, key invalidation, and scoped wildcard invalidation. The Worker cache deduplicates in-flight loads inside one cache object. KV remains eventually consistent across locations. An application Queue can retry KV deletions through a dedicated consumer; Cloudflare Event Subscriptions only report supported platform events. Full setup, Hono examples, and limits: https://lazy-layers-cache.vercel.app/docs/setups/cloudflare-kv.
 
 ## Installation
 

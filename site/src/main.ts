@@ -3,6 +3,7 @@ import './styles/base.css';
 import './styles/components.css';
 import './styles/sections.css';
 import './styles/cache-visuals.css';
+import './styles/cloudflare.css';
 import 'locomotive-scroll/locomotive-scroll.css';
 import { inject } from '@vercel/analytics';
 

@@ -1,6 +1,6 @@
 ---
 title: "Serverless"
-description: "L2-only caching on Vercel, Cloudflare Workers, and other platforms where the process does not persist between requests."
+description: "L2 caching in short-lived Node.js processes and functions."
 ---
 
 Serverless platforms give you a fresh process for every request or a short-lived container that disappears after handling a batch. L1, the in-process LRU, lives and dies with that process. By the time the next request arrives, the cache is gone.
@@ -14,13 +14,13 @@ That does not make LazyLayers useless. It makes it a different shape. You keep L
     No process survives long enough for an LRU to warm across requests. Each cold start is truly cold for L1.
   </Card>
   <Card title="L2 is your real cache" icon="database">
-    Redis (or any shared store) outlives every invocation. A miss hits L2, then your origin. The value is there for the next request.
+    Redis or Cloudflare KV outlives each invocation. A miss checks L2, then your origin. See the [Cloudflare KV setup](/docs/setups/cloudflare-kv) for Workers and Node.js.
   </Card>
   <Card title="In-flight dedupe still works" icon="layer-group">
     Concurrent callers within one invocation share one loader call. That is free, and it matters when a single request fans out to many parallel reads.
   </Card>
   <Card title="The bus connects instances" icon="tower-broadcast">
-    An invalidation on one invocation reaches every other active invocation that subscribed. At-most-once delivery is fine when L1 is not in the picture.
+    A bus lets active instances invalidate their local L1 copies promptly when those copies matter. Deleting a key from a shared Redis L2 does not need a bus.
   </Card>
 </CardGroup>
 
@@ -93,9 +93,7 @@ export const cache = new LazyLayersCache({
     scanCount: 500,
   }),
 
-  // Optional. Only needed when you want invalidation to reach other instances.
-  // Without a bus, a delete on one invocation only drops L2 on that Redis
-  // connection. Other invocations see the stale entry until its TTL expires.
+  // Optional. A bus is useful if other instances keep local L1 copies.
   // eventBus: bus,
 
   timeouts: { softMs: 800, hardMs: 5000 },
@@ -140,7 +138,7 @@ export const cache = new LazyLayersCache<string, User>(options)
 
 <Step title="Read and invalidate">
 
-The same `getOrSet` and `delete` API. Without an event bus, a delete drops the key from L2 on the Redis connection this invocation shares. Other invocations see the stale entry until the L2 TTL expires.
+The same `getOrSet` and `delete` API. A Redis L2 deletion is visible to other Redis clients because they share the same server. If other instances also keep local L1 copies, those copies need an event bus or a short TTL.
 
 <CodeGroup>
 ```js title="src/users/repository.js"
@@ -191,7 +189,7 @@ export async function updateUser(id: string, patch: Partial<User>): Promise<User
 
 ## Adding cross-instance invalidation
 
-When multiple serverless instances share a Redis, an invalidation on one instance does not reach the others without a bus. Add the bus if stale reads across instances are unacceptable.
+When serverless instances keep local L1 copies, a Redis L2 deletion does not immediately clear those in-process copies. Add a bus if those copies need prompt peer invalidation. With L1 disabled as above, deleting the shared Redis key is sufficient for the next read from Redis.
 
 <CodeGroup>
 ```js title="src/cache/bus.js"
@@ -296,7 +294,7 @@ Redis connections are not reused across invocations on Vercel unless you use a c
 
 ### Cloudflare Workers
 
-Cloudflare Workers have no Node.js runtime. `ioredis` will not work. Use a Workers-compatible Redis client (such as `@upstash/redis`) and pass its interface to `RedisStore` and `RedisEventBus`.
+Use the Workers-safe `lazy-layers-cache/cloudflare` entrypoint with a KV binding. The Node.js entrypoint imports native compression packages and cannot be bundled into a Worker. See [Cloudflare KV](/docs/setups/cloudflare-kv) for a Hono Worker and a Node.js REST setup.
 
 L1 is not meaningful in Workers. Each request is isolated, and there is no shared heap.
 

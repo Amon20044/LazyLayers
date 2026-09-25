@@ -6,6 +6,7 @@
     "multi-instance",
     "---Serverless---",
     "serverless",
+    "cloudflare-kv",
     "---Production---",
     "production"
   ]

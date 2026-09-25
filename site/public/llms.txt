@@ -1,18 +1,22 @@
 # lazy-layers-cache
 
-> A focused TypeScript hybrid L1/L2 cache for Node.js with lazy loading, stampede protection, fail-open resilience, size-tiered compression, and distributed invalidation over Redis Pub/Sub, RabbitMQ, or NATS.
+> A TypeScript layered cache for Node.js and Cloudflare Workers, with Redis or Cloudflare KV as L2.
 
 ## What is lazy-layers-cache?
 
-lazy-layers-cache is a Promise-based caching library for Node.js that provides a two-layer cache (L1 in-memory LRU + L2 Redis) with automatic distributed invalidation. It starts as an in-process LRU with no infrastructure and grows into a distributed cache layer as you need one.
+lazy-layers-cache is a Promise-based caching library with in-memory L1 and an optional Redis or Cloudflare KV L2. Node.js uses the main entrypoint. Cloudflare Workers use the small `lazy-layers-cache/cloudflare` entrypoint.
+
+For Cloudflare KV, `getOrSet` loads on a miss, with in-flight deduplication inside one Worker cache or Node.js process. KV has no cross-instance loader lease. A dedicated application Queue retries KV deletions after `invalidate` or `invalidateByPattern`; it does not fan out to every Worker's L1. Cloudflare Event Subscriptions cover platform lifecycle events, not cache keys. See https://lazy-layers-cache.vercel.app/docs/setups/cloudflare-kv.
 
 Two methods do almost all the work:
-- `getOrSet(key, loader)` — read through the layers, load once if nothing has it. Broadcasts result to peers.
-- `delete(key)` — invalidate everywhere. Every instance drops the key.
+- `getOrSet(key, loader)` — read through the layers and call the loader on a miss. Node.js Redis buses can prime peers; Cloudflare KV does not.
+- `delete(key)` / `invalidate(key)` — delete the key. Peer L1 behavior depends on the configured bus and runtime.
 
 ## Key Features
 
-- Lazy loading with getOrSet — one loader call per key across all concurrent callers
+- Lazy loading with getOrSet and local in-flight deduplication
+- Cloudflare KV L2 from Workers bindings or the Node.js REST adapter
+- Scoped `invalidateByPattern` and a dedicated Cloudflare Queue retry consumer
 - In-flight promise deduplication prevents same-process stampede
 - Automatic Redis-backed locking and renewal for cold and expired keys across instances
 - Fail-open resilience: L2 and event-bus failures are logged and swallowed, local L1 continues serving
@@ -34,7 +38,7 @@ Two methods do almost all the work:
 - **Guides**: Stampede protection, Failure handling, Observability
 - **Architecture**: Execution paths, Event ordering
 - **Reference**: Configuration, API, Stores, Event buses, Cache events, Environment variables
-- **Setups**: Single process, Multi-instance, Production
+- **Setups**: Single process, Multi-instance, Production, Cloudflare KV for Workers and Node.js
 
 ## Quick Start
 

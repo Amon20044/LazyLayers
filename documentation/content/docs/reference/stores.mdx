@@ -100,6 +100,14 @@ Keep `maxEntries` as a count defense for tiny keys and use `maxMemory` for cache
 
 `MemoryStore` implements `InspectableStore`. Its `inspect` reads values with `peek()`, so opening the dashboard never changes recency or brings forward an eviction.
 
+## Cloudflare KV stores
+
+For Node.js, `CloudflareKVStore<V>` implements `CacheStore<CacheKey, V>` with a Workers KV binding-compatible namespace. `CloudflareKVRestNamespace` supplies that namespace through Cloudflare's REST API outside Workers. For Workers, import `CloudflareWorkerKVStore<V>` or `CloudflareWorkerCache<V>` from `lazy-layers-cache/cloudflare`.
+
+All KV stores support `getOrSet`, `deleteByPattern`, `clear`, and `size`. A pattern delete lists keys by literal prefix, then filters and deletes matching names. The Worker store rejects scans over 400 keys by default before deleting, with `maxPatternScanKeys` configurable up to 900. KV listings are eventually consistent, so pattern deletion is best-effort under concurrent writes. `size` counts listed physical records, including records whose logical TTL has expired but whose minimum KV retention has not. Neither KV store implements distributed locks or `levels.L2.maxEntries`.
+
+The two runtimes share an `LLK1` envelope with a logical expiry. The Node store writes JSON HC1 values by default for Worker interoperability. `CloudflareQueueInvalidationPublisher` can publish application invalidations from either runtime, and a dedicated Queue consumer repeats KV deletion. See [Cloudflare KV setup](/docs/setups/cloudflare-kv) for the system design and limits.
+
 ## RedisStore
 
 The shared L2. It takes an `ioredis` client you already built, so connection settings, TLS and cluster configuration stay yours.

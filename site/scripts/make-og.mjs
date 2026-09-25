@@ -9,6 +9,7 @@ import { Resvg } from '@resvg/resvg-js';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { siCloudflare } from 'simple-icons';
 
 const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'og.png');
 
@@ -75,11 +76,15 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" v
     <text x="42" y="17" font-family="Helvetica, Arial, sans-serif" font-size="21" font-weight="600" fill="#F2F2F4">LazyLayers</text>
   </g>
 
-  <text x="80" y="238" font-family="Helvetica, Arial, sans-serif" font-size="78" font-weight="700" fill="#FFFFFF" letter-spacing="-2.5">Cache more.</text>
-  <text x="80" y="322" font-family="Helvetica, Arial, sans-serif" font-size="78" font-weight="700" fill="url(#accent)" letter-spacing="-2.5">Store less.</text>
+  <text x="80" y="238" font-family="Helvetica, Arial, sans-serif" font-size="76" font-weight="700" fill="#FFFFFF" letter-spacing="-2.5">Cache in layers.</text>
+  <text x="80" y="322" font-family="Helvetica, Arial, sans-serif" font-size="71" font-weight="700" fill="url(#accent)" letter-spacing="-2.5">Node.js + Workers.</text>
 
-  <text x="80" y="392" font-family="Helvetica, Arial, sans-serif" font-size="24" fill="#9A9AA4">22–92% fewer bytes in Redis than JSON-based caching.</text>
-  <text x="80" y="426" font-family="Helvetica, Arial, sans-serif" font-size="24" fill="#9A9AA4">Measured against bentocache.</text>
+  <text x="80" y="392" font-family="Helvetica, Arial, sans-serif" font-size="23" fill="#A7A7B5">Lazy loading · local dedupe · scoped invalidation</text>
+  <g transform="translate(80,408)">
+    <path d="${siCloudflare.path}" transform="scale(1.2)" fill="#F38020"/>
+    <text x="39" y="25" font-family="Helvetica, Arial, sans-serif" font-size="21" fill="#F9BC73">Cloudflare KV</text>
+    <text x="215" y="25" font-family="Helvetica, Arial, sans-serif" font-size="21" fill="#9A9AA4">or Redis as L2</text>
+  </g>
 
   <g transform="translate(80,486)">
     <rect x="0" y="0" width="330" height="46" rx="9" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.14"/>

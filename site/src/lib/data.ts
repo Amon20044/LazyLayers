@@ -399,7 +399,7 @@ export const LIMITATIONS: Limitation[] = [
   },
   {
     title: 'You need dozens of database/storage adapters',
-    reason: 'LazyLayers focuses intentionally on in-memory LRU and Redis. If you need Postgres, SQLite, MongoDB, or DynamoDB as cache stores, libraries like Keyv or BentoCache are better suited.',
+    reason: 'LazyLayers focuses on in-memory LRU, Redis, and Cloudflare KV. If you need Postgres, SQLite, MongoDB, or DynamoDB as cache stores, libraries like Keyv or BentoCache are better suited.',
   },
   {
     title: 'You need complex hierarchical tagging taxonomies today',
@@ -458,7 +458,7 @@ export const FAQS = [
   },
   {
     q: 'Do I have to run Redis or an event bus to use LazyLayers?',
-    a: 'No. LazyLayers is designed for progressive adoption. You can use it as a standalone, zero-infrastructure in-process LRU cache. You can add Redis when you need a shared L2 store, add Pub/Sub or RabbitMQ/NATS when scaling out across multiple servers, and get automatic distributed locking and renewal whenever Redis L2 is present.',
+    a: 'No. Start with an in-process LRU cache. Node.js can add Redis or Cloudflare KV as shared L2; Workers can use a KV binding. Redis L2 supports distributed lock renewal and peer priming when paired with a bus. KV has no cross-instance loader lease; its optional application Queue retries invalidation in KV.',
   },
   {
     q: 'How do I access the live observability dashboard?',
