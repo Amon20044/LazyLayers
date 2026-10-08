@@ -1,0 +1,15 @@
+npm notice run documentation@0.0.19 build
+npm notice run next build
+▲ Next.js 16.3.0 (Turbopack)
+- Environments: .env.local
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/apple/Desktop/LazyLayers/package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/apple/Desktop/LazyLayers/documentation/package-lock.json
+
+✓ Running next.config.mjs took 29ms
+  Downloading swc package @next/swc-darwin-arm64... to /Users/apple/Library/Caches/next-swc
+
+  Creating an optimized production build ...

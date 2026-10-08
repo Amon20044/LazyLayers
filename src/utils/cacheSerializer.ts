@@ -2,9 +2,10 @@ import { deserializePortable, serializePortable } from './portableSerializer.js'
 import {
   validateKVCompression,
   type CloudflareKVCompression,
+  type DecodeLimits,
 } from './serializerPolicy.js';
 
-export { deserializePortable, serializePortable } from './portableSerializer.js';
+export { deserializePortable, serializePortable, decodePortableCacheRecord } from './portableSerializer.js';
 export {
   CACHE_NULL_SENTINEL,
   HC1_GZIP_TAG,
@@ -31,7 +32,7 @@ export {
  */
 export interface CacheSerializer {
   serialize(value: unknown, compression?: CloudflareKVCompression): Promise<Uint8Array>;
-  deserialize(payload: Uint8Array): Promise<unknown>;
+  deserialize(payload: Uint8Array, limits?: DecodeLimits): Promise<unknown>;
 }
 
 export const cacheSerializer: CacheSerializer = {
@@ -39,8 +40,8 @@ export const cacheSerializer: CacheSerializer = {
     validateKVCompression(compression);
     return serializePortable(value, compression);
   },
-  deserialize(payload) {
-    return deserializePortable(payload);
+  deserialize(payload, limits) {
+    return deserializePortable(payload, limits);
   },
 };
 
@@ -51,6 +52,6 @@ export async function serializeCacheValue(
   return cacheSerializer.serialize(value, compression);
 }
 
-export async function deserializeCacheValue(payload: Uint8Array): Promise<unknown> {
-  return cacheSerializer.deserialize(payload);
+export async function deserializeCacheValue(payload: Uint8Array, limits?: DecodeLimits): Promise<unknown> {
+  return cacheSerializer.deserialize(payload, limits);
 }

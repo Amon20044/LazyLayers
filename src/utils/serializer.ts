@@ -1,5 +1,6 @@
 
-import { pack, unpack } from 'msgpackr';
+import { isUtf8 } from 'node:buffer';
+import { pack, unpack, Unpackr } from 'msgpackr';
 import {
   CACHE_NULL_SENTINEL,
   HC1_FAMILY,
@@ -11,7 +12,12 @@ import {
   HC1_ZSTD_TAG,
   MIN_COMPRESSION_SAVINGS,
   PORTABLE_GZIP_MIN_BYTES,
+  resolveDecodeLimits,
+  type DecodeLimits,
+  type ResolvedDecodeLimits,
+  type DecodedCacheRecord,
 } from './serializerPolicy.js';
+import { isSafeJson, isSafeMessagePack } from './decodeValidation.js';
 import {
   autoTiers,
   codecByTag,
@@ -87,6 +93,10 @@ export interface SerializeOptions {
   /** Compression shorthand or an explicit, validated size-tier list. */
   compression?: CompressionMode | CompressionTier[];
 }
+
+/** Opt-in limits for the legacy decoder; built-in stores use these by default. */
+export interface DeserializeOptions extends DecodeLimits {}
+export type { DecodedCacheRecord } from './serializerPolicy.js';
 
 /** Active tier list. Reads accept every format regardless of this. */
 let tiers: CompressionTier[] = DEFAULT_TIERS;
@@ -164,7 +174,8 @@ function tiersFromEnv(): void {
 tiersFromEnv();
 
 const PACKED_SENTINEL = pack(NULL_SENTINEL);
-const SENTINEL_BUFFER: Buffer = Buffer.concat([HC1M, Buffer.from(PACKED_SENTINEL)]);
+const PACKED_SENTINEL_BUFFER = Buffer.from(PACKED_SENTINEL);
+const SENTINEL_BUFFER: Buffer = Buffer.concat([HC1M, PACKED_SENTINEL_BUFFER]);
 
 /**
  * Historical shorthand floor. Layer gzip policy now uses
@@ -421,6 +432,60 @@ function unwrapSentinel<T>(value: T): T | null {
   return value === NULL_SENTINEL ? null : value;
 }
 
+const DECODE_MISS: DecodedCacheRecord = Object.freeze({ hit: false });
+// Binary views must not expose a retained cache buffer to caller mutation.
+// Public one-argument deserialize continues using the legacy unpacker below.
+const strictUnpackr = new Unpackr({ useRecords: false, structuredClone: false, copyBuffers: true });
+const validUtf8Range = (input: Uint8Array, start: number, end: number): boolean => isUtf8(input.subarray(start, end));
+
+function unpackChecked(payload: Buffer, limits: ResolvedDecodeLimits, legacySentinel = false): DecodedCacheRecord {
+  if (!isSafeMessagePack(payload, limits, validUtf8Range)) return DECODE_MISS;
+  const value = strictUnpackr.unpack(payload);
+  return { hit: true, value: legacySentinel ? unwrapSentinel(value) : value };
+}
+
+/**
+ * Bounded internal record decoding. Corruption/unknown formats are a miss, while
+ * a valid null is a hit. Limits and structural lengths are checked before a
+ * native decoder or msgpackr can allocate from untrusted metadata.
+ */
+export function decodeCacheRecord(raw: Uint8Array, options: DeserializeOptions = {}): DecodedCacheRecord {
+  const limits = resolveDecodeLimits(options);
+  if (!(raw instanceof Uint8Array) || raw.byteLength > limits.maxEncodedBytes) return DECODE_MISS;
+  const buffer = Buffer.isBuffer(raw) ? raw : Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
+  try {
+    if (buffer.byteLength >= PREFIX_LEN) {
+      const tag = buffer.toString('ascii', 0, PREFIX_LEN);
+      const body = buffer.subarray(PREFIX_LEN);
+      const codec = codecByTag(tag);
+      if (codec && codec.tag !== null) {
+        const expanded = codec.decompress(body, limits.maxDecodedBytes);
+        if (expanded.byteLength > limits.maxDecodedBytes) return DECODE_MISS;
+        if (expanded.equals(PACKED_SENTINEL_BUFFER)) return { hit: true, value: null };
+        return unpackChecked(expanded, limits);
+      }
+      if (tag === HC1_MSGPACK_TAG) {
+        if (body.byteLength > limits.maxDecodedBytes) return DECODE_MISS;
+        if (buffer.equals(SENTINEL_BUFFER)) return { hit: true, value: null };
+        return unpackChecked(body, limits);
+      }
+      if (tag === HC1_JSON_TAG) {
+        return isSafeJson(body, limits) && isUtf8(body) ? { hit: true, value: JSON.parse(body.toString('utf8')) } : DECODE_MISS;
+      }
+    }
+    if (hasPrefix(buffer, PREFIX_FAMILY)) return DECODE_MISS;
+    // Earlier releases accepted raw MessagePack and JSON. Keep those records
+    // readable while applying the same allocation/depth limits.
+    try {
+      const result = unpackChecked(buffer, limits, true);
+      if (result.hit) return result;
+    } catch { /* a JSON record may still be valid */ }
+    return isSafeJson(buffer, limits) && isUtf8(buffer)
+      ? { hit: true, value: unwrapSentinel(JSON.parse(buffer.toString('utf8'))) }
+      : DECODE_MISS;
+  } catch { return DECODE_MISS; }
+}
+
 /**
  * Decode a value pulled from Redis (or anywhere). Supports:
  *   - HC1M / HC1G / HC1J prefixed buffers (current format)
@@ -429,7 +494,24 @@ function unwrapSentinel<T>(value: T): T | null {
  *   - Plain strings (returned as-is if not JSON)
  *   - null/undefined -> null
  */
-export function deserialize(raw: unknown): unknown {
+export function deserialize(raw: unknown, options?: DeserializeOptions): unknown {
+  // The public one-argument API remains legacy-compatible. Explicit limits opt
+  // callers into the same bounded wire handling as built-in stores.
+  if (options !== undefined) {
+    const limits = resolveDecodeLimits(options);
+    if (raw instanceof Uint8Array) {
+      const result = decodeCacheRecord(raw, limits);
+      return result.hit ? result.value : null;
+    }
+    if (typeof raw === 'string') {
+      const byteLength = Buffer.byteLength(raw, 'utf8');
+      if (byteLength > limits.maxEncodedBytes || byteLength > limits.maxDecodedBytes) return null;
+      const bytes = Buffer.from(raw, 'utf8');
+      if (raw === NULL_SENTINEL) return null;
+      if (!isSafeJson(bytes, limits)) return null;
+      try { return unwrapSentinel(JSON.parse(raw)); } catch { return raw; }
+    }
+  }
   if (raw === null || raw === undefined) return null;
 
   if (raw instanceof Uint8Array && !Buffer.isBuffer(raw)) {

@@ -1,0 +1,48 @@
+✔ audit: wildcard matcher preserves literal and newline semantics over seeded cases (17.464417ms)
+✔ audit: adversarial wildcard matching completes within a bounded subprocess (19.738625ms)
+✔ audit: invalidation metadata rejects nonfinite time and malformed typed keys (1.575ms)
+✔ audit: event decode bounds key fanout before allocating invalidation operations (3.179875ms)
+✔ audit: NATS transport gaps flush L1 and recover trust without owning caller connection (3.964875ms)
+✔ audit: RabbitMQ exposes consumer and connection loss through status observers (0.366208ms)
+✔ audit: Redis delivery overflow reconciles trust after active handlers finish (1.602875ms)
+✔ audit: RabbitMQ rejects unlimited prefetch configuration (0.231292ms)
+✔ audit: RabbitMQ bounds retained deliveries by bytes and heals rejected-message gaps (0.573ms)
+✔ audit: RabbitMQ channel-only closure drops subscription trust (0.224167ms)
+✔ audit: closed event queue cannot resurrect deliveries or retain new events (1.058625ms)
+✔ audit: an unencodable event cannot bypass byte accounting (3.056375ms)
+✔ audit: event queue limits must be finite valid integers (0.161334ms)
+✔ audit: discarding pending events releases bytes and preserves active accounting (0.498542ms)
+✔ audit: retry admission counts the active publication against the byte budget (0.797ms)
+✔ audit: retry clear keeps active bytes accounted until publication settles (0.145291ms)
+✔ redis event bus disconnect leaves the caller's client alone (0.858125ms)
+✔ redis event bus removes its message listener on disconnect (0.085542ms)
+✔ redis event bus disconnect is idempotent and survives a dead connection (0.089125ms)
+✔ redis event bus disconnect before subscribe does not throw (0.05325ms)
+✔ redis event bus delivers decoded messages and ignores garbage (2.270834ms)
+✔ redis event bus survives a handler that throws synchronously (0.328958ms)
+✔ retry queue does not publish a buffered event twice under concurrent publishes (0.570791ms)
+✔ nats core reports unhealthy once its subscription ends (0.610959ms)
+✔ nats disconnect is idempotent and does not throw on a dead connection (0.28575ms)
+✔ nats disconnect does not drain a connection it did not create (0.132834ms)
+✔ nats disconnect bounds a subscription drain that never settles (1001.733791ms)
+✔ rabbitmq disconnect before init does not throw and is idempotent (0.903875ms)
+✔ a failed remote invalidation is retried instead of dropped as a duplicate (2.803875ms)
+✔ a successfully applied invalidation is still deduplicated (0.522084ms)
+✔ release: a local invalidation fences an already-running origin load (2.421625ms)
+✔ release: an initial subscription failure never enables L1 trust (0.333791ms)
+✔ release: a second disconnect fences an outstanding recovery flush (1.439666ms)
+✔ release: a delayed remote set cannot resurrect a newer remote delete (0.707125ms)
+✔ release: a delayed L2 promotion cannot repopulate L1 after invalidation (0.487ms)
+✔ release: Redis reconnect explicitly subscribes again and resumes delivery (2.288917ms)
+✔ release: a stale reconnect acknowledgement cannot restore subscription status (0.272917ms)
+✔ release: Redis discards pre-gap pending deliveries before trusting reconnection (0.474833ms)
+✔ release: retry overflow during publishing does not silently remove the next event (0.244666ms)
+✔ release: retry queues own an immutable payload snapshot (0.128375ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1441.314791

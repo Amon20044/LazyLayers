@@ -1,4 +1,4 @@
-import type { CompressionMode, CompressionTier } from '../utils/serializer.js';
+import type { CompressionMode, CompressionTier, DeserializeOptions } from '../utils/serializer.js';
 
 export type CacheLevel = 'L1' | 'L2';
 export type CacheKey = string | number;
@@ -44,6 +44,8 @@ export interface InflightOptions {
     enabled?: boolean;
     ttlMs?: number;
     maxEntries?: number;
+    /** Cache-wide maximum outstanding followers; default 10,000. */
+    maxWaiters?: number;
 }
 
 /** Process-local bound on executions that reach the origin loader. */
@@ -90,6 +92,8 @@ export interface DistributedLockOptions {
 
 export interface CacheOptions {
     memoryBudget?: import('../cache/memoryBudget.js').MemoryBudget;
+    /** Constructor read limits for built-in encoded stores; defaults to 25 MiB. */
+    decodeLimits?: DeserializeOptions;
     ttlMs?: number;
     levels?: Partial<Record<CacheLevel, CacheLevelOptions>>;
     inflight?: InflightOptions;

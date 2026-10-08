@@ -1,8 +1,10 @@
 import type { CacheKey, OriginLoadOptions } from '../types/index.js';
+import type { MemoryBudget } from './memoryBudget.js';
 
 export const DEFAULT_ORIGIN_MAX_CONCURRENT = 32;
 export const DEFAULT_ORIGIN_MAX_QUEUED = 1_024;
 export const DEFAULT_ORIGIN_QUEUE_TIMEOUT_MS = 1_000;
+const MAX_QUEUED_KEY_BYTES = 2 * 1024 * 1024;
 
 export class OriginLoadOverloadError extends Error {
   readonly code = 'ORIGIN_LOAD_OVERLOADED';
@@ -20,7 +22,7 @@ export class OriginLoadClosedError extends Error {
   }
 }
 
-interface Waiter<K> { key: K; resolve: (release: () => void) => void; reject: (error: unknown) => void; timer: ReturnType<typeof setTimeout>; }
+interface Waiter<K> { key: K; bytes: number; resolve: (release: () => void) => void; reject: (error: unknown) => void; timer: ReturnType<typeof setTimeout>; signal?: AbortSignal; abort?: () => void; }
 
 /** A finite FIFO gate. Same-key sharing happens in HybridCache before admission. */
 export class OriginLoadGate<K extends CacheKey = string> {
@@ -29,51 +31,70 @@ export class OriginLoadGate<K extends CacheKey = string> {
   private closed = false;
   private rejected = 0;
   private maxObserved = 0;
+  private queuedBytes = 0;
   private readonly options: Required<Pick<OriginLoadOptions, 'maxConcurrent' | 'maxQueued' | 'queueTimeoutMs'>>;
 
-  constructor(options: OriginLoadOptions = {}) {
+  constructor(options: OriginLoadOptions = {}, private readonly memoryBudget?: MemoryBudget) {
     this.options = {
       maxConcurrent: options.maxConcurrent ?? DEFAULT_ORIGIN_MAX_CONCURRENT,
       maxQueued: options.maxQueued ?? DEFAULT_ORIGIN_MAX_QUEUED,
       queueTimeoutMs: options.queueTimeoutMs ?? DEFAULT_ORIGIN_QUEUE_TIMEOUT_MS,
     };
     if (![this.options.maxConcurrent, this.options.maxQueued, this.options.queueTimeoutMs].every(Number.isSafeInteger)
-      || this.options.maxConcurrent <= 0 || this.options.maxQueued < 0 || this.options.queueTimeoutMs < 0) {
+      || this.options.maxConcurrent <= 0 || this.options.maxQueued < 0 || this.options.queueTimeoutMs < 0
+      || this.options.queueTimeoutMs > 2 ** 31 - 1) {
       throw new RangeError('originLoad maxConcurrent must be positive; maxQueued and queueTimeoutMs must be non-negative and finite');
     }
   }
 
-  async acquire(key: K): Promise<() => void> {
+  async acquire(key: K, signal?: AbortSignal): Promise<() => void> {
     if (this.closed) throw new OriginLoadClosedError();
+    signal?.throwIfAborted();
     if (this.active < this.options.maxConcurrent) {
       this.active += 1;
       this.maxObserved = Math.max(this.maxObserved, this.active);
       return this.reservation();
     }
     if (this.queued.size >= this.options.maxQueued || this.options.maxQueued === 0) { this.rejected += 1; throw new OriginLoadOverloadError(key); }
+    const bytes = Buffer.byteLength(String(key)) * 2 + 128;
+    if (this.queuedBytes + bytes > MAX_QUEUED_KEY_BYTES
+      || (this.memoryBudget && !this.memoryBudget.tryReserve(bytes, 'queue'))) {
+      this.rejected += 1;
+      throw new OriginLoadOverloadError(key);
+    }
+    this.queuedBytes += bytes;
     return new Promise((resolve, reject) => {
       const waiter: Waiter<K> = {
-        key, resolve, reject,
+        key, bytes, resolve, reject, signal,
         timer: setTimeout(() => {
           if (this.queued.delete(waiter)) {
+            this.cleanupWaiter(waiter);
             this.rejected += 1;
             reject(new OriginLoadOverloadError(key));
           }
         }, this.options.queueTimeoutMs),
       };
+      if (signal) {
+        waiter.abort = () => {
+          if (!this.queued.delete(waiter)) return;
+          this.cleanupWaiter(waiter);
+          reject(signal.reason);
+        };
+        signal.addEventListener('abort', waiter.abort, { once: true });
+      }
       this.queued.add(waiter);
     });
   }
 
   ensureOpen(): void { if (this.closed) throw new OriginLoadClosedError(); }
 
-  stats(): { active: number; queued: number; rejected: number; maxObserved: number; closed: boolean } {
-    return { active: this.active, queued: this.queued.size, rejected: this.rejected, maxObserved: this.maxObserved, closed: this.closed };
+  stats(): { active: number; queued: number; queuedBytes: number; rejected: number; maxObserved: number; closed: boolean } {
+    return { active: this.active, queued: this.queued.size, queuedBytes: this.queuedBytes, rejected: this.rejected, maxObserved: this.maxObserved, closed: this.closed };
   }
 
   close(): void {
     this.closed = true;
-    for (const waiter of this.queued) { clearTimeout(waiter.timer); waiter.reject(new OriginLoadClosedError()); }
+    for (const waiter of this.queued) { this.cleanupWaiter(waiter); waiter.reject(new OriginLoadClosedError()); }
     this.queued.clear();
   }
 
@@ -91,9 +112,16 @@ export class OriginLoadGate<K extends CacheKey = string> {
     const next = this.queued.values().next().value;
     if (!next) return;
     this.queued.delete(next);
-    clearTimeout(next.timer);
+    this.cleanupWaiter(next);
     this.active += 1;
     this.maxObserved = Math.max(this.maxObserved, this.active);
     next.resolve(this.reservation());
+  }
+
+  private cleanupWaiter(waiter: Waiter<K>): void {
+    this.queuedBytes -= waiter.bytes;
+    this.memoryBudget?.release(waiter.bytes, 'queue');
+    clearTimeout(waiter.timer);
+    if (waiter.signal && waiter.abort) waiter.signal.removeEventListener('abort', waiter.abort);
   }
 }

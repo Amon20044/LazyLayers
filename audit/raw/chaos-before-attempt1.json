@@ -1,0 +1,173 @@
+{
+  "metadata": {
+    "generatedAt": "2026-10-08T13:27:59.530Z",
+    "label": "before",
+    "module": "file:///private/tmp/lazy-layers-ca9c02a-audit/dist/index.js",
+    "project": "lazy-layers-audit-80831744",
+    "redisContainer": "1e29ca45c2e426409b27727403a82abe604fe91b5dd9a677d2e270f686c942d1",
+    "redisEndpoint": "127.0.0.1:59410",
+    "node": "v24.21.0",
+    "os": "Darwin 25.5.0",
+    "cpu": "Apple M5",
+    "logicalCpus": 10,
+    "elapsedMs": 4304.542417000001,
+    "peakSampledHarnessRssBytes": 93667328,
+    "budgets": {
+      "totalMs": 90000,
+      "perCaseMs": "6000–12000",
+      "harnessRssMiB": 384,
+      "childHeapMiB": 64,
+      "ownedRedisMemoryMiB": 96,
+      "redisCommandDeadlineMs": 250,
+      "maximumConcurrentRequests": 200
+    },
+    "faultTarget": "label-validated disposable Redis; owned child processes only",
+    "latencyMeasurement": "fault recovery from planned fault/release to verified ping or cache response; no throughput claim, no production traffic"
+  },
+  "rows": [
+    {
+      "name": "real-lease-expiry-stale-publication",
+      "priority": "control",
+      "status": "PASS",
+      "elapsedMs": 145.16087499999998,
+      "budgetMs": 6000,
+      "instances": 2,
+      "payloadBytes": 64,
+      "concurrency": 1,
+      "oldPublication": "not-owner",
+      "leaseTtlMs": 60,
+      "originLoads": 0
+    },
+    {
+      "name": "frozen-process-past-lease-expiry",
+      "priority": "control",
+      "status": "PASS",
+      "elapsedMs": 342.15566700000005,
+      "budgetMs": 8000,
+      "instances": 2,
+      "payloadBytes": 64,
+      "concurrency": 1,
+      "oldOutcome": {
+        "stage": "done",
+        "value": "obsolete"
+      },
+      "frozenMs": 225.54737499999993,
+      "independentProcesses": 2,
+      "leaseTtlMs": 120
+    },
+    {
+      "name": "leader-process-killed-mid-refresh",
+      "priority": "control",
+      "status": "PASS",
+      "elapsedMs": 299.517375,
+      "budgetMs": 8000,
+      "instances": 2,
+      "payloadBytes": 64,
+      "concurrency": 1,
+      "independentProcesses": 2,
+      "faultRecoveryMs": 188.37824999999998,
+      "leaseTtlMs": 120,
+      "originLoads": 1
+    },
+    {
+      "name": "lease-only-pattern-invalidation",
+      "priority": "P0",
+      "status": "FAIL",
+      "elapsedMs": 32.79374999999993,
+      "budgetMs": 6000,
+      "instances": 1,
+      "payloadBytes": 64,
+      "concurrency": 1,
+      "oldPublication": "published",
+      "error": {
+        "name": "AssertionError",
+        "message": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'published'\n- 'not-owner'\n"
+      }
+    },
+    {
+      "name": "redis-stopped-during-acquisition-safe-fallback",
+      "priority": "P0",
+      "status": "FAIL",
+      "elapsedMs": 3358.1954159999996,
+      "budgetMs": 12000,
+      "instances": 1,
+      "payloadBytes": 64,
+      "concurrency": 1,
+      "error": {
+        "name": "AssertionError",
+        "message": "Automatic fault cleanup: Minted loopback port must match the owned container"
+      }
+    },
+    {
+      "name": "redis-paused-during-publication-unknown-outcome",
+      "priority": "control",
+      "status": "NOT MEASURED",
+      "reason": "Minted loopback port must match the owned container"
+    },
+    {
+      "name": "redis-restart-rejects-previous-lease",
+      "priority": "control",
+      "status": "NOT MEASURED",
+      "reason": "Minted loopback port must match the owned container"
+    },
+    {
+      "name": "redis-nested-and-literal-prefix-isolation",
+      "priority": "P0",
+      "status": "NOT MEASURED",
+      "reason": "Minted loopback port must match the owned container"
+    },
+    {
+      "name": "redis-malformed-unicode-key-identity",
+      "priority": "P1",
+      "status": "NOT MEASURED",
+      "reason": "Minted loopback port must match the owned container"
+    },
+    {
+      "name": "shared-pubsub-channel-tenant-isolation",
+      "priority": "P0",
+      "status": "NOT MEASURED",
+      "reason": "Minted loopback port must match the owned container"
+    },
+    {
+      "name": "pubsub-disconnect-missed-event-reconciliation",
+      "priority": "control",
+      "status": "NOT MEASURED",
+      "reason": "Minted loopback port must match the owned container"
+    },
+    {
+      "name": "bounded-origin-overload-and-recovery",
+      "priority": "control",
+      "status": "NOT MEASURED",
+      "reason": "Minted loopback port must match the owned container"
+    },
+    {
+      "name": "shutdown-suppresses-late-fill",
+      "priority": "P1",
+      "status": "NOT MEASURED",
+      "reason": "Minted loopback port must match the owned container"
+    },
+    {
+      "name": "corrupt-record-and-pretransfer-size-limits",
+      "priority": "P1",
+      "status": "NOT MEASURED",
+      "reason": "Minted loopback port must match the owned container"
+    },
+    {
+      "name": "distributed-coalescing-simulated-instance-matrix",
+      "priority": "control",
+      "status": "NOT MEASURED",
+      "reason": "Minted loopback port must match the owned container"
+    }
+  ],
+  "failed": 2,
+  "infrastructureError": {
+    "name": "AssertionError",
+    "message": "Final Redis cleanup: Minted loopback port must match the owned container"
+  },
+  "notMeasured": [
+    "Redis replication failover or Cluster resharding",
+    "packet loss, DNS failures, CPU throttling, database pool exhaustion",
+    "physical 10/50/100-worker clusters; matrix counts are simulated",
+    "long-duration leak/fault endurance and external database fencing"
+  ]
+}

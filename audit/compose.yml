@@ -1,0 +1,46 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ['127.0.0.1::6379']
+    command: ['redis-server', '--save', '', '--appendonly', 'no', '--maxmemory', '64mb', '--maxmemory-policy', 'noeviction']
+    mem_limit: 96m
+    cpus: 1.0
+    pids_limit: 64
+    restart: 'no'
+    labels: { lazy-layers.audit: 'disposable' }
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 1s
+      timeout: 1s
+      retries: 30
+  rabbitmq:
+    image: rabbitmq:3-alpine
+    ports: ['127.0.0.1::5672']
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
+    restart: 'no'
+    environment:
+      RABBITMQ_DEFAULT_USER: audit
+      RABBITMQ_DEFAULT_PASS: audit-local-only
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +SDcpu 1 +SDio 1'
+    labels: { lazy-layers.audit: 'disposable' }
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  nats:
+    image: nats:2.10-alpine
+    ports: ['127.0.0.1::4222']
+    command: ['-js', '-m', '8222', '--store_dir', '/tmp/audit-nats']
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 64
+    restart: 'no'
+    labels: { lazy-layers.audit: 'disposable' }
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8222/varz']
+      interval: 1s
+      timeout: 1s
+      retries: 30

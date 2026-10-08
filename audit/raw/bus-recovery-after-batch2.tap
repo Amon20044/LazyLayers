@@ -1,0 +1,160 @@
+TAP version 13
+# Subtest: audit: wildcard matcher preserves literal and newline semantics over seeded cases
+ok 1 - audit: wildcard matcher preserves literal and newline semantics over seeded cases
+  ---
+  duration_ms: 29.588792
+  type: 'test'
+  ...
+# Subtest: audit: adversarial wildcard matching completes within a bounded subprocess
+ok 2 - audit: adversarial wildcard matching completes within a bounded subprocess
+  ---
+  duration_ms: 29.053917
+  type: 'test'
+  ...
+# Subtest: audit: invalidation metadata rejects nonfinite time and malformed typed keys
+ok 3 - audit: invalidation metadata rejects nonfinite time and malformed typed keys
+  ---
+  duration_ms: 2.006375
+  type: 'test'
+  ...
+# Subtest: audit: event decode bounds key fanout before allocating invalidation operations
+ok 4 - audit: event decode bounds key fanout before allocating invalidation operations
+  ---
+  duration_ms: 1.7685
+  type: 'test'
+  ...
+# Subtest: audit: NATS transport gaps flush L1 and recover trust without owning caller connection
+ok 5 - audit: NATS transport gaps flush L1 and recover trust without owning caller connection
+  ---
+  duration_ms: 5.696792
+  type: 'test'
+  ...
+# Subtest: audit: RabbitMQ exposes consumer and connection loss through status observers
+ok 6 - audit: RabbitMQ exposes consumer and connection loss through status observers
+  ---
+  duration_ms: 1.345042
+  type: 'test'
+  ...
+# Subtest: audit: Redis delivery overflow reconciles trust after active handlers finish
+ok 7 - audit: Redis delivery overflow reconciles trust after active handlers finish
+  ---
+  duration_ms: 2.165083
+  type: 'test'
+  ...
+# Subtest: audit: closed event queue cannot resurrect deliveries or retain new events
+ok 8 - audit: closed event queue cannot resurrect deliveries or retain new events
+  ---
+  duration_ms: 2.098375
+  type: 'test'
+  ...
+# Subtest: audit: an unencodable event cannot bypass byte accounting
+ok 9 - audit: an unencodable event cannot bypass byte accounting
+  ---
+  duration_ms: 3.452917
+  type: 'test'
+  ...
+# Subtest: audit: event queue limits must be finite valid integers
+ok 10 - audit: event queue limits must be finite valid integers
+  ---
+  duration_ms: 0.321541
+  type: 'test'
+  ...
+# Subtest: audit: discarding pending events releases bytes and preserves active accounting
+ok 11 - audit: discarding pending events releases bytes and preserves active accounting
+  ---
+  duration_ms: 1.70025
+  type: 'test'
+  ...
+# Subtest: redis event bus disconnect leaves the caller's client alone
+ok 12 - redis event bus disconnect leaves the caller's client alone
+  ---
+  duration_ms: 0.932584
+  type: 'test'
+  ...
+# Subtest: redis event bus removes its message listener on disconnect
+ok 13 - redis event bus removes its message listener on disconnect
+  ---
+  duration_ms: 0.101209
+  type: 'test'
+  ...
+# Subtest: redis event bus disconnect is idempotent and survives a dead connection
+ok 14 - redis event bus disconnect is idempotent and survives a dead connection
+  ---
+  duration_ms: 0.099334
+  type: 'test'
+  ...
+# Subtest: redis event bus disconnect before subscribe does not throw
+ok 15 - redis event bus disconnect before subscribe does not throw
+  ---
+  duration_ms: 0.057584
+  type: 'test'
+  ...
+# Subtest: redis event bus delivers decoded messages and ignores garbage
+ok 16 - redis event bus delivers decoded messages and ignores garbage
+  ---
+  duration_ms: 2.94125
+  type: 'test'
+  ...
+# Subtest: redis event bus survives a handler that throws synchronously
+ok 17 - redis event bus survives a handler that throws synchronously
+  ---
+  duration_ms: 0.808375
+  type: 'test'
+  ...
+# Subtest: retry queue does not publish a buffered event twice under concurrent publishes
+ok 18 - retry queue does not publish a buffered event twice under concurrent publishes
+  ---
+  duration_ms: 1.040125
+  type: 'test'
+  ...
+# Subtest: nats core reports unhealthy once its subscription ends
+ok 19 - nats core reports unhealthy once its subscription ends
+  ---
+  duration_ms: 1.713875
+  type: 'test'
+  ...
+# Subtest: nats disconnect is idempotent and does not throw on a dead connection
+ok 20 - nats disconnect is idempotent and does not throw on a dead connection
+  ---
+  duration_ms: 0.207666
+  type: 'test'
+  ...
+# Subtest: nats disconnect does not drain a connection it did not create
+ok 21 - nats disconnect does not drain a connection it did not create
+  ---
+  duration_ms: 0.083167
+  type: 'test'
+  ...
+# Subtest: nats disconnect bounds a subscription drain that never settles
+ok 22 - nats disconnect bounds a subscription drain that never settles
+  ---
+  duration_ms: 1002.082209
+  type: 'test'
+  ...
+# Subtest: rabbitmq disconnect before init does not throw and is idempotent
+ok 23 - rabbitmq disconnect before init does not throw and is idempotent
+  ---
+  duration_ms: 0.956667
+  type: 'test'
+  ...
+# Subtest: a failed remote invalidation is retried instead of dropped as a duplicate
+ok 24 - a failed remote invalidation is retried instead of dropped as a duplicate
+  ---
+  duration_ms: 2.477125
+  type: 'test'
+  ...
+# Subtest: a successfully applied invalidation is still deduplicated
+ok 25 - a successfully applied invalidation is still deduplicated
+  ---
+  duration_ms: 0.545833
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 25
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1148.685084

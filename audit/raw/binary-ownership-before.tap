@@ -1,0 +1,158 @@
+TAP version 13
+# Subtest: MemoryStore.get binary fields cannot mutate retained encoded cache state
+not ok 1 - MemoryStore.get binary fields cannot mutate retained encoded cache state
+  ---
+  duration_ms: 2.35175
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-binary-ownership.test.js:17:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+    +   99,
+    +   99,
+    +   99
+    -   17,
+    -   34,
+    -   51
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 17
+    1: 34
+    2: 51
+  actual:
+    0: 99
+    1: 99
+    2: 99
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-binary-ownership.test.js:24:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: MemoryStore.inspect binary previews cannot mutate retained encoded cache state
+not ok 2 - MemoryStore.inspect binary previews cannot mutate retained encoded cache state
+  ---
+  duration_ms: 0.672041
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-binary-ownership.test.js:28:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+    +   88,
+    +   88,
+    +   88
+    -   17,
+    -   34,
+    -   51
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 17
+    1: 34
+    2: 51
+  actual:
+    0: 88
+    1: 88
+    2: 88
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-binary-ownership.test.js:35:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: strict binary decode owns its result while legacy no-option decode keeps its behavior
+not ok 3 - strict binary decode owns its result while legacy no-option decode keeps its behavior
+  ---
+  duration_ms: 0.153334
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-binary-ownership.test.js:39:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+    +   77,
+    +   77,
+    +   77
+    -   17,
+    -   34,
+    -   51
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 17
+    1: 34
+    2: 51
+  actual:
+    0: 77
+    1: 77
+    2: 77
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-binary-ownership.test.js:46:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: portable strict binary decode owns its result while public legacy view semantics remain
+not ok 4 - portable strict binary decode owns its result while public legacy view semantics remain
+  ---
+  duration_ms: 0.226834
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-binary-ownership.test.js:52:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+    +   77,
+    +   77,
+    +   77
+    -   17,
+    -   34,
+    -   51
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 17
+    1: 34
+    2: 51
+  actual:
+    0: 77
+    1: 77
+    2: 77
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-binary-ownership.test.js:61:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 0
+# fail 4
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 137.271708

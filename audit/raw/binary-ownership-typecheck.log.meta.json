@@ -1,0 +1,21 @@
+{
+  "command": [
+    "node",
+    "--max-old-space-size=256",
+    "node_modules/typescript/bin/tsc",
+    "--noEmit"
+  ],
+  "wallTimeMs": 260,
+  "budgets": {
+    "seconds": 30,
+    "rssMiB": 512,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 512
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": null,
+  "signal": "SIGKILL",
+  "aborted": "RSS monitoring unavailable"
+}

@@ -1,0 +1,286 @@
+Baseline entry: /private/tmp/lazy-layers-ca9c02a-audit/dist/index.js
+Command: env LAZY_LAYERS_AUDIT_ENTRY=/private/tmp/lazy-layers-ca9c02a-audit/dist/index.js node --max-old-space-size=256 --test --test-concurrency=1 test/audit-distributed-regressions.test.js
+Resource limits: 256 MiB old-space; 15 isolated mock tests; 2 s timeout per test except 5 s for 10,128-key tombstone test; all deferred loaders released in cleanup.
+Exit code: 1
+
+✖ audit: distinct concurrent fills all retain their own values (4.063792ms)
+✖ audit: invalidation fences an origin fill already inside asynchronous L1 set (0.457416ms)
+✖ audit: close aborts an active leader and its late result cannot repopulate state (0.276416ms)
+✖ audit: closed caches reject subsequent reads and writes (0.238541ms)
+✖ audit: numeric remote deletion clears numeric L1 state (0.43425ms)
+✖ audit: numeric peer priming clears the matching numeric negative cache (0.890958ms)
+✖ audit: equal-generation obsolete peer priming reconciles the authoritative L2 value (0.493125ms)
+✖ audit: a key filled while waiting for an origin slot skips the queued loader (3.7765ms)
+✖ audit: a queued leader whose lease expired leaves the queue without invoking origin (86.411292ms)
+✖ audit: Redis v2 pattern invalidation fences a cold key containing only a lease (0.707417ms)
+✖ audit: Redis v2 clear treats prefix glob characters as literal namespace bytes (0.359583ms)
+✖ audit: Redis v2 direct delete removes admitted logical keys beginning with __ (0.120875ms)
+✔ audit: Redis owner rejection after lease expiration protects the newer value (0.111042ms)
+✖ audit: delivery recovery survives an unrelated write while L1 reconciliation is pending (0.886708ms)
+✖ audit: unique absent-key invalidations have finite retained generation metadata (34.493875ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 1
+ℹ fail 14
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 258.259167
+
+✖ failing tests:
+
+test at test/audit-distributed-regressions.test.js:51:1
+✖ audit: distinct concurrent fills all retain their own values (4.063792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'alpha',
+  +   undefined,
+  +   undefined,
+  +   undefined
+  -   'beta',
+  -   'gamma',
+  -   'delta'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:65:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'alpha', undefined, undefined, undefined ],
+    expected: [ 'alpha', 'beta', 'gamma', 'delta' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:69:1
+✖ audit: invalidation fences an origin fill already inside asynchronous L1 set (0.457416ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'obsolete'
+  - undefined
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:81:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'obsolete',
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:84:1
+✖ audit: close aborts an active leader and its late result cannot repopulate state (0.276416ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:100:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:106:1
+✖ audit: closed caches reject subsequent reads and writes (0.238541ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:109:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /closed/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:115:1
+✖ audit: numeric remote deletion clears numeric L1 state (0.43425ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'obsolete'
+  - undefined
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:122:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'obsolete',
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:125:1
+✖ audit: numeric peer priming clears the matching numeric negative cache (0.890958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'fresh'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:132:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'fresh',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:136:1
+✖ audit: equal-generation obsolete peer priming reconciles the authoritative L2 value (0.493125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'obsolete'
+  - 'winner'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:144:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'obsolete',
+    expected: 'winner',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:147:1
+✖ audit: a key filled while waiting for an origin slot skips the queued loader (3.7765ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'unnecessary-origin'
+  - 'filled-while-queued'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:161:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'unnecessary-origin',
+    expected: 'filled-while-queued',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:166:1
+✖ audit: a queued leader whose lease expired leaves the queue without invoking origin (86.411292ms)
+  AssertionError [ERR_ASSERTION]: A lease-lost request must not remain queued until the origin slot opens
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:194:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:199:1
+✖ audit: Redis v2 pattern invalidation fences a cold key containing only a lease (0.707417ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'published'
+  - 'not-owner'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:205:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'published',
+    expected: 'not-owner',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:210:1
+✖ audit: Redis v2 clear treats prefix glob characters as literal namespace bytes (0.359583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  undefined !== 'b'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:219:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'b',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:223:1
+✖ audit: Redis v2 direct delete removes admitted logical keys beginning with __ (0.120875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'value'
+  - undefined
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:229:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'value',
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:248:1
+✖ audit: delivery recovery survives an unrelated write while L1 reconciliation is pending (0.886708ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:265:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-distributed-regressions.test.js:268:1
+✖ audit: unique absent-key invalidations have finite retained generation metadata (34.493875ms)
+  AssertionError [ERR_ASSERTION]: Deletion tombstones must have a hard finite cap
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:272:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+

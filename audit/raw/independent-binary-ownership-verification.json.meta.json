@@ -1,0 +1,20 @@
+{
+  "command": [
+    "node",
+    "audit/raw/independent-binary-ownership-verification.mjs",
+    "/var/folders/c0/v0_qvxvs47d5n90q2z2lpx5h0000gn/T/lazy-layers-audit-final-m74j45f9/dist/index.js"
+  ],
+  "wallTimeMs": 147,
+  "budgets": {
+    "seconds": 10,
+    "rssMiB": 160,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 64
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

@@ -82,13 +82,15 @@ export async function updateUser(id: string, patch: Partial<User>): Promise<User
 
 | Type | Published by | What a peer does with it |
 | --- | --- | --- |
-| `del` | `cache.delete(key)` | Drops the key from L1, L2, the negative cache, the stale copy and any in-flight promise |
+| `del` | `cache.delete(key)` | Publisher deletes L2; peers remove local L1, negative, stale and in-flight state |
 | `pattern` | `cache.deleteByPattern(p)` and `cache.clear()` | Drops every local entry whose key matches the pattern |
-| `set` | a `getOrSet` loader resolving | Writes the value straight into its own L1 |
+| `set` | a `getOrSet` loader resolving | L2-backed peers read their own authoritative snapshot and promote its current value/TTL; L1-only peers use the scoped payload |
 
 `del` and `pattern` say only what to forget. `set` is the one that carries the loaded value itself, which is what turns a fleet of caches from a group that all reload independently into one where a single server's query warms everybody. That path is the [lazy fan-out](/docs/concepts/lazy-loading#the-lazy-fan-out), and it has two caveats worth knowing before you rely on it.
 
-Every event carries `source`, `ts`, an `id`, and, for `del` and `set`, a per-key `generation`.
+Events carry `source`, `ts`, an `id`, optional `namespace`/`keyTypes`, and, for tracked `del` and `set`, a per-key `generation`. Managed setup scopes events to its normalized namespace. Scoped receivers reject old untagged publishers; stage publisher upgrades or use separate channels during rollout.
+
+A delayed set payload cannot replace newer protected Redis state through peer priming: the receiver reads its own L2 and subtracts the elapsed snapshot/decode time from its TTL before promotion. Observable transport gaps, invalid deliveries and bounded-queue overflow make local data untrusted; subscription recovery conservatively flushes L1. Ordinary Pub/Sub publisher loss still requires authoritative reconciliation for a strict freshness contract.
 
 ## Buses lose, duplicate, and reorder
 
@@ -125,7 +127,7 @@ This is the one that matters most, because it is the failure that produces a wro
 
 Every server keeps a per-key generation counter. Deleting a key advances it, and the published `del` event carries the new number. A `set` event carries the generation the value was loaded at.
 
-When an event arrives carrying a generation lower than the receiver's own counter for that key, the receiver knows the event describes a world that has already moved on. It drops it and emits `invalidation:stale`.
+A lower-generation `set` hint is dropped and emits `invalidation:stale`. A lower-generation `del` still invalidates local copies because the publisher may have restarted and reset its counter. Versioned caches also stop versioned caching on this ambiguity until recreated, rather than returning an older version namespace.
 
 ```mermaid
 sequenceDiagram
@@ -144,8 +146,8 @@ Without the counter, that late `set` would write a deleted user back into B's L1
 
 Three honest limits on this:
 
-- Equal generations are applied, not dropped. The counter guards against older events, it does not impose a total order, so within one generation the last event to arrive wins.
-- The counters live in memory, per server. A restart resets them to zero, and the server relearns them from the events it then receives.
+- Equal generations do not impose a total order. L2-backed set hints read the current authoritative snapshot; L1-only peers retain payload-based ordering.
+- The counters live in memory, per server. A restart resets them to zero. Accepted deletes always remove local copies; a lower delete counter makes versioned state ambiguous and triggers conservative bypass.
 - `pattern` events carry no generation at all, so they apply whenever they arrive. One more reason to keep patterns narrow.
 
 Turning on `versioning` goes further and folds the generation into the storage key itself, so an old value is not merely ignored, it is not addressable. [Event ordering](/docs/architecture/event-ordering) has the full picture.
@@ -154,7 +156,7 @@ Turning on `versioning` goes further and folds the generation into the storage k
 
 It is worth being clear about the boundary. This machinery keeps copies from disagreeing under normal bus behaviour. It is not a consensus protocol.
 
-A server that was disconnected while the delete went past does not learn about it on reconnect unless your transport is durable. Its TTL is what saves you, which is the real reason a short L1 TTL is worth paying for even when you have a bus.
+On an observed disconnect or invalid delivery, local state becomes untrusted and is conservatively flushed on subscription recovery. A publisher failure that the receiver cannot observe still needs authoritative reconciliation for strict freshness; ordinary Pub/Sub does not preserve lost events.
 
 ## Where to next
 

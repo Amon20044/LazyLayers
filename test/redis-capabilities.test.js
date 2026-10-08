@@ -46,6 +46,7 @@ test('bounded discovery reports advertised and unavailable commands without CONF
   assert.equal(manifest.info.status, 'supported');
   assert.equal(manifest.commandInfo.status, 'supported');
   assert.equal(manifest.capabilities.eval.status, 'supported');
+  assert.equal(manifest.capabilities.strlen.status, 'supported');
   assert.equal(manifest.capabilities.watch.status, 'unavailable');
   assert.equal(manifest.capabilities.watch.reason, 'unknown-command');
   assert.equal(hasRedisCapability(manifest, 'eval'), true);
@@ -53,6 +54,7 @@ test('bounded discovery reports advertised and unavailable commands without CONF
   assert.deepEqual(infoCalls, ['server']);
   assert.equal(commandCalls.length, 1);
   assert.equal(commandCalls[0][0], 'INFO');
+  assert.ok(commandCalls[0].includes('strlen'));
   assert.ok(commandCalls[0].length <= REDIS_CAPABILITY_COMMANDS.length + 1);
   assert.equal(configCalls, 0);
   assert.ok(Object.isFrozen(manifest.capabilities));
@@ -194,4 +196,6 @@ test('published client contract is read-only and reconnect hooks are optional', 
     'COMMAND INFO <allow-list>',
   ]);
   assert.equal(REDIS_CAPABILITY_CLIENT_CONTRACT.mutatesRedisConfiguration, false);
+  assert.deepEqual(REDIS_CAPABILITY_CLIENT_CONTRACT.boundedSnapshotCommands, ['STRLEN', 'GET', 'PTTL']);
+  assert.equal(REDIS_CAPABILITY_CLIENT_CONTRACT.advertisedPresenceEstablishesAclPermission, false);
 });

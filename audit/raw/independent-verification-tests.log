@@ -1,0 +1,568 @@
+TAP version 13
+# Subtest: MemoryStore.get binary fields cannot mutate retained encoded cache state
+ok 1 - MemoryStore.get binary fields cannot mutate retained encoded cache state
+  ---
+  duration_ms: 3.63875
+  type: 'test'
+  ...
+# Subtest: MemoryStore.inspect binary previews cannot mutate retained encoded cache state
+ok 2 - MemoryStore.inspect binary previews cannot mutate retained encoded cache state
+  ---
+  duration_ms: 0.433958
+  type: 'test'
+  ...
+# Subtest: strict binary decode owns its result while legacy no-option decode keeps its behavior
+ok 3 - strict binary decode owns its result while legacy no-option decode keeps its behavior
+  ---
+  duration_ms: 0.17925
+  type: 'test'
+  ...
+# Subtest: portable strict binary decode owns its result while public legacy view semantics remain
+ok 4 - portable strict binary decode owns its result while public legacy view semantics remain
+  ---
+  duration_ms: 0.315083
+  type: 'test'
+  ...
+# Subtest: audit: a failed lease acquisition returns the origin result without overwriting a protected winner
+ok 5 - audit: a failed lease acquisition returns the origin result without overwriting a protected winner
+  ---
+  duration_ms: 4.815417
+  type: 'test'
+  ...
+# Subtest: audit: explicitly unlocked contention fallback does not publish into protected cache state
+ok 6 - audit: explicitly unlocked contention fallback does not publish into protected cache state
+  ---
+  duration_ms: 0.643167
+  type: 'test'
+  ...
+# Subtest: audit: distinct malformed UTF-16 keys retain distinct Redis wire identities
+ok 7 - audit: distinct malformed UTF-16 keys retain distinct Redis wire identities
+  ---
+  duration_ms: 0.303292
+  type: 'test'
+  ...
+# Subtest: audit: Redis v2 nested prefixes cannot delete another namespace by clearing a shorter prefix
+ok 8 - audit: Redis v2 nested prefixes cannot delete another namespace by clearing a shorter prefix
+  ---
+  duration_ms: 0.529625
+  type: 'test'
+  ...
+# Subtest: audit: Redis patterns use only star as wildcard and preserve literal question/bracket bytes
+ok 9 - audit: Redis patterns use only star as wildcard and preserve literal question/bracket bytes
+  ---
+  duration_ms: 0.211041
+  type: 'test'
+  ...
+# Subtest: audit: legacy metadata key collisions are rejected before a Redis command is issued
+ok 10 - audit: legacy metadata key collisions are rejected before a Redis command is issued
+  ---
+  duration_ms: 0.223875
+  type: 'test'
+  ...
+# Subtest: audit: scoped events reject wrong/untagged namespaces before deduplication and publish their scope
+ok 11 - audit: scoped events reject wrong/untagged namespaces before deduplication and publish their scope
+  ---
+  duration_ms: 0.572167
+  type: 'test'
+  ...
+# Subtest: audit: negative keys cannot bypass a small shared memory budget and are released on close
+ok 12 - audit: negative keys cannot bypass a small shared memory budget and are released on close
+  ---
+  duration_ms: 1.266667
+  type: 'test'
+  ...
+# Subtest: audit: event deduplication keys have a byte cap and release their shared reservations
+ok 13 - audit: event deduplication keys have a byte cap and release their shared reservations
+  ---
+  duration_ms: 0.639791
+  type: 'test'
+  ...
+# Subtest: audit: generation-byte saturation never exposes an older v0 entry or accepts a delayed old fill
+ok 14 - audit: generation-byte saturation never exposes an older v0 entry or accepts a delayed old fill
+  ---
+  duration_ms: 1.250083
+  type: 'test'
+  ...
+# Subtest: audit: a restarted peer lower-generation delete cannot leave a higher-generation cache value readable
+ok 15 - audit: a restarted peer lower-generation delete cannot leave a higher-generation cache value readable
+  ---
+  duration_ms: 0.528166
+  type: 'test'
+  ...
+# Subtest: audit: default unversioned caches evict lower-generation deletes after restart including legacy numeric aliases
+ok 16 - audit: default unversioned caches evict lower-generation deletes after restart including legacy numeric aliases
+  ---
+  duration_ms: 0.454708
+  type: 'test'
+  ...
+# Subtest: audit: concurrent custom reads cannot retain unlimited distinct revision-map key bytes
+ok 17 - audit: concurrent custom reads cannot retain unlimited distinct revision-map key bytes
+  ---
+  duration_ms: 3.947875
+  type: 'test'
+  ...
+# Subtest: audit: a stale custom-L1 publication cannot leave an older value after a replacement write
+ok 18 - audit: a stale custom-L1 publication cannot leave an older value after a replacement write
+  ---
+  duration_ms: 0.328209
+  type: 'test'
+  ...
+# Subtest: audit: built-in L1 keeps a replacement value when an older committed write resumes
+ok 19 - audit: built-in L1 keeps a replacement value when an older committed write resumes
+  ---
+  duration_ms: 0.345791
+  type: 'test'
+  ...
+# Subtest: audit: corrupt Redis bytes are a miss while a legitimate null remains a cache hit
+ok 20 - audit: corrupt Redis bytes are a miss while a legitimate null remains a cache hit
+  ---
+  duration_ms: 0.557417
+  type: 'test'
+  ...
+# Subtest: audit: negative maxEntries zero disables retained misses
+ok 21 - audit: negative maxEntries zero disables retained misses
+  ---
+  duration_ms: 0.21525
+  type: 'test'
+  ...
+# Subtest: audit: non-finite cache metadata budgets are rejected before creating resources
+ok 22 - audit: non-finite cache metadata budgets are rejected before creating resources
+  ---
+  duration_ms: 0.227
+  type: 'test'
+  ...
+# Subtest: audit: invalid per-operation metadata budgets reject without invoking the loader
+ok 23 - audit: invalid per-operation metadata budgets reject without invoking the loader
+  ---
+  duration_ms: 0.135417
+  type: 'test'
+  ...
+# Subtest: audit: tracked in-flight key bytes are finite even when callers use large distinct keys
+ok 24 - audit: tracked in-flight key bytes are finite even when callers use large distinct keys
+  ---
+  duration_ms: 4.890583
+  type: 'test'
+  ...
+# Subtest: audit: queued origin keys are byte bounded and cancellation releases their ledger reservations
+ok 25 - audit: queued origin keys are byte bounded and cancellation releases their ledger reservations
+  ---
+  duration_ms: 0.473458
+  type: 'test'
+  ...
+# Subtest: audit: a generation-zero restart cannot see a deleted old version when a v1 write queued concurrently
+ok 26 - audit: a generation-zero restart cannot see a deleted old version when a v1 write queued concurrently
+  ---
+  duration_ms: 0.486083
+  type: 'test'
+  ...
+# Subtest: audit: subscription completion cannot restore trust after an immediate transport loss
+ok 27 - audit: subscription completion cannot restore trust after an immediate transport loss
+  ---
+  duration_ms: 0.198292
+  type: 'test'
+  ...
+# Subtest: audit: custom-bus malformed typed keys cannot poison numeric L1 state
+ok 28 - audit: custom-bus malformed typed keys cannot poison numeric L1 state
+  ---
+  duration_ms: 0.179083
+  type: 'test'
+  ...
+# Subtest: audit: local lease expiry survives a backward clock change during an event-loop stall
+ok 29 - audit: local lease expiry survives a backward clock change during an event-loop stall
+  ---
+  duration_ms: 21.828958
+  type: 'test'
+  ...
+# Subtest: audit: read-only L2 queues charge retained key bytes and shed oversized queued work
+ok 30 - audit: read-only L2 queues charge retained key bytes and shed oversized queued work
+  ---
+  duration_ms: 0.387541
+  type: 'test'
+  ...
+# Subtest: audit: corrupt encoded L1 records are removed when Hybrid reads them
+ok 31 - audit: corrupt encoded L1 records are removed when Hybrid reads them
+  ---
+  duration_ms: 0.1965
+  type: 'test'
+  ...
+# Subtest: audit: dashboard previews reject compressed expansion beyond their preview budget
+ok 32 - audit: dashboard previews reject compressed expansion beyond their preview budget
+  ---
+  duration_ms: 1.496833
+  type: 'test'
+  ...
+# Subtest: audit: a poisoned Redis catalogue cannot expose another namespace through inspection
+ok 33 - audit: a poisoned Redis catalogue cannot expose another namespace through inspection
+  ---
+  duration_ms: 0.105209
+  type: 'test'
+  ...
+# Subtest: audit: per-write Redis entry limits and scoped namespace metadata reject malformed configuration
+ok 34 - audit: per-write Redis entry limits and scoped namespace metadata reject malformed configuration
+  ---
+  duration_ms: 0.135833
+  type: 'test'
+  ...
+# Subtest: audit: one hot key has a finite follower budget and every accepted follower shares one load
+ok 35 - audit: one hot key has a finite follower budget and every accepted follower shares one load
+  ---
+  duration_ms: 0.70075
+  type: 'test'
+  ...
+# Subtest: audit: loader errors fan out to accepted followers and release the entire follower budget
+ok 36 - audit: loader errors fan out to accepted followers and release the entire follower budget
+  ---
+  duration_ms: 0.375
+  type: 'test'
+  ...
+# Subtest: audit: accepted followers retain shutdown response compatibility and release B after settlement
+ok 37 - audit: accepted followers retain shutdown response compatibility and release B after settlement
+  ---
+  duration_ms: 0.754625
+  type: 'test'
+  ...
+# Subtest: audit: small B rejects retained L2 keys before queuing while leaving the active call bounded
+ok 38 - audit: small B rejects retained L2 keys before queuing while leaving the active call bounded
+  ---
+  duration_ms: 0.449708
+  type: 'test'
+  ...
+# Subtest: audit: timed-out L2 calls hold their retained-byte reservation until actual settlement
+ok 39 - audit: timed-out L2 calls hold their retained-byte reservation until actual settlement
+  ---
+  duration_ms: 6.119791
+  type: 'test'
+  ...
+# Subtest: audit: delayed authoritative set hints cannot extend L1 past the snapshot TTL
+ok 40 - audit: delayed authoritative set hints cannot extend L1 past the snapshot TTL
+  ---
+  duration_ms: 41.614834
+  type: 'test'
+  ...
+# Subtest: audit: nonencoded custom L1 promotion receives the authoritative remaining TTL for reads and peer hints
+ok 41 - audit: nonencoded custom L1 promotion receives the authoritative remaining TTL for reads and peer hints
+  ---
+  duration_ms: 0.371
+  type: 'test'
+  ...
+# Subtest: audit: Redis snapshot rejects oversized network payloads before GET and inspection uses its preview cap
+ok 42 - audit: Redis snapshot rejects oversized network payloads before GET and inspection uses its preview cap
+  ---
+  duration_ms: 0.236875
+  type: 'test'
+  ...
+# Subtest: audit: distinct concurrent fills all retain their own values
+ok 43 - audit: distinct concurrent fills all retain their own values
+  ---
+  duration_ms: 3.938791
+  type: 'test'
+  ...
+# Subtest: audit: invalidation fences an origin fill already inside asynchronous L1 set
+ok 44 - audit: invalidation fences an origin fill already inside asynchronous L1 set
+  ---
+  duration_ms: 0.424375
+  type: 'test'
+  ...
+# Subtest: audit: close aborts an active leader and its late result cannot repopulate state
+ok 45 - audit: close aborts an active leader and its late result cannot repopulate state
+  ---
+  duration_ms: 0.275458
+  type: 'test'
+  ...
+# Subtest: audit: closed caches reject subsequent reads and writes
+ok 46 - audit: closed caches reject subsequent reads and writes
+  ---
+  duration_ms: 0.289333
+  type: 'test'
+  ...
+# Subtest: audit: numeric remote deletion clears numeric L1 state
+ok 47 - audit: numeric remote deletion clears numeric L1 state
+  ---
+  duration_ms: 0.435208
+  type: 'test'
+  ...
+# Subtest: audit: numeric peer priming clears the matching numeric negative cache
+ok 48 - audit: numeric peer priming clears the matching numeric negative cache
+  ---
+  duration_ms: 0.522125
+  type: 'test'
+  ...
+# Subtest: audit: equal-generation obsolete peer priming reconciles the authoritative L2 value
+ok 49 - audit: equal-generation obsolete peer priming reconciles the authoritative L2 value
+  ---
+  duration_ms: 0.315292
+  type: 'test'
+  ...
+# Subtest: audit: a fill started before subscription readiness cannot publish across initial reconciliation
+ok 50 - audit: a fill started before subscription readiness cannot publish across initial reconciliation
+  ---
+  duration_ms: 1.231666
+  type: 'test'
+  ...
+# Subtest: audit: a key filled while waiting for an origin slot skips the queued loader
+ok 51 - audit: a key filled while waiting for an origin slot skips the queued loader
+  ---
+  duration_ms: 1.958833
+  type: 'test'
+  ...
+# Subtest: audit: a queued leader whose lease expired leaves the queue without invoking origin
+ok 52 - audit: a queued leader whose lease expired leaves the queue without invoking origin
+  ---
+  duration_ms: 87.181542
+  type: 'test'
+  ...
+# Subtest: audit: Redis v2 pattern invalidation fences a cold key containing only a lease
+ok 53 - audit: Redis v2 pattern invalidation fences a cold key containing only a lease
+  ---
+  duration_ms: 0.536583
+  type: 'test'
+  ...
+# Subtest: audit: Redis v2 clear treats prefix glob characters as literal namespace bytes
+ok 54 - audit: Redis v2 clear treats prefix glob characters as literal namespace bytes
+  ---
+  duration_ms: 0.388667
+  type: 'test'
+  ...
+# Subtest: audit: Redis v2 direct delete removes admitted logical keys beginning with __
+ok 55 - audit: Redis v2 direct delete removes admitted logical keys beginning with __
+  ---
+  duration_ms: 0.114041
+  type: 'test'
+  ...
+# Subtest: audit: Redis owner rejection after lease expiration protects the newer value
+ok 56 - audit: Redis owner rejection after lease expiration protects the newer value
+  ---
+  duration_ms: 0.154625
+  type: 'test'
+  ...
+# Subtest: audit: delivery recovery survives an unrelated write while L1 reconciliation is pending
+ok 57 - audit: delivery recovery survives an unrelated write while L1 reconciliation is pending
+  ---
+  duration_ms: 0.704209
+  type: 'test'
+  ...
+# Subtest: audit: unique absent-key invalidations have finite retained generation metadata
+ok 58 - audit: unique absent-key invalidations have finite retained generation metadata
+  ---
+  duration_ms: 43.284292
+  type: 'test'
+  ...
+# Subtest: SSE stops replay, live and heartbeat writes at backpressure and resumes on drain
+ok 59 - SSE stops replay, live and heartbeat writes at backpressure and resumes on drain
+  ---
+  duration_ms: 1.942417
+  type: 'test'
+  ...
+# Subtest: SSE has a finite client budget and releases it exactly once on close
+ok 60 - SSE has a finite client budget and releases it exactly once on close
+  ---
+  duration_ms: 0.165459
+  type: 'test'
+  ...
+# Subtest: collector bounds retained oversized keys and error messages while preserving counters
+ok 61 - collector bounds retained oversized keys and error messages while preserving counters
+  ---
+  duration_ms: 1.096083
+  type: 'test'
+  ...
+# Subtest: SSE bounds each frame before serializing an oversized metadata string
+ok 62 - SSE bounds each frame before serializing an oversized metadata string
+  ---
+  duration_ms: 0.173084
+  type: 'test'
+  ...
+# Subtest: normal captured metadata is detached from mutable source references
+ok 63 - normal captured metadata is detached from mutable source references
+  ---
+  duration_ms: 0.373042
+  type: 'test'
+  ...
+# Subtest: new stream limits reject non-finite or non-positive settings
+ok 64 - new stream limits reject non-finite or non-positive settings
+  ---
+  duration_ms: 0.212542
+  type: 'test'
+  ...
+# Subtest: audit Worker: a KV read completed after deletion cannot restore L1
+ok 65 - audit Worker: a KV read completed after deletion cannot restore L1
+  ---
+  duration_ms: 1.479875
+  type: 'test'
+  ...
+# Subtest: audit Worker: an older KV snapshot cannot replace a newer direct L1 set
+ok 66 - audit Worker: an older KV snapshot cannot replace a newer direct L1 set
+  ---
+  duration_ms: 0.256708
+  type: 'test'
+  ...
+# Subtest: audit Worker: an in-progress KV put invalidated before completion cannot prime L1
+ok 67 - audit Worker: an in-progress KV put invalidated before completion cannot prime L1
+  ---
+  duration_ms: 0.182375
+  type: 'test'
+  ...
+# Subtest: audit Worker: a delayed older put cannot replace newer local publication
+ok 68 - audit Worker: a delayed older put cannot replace newer local publication
+  ---
+  duration_ms: 0.214625
+  type: 'test'
+  ...
+# Subtest: audit Worker: failed fill fallback respects a newer invalidation
+ok 69 - audit Worker: failed fill fallback respects a newer invalidation
+  ---
+  duration_ms: 0.274666
+  type: 'test'
+  ...
+# Subtest: audit Worker: failed KV fallback cannot outlive an explicit short request TTL
+ok 70 - audit Worker: failed KV fallback cannot outlive an explicit short request TTL
+  ---
+  duration_ms: 30.650833
+  type: 'test'
+  ...
+# Subtest: audit Worker: close suppresses an outstanding read promotion
+ok 71 - audit Worker: close suppresses an outstanding read promotion
+  ---
+  duration_ms: 0.255666
+  type: 'test'
+  ...
+# Subtest: audit Worker: close suppresses a loader result before any KV write
+ok 72 - audit Worker: close suppresses a loader result before any KV write
+  ---
+  duration_ms: 0.1245
+  type: 'test'
+  ...
+# Subtest: audit Worker: close prevents a pending KV put from priming L1
+ok 73 - audit Worker: close prevents a pending KV put from priming L1
+  ---
+  duration_ms: 0.131375
+  type: 'test'
+  ...
+# Subtest: audit Worker: new operations on a closed facade reject without loading or writing
+ok 74 - audit Worker: new operations on a closed facade reject without loading or writing
+  ---
+  duration_ms: 0.51075
+  type: 'test'
+  ...
+# Subtest: audit Worker: invalidated replacement flights survive older completion and release active revision state
+ok 75 - audit Worker: invalidated replacement flights survive older completion and release active revision state
+  ---
+  duration_ms: 1.431625
+  type: 'test'
+  ...
+# Subtest: audit Worker: unique absent invalidations do not retain historical generation keys
+ok 76 - audit Worker: unique absent invalidations do not retain historical generation keys
+  ---
+  duration_ms: 0.441042
+  type: 'test'
+  ...
+# Subtest: audit Worker: pattern invalidation fences a pending KV read promotion
+ok 77 - audit Worker: pattern invalidation fences a pending KV read promotion
+  ---
+  duration_ms: 0.23925
+  type: 'test'
+  ...
+# Subtest: strict decode distinguishes malformed records from cached null
+ok 78 - strict decode distinguishes malformed records from cached null
+  ---
+  duration_ms: 0.965167
+  type: 'test'
+  ...
+# Subtest: strict readers reject malformed UTF-8 while public legacy defaults remain compatible
+ok 79 - strict readers reject malformed UTF-8 while public legacy defaults remain compatible
+  ---
+  duration_ms: 1.056083
+  type: 'test'
+  ...
+# Subtest: L1 rejects corrupt wire UTF-8 rather than returning replacement data
+ok 80 - L1 rejects corrupt wire UTF-8 rather than returning replacement data
+  ---
+  duration_ms: 1.065458
+  type: 'test'
+  ...
+# Subtest: explicit exported decode limits preserve unbounded-default compatibility
+ok 81 - explicit exported decode limits preserve unbounded-default compatibility
+  ---
+  duration_ms: 0.56275
+  type: 'test'
+  ...
+# Subtest: raw JSON and MessagePack honor encoded and expanded byte limits
+ok 82 - raw JSON and MessagePack honor encoded and expanded byte limits
+  ---
+  duration_ms: 0.196417
+  type: 'test'
+  ...
+# Subtest: gzip output cap prevents expanded output from becoming a cache hit
+ok 83 - gzip output cap prevents expanded output from becoming a cache hit
+  ---
+  duration_ms: 1.973125
+  type: 'test'
+  ...
+# Subtest: native length-prefixed codecs reject oversized advertised output
+ok 84 - native length-prefixed codecs reject oversized advertised output
+  ---
+  duration_ms: 0.102584
+  type: 'test'
+  ...
+# Subtest: every installed compressed codec enforces explicit expanded output limits
+ok 85 - every installed compressed codec enforces explicit expanded output limits
+  ---
+  duration_ms: 1.47175
+  type: 'test'
+  ...
+# Subtest: explicit string limits reject before allocating a UTF-8 buffer
+ok 86 - explicit string limits reject before allocating a UTF-8 buffer
+  ---
+  duration_ms: 0.078542
+  type: 'test'
+  ...
+# Subtest: a tiny MessagePack header cannot allocate an advertised large array
+ok 87 - a tiny MessagePack header cannot allocate an advertised large array
+  ---
+  duration_ms: 0.136625
+  type: 'test'
+  ...
+# Subtest: strict depth, per-collection and aggregate-value budgets bound parser work
+ok 88 - strict depth, per-collection and aggregate-value budgets bound parser work
+  ---
+  duration_ms: 0.277959
+  type: 'test'
+  ...
+# Subtest: known emitted MessagePack extensions keep their legacy round-trip values
+ok 89 - known emitted MessagePack extensions keep their legacy round-trip values
+  ---
+  duration_ms: 1.205084
+  type: 'test'
+  ...
+# Subtest: foreign record/reference/bundled extensions become reloadable misses
+ok 90 - foreign record/reference/bundled extensions become reloadable misses
+  ---
+  duration_ms: 0.060833
+  type: 'test'
+  ...
+# Subtest: portable raw and gzip records enforce the configured decoded cap
+ok 91 - portable raw and gzip records enforce the configured decoded cap
+  ---
+  duration_ms: 4.285
+  type: 'test'
+  ...
+# Subtest: invalid decode limits fail at configuration boundaries
+ok 92 - invalid decode limits fail at configuration boundaries
+  ---
+  duration_ms: 0.1345
+  type: 'test'
+  ...
+# Subtest: L1 uses configured strict limits and cleans up rejected decoded records
+ok 93 - L1 uses configured strict limits and cleans up rejected decoded records
+  ---
+  duration_ms: 0.37
+  type: 'test'
+  ...
+1..93
+# tests 93
+# suites 0
+# pass 93
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 795.460375

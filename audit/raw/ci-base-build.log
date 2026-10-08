@@ -1,0 +1,2 @@
+npm notice run lazy-layers-cache@0.6.2 build
+npm notice run tsc -p tsconfig.json && node scripts/build-cjs.cjs

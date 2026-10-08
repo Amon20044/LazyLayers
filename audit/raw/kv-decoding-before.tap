@@ -1,0 +1,125 @@
+TAP version 13
+# Subtest: public portable default keeps legacy foreign records while strict reads reject them
+not ok 1 - public portable default keeps legacy foreign records while strict reads reject them
+  ---
+  duration_ms: 1.290416
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-kv-decoding.test.js:21:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'undefined'
+    - 'function'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'function'
+  actual: 'undefined'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-kv-decoding.test.js:26:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: Node KV: corrupt and unsupported records reload, while cached null remains a hit
+not ok 2 - Node KV: corrupt and unsupported records reload, while cached null remains a hit
+  ---
+  duration_ms: 0.218792
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-kv-decoding.test.js:32:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-kv-decoding.test.js:45:14)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: Node KV: configured expanded limits cannot turn oversized records into hits
+not ok 3 - Node KV: configured expanded limits cannot turn oversized records into hits
+  ---
+  duration_ms: 4.690375
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-kv-decoding.test.js:55:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-kv-decoding.test.js:60:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: Worker KV: corrupt and unsupported records reload, while cached null remains a hit
+not ok 4 - Worker KV: corrupt and unsupported records reload, while cached null remains a hit
+  ---
+  duration_ms: 0.262583
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-kv-decoding.test.js:32:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-kv-decoding.test.js:45:14)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: Worker KV: configured expanded limits cannot turn oversized records into hits
+not ok 5 - Worker KV: configured expanded limits cannot turn oversized records into hits
+  ---
+  duration_ms: 1.812708
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-kv-decoding.test.js:55:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-kv-decoding.test.js:60:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 0
+# fail 5
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 141.5765

@@ -426,6 +426,7 @@ test('Live Cluster Monitoring: 5-Node Redis Cluster with Live Observability & Pr
         logging: { env: 'production' },
       });
       nodes.push(node);
+      await node.ready();
     }
 
     // 2. Start 5 standalone HTTP servers on dynamic ports

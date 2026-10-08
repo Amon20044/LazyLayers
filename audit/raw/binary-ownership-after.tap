@@ -1,0 +1,28 @@
+✔ MemoryStore.get binary fields cannot mutate retained encoded cache state (2.488375ms)
+✔ MemoryStore.inspect binary previews cannot mutate retained encoded cache state (0.412542ms)
+✔ strict binary decode owns its result while legacy no-option decode keeps its behavior (0.209208ms)
+✔ portable strict binary decode owns its result while public legacy view semantics remain (0.265958ms)
+✔ strict decode distinguishes malformed records from cached null (1.161583ms)
+✔ strict readers reject malformed UTF-8 while public legacy defaults remain compatible (1.641625ms)
+✔ L1 rejects corrupt wire UTF-8 rather than returning replacement data (1.3305ms)
+✔ explicit exported decode limits preserve unbounded-default compatibility (0.8285ms)
+✔ raw JSON and MessagePack honor encoded and expanded byte limits (0.203459ms)
+✔ gzip output cap prevents expanded output from becoming a cache hit (0.947292ms)
+✔ native length-prefixed codecs reject oversized advertised output (0.108708ms)
+✔ every installed compressed codec enforces explicit expanded output limits (1.338875ms)
+✔ explicit string limits reject before allocating a UTF-8 buffer (0.167917ms)
+✔ a tiny MessagePack header cannot allocate an advertised large array (0.105458ms)
+✔ strict depth, per-collection and aggregate-value budgets bound parser work (0.256417ms)
+✔ known emitted MessagePack extensions keep their legacy round-trip values (1.7745ms)
+✔ foreign record/reference/bundled extensions become reloadable misses (0.181667ms)
+✔ portable raw and gzip records enforce the configured decoded cap (5.611291ms)
+✔ invalid decode limits fail at configuration boundaries (0.157292ms)
+✔ L1 uses configured strict limits and cleans up rejected decoded records (0.39975ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 321.366292

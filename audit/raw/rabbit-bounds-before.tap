@@ -1,0 +1,114 @@
+✖ audit: NATS transport gaps flush L1 and recover trust without owning caller connection (3.602958ms)
+✖ audit: RabbitMQ exposes consumer and connection loss through status observers (0.405ms)
+✖ audit: Redis delivery overflow reconciles trust after active handlers finish (2.207042ms)
+✖ audit: RabbitMQ rejects unlimited prefetch configuration (0.312291ms)
+✖ audit: RabbitMQ bounds retained deliveries by bytes and heals rejected-message gaps (0.2075ms)
+✖ audit: RabbitMQ channel-only closure drops subscription trust (0.077208ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 0
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 126.112416
+
+✖ failing tests:
+
+test at test/audit-bus-recovery.test.js:36:1
+✖ audit: NATS transport gaps flush L1 and recover trust without owning caller connection (3.602958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-bus-recovery.test.js:43:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-bus-recovery.test.js:52:1
+✖ audit: RabbitMQ exposes consumer and connection loss through status observers (0.405ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-bus-recovery.test.js:54:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-bus-recovery.test.js:71:1
+✖ audit: Redis delivery overflow reconciles trust after active handlers finish (2.207042ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'error'
+  - 'subscribed'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-bus-recovery.test.js:83:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'error',
+    expected: 'subscribed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-bus-recovery.test.js:87:1
+✖ audit: RabbitMQ rejects unlimited prefetch configuration (0.312291ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception (RangeError).
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-bus-recovery.test.js:88:57)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at test/audit-bus-recovery.test.js:91:1
+✖ audit: RabbitMQ bounds retained deliveries by bytes and heals rejected-message gaps (0.2075ms)
+  TypeError: bus.onStatus is not a function
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-bus-recovery.test.js:93:28)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at test/audit-bus-recovery.test.js:114:1
+✖ audit: RabbitMQ channel-only closure drops subscription trust (0.077208ms)
+  TypeError: bus.onStatus is not a function
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-bus-recovery.test.js:120:28)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

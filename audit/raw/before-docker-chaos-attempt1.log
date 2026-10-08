@@ -1,0 +1,6 @@
+PASS real-lease-expiry-stale-publication (145.2 ms)
+PASS frozen-process-past-lease-expiry (342.2 ms)
+PASS leader-process-killed-mid-refresh (299.5 ms)
+FAIL lease-only-pattern-invalidation (32.8 ms)
+FAIL redis-stopped-during-acquisition-safe-fallback (3358.2 ms)
+Chaos raw results: audit/raw/chaos-before.json; 2 failed cases.

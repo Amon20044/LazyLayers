@@ -1,0 +1,22 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "documentation",
+    "run",
+    "lint"
+  ],
+  "wallTimeMs": 2068,
+  "budgets": {
+    "seconds": 90,
+    "rssMiB": 768,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 512
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 570933248,
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

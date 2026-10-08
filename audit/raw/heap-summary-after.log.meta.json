@@ -1,0 +1,21 @@
+{
+  "command": [
+    "node",
+    "scripts/audit-heap-summary.mjs",
+    "audit/raw/after-empty-stores.heapsnapshot",
+    "audit/raw/heap-summary-after.json"
+  ],
+  "wallTimeMs": 63,
+  "budgets": {
+    "seconds": 20,
+    "rssMiB": 512,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 256
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

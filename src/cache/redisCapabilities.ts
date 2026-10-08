@@ -21,6 +21,7 @@ export const REDIS_CAPABILITY_COMMANDS = Object.freeze([
   'unwatch',
   'set',
   'get',
+  'strlen',
   'del',
   'unlink',
   'exists',
@@ -100,11 +101,16 @@ export interface RedisCapabilityClient {
  * Compatibility contract for operators and client adapters. Discovery is
  * read-only and does not require `CONFIG`, scripting, or transaction commands
  * to be callable before their state is known.
+ * Advertised presence does not establish the current user's ACL permission.
+ * The atomic bounded-read script also calls STRLEN, GET and PTTL; operators
+ * granting EVAL/EVALSHA must allow those commands for the cache key namespace.
  */
 export const REDIS_CAPABILITY_CLIENT_CONTRACT = Object.freeze({
   requiredMethods: Object.freeze(['info', 'command']),
   optionalReconnectMethods: Object.freeze(['on', 'off', 'removeListener']),
   discoveryCommands: Object.freeze(['INFO server', 'COMMAND INFO <allow-list>']),
+  boundedSnapshotCommands: Object.freeze(['STRLEN', 'GET', 'PTTL']),
+  advertisedPresenceEstablishesAclPermission: false,
   mutatesRedisConfiguration: false,
   maxCommandNames: 64,
   minimumRedisMajorVersion: 6,

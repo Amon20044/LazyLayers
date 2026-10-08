@@ -1,0 +1,88 @@
+{
+  "generatedAt": "2026-10-08T13:39:46.889Z",
+  "snapshot": "/var/folders/c0/v0_qvxvs47d5n90q2z2lpx5h0000gn/T/lazy-layers-audit-final-dk3f8esz",
+  "node": "v24.21.0",
+  "sourceDigest": "9c1a297a248dde7e05c339ea44bc3a2212418614cb9b14babdcc376f390e18b9",
+  "esmBuildDigest": "397e52b02fb91cc891f6ae0288d74c6058a256575737b026d63877d2a8e46af9",
+  "helperSha256": "4e2c4e0c85714264564efb0f230e96aa54b50b125977fb7139cd6d1212757886",
+  "budgets": {
+    "customChecksHeapMiB": 64,
+    "customChecksRssMiB": 160,
+    "customChecksDeadlineMs": 10000,
+    "customChecksPeakSampledRssBytes": 89800704,
+    "targetedSuiteHeapMiB": 128,
+    "targetedSuiteRssMiB": 256,
+    "targetedSuiteDeadlineMs": 30000,
+    "perTestDeadlineMs": 3000
+  },
+  "targetedSuite": {
+    "tests": null,
+    "passed": null,
+    "failed": null,
+    "skipped": null,
+    "raw": "independent-verification-tests.tap"
+  },
+  "cases": [
+    {
+      "name": "truncated MessagePack array32 metadata through MemoryStore",
+      "status": "PASS",
+      "observed": {
+        "inputBytes": 9,
+        "declaredArrayLength": 131072,
+        "attemptedArrayAllocations": [],
+        "returned": "undefined",
+        "strictResult": {
+          "hit": false
+        },
+        "validNullControl": {
+          "hit": true,
+          "value": null
+        }
+      }
+    },
+    {
+      "name": "initial coordination outage fallback cannot overwrite newer protected publication",
+      "status": "PASS",
+      "observed": {
+        "newer": "winner",
+        "older": "obsolete",
+        "authoritative": "winner"
+      }
+    },
+    {
+      "name": "restarted peer lower-generation delete, versioning=false",
+      "status": "PASS",
+      "observed": {
+        "returned": "undefined",
+        "saturated": false,
+        "originValue": "current-origin",
+        "retained": "current-origin"
+      }
+    },
+    {
+      "name": "legacy lower-generation delete evicts numeric alias after publisher removes L2",
+      "status": "PASS",
+      "observed": {
+        "returned": "undefined"
+      }
+    },
+    {
+      "name": "restarted peer lower-generation delete, versioning=true",
+      "status": "PASS",
+      "observed": {
+        "returned": "undefined",
+        "saturated": true,
+        "originValue": "current-origin",
+        "retained": "undefined",
+        "hiddenPhysicalOldVersion": "old"
+      }
+    }
+  ],
+  "limitations": [
+    "Offline protocol double verifies command contracts, not live Redis Lua/failover/Cluster behavior.",
+    "Array preallocation is intercepted before allocation, not a measured RSS improvement.",
+    "Legacy public no-option decoding intentionally remains outside strict bounds.",
+    "Final benchmark/chaos/long-duration memory evidence is separate and still pending."
+  ],
+  "harnessIssue": "Initial parser expected TAP # summary markers, but the successful Node 24 default reporter used ℹ markers; five custom checks passed and targeted-suite process exited0. No application test failed."
+}

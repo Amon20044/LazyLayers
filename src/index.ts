@@ -96,7 +96,9 @@ export {
   DEFAULT_INFLIGHT_TTL_MS,
   DEFAULT_INFLIGHT_MAX_ENTRIES,
   DEFAULT_L1_MAX_ENTRIES,
+  CacheClosedError,
   HybridCache,
+  InflightOverloadError,
   LazyLayersCache,
   OriginLoadClosedError,
   OriginLoadGate,
@@ -134,7 +136,7 @@ export {
   attachRedisReconnectInvalidation,
 } from './cache/index.js';
 export type { CacheLoggerOptions, CacheRuntimeEnv } from './utils/debugLog.js';
-export type { BufferInspection, CacheEncoding, SerializedCacheValue } from './utils/serializer.js';
+export type { BufferInspection, CacheEncoding, SerializedCacheValue, DeserializeOptions, DecodedCacheRecord } from './utils/serializer.js';
 export {
   CacheSerializationError,
   configureCompression,
@@ -146,6 +148,7 @@ export {
   GZIP_MIN_BYTES,
   GZIP_SAVINGS_THRESHOLD,
   deserialize,
+  decodeCacheRecord,
   estimateValueBytes,
   getCompressionSavings,
   hasPrefix,
@@ -158,6 +161,7 @@ export {
 } from './utils/serializer.js';
 export {
   cacheSerializer,
+  decodePortableCacheRecord,
   deserializeCacheValue,
   serializeCacheValue,
 } from './utils/cacheSerializer.js';

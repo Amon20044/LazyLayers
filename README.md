@@ -11,7 +11,7 @@ L1/L2 caching for Node.js services and Cloudflare Workers. Use Redis or Cloudfla
 
 ## Get started
 
-Requires Node.js 20 or 22+. Redis is optional for a single process.
+Requires Node.js 20 or 22+. Use Node.js 22+ for the NATS integration because its current transitive dependency declares that minimum. Redis is optional for a single process.
 
 ```bash
 npm install lazy-layers-cache
@@ -76,12 +76,20 @@ Commit database writes before invalidating. Keep cache loaders read-only. A cach
 
 1. `getOrSet` returns a cached value from L1 or shared Redis L2 when available.
 2. On a miss, in-flight dedupe shares work within the process. Redis per-key leases coordinate loaders across instances.
-3. A successful load fills the cache. With an event bus, values within the broadcast limit can also warm peer L1 caches.
+3. A successful load fills the cache when its publication guard remains valid. Scoped event hints can warm peer L1 caches; shared-L2 peers verify current data before promotion.
 4. Redis or bus failures degrade the cache path. Eligible stale data can cover a loader failure, but loader errors, overload, or lock deadlines can still reach the caller.
 
 Built-in L1 retains encoded values with LRU eviction, entry limits, and a shared memory budget. `setupCache` defaults to a 10 second L1 TTL and a 32 KiB peer-broadcast ceiling. Values above that ceiling skip peer priming. L1 admission can also decline a value under memory pressure.
 
 Use [production setup](https://lazy-layers-cache.vercel.app/docs/setups/production) for deployment decisions and [configuration](https://lazy-layers-cache.vercel.app/docs/reference/configuration) for defaults and tuning. Redis Pub/Sub, RabbitMQ, NATS Core, and NATS JetStream have different [delivery guarantees](https://lazy-layers-cache.vercel.app/docs/guides/event-buses).
+
+## Current development: v0.6.2 (unreleased)
+
+This update adds bounded followers and internal decoding, scoped invalidation, safer Redis publication during outages, and fixes for binary ownership, TTL propagation and shutdown. L1 expiry checks and event enqueue accounting avoid full-cache or full-queue work on each request.
+
+The isolated Docker suite passes **480 tests** on Node 20, 22 and 24, and all **15 fault scenarios** pass. Paired measurements show **97.56% lower heap-plus-external retention for 20 empty caches** and **99.83% faster expiry checks at 8,192 entries**. Warm-read microbenchmarks are **30.46% slower**, and the performance gate remains red. These results apply to the documented workloads; outstanding production gates remain visible.
+
+Read the [changelog](CHANGELOG.md#062-unreleased), [before/after comparison](audit/10-before-after-comparison.md), [migration notes](audit/migration.md), and [production-readiness report](audit/12-production-readiness.md). Public API signatures and production dependencies remain unchanged. This version has not been published to npm.
 
 ## Previous release: v0.5.3
 
@@ -117,6 +125,8 @@ npm run docs:build
 ```
 
 `npm run ci` builds and checks the ESM/CommonJS package and runs the test suite. See the [benchmark guide](https://github.com/Amon20044/LazyLayers/tree/main/benchmarks) for reproducible performance and memory workloads, and the [examples](https://github.com/Amon20044/LazyLayers/tree/main/examples) for runnable integrations.
+
+The [cache engineering audit](audit/README.md) includes isolated Docker correctness/load/fault scripts, source-backed findings, raw before/after measurements, and explicit release gates. Review its [compatibility and rollout notes](audit/migration.md) before adopting the audited changes.
 
 ## License
 

@@ -6,6 +6,10 @@ export interface BaseInvalidationEvent {
   source: string;
   ts: number;
   generation?: number;
+  /** Optional isolation scope; scoped caches reject unscoped or other-scope events. */
+  namespace?: string;
+  /** Preserves numeric CacheKey identity without changing legacy string keys. */
+  keyTypes?: Array<'string' | 'number'>;
 }
 
 export interface DeleteEvent extends BaseInvalidationEvent {

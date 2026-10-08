@@ -1,0 +1,7 @@
+HTTP calibration 1000: 998 successful RPS, p99=1.96 ms, dropped=0
+HTTP calibration 10000: 9976 successful RPS, p99=4.35 ms, dropped=0
+HTTP calibration 50000: 48161 successful RPS, p99=33.00 ms, dropped=1640
+warm-10000 #1: 9975 successful RPS, p99=9.33 ms, origin=0, errors=0, clientDropped=0
+warm-10000 #2: 9965 successful RPS, p99=6.02 ms, origin=0, errors=0, clientDropped=0
+warm-10000 #3: 9966 successful RPS, p99=3.79 ms, origin=0, errors=0, clientDropped=0
+Raw E2E results: audit/raw/e2e-before-high.json

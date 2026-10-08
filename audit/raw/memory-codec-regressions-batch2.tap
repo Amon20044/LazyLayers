@@ -1,0 +1,550 @@
+TAP version 13
+# Subtest: Node gzip policy and the Worker facade emit the same HC1 bytes
+ok 1 - Node gzip policy and the Worker facade emit the same HC1 bytes
+  ---
+  duration_ms: 10.750417
+  type: 'test'
+  ...
+# Subtest: portable serializer keeps null, sentinel, and earlier JSON records distinct
+ok 2 - portable serializer keeps null, sentinel, and earlier JSON records distinct
+  ---
+  duration_ms: 0.26875
+  type: 'test'
+  ...
+# Subtest: Worker facade misses Node-only tags and rejects an untagged payload
+ok 3 - Worker facade misses Node-only tags and rejects an untagged payload
+  ---
+  duration_ms: 0.204667
+  type: 'test'
+  ...
+# Subtest: compression none and a poor gzip saving stay raw MessagePack
+ok 4 - compression none and a poor gzip saving stay raw MessagePack
+  ---
+  duration_ms: 3.831792
+  type: 'test'
+  ...
+# Subtest: KV compression mode is validated by the facade
+ok 5 - KV compression mode is validated by the facade
+  ---
+  duration_ms: 0.054375
+  type: 'test'
+  ...
+# Subtest: strict decode distinguishes malformed records from cached null
+ok 6 - strict decode distinguishes malformed records from cached null
+  ---
+  duration_ms: 0.879125
+  type: 'test'
+  ...
+# Subtest: explicit exported decode limits preserve unbounded-default compatibility
+ok 7 - explicit exported decode limits preserve unbounded-default compatibility
+  ---
+  duration_ms: 0.939792
+  type: 'test'
+  ...
+# Subtest: raw JSON and MessagePack honor encoded and expanded byte limits
+ok 8 - raw JSON and MessagePack honor encoded and expanded byte limits
+  ---
+  duration_ms: 0.216
+  type: 'test'
+  ...
+# Subtest: gzip output cap prevents expanded output from becoming a cache hit
+ok 9 - gzip output cap prevents expanded output from becoming a cache hit
+  ---
+  duration_ms: 0.756417
+  type: 'test'
+  ...
+# Subtest: native length-prefixed codecs reject oversized advertised output
+ok 10 - native length-prefixed codecs reject oversized advertised output
+  ---
+  duration_ms: 0.122875
+  type: 'test'
+  ...
+# Subtest: a tiny MessagePack header cannot allocate an advertised large array
+ok 11 - a tiny MessagePack header cannot allocate an advertised large array
+  ---
+  duration_ms: 0.085458
+  type: 'test'
+  ...
+# Subtest: strict depth, per-collection and aggregate-value budgets bound parser work
+ok 12 - strict depth, per-collection and aggregate-value budgets bound parser work
+  ---
+  duration_ms: 0.29925
+  type: 'test'
+  ...
+# Subtest: known emitted MessagePack extensions keep their legacy round-trip values
+ok 13 - known emitted MessagePack extensions keep their legacy round-trip values
+  ---
+  duration_ms: 0.92875
+  type: 'test'
+  ...
+# Subtest: foreign record/reference/bundled extensions become reloadable misses
+ok 14 - foreign record/reference/bundled extensions become reloadable misses
+  ---
+  duration_ms: 0.099583
+  type: 'test'
+  ...
+# Subtest: portable raw and gzip records enforce the configured decoded cap
+ok 15 - portable raw and gzip records enforce the configured decoded cap
+  ---
+  duration_ms: 5.198541
+  type: 'test'
+  ...
+# Subtest: invalid decode limits fail at configuration boundaries
+ok 16 - invalid decode limits fail at configuration boundaries
+  ---
+  duration_ms: 0.176125
+  type: 'test'
+  ...
+# Subtest: L1 uses configured strict limits and cleans up rejected decoded records
+ok 17 - L1 uses configured strict limits and cleans up rejected decoded records
+  ---
+  duration_ms: 3.367709
+  type: 'test'
+  ...
+# Subtest: set owns input values and get/getEncoded are defensive
+ok 18 - set owns input values and get/getEncoded are defensive
+  ---
+  duration_ms: 1.963125
+  type: 'test'
+  ...
+# Subtest: two stores share cap and close releases all accounting including empty history
+ok 19 - two stores share cap and close releases all accounting including empty history
+  ---
+  duration_ms: 0.331583
+  type: 'test'
+  ...
+# Subtest: oversize candidate does not evict existing hot entry and rejected replacement invalidates old value
+ok 20 - oversize candidate does not evict existing hot entry and rejected replacement invalidates old value
+  ---
+  duration_ms: 0.548333
+  type: 'test'
+  ...
+# Subtest: expiry and explicit deletion release bytes; undefined misses differ from cached null
+ok 21 - expiry and explicit deletion release bytes; undefined misses differ from cached null
+  ---
+  duration_ms: 31.608208
+  type: 'test'
+  ...
+# Subtest: encoded subarray is copied and charges only owned payload plus fixed overhead
+ok 22 - encoded subarray is copied and charges only owned payload plus fixed overhead
+  ---
+  duration_ms: 0.555167
+  type: 'test'
+  ...
+# Subtest: metadata inspection does not decode unknown original size
+ok 23 - metadata inspection does not decode unknown original size
+  ---
+  duration_ms: 0.322667
+  type: 'test'
+  ...
+# Subtest: count limit remains active when byte admission and auto eviction are disabled
+ok 24 - count limit remains active when byte admission and auto eviction are disabled
+  ---
+  duration_ms: 0.374875
+  type: 'test'
+  ...
+# Subtest: concurrent writes never exceed byte ceiling
+ok 25 - concurrent writes never exceed byte ceiling
+  ---
+  duration_ms: 0.561958
+  type: 'test'
+  ...
+# Subtest: default singleton rejects conflicting configuration and can be reset cleanly
+ok 26 - default singleton rejects conflicting configuration and can be reset cleanly
+  ---
+  duration_ms: 0.335459
+  type: 'test'
+  ...
+# Subtest: fail-safe retains one encoded snapshot and releases its shared budget on close
+ok 27 - fail-safe retains one encoded snapshot and releases its shared budget on close
+  ---
+  duration_ms: 17.963958
+  type: 'test'
+  ...
+# Subtest: custom L1 stores can use fail-safe without exposing a memory budget
+ok 28 - custom L1 stores can use fail-safe without exposing a memory budget
+  ---
+  duration_ms: 0.325459
+  type: 'test'
+  ...
+# Subtest: encoded fast path requires the Lazy Layers wire-format marker
+ok 29 - encoded fast path requires the Lazy Layers wire-format marker
+  ---
+  duration_ms: 0.151459
+  type: 'test'
+  ...
+# Subtest: encoded L2 promotion preserves a shorter remaining TTL
+ok 30 - encoded L2 promotion preserves a shorter remaining TTL
+  ---
+  duration_ms: 303.566
+  type: 'test'
+  ...
+# Subtest: persistent encoded L2 values use the configured L1 TTL instead of one millisecond
+ok 31 - persistent encoded L2 values use the configured L1 TTL instead of one millisecond
+  ---
+  duration_ms: 310.862
+  type: 'test'
+  ...
+# Subtest: L1 and L2 can select independent write codecs without changing reads
+ok 32 - L1 and L2 can select independent write codecs without changing reads
+  ---
+  duration_ms: 2.645833
+  type: 'test'
+  ...
+# Subtest: re-encoding a promotion preserves the source expiry budget
+ok 33 - re-encoding a promotion preserves the source expiry budget
+  ---
+  duration_ms: 0.771667
+  type: 'test'
+  ...
+# Subtest: a direct L1 has check performs no global expiration sweep
+ok 34 - a direct L1 has check performs no global expiration sweep
+  ---
+  duration_ms: 2.232542
+  type: 'test'
+  ...
+# Subtest: a queried expired key releases its bytes without purging other entries
+ok 35 - a queried expired key releases its bytes without purging other entries
+  ---
+  duration_ms: 22.309333
+  type: 'test'
+  ...
+# Subtest: a large configured count cannot preallocate storage before byte admission
+ok 36 - a large configured count cannot preallocate storage before byte admission
+  ---
+  duration_ms: 0.399708
+  type: 'test'
+  ...
+# Subtest: closed L1 stores do not invoke serialization hooks or resurrect entries
+ok 37 - closed L1 stores do not invoke serialization hooks or resurrect entries
+  ---
+  duration_ms: 0.1805
+  type: 'test'
+  ...
+# Subtest: expired entries cannot create an unbounded victim-search scan on admission
+ok 38 - expired entries cannot create an unbounded victim-search scan on admission
+  ---
+  duration_ms: 22.559667
+  type: 'test'
+  ...
+# Subtest: corrupt records reload while a legitimate cached null remains a hit
+ok 39 - corrupt records reload while a legitimate cached null remains a hit
+  ---
+  duration_ms: 0.541291
+  type: 'test'
+  ...
+# Subtest: inspection limits constrain actual decode despite forged expanded-size metadata
+ok 40 - inspection limits constrain actual decode despite forged expanded-size metadata
+  ---
+  duration_ms: 0.739583
+  type: 'test'
+  ...
+# Subtest: percentage and units resolve against effective runtime capacity
+ok 41 - percentage and units resolve against effective runtime capacity
+  ---
+  duration_ms: 0.756084
+  type: 'test'
+  ...
+# Subtest: nested cgroup limits use the smallest valid constraint
+ok 42 - nested cgroup limits use the smallest valid constraint
+  ---
+  duration_ms: 0.161291
+  type: 'test'
+  ...
+# Subtest: shared ledger never exceeds target and release is idempotently bounded
+ok 43 - shared ledger never exceeds target and release is idempotently bounded
+  ---
+  duration_ms: 0.216916
+  type: 'test'
+  ...
+# Subtest: sampling pressure shrinks target and bounds round-robin maintenance
+ok 44 - sampling pressure shrinks target and bounds round-robin maintenance
+  ---
+  duration_ms: 0.21275
+  type: 'test'
+  ...
+# Subtest: synthetic critical pressure evicts L1 entries and blocks new admissions
+ok 45 - synthetic critical pressure evicts L1 entries and blocks new admissions
+  ---
+  duration_ms: 1.517625
+  type: 'test'
+  ...
+# Subtest: synthetic sustained pressure and recovery use hysteresis instead of flapping
+ok 46 - synthetic sustained pressure and recovery use hysteresis instead of flapping
+  ---
+  duration_ms: 0.19775
+  type: 'test'
+  ...
+# Subtest: synthetic pressure can evict fail-safe snapshots from the shared byte budget
+ok 47 - synthetic pressure can evict fail-safe snapshots from the shared byte budget
+  ---
+  duration_ms: 1.691458
+  type: 'test'
+  ...
+# Subtest: critical pressure serves Redis-like L2 hits without promoting them into L1
+ok 48 - critical pressure serves Redis-like L2 hits without promoting them into L1
+  ---
+  duration_ms: 0.754375
+  type: 'test'
+  ...
+# Subtest: peer priming under pressure removes obsolete L1 state without installing the replacement
+ok 49 - peer priming under pressure removes obsolete L1 state without installing the replacement
+  ---
+  duration_ms: 0.497875
+  type: 'test'
+  ...
+# [DEBUG] cache miss { key: 'circ', level: 'L1' }
+# [DEBUG] cache inflight start { key: 'circ' }
+# [DEBUG] cache miss { key: 'circ', level: 'L1' }
+# [DEBUG] cache miss { key: 'circ', level: 'L1' }
+# [DEBUG] cache set { key: 'circ', levels: [ 'L1' ] }
+# [DEBUG] cache inflight complete { key: 'circ' }
+# Subtest: plain object: serialize and deserialize round-trips
+ok 50 - plain object: serialize and deserialize round-trips
+  ---
+  duration_ms: 1.135917
+  type: 'test'
+  ...
+# Subtest: listing response: deep round-trip preserves nested structure
+ok 51 - listing response: deep round-trip preserves nested structure
+  ---
+  duration_ms: 0.35275
+  type: 'test'
+  ...
+# Subtest: null serializes via sentinel and deserializes to null
+ok 52 - null serializes via sentinel and deserializes to null
+  ---
+  duration_ms: 0.072042
+  type: 'test'
+  ...
+# Subtest: undefined serializes via sentinel and deserializes to null
+ok 53 - undefined serializes via sentinel and deserializes to null
+  ---
+  duration_ms: 0.049834
+  type: 'test'
+  ...
+# Subtest: plain string round-trips through msgpack
+ok 54 - plain string round-trips through msgpack
+  ---
+  duration_ms: 0.071458
+  type: 'test'
+  ...
+# Subtest: legacy JSON string (no buffer) deserializes to object
+ok 55 - legacy JSON string (no buffer) deserializes to object
+  ---
+  duration_ms: 0.058291
+  type: 'test'
+  ...
+# Subtest: legacy JSON buffer (no prefix) deserializes to object
+ok 56 - legacy JSON buffer (no prefix) deserializes to object
+  ---
+  duration_ms: 0.079917
+  type: 'test'
+  ...
+# Subtest: legacy raw msgpack buffer (no prefix) deserializes to object
+ok 57 - legacy raw msgpack buffer (no prefix) deserializes to object
+  ---
+  duration_ms: 0.071291
+  type: 'test'
+  ...
+# Subtest: legacy sentinel string deserializes to null
+ok 58 - legacy sentinel string deserializes to null
+  ---
+  duration_ms: 0.047208
+  type: 'test'
+  ...
+# Subtest: small payload uses plain msgpack encoding
+ok 59 - small payload uses plain msgpack encoding
+  ---
+  duration_ms: 0.096875
+  type: 'test'
+  ...
+# Subtest: large payload is compressed by the top tier when savings >= 15%
+ok 60 - large payload is compressed by the top tier when savings >= 15%
+  ---
+  duration_ms: 0.877041
+  type: 'test'
+  ...
+# Subtest: large but incompressible payload falls back to msgpack
+ok 61 - large but incompressible payload falls back to msgpack
+  ---
+  duration_ms: 3.579208
+  type: 'test'
+  ...
+# Subtest: JSON debug mode uses HC1J encoding
+ok 62 - JSON debug mode uses HC1J encoding
+  ---
+  duration_ms: 0.111292
+  type: 'test'
+  ...
+# Subtest: CACHE_DEBUG_SERIALIZATION=true also triggers JSON mode
+ok 63 - CACHE_DEBUG_SERIALIZATION=true also triggers JSON mode
+  ---
+  duration_ms: 0.0415
+  type: 'test'
+  ...
+# Subtest: HC1M values decode correctly
+ok 64 - HC1M values decode correctly
+  ---
+  duration_ms: 0.070709
+  type: 'test'
+  ...
+# Subtest: compressed values decode correctly
+ok 65 - compressed values decode correctly
+  ---
+  duration_ms: 0.278333
+  type: 'test'
+  ...
+# Subtest: HC1J values decode correctly
+ok 66 - HC1J values decode correctly
+  ---
+  duration_ms: 0.039
+  type: 'test'
+  ...
+# Subtest: hasPrefix is O(1) and matches only on full 4-byte prefix
+ok 67 - hasPrefix is O(1) and matches only on full 4-byte prefix
+  ---
+  duration_ms: 0.024042
+  type: 'test'
+  ...
+# Subtest: stripPrefix removes the prefix bytes without copying
+ok 68 - stripPrefix removes the prefix bytes without copying
+  ---
+  duration_ms: 0.038334
+  type: 'test'
+  ...
+# Subtest: getCompressionSavings returns saved fraction (100KB -> 25KB == 0.75)
+ok 69 - getCompressionSavings returns saved fraction (100KB -> 25KB == 0.75)
+  ---
+  duration_ms: 0.024083
+  type: 'test'
+  ...
+# Subtest: shouldGzip returns false for small payloads regardless of savings
+ok 70 - shouldGzip returns false for small payloads regardless of savings
+  ---
+  duration_ms: 0.024417
+  type: 'test'
+  ...
+# Subtest: shouldGzip returns false when savings are below 15%
+ok 71 - shouldGzip returns false when savings are below 15%
+  ---
+  duration_ms: 0.017625
+  type: 'test'
+  ...
+# Subtest: shouldGzip returns true for large payloads with >=15% savings
+ok 72 - shouldGzip returns true for large payloads with >=15% savings
+  ---
+  duration_ms: 0.015667
+  type: 'test'
+  ...
+# Subtest: Uint8Array input is supported by deserialize
+ok 73 - Uint8Array input is supported by deserialize
+  ---
+  duration_ms: 0.042792
+  type: 'test'
+  ...
+# Subtest: non-JSON, non-sentinel string is returned as-is
+ok 74 - non-JSON, non-sentinel string is returned as-is
+  ---
+  duration_ms: 0.029833
+  type: 'test'
+  ...
+# Subtest: corrupted prefixed buffer returns null instead of throwing
+ok 75 - corrupted prefixed buffer returns null instead of throwing
+  ---
+  duration_ms: 0.981583
+  type: 'test'
+  ...
+# Subtest: sentinel decoded via deserialize never leaks the marker string
+ok 76 - sentinel decoded via deserialize never leaks the marker string
+  ---
+  duration_ms: 0.036
+  type: 'test'
+  ...
+# Subtest: an unserializable value throws instead of storing garbage
+ok 77 - an unserializable value throws instead of storing garbage
+  ---
+  duration_ms: 4.448208
+  type: 'test'
+  ...
+# Subtest: an unserializable value does not fail the read path
+ok 78 - an unserializable value does not fail the read path
+  ---
+  duration_ms: 3.633625
+  type: 'test'
+  ...
+# Subtest: a caller who caches the sentinel string gets it back
+ok 79 - a caller who caches the sentinel string gets it back
+  ---
+  duration_ms: 0.076167
+  type: 'test'
+  ...
+# Subtest: sentinel buffers written by older versions still decode to null
+ok 80 - sentinel buffers written by older versions still decode to null
+  ---
+  duration_ms: 0.069959
+  type: 'test'
+  ...
+# Subtest: the default top tier uses zstd when available and lz4 otherwise
+ok 81 - the default top tier uses zstd when available and lz4 otherwise
+  ---
+  duration_ms: 1.744667
+  type: 'test'
+  ...
+# Subtest: zstd is used once it is switched on, and round-trips
+ok 82 - zstd is used once it is switched on, and round-trips
+  ---
+  duration_ms: 3.356375
+  type: 'test'
+  ...
+# Subtest: gzip buffers still decode after switching to zstd
+ok 83 - gzip buffers still decode after switching to zstd
+  ---
+  duration_ms: 2.338084
+  type: 'test'
+  ...
+# Subtest: an unknown tag from a newer release reads as a miss
+ok 84 - an unknown tag from a newer release reads as a miss
+  ---
+  duration_ms: 0.071333
+  type: 'test'
+  ...
+# Subtest: payloads under the small-value floor are never compressed
+ok 85 - payloads under the small-value floor are never compressed
+  ---
+  duration_ms: 0.064375
+  type: 'test'
+  ...
+# Subtest: mid-sized payloads are compressed, which the old 64 KB floor skipped
+ok 86 - mid-sized payloads are compressed, which the old 64 KB floor skipped
+  ---
+  duration_ms: 0.142084
+  type: 'test'
+  ...
+# Subtest: a custom tier array is honoured
+ok 87 - a custom tier array is honoured
+  ---
+  duration_ms: 0.37425
+  type: 'test'
+  ...
+# Subtest: a malformed tier list is rejected at configuration time
+ok 88 - a malformed tier list is rejected at configuration time
+  ---
+  duration_ms: 0.080791
+  type: 'test'
+  ...
+# Subtest: a tier naming an uninstalled codec falls back instead of throwing
+ok 89 - a tier naming an uninstalled codec falls back instead of throwing
+  ---
+  duration_ms: 0.45875
+  type: 'test'
+  ...
+1..89
+# tests 89
+# suites 0
+# pass 89
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1393.548166

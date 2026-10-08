@@ -1,0 +1,76 @@
+Unable to find image 'node:20-bookworm-slim' locally
+20-bookworm-slim: Pulling from library/node
+ed7f19ee07f9: Pulling fs layer
+93f1e44b7642: Pulling fs layer
+46ac7a0b9811: Pulling fs layer
+b007268d7e62: Pulling fs layer
+791fd1b17847: Pulling fs layer
+791fd1b17847: Download complete
+ed7f19ee07f9: Download complete
+93f1e44b7642: Download complete
+9615975875fe: Download complete
+46ac7a0b9811: Download complete
+4cd65ac39cfe: Download complete
+93f1e44b7642: Pull complete
+46ac7a0b9811: Pull complete
+b007268d7e62: Download complete
+b007268d7e62: Pull complete
+791fd1b17847: Pull complete
+ed7f19ee07f9: Pull complete
+Digest: sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+Status: Downloaded newer image for node:20-bookworm-slim
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: '@cloudflare/kv-asset-handler@0.5.0',
+npm warn EBADENGINE   required: { node: '>=22.0.0' },
+npm warn EBADENGINE   current: { node: 'v20.20.2', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: '@nats-io/nuid@3.0.0',
+npm warn EBADENGINE   required: { node: '>= 22.x' },
+npm warn EBADENGINE   current: { node: 'v20.20.2', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'miniflare@5.20260923.0-alpha',
+npm warn EBADENGINE   required: { node: '>=22.0.0' },
+npm warn EBADENGINE   current: { node: 'v20.20.2', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'wrangler@4.140.0',
+npm warn EBADENGINE   required: { node: '>=22.0.0' },
+npm warn EBADENGINE   current: { node: 'v20.20.2', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm error code 1
+npm error path /work/node_modules/esbuild
+npm error command failed
+npm error command sh -c node install.js
+npm error node:internal/child_process:1123
+npm error     result.error = new ErrnoException(result.error, 'spawnSync ' + options.file);
+npm error                    ^
+npm error
+npm error <ref *1> Error: spawnSync /work/node_modules/esbuild/bin/esbuild EACCES
+npm error     at Object.spawnSync (node:internal/child_process:1123:20)
+npm error     at spawnSync (node:child_process:877:24)
+npm error     at Object.execFileSync (node:child_process:920:15)
+npm error     at validateBinaryVersion (/work/node_modules/esbuild/install.js:103:28)
+npm error     at /work/node_modules/esbuild/install.js:298:5 {
+npm error   errno: -13,
+npm error   code: 'EACCES',
+npm error   syscall: 'spawnSync /work/node_modules/esbuild/bin/esbuild',
+npm error   path: '/work/node_modules/esbuild/bin/esbuild',
+npm error   spawnargs: [ '--version' ],
+npm error   error: [Circular *1],
+npm error   status: null,
+npm error   signal: null,
+npm error   output: null,
+npm error   pid: 0,
+npm error   stdout: null,
+npm error   stderr: null
+npm error }
+npm error
+npm error Node.js v20.20.2
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+npm error A complete log of this run can be found in: /root/.npm/_logs/2026-10-08T13_40_00_103Z-debug-0.log

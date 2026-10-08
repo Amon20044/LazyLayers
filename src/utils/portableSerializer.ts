@@ -1,4 +1,5 @@
-import { pack, unpack } from 'msgpackr';
+import { pack, unpack, Unpackr } from 'msgpackr';
+import { isSafeJson, isSafeMessagePack } from './decodeValidation.js';
 import {
   CACHE_NULL_SENTINEL,
   HC1_GZIP_TAG,
@@ -15,10 +16,15 @@ import {
   shouldUsePortableGzip,
   wireTag,
   withWireTag,
+  resolveDecodeLimits,
   type CloudflareKVCompression,
+  type DecodeLimits,
+  type DecodedCacheRecord,
 } from './serializerPolicy.js';
 
 const PACKED_SENTINEL = pack(CACHE_NULL_SENTINEL);
+// Internal strict reads return owned binary values, never views into a record.
+const strictUnpackr = new Unpackr({ useRecords: false, structuredClone: false, copyBuffers: true });
 
 /**
  * Worker-safe HC1 codec. It writes the same HC1M/HC1G/HC1J bytes as the Node
@@ -54,23 +60,31 @@ export async function serializePortable(
 }
 
 /** Reads HC1M/HC1G plus earlier HC1J records. Other HC1 tags are a miss. */
-export async function deserializePortable(payload: Uint8Array): Promise<unknown> {
+export async function deserializePortable(payload: Uint8Array, options?: DecodeLimits): Promise<unknown> {
+  // Keep the exported one-argument reader compatible. Built-in stores use the
+  // strict record capability below, and callers may opt in with explicit limits.
+  const limits = options === undefined ? undefined : resolveDecodeLimits(options);
+  if (limits && payload.byteLength > limits.maxEncodedBytes) throw new RangeError('Cloudflare KV encoded value exceeds configured limit');
   if (hasWireTag(payload, HC1_JSON_TAG)) {
-    return JSON.parse(new TextDecoder().decode(payload.subarray(HC1_TAG_BYTES)));
+    const bytes = payload.subarray(HC1_TAG_BYTES);
+    if (limits && !isSafeJson(bytes, limits)) throw new RangeError('Cloudflare KV JSON value exceeds decode limits or is malformed');
+    return JSON.parse(new TextDecoder('utf-8', { fatal: limits !== undefined }).decode(bytes));
   }
   if (hasWireTag(payload, HC1_MSGPACK_TAG)) {
     const bytes = payload.subarray(HC1_TAG_BYTES);
+    if (limits && !isSafeMessagePack(bytes, limits)) throw new RangeError('Cloudflare KV MessagePack value exceeds decode limits or is malformed');
     if (sameBytes(bytes, PACKED_SENTINEL)) return null;
-    return unpack(bytes);
+    return limits ? strictUnpackr.unpack(bytes) : unpack(bytes);
   }
   if (hasWireTag(payload, HC1_GZIP_TAG)) {
     const bytes = await transform(
       payload.subarray(HC1_TAG_BYTES),
       new DecompressionStream('gzip'),
-      MAX_PORTABLE_DECODED_BYTES,
+      limits?.maxDecodedBytes ?? MAX_PORTABLE_DECODED_BYTES,
     );
+    if (limits && !isSafeMessagePack(bytes, limits)) throw new RangeError('Cloudflare KV MessagePack value exceeds decode limits or is malformed');
     if (sameBytes(bytes, PACKED_SENTINEL)) return null;
-    return unpack(bytes);
+    return limits ? strictUnpackr.unpack(bytes) : unpack(bytes);
   }
   const tag = wireTag(payload);
   if (tag === HC1_LZ4_TAG || tag === HC1_ZSTD_TAG || tag === HC1_SNAPPY_TAG || tag !== undefined) {
@@ -78,6 +92,14 @@ export async function deserializePortable(payload: Uint8Array): Promise<unknown>
     return null;
   }
   throw new TypeError('Cloudflare Workers KV requires an HC1M, HC1G, or HC1J value');
+}
+
+/** Strict store capability: unsupported/corrupt records miss, cached null hits. */
+export async function decodePortableCacheRecord(payload: Uint8Array, options?: DecodeLimits): Promise<DecodedCacheRecord> {
+  const limits = resolveDecodeLimits(options);
+  if (!hasWireTag(payload, HC1_MSGPACK_TAG) && !hasWireTag(payload, HC1_JSON_TAG) && !hasWireTag(payload, HC1_GZIP_TAG)) return { hit: false };
+  try { return { hit: true, value: await deserializePortable(payload, limits) }; }
+  catch { return { hit: false }; }
 }
 
 async function transform(input: Uint8Array, codec: CompressionStream | DecompressionStream, maxBytes: number): Promise<Uint8Array> {
@@ -94,7 +116,9 @@ async function transform(input: Uint8Array, codec: CompressionStream | Decompres
       length += value.byteLength;
       if (length > maxBytes) {
         await reader.cancel();
-        throw new RangeError('Cloudflare KV decoded value exceeds 25 MiB');
+        throw new RangeError(maxBytes === MAX_PORTABLE_DECODED_BYTES
+          ? 'Cloudflare KV decoded value exceeds 25 MiB'
+          : 'Cloudflare KV transformed value exceeds configured limit');
       }
       chunks.push(value);
     }

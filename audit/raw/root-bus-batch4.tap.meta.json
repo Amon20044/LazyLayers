@@ -1,0 +1,24 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-concurrency=1",
+    "--test-timeout=10000",
+    "test/audit-bus-recovery.test.js",
+    "test/audit-event-queue.test.js",
+    "test/audit-boundaries.test.js",
+    "test/event-bus.test.js",
+    "test/release-safety-regressions.test.js"
+  ],
+  "wallTimeMs": 1466,
+  "budgets": {
+    "seconds": 25,
+    "rssMiB": 512
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 149209088,
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

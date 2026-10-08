@@ -1,0 +1,31 @@
+{
+  "command": [
+    "node",
+    "--max-old-space-size=256",
+    "--test",
+    "--test-reporter=tap",
+    "--test-concurrency=1",
+    "--test-timeout=10000",
+    "test/audit-kv-decoding.test.js",
+    "test/cloudflare-kv.test.js",
+    "test/memory-audit-regressions.test.js",
+    "test/decode-limits.test.js",
+    "test/encoded-memory.test.js",
+    "test/memory-budget.test.js",
+    "test/memory-pressure.test.js",
+    "test/serializer.test.js",
+    "test/cache-serializer.test.js",
+    "test/layer-codecs.test.js"
+  ],
+  "wallTimeMs": 1617,
+  "budgets": {
+    "seconds": 30,
+    "rssMiB": 512
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

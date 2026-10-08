@@ -1,0 +1,85 @@
+TAP version 13
+# Subtest: audit: closed event queue cannot resurrect deliveries or retain new events
+not ok 1 - audit: closed event queue cannot resurrect deliveries or retain new events
+  ---
+  duration_ms: 1.031083
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-event-queue.test.js:10:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-event-queue.test.js:14:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.start (node:internal/test_runner/test:1262:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+  ...
+# Subtest: audit: an unencodable event cannot bypass byte accounting
+not ok 2 - audit: an unencodable event cannot bypass byte accounting
+  ---
+  duration_ms: 3.536792
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-event-queue.test.js:18:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-event-queue.test.js:21:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: audit: event queue limits must be finite valid integers
+not ok 3 - audit: event queue limits must be finite valid integers
+  ---
+  duration_ms: 0.132875
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-event-queue.test.js:24:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception (RangeError).'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-event-queue.test.js:26:12)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: discarding pending events releases bytes and preserves active accounting
+ok 4 - audit: discarding pending events releases bytes and preserves active accounting
+  ---
+  duration_ms: 1.422542
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 1
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 85.533708

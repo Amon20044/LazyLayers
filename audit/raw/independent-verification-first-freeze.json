@@ -1,0 +1,96 @@
+{
+  "generatedAt": "2026-10-08T13:39:46.889Z",
+  "snapshot": "/var/folders/c0/v0_qvxvs47d5n90q2z2lpx5h0000gn/T/lazy-layers-audit-final-dk3f8esz",
+  "node": "v24.21.0",
+  "sourceDigest": "9c1a297a248dde7e05c339ea44bc3a2212418614cb9b14babdcc376f390e18b9",
+  "esmBuildDigest": "397e52b02fb91cc891f6ae0288d74c6058a256575737b026d63877d2a8e46af9",
+  "helperSha256": "4e2c4e0c85714264564efb0f230e96aa54b50b125977fb7139cd6d1212757886",
+  "budgets": {
+    "customChecksHeapMiB": 64,
+    "customChecksRssMiB": 160,
+    "customChecksDeadlineMs": 10000,
+    "customChecksPeakSampledRssBytes": 89800704,
+    "targetedSuiteHeapMiB": 128,
+    "targetedSuiteRssMiB": 256,
+    "targetedSuiteDeadlineMs": 30000,
+    "perTestDeadlineMs": 3000
+  },
+  "targetedSuite": {
+    "tests": 89,
+    "passed": 89,
+    "failed": 0,
+    "skipped": 0,
+    "raw": "independent-verification-first-freeze-tests.log",
+    "rawSha256": "6d488ad7811b50903ecdd505986b3a107b1e10b6fa5a45faabfda0c6609b623e"
+  },
+  "cases": [
+    {
+      "name": "truncated MessagePack array32 metadata through MemoryStore",
+      "status": "PASS",
+      "observed": {
+        "inputBytes": 9,
+        "declaredArrayLength": 131072,
+        "attemptedArrayAllocations": [],
+        "returned": "undefined",
+        "strictResult": {
+          "hit": false
+        },
+        "validNullControl": {
+          "hit": true,
+          "value": null
+        }
+      }
+    },
+    {
+      "name": "initial coordination outage fallback cannot overwrite newer protected publication",
+      "status": "PASS",
+      "observed": {
+        "newer": "winner",
+        "older": "obsolete",
+        "authoritative": "winner"
+      }
+    },
+    {
+      "name": "restarted peer lower-generation delete, versioning=false",
+      "status": "PASS",
+      "observed": {
+        "returned": "undefined",
+        "saturated": false,
+        "originValue": "current-origin",
+        "retained": "current-origin"
+      }
+    },
+    {
+      "name": "legacy lower-generation delete evicts numeric alias after publisher removes L2",
+      "status": "PASS",
+      "observed": {
+        "returned": "undefined"
+      }
+    },
+    {
+      "name": "restarted peer lower-generation delete, versioning=true",
+      "status": "PASS",
+      "observed": {
+        "returned": "undefined",
+        "saturated": true,
+        "originValue": "current-origin",
+        "retained": "undefined",
+        "hiddenPhysicalOldVersion": "old"
+      }
+    }
+  ],
+  "limitations": [
+    "Offline protocol double verifies command contracts, not live Redis Lua/failover/Cluster behavior.",
+    "Array preallocation is intercepted before allocation, not a measured RSS improvement.",
+    "Legacy public no-option decoding intentionally remains outside strict bounds.",
+    "Final benchmark/chaos/long-duration memory evidence is separate and still pending."
+  ],
+  "verificationTests": {
+    "audit-coordination-boundaries.test.js": "69eb0723c4101ba76c8a9351fe14f6f6f8d65d6171a316be49250d87ab81dcaa",
+    "audit-distributed-regressions.test.js": "1afee4ac952307d0ac250f6249c9f09f31b18b435a623d227dbab4448156a6ee",
+    "audit-worker-lifecycle.test.js": "925e90e8057267733680aa3b6ee1389c53fa3e96652baa170bd6df4c9a053429",
+    "audit-observability-bounds.test.js": "6cd6f30b83e393ca197fee2fbe8579d9fd7bbcaec03c2d369ff9bde4a80dcb3a",
+    "decode-limits.test.js": "3262f8c677a8351441d71734b7804b5b6c502a48507ac351100da9c1de07bc72"
+  },
+  "harnessNote": "Default reporter summary parsed correctly; initial parsing-only failure preserved in independent-verification-parser-attempt.json. Runner generic childHeapMiB512 metadata is superseded by explicit --max-old-space-size=128 command."
+}

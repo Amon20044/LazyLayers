@@ -1,0 +1,19 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-reporter=tap",
+    "--test-timeout=3000",
+    "test/audit-boundaries.test.js"
+  ],
+  "wallTimeMs": 666,
+  "budgets": {
+    "seconds": 20,
+    "rssMiB": 256
+  },
+  "peakSampledRssBytes": 167526400,
+  "isolatedRedis": false,
+  "code": 1,
+  "signal": null,
+  "aborted": null
+}

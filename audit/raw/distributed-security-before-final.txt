@@ -1,0 +1,1367 @@
+TAP version 13
+# Subtest: audit: a failed lease acquisition returns the origin result without overwriting a protected winner
+not ok 1 - audit: a failed lease acquisition returns the origin result without overwriting a protected winner
+  ---
+  duration_ms: 5.448208
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:46:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'obsolete'
+    - 'winner'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'winner'
+  actual: 'obsolete'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:64:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: audit: explicitly unlocked contention fallback does not publish into protected cache state
+not ok 2 - audit: explicitly unlocked contention fallback does not publish into protected cache state
+  ---
+  duration_ms: 0.593375
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:69:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'obsolete'
+    - 'winner'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'winner'
+  actual: 'obsolete'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:82:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: distinct malformed UTF-16 keys retain distinct Redis wire identities
+not ok 3 - audit: distinct malformed UTF-16 keys retain distinct Redis wire identities
+  ---
+  duration_ms: 2.012459
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:85:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    UTF-8 replacement must not collapse the complete physical keys
+    
+    1 !== 2
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 2
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:92:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: Redis v2 nested prefixes cannot delete another namespace by clearing a shorter prefix
+not ok 4 - audit: Redis v2 nested prefixes cannot delete another namespace by clearing a shorter prefix
+  ---
+  duration_ms: 1.250834
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:99:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + undefined
+    - 'child-value'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'child-value'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:107:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: Redis patterns use only star as wildcard and preserve literal question/bracket bytes
+not ok 5 - audit: Redis patterns use only star as wildcard and preserve literal question/bracket bytes
+  ---
+  duration_ms: 0.248375
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:112:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'question'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'question'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:119:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: legacy metadata key collisions are rejected before a Redis command is issued
+not ok 6 - audit: legacy metadata key collisions are rejected before a Redis command is issued
+  ---
+  duration_ms: 0.158209
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:124:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'rejects'
+  stack: |-
+    async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:127:3)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: scoped events reject wrong/untagged namespaces before deduplication and publish their scope
+not ok 7 - audit: scoped events reject wrong/untagged namespaces before deduplication and publish their scope
+  ---
+  duration_ms: 1.979958
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:132:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + undefined
+    - 'current'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'current'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:141:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: negative keys cannot bypass a small shared memory budget and are released on close
+not ok 8 - audit: negative keys cannot bypass a small shared memory budget and are released on close
+  ---
+  duration_ms: 1.09625
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:148:1'
+  failureType: 'testCodeFailure'
+  error: 'Raw negative keys must not bypass B'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:156:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: event deduplication keys have a byte cap and release their shared reservations
+not ok 9 - audit: event deduplication keys have a byte cap and release their shared reservations
+  ---
+  duration_ms: 4.435708
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:162:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(retainedKeyBytes(cache.seenEvents) <= ledger.hardCap)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:171:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: generation-byte saturation never exposes an older v0 entry or accepts a delayed old fill
+not ok 10 - audit: generation-byte saturation never exposes an older v0 entry or accepts a delayed old fill
+  ---
+  duration_ms: 0.971667
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:177:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(retainedKeyBytes(cache.generations) <= 2 * 1024 * 1024)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:192:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: a restarted peer lower-generation delete cannot leave a higher-generation cache value readable
+not ok 11 - audit: a restarted peer lower-generation delete cannot leave a higher-generation cache value readable
+  ---
+  duration_ms: 0.946958
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:202:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    A lower generation can be a real delete after peer restart
+    + actual - expected
+    
+    + 'old-v2'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'old-v2'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:227:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: default unversioned caches evict lower-generation deletes after restart including legacy numeric aliases
+not ok 12 - audit: default unversioned caches evict lower-generation deletes after restart including legacy numeric aliases
+  ---
+  duration_ms: 0.47475
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:239:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    A process-local delete counter cannot suppress a real peer delete
+    
+    'old' !== undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'old'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:251:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: concurrent custom reads cannot retain unlimited distinct revision-map key bytes
+not ok 13 - audit: concurrent custom reads cannot retain unlimited distinct revision-map key bytes
+  ---
+  duration_ms: 4.102625
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:261:1'
+  failureType: 'testCodeFailure'
+  error: 'cache.getCoordinationStats is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:268:19)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: a stale custom-L1 publication cannot leave an older value after a replacement write
+not ok 14 - audit: a stale custom-L1 publication cannot leave an older value after a replacement write
+  ---
+  duration_ms: 0.416041
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:274:1'
+  failureType: 'testCodeFailure'
+  error: 'Custom adapters may conservatively evict; they must not retain stale data'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'obsolete'
+  actual: 'obsolete'
+  operator: 'notStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:289:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: built-in L1 keeps a replacement value when an older committed write resumes
+ok 15 - audit: built-in L1 keeps a replacement value when an older committed write resumes
+  ---
+  duration_ms: 0.411958
+  type: 'test'
+  ...
+# Subtest: audit: corrupt Redis bytes are a miss while a legitimate null remains a cache hit
+not ok 16 - audit: corrupt Redis bytes are a miss while a legitimate null remains a cache hit
+  ---
+  duration_ms: 0.470167
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:312:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + null
+    - 'recovered'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'recovered'
+  actual: ~
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:321:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: negative maxEntries zero disables retained misses
+not ok 17 - audit: negative maxEntries zero disables retained misses
+  ---
+  duration_ms: 0.150209
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:327:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 2
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 2
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:333:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: non-finite cache metadata budgets are rejected before creating resources
+not ok 18 - audit: non-finite cache metadata budgets are rejected before creating resources
+  ---
+  duration_ms: 0.109833
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:337:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:349:12)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: invalid per-operation metadata budgets reject without invoking the loader
+not ok 19 - audit: invalid per-operation metadata budgets reject without invoking the loader
+  ---
+  duration_ms: 0.27175
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:353:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The error is expected to be an instance of "RangeError". Received "AssertionError"
+    
+    Error message:
+    
+    invalid options cannot invoke origin
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:356:3)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: tracked in-flight key bytes are finite even when callers use large distinct keys
+not ok 20 - audit: tracked in-flight key bytes are finite even when callers use large distinct keys
+  ---
+  duration_ms: 4.234625
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:360:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(retainedKeyBytes(cache.inflight) <= 2 * 1024 * 1024)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:366:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: queued origin keys are byte bounded and cancellation releases their ledger reservations
+not ok 21 - audit: queued origin keys are byte bounded and cancellation releases their ledger reservations
+  ---
+  duration_ms: 502.057542
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:372:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /cancelled/. Input:
+    
+    'Origin load queue is full or its wait deadline expired'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: 'Origin load queue is full or its wait deadline expired'
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:382:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: a generation-zero restart cannot see a deleted old version when a v1 write queued concurrently
+ok 22 - audit: a generation-zero restart cannot see a deleted old version when a v1 write queued concurrently
+  ---
+  duration_ms: 0.643083
+  type: 'test'
+  ...
+# Subtest: audit: subscription completion cannot restore trust after an immediate transport loss
+not ok 23 - audit: subscription completion cannot restore trust after an immediate transport loss
+  ---
+  duration_ms: 0.287708
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:416:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:425:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: custom-bus malformed typed keys cannot poison numeric L1 state
+ok 24 - audit: custom-bus malformed typed keys cannot poison numeric L1 state
+  ---
+  duration_ms: 0.31075
+  type: 'test'
+  ...
+# Subtest: audit: local lease expiry survives a backward clock change during an event-loop stall
+not ok 25 - audit: local lease expiry survives a backward clock change during an event-loop stall
+  ---
+  duration_ms: 20.728667
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:440:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:450:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: read-only L2 queues charge retained key bytes and shed oversized queued work
+not ok 26 - audit: read-only L2 queues charge retained key bytes and shed oversized queued work
+  ---
+  duration_ms: 3.975125
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:455:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    A zero-payload GET still retains its key in the queued closure
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:468:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: corrupt encoded L1 records are removed when Hybrid reads them
+not ok 27 - audit: corrupt encoded L1 records are removed when Hybrid reads them
+  ---
+  duration_ms: 1.185
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:474:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + null
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: ~
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:479:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: dashboard previews reject compressed expansion beyond their preview budget
+not ok 28 - audit: dashboard previews reject compressed expansion beyond their preview budget
+  ---
+  duration_ms: 6.265375
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:483:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + undefined
+    - true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:489:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: a poisoned Redis catalogue cannot expose another namespace through inspection
+not ok 29 - audit: a poisoned Redis catalogue cannot expose another namespace through inspection
+  ---
+  duration_ms: 0.537875
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:494:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:503:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: per-write Redis entry limits and scoped namespace metadata reject malformed configuration
+not ok 30 - audit: per-write Redis entry limits and scoped namespace metadata reject malformed configuration
+  ---
+  duration_ms: 0.320541
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:507:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection (RangeError).'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:510:3)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: one hot key has a finite follower budget and every accepted follower shares one load
+not ok 31 - audit: one hot key has a finite follower budget and every accepted follower shares one load
+  ---
+  duration_ms: 3.162334
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:516:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Followers beyond the configured budget reject immediately
+    
+    0 !== 3
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 3
+  actual: 0
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:528:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: loader errors fan out to accepted followers and release the entire follower budget
+not ok 32 - audit: loader errors fan out to accepted followers and release the entire follower budget
+  ---
+  duration_ms: 1.362833
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:540:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    4 !== 3
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 3
+  actual: 4
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:552:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: accepted followers retain shutdown response compatibility and release B after settlement
+not ok 33 - audit: accepted followers retain shutdown response compatibility and release B after settlement
+  ---
+  duration_ms: 4.89475
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:558:1'
+  failureType: 'testCodeFailure'
+  error: 'cache.getCoordinationStats is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:571:22)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: small B rejects retained L2 keys before queuing while leaving the active call bounded
+not ok 34 - audit: small B rejects retained L2 keys before queuing while leaving the active call bounded
+  ---
+  duration_ms: 7.70925
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:575:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:586:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: timed-out L2 calls hold their retained-byte reservation until actual settlement
+not ok 35 - audit: timed-out L2 calls hold their retained-byte reservation until actual settlement
+  ---
+  duration_ms: 7.355333
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:593:1'
+  failureType: 'testCodeFailure'
+  error: 'A caller-facing timeout must not free retained work'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:600:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: delayed authoritative set hints cannot extend L1 past the snapshot TTL
+not ok 36 - audit: delayed authoritative set hints cannot extend L1 past the snapshot TTL
+  ---
+  duration_ms: 1.888459
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:606:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'hint'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'hint'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:623:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: nonencoded custom L1 promotion receives the authoritative remaining TTL for reads and peer hints
+not ok 37 - audit: nonencoded custom L1 promotion receives the authoritative remaining TTL for reads and peer hints
+  ---
+  duration_ms: 0.645583
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:626:1'
+  failureType: 'testCodeFailure'
+  error: 'A custom L1 cannot inherit a longer normal-read TTL'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:639:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: Redis snapshot rejects oversized network payloads before GET and inspection uses its preview cap
+not ok 38 - audit: Redis snapshot rejects oversized network payloads before GET and inspection uses its preview cap
+  ---
+  duration_ms: 0.533417
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:647:1'
+  failureType: 'testCodeFailure'
+  error: 'an oversized encoded record must be rejected before transfer'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:659:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: distinct concurrent fills all retain their own values
+not ok 39 - audit: distinct concurrent fills all retain their own values
+  ---
+  duration_ms: 7.332167
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:51:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+        'alpha',
+    +   undefined,
+    +   undefined,
+    +   undefined
+    -   'beta',
+    -   'gamma',
+    -   'delta'
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 'alpha'
+    1: 'beta'
+    2: 'gamma'
+    3: 'delta'
+  actual:
+    0: 'alpha'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:65:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: audit: invalidation fences an origin fill already inside asynchronous L1 set
+not ok 40 - audit: invalidation fences an origin fill already inside asynchronous L1 set
+  ---
+  duration_ms: 0.742958
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:69:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'obsolete'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'obsolete'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:81:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: close aborts an active leader and its late result cannot repopulate state
+not ok 41 - audit: close aborts an active leader and its late result cannot repopulate state
+  ---
+  duration_ms: 0.385458
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:84:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:100:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: closed caches reject subsequent reads and writes
+not ok 42 - audit: closed caches reject subsequent reads and writes
+  ---
+  duration_ms: 0.294208
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:106:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'rejects'
+  stack: |-
+    async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:109:3)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: numeric remote deletion clears numeric L1 state
+not ok 43 - audit: numeric remote deletion clears numeric L1 state
+  ---
+  duration_ms: 2.114042
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:115:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'obsolete'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'obsolete'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:122:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: numeric peer priming clears the matching numeric negative cache
+not ok 44 - audit: numeric peer priming clears the matching numeric negative cache
+  ---
+  duration_ms: 2.021541
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:125:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + undefined
+    - 'fresh'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'fresh'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:132:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: equal-generation obsolete peer priming reconciles the authoritative L2 value
+not ok 45 - audit: equal-generation obsolete peer priming reconciles the authoritative L2 value
+  ---
+  duration_ms: 0.358292
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:136:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'obsolete'
+    - 'winner'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'winner'
+  actual: 'obsolete'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:144:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: a fill started before subscription readiness cannot publish across initial reconciliation
+ok 46 - audit: a fill started before subscription readiness cannot publish across initial reconciliation
+  ---
+  duration_ms: 1.670541
+  type: 'test'
+  ...
+# Subtest: audit: a key filled while waiting for an origin slot skips the queued loader
+not ok 47 - audit: a key filled while waiting for an origin slot skips the queued loader
+  ---
+  duration_ms: 4.900375
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:164:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'unnecessary-origin'
+    - 'filled-while-queued'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'filled-while-queued'
+  actual: 'unnecessary-origin'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:178:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: a queued leader whose lease expired leaves the queue without invoking origin
+not ok 48 - audit: a queued leader whose lease expired leaves the queue without invoking origin
+  ---
+  duration_ms: 87.999583
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:183:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    A lease-lost request must not remain queued until the origin slot opens
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:211:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: Redis v2 pattern invalidation fences a cold key containing only a lease
+not ok 49 - audit: Redis v2 pattern invalidation fences a cold key containing only a lease
+  ---
+  duration_ms: 0.424042
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:216:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'published'
+    - 'not-owner'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'not-owner'
+  actual: 'published'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:222:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: Redis v2 clear treats prefix glob characters as literal namespace bytes
+not ok 50 - audit: Redis v2 clear treats prefix glob characters as literal namespace bytes
+  ---
+  duration_ms: 0.339333
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:227:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    undefined !== 'b'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'b'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:236:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: Redis v2 direct delete removes admitted logical keys beginning with __
+not ok 51 - audit: Redis v2 direct delete removes admitted logical keys beginning with __
+  ---
+  duration_ms: 0.122459
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:240:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'value'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'value'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:246:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: Redis owner rejection after lease expiration protects the newer value
+ok 52 - audit: Redis owner rejection after lease expiration protects the newer value
+  ---
+  duration_ms: 0.122791
+  type: 'test'
+  ...
+# Subtest: audit: delivery recovery survives an unrelated write while L1 reconciliation is pending
+not ok 53 - audit: delivery recovery survives an unrelated write while L1 reconciliation is pending
+  ---
+  duration_ms: 0.866291
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:265:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:282:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit: unique absent-key invalidations have finite retained generation metadata
+not ok 54 - audit: unique absent-key invalidations have finite retained generation metadata
+  ---
+  duration_ms: 73.7785
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:285:1'
+  failureType: 'testCodeFailure'
+  error: 'Deletion tombstones must have a hard finite cap'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-distributed-regressions.test.js:289:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: a KV read completed after deletion cannot restore L1
+not ok 55 - audit Worker: a KV read completed after deletion cannot restore L1
+  ---
+  duration_ms: 6.235458
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:30:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'obsolete'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'obsolete'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:38:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: audit Worker: an older KV snapshot cannot replace a newer direct L1 set
+not ok 56 - audit Worker: an older KV snapshot cannot replace a newer direct L1 set
+  ---
+  duration_ms: 1.350167
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:42:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    'old' !== 'new'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'new'
+  actual: 'old'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:48:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: an in-progress KV put invalidated before completion cannot prime L1
+not ok 57 - audit Worker: an in-progress KV put invalidated before completion cannot prime L1
+  ---
+  duration_ms: 1.482542
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:51:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'obsolete'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'obsolete'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:56:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: a delayed older put cannot replace newer local publication
+not ok 58 - audit Worker: a delayed older put cannot replace newer local publication
+  ---
+  duration_ms: 4.473
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:60:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    'old' !== 'new'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'new'
+  actual: 'old'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:65:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: failed fill fallback respects a newer invalidation
+not ok 59 - audit Worker: failed fill fallback respects a newer invalidation
+  ---
+  duration_ms: 2.970667
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:69:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'obsolete'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'obsolete'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:76:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: failed KV fallback cannot outlive an explicit short request TTL
+not ok 60 - audit Worker: failed KV fallback cannot outlive an explicit short request TTL
+  ---
+  duration_ms: 1.327541
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:79:1'
+  failureType: 'testCodeFailure'
+  error: 'Failure fallback must respect requested freshness'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:84:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: close suppresses an outstanding read promotion
+not ok 61 - audit Worker: close suppresses an outstanding read promotion
+  ---
+  duration_ms: 0.643375
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:89:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    'old' !== undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'old'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:95:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: close suppresses a loader result before any KV write
+not ok 62 - audit Worker: close suppresses a loader result before any KV write
+  ---
+  duration_ms: 0.565167
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:98:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:103:47)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: close prevents a pending KV put from priming L1
+not ok 63 - audit Worker: close prevents a pending KV put from priming L1
+  ---
+  duration_ms: 0.508833
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:106:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    'old' !== undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'old'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:111:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: new operations on a closed facade reject without loading or writing
+not ok 64 - audit Worker: new operations on a closed facade reject without loading or writing
+  ---
+  duration_ms: 0.759541
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:114:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'rejects'
+  stack: |-
+    async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:120:6)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: invalidated replacement flights survive older completion and release active revision state
+not ok 65 - audit Worker: invalidated replacement flights survive older completion and release active revision state
+  ---
+  duration_ms: 4.343333
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:124:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    New requests must not join an invalidated old flight
+    
+    1 !== 2
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 2
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:130:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: unique absent invalidations do not retain historical generation keys
+not ok 66 - audit Worker: unique absent invalidations do not retain historical generation keys
+  ---
+  duration_ms: 0.534542
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:139:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    128 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 128
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:142:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: pattern invalidation fences a pending KV read promotion
+not ok 67 - audit Worker: pattern invalidation fences a pending KV read promotion
+  ---
+  duration_ms: 0.392875
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:145:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    'old' !== undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'old'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:151:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+1..67
+# tests 67
+# suites 0
+# pass 5
+# fail 62
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1723.371208

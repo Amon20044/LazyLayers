@@ -1,0 +1,26 @@
+{
+  "sourceAndBuildMatchFrozenManifest": true,
+  "reportCount": 13,
+  "syntaxCheckedScripts": [
+    "scripts/audit-export-metrics.mjs",
+    "scripts/audit-heap-summary.mjs",
+    "scripts/audit-memory-smoke.mjs",
+    "scripts/audit-memory-profile.mjs",
+    "scripts/audit-ci.mjs",
+    "scripts/audit-services.mjs",
+    "scripts/audit-runner.mjs",
+    "scripts/audit-manifest.mjs",
+    "scripts/audit-compare.mjs",
+    "benchmarks/audit-codecs.mjs",
+    "benchmarks/audit-experiment-utils.mjs",
+    "benchmarks/audit-chaos.mjs",
+    "benchmarks/audit-e2e.mjs",
+    "benchmarks/audit-queues.mjs",
+    "benchmarks/audit-e2e-child.mjs",
+    "benchmarks/audit-policies.mjs",
+    "benchmarks/audit.mjs"
+  ],
+  "runnerInvalidFlagControls": 3,
+  "remainingDisposableContainers": [],
+  "errors": []
+}

@@ -1,0 +1,104 @@
+npm notice run documentation@0.0.19 build
+npm notice run next build --webpack
+▲ Next.js 16.3.0 (webpack)
+- Environments: .env.local
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/apple/Desktop/LazyLayers/package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/apple/Desktop/LazyLayers/documentation/package-lock.json
+
+✓ Running next.config.mjs took 38ms
+
+  Creating an optimized production build ...
+
+<--- Last few GCs --->
+
+[19037:0xc3140c000]     9432 ms: Scavenge (interleaved) 495.9 (511.7) -> 494.7 (532.0) MB, pooled: 0 MB, 2.00 / 0.00 ms  (average mu = 0.417, current mu = 0.346) allocation failure; 
+[19037:0xc3140c000]     9522 ms: Mark-Compact (reduce) 509.1 (532.9) -> 504.4 (514.6) MB, pooled: 0 MB, 71.88 / 0.00 ms  (+ 0.1 ms in 221 steps since start of marking, biggest step 0.0 ms, walltime since start of marking 90 ms) (average mu = 0.410, curren
+FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 0x104cd3f44 node::(anonymous namespace)::DefaultAbortHandler(char const*, char const*) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+ 2: 0x104cd41a8 node::OOMErrorHandler(char const*, v8::OOMDetails const&) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+ 3: 0x104f572d0 v8::internal::V8::FatalProcessOutOfMemory(v8::internal::Isolate*, char const*, v8::OOMDetails const&) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+ 4: 0x1051b6784 v8::internal::Heap::stack() [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+ 5: 0x1051b466c v8::internal::Heap::CollectGarbage(v8::internal::AllocationSpace, v8::internal::GarbageCollectionReason, v8::GCCallbackFlags) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+ 6: 0x1051a9194 v8::internal::HeapAllocator::AllocateRawWithRetryOrFailSlowPath(int, v8::internal::AllocationType, v8::internal::AllocationOrigin, v8::internal::AllocationAlignment) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+ 7: 0x10518a874 v8::internal::Factory::NewFillerObject(int, v8::internal::AllocationAlignment, v8::internal::AllocationType, v8::internal::AllocationOrigin) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+ 8: 0x105619cd8 v8::internal::Runtime_AllocateInYoungGeneration(int, unsigned long*, v8::internal::Isolate*) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+ 9: 0x105c82234 Builtins_CEntry_Return1_ArgvOnStack_NoBuiltinExit [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+10: 0x129689304 
+11: 0x129683110 
+12: 0x1296b7d6c 
+13: 0x1298d5d54 
+14: 0x12981a5e4 
+15: 0x1298c454c 
+16: 0x1298c8ad0 
+17: 0x1298c95e4 
+18: 0x1298fe784 
+19: 0x129807d08 
+20: 0x1298c225c 
+21: 0x129807948 
+22: 0x128d6cd10 
+23: 0x129807424 
+24: 0x1298c2164 
+25: 0x129807948 
+26: 0x128d6cd10 
+27: 0x129807424 
+28: 0x1298c225c 
+29: 0x129807948 
+30: 0x128d6cd10 
+31: 0x129807424 
+32: 0x128d6cdd0 
+33: 0x129807424 
+34: 0x128d6cdd0 
+35: 0x129807424 
+36: 0x1298c2164 
+37: 0x129807948 
+38: 0x128d6cd10 
+39: 0x129807424 
+40: 0x1298c225c 
+41: 0x129807948 
+42: 0x129204ccc 
+43: 0x1298078a0 
+44: 0x1298c225c 
+45: 0x1298e2554 
+46: 0x12ae5b848 
+47: 0x12ae5bbe8 
+48: 0x129807284 
+49: 0x1297fbf98 
+50: 0x1297f9ce8 
+51: 0x12ae52540 
+52: 0x12a98048c 
+53: 0x129580d44 
+54: 0x1296a3710 
+55: 0x12a9a37ec 
+56: 0x1290d3600 
+57: 0x1290d8dd0 
+58: 0x105cf8e58 Builtins_PromiseFulfillReactionJob [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+59: 0x105c12bd0 Builtins_RunMicrotasks [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+60: 0x105be27b0 Builtins_JSRunMicrotasksEntry [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+61: 0x1050fa960 v8::internal::(anonymous namespace)::Invoke(v8::internal::Isolate*, v8::internal::(anonymous namespace)::InvokeParams const&) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+62: 0x1050fb1d4 v8::internal::(anonymous namespace)::InvokeWithTryCatch(v8::internal::Isolate*, v8::internal::(anonymous namespace)::InvokeParams const&) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+63: 0x1050fb310 v8::internal::Execution::TryRunMicrotasks(v8::internal::Isolate*, v8::internal::MicrotaskQueue*) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+64: 0x10512a0b4 v8::internal::MicrotaskQueue::RunMicrotasks(v8::internal::Isolate*) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+65: 0x10512aa14 v8::internal::MicrotaskQueue::PerformCheckpoint(v8::Isolate*) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+66: 0x105be6818 Builtins_CallApiCallbackGeneric [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+67: 0x128e0f094 
+68: 0x105be28cc Builtins_JSEntryTrampoline [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+69: 0x105be2570 Builtins_JSEntry [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+70: 0x1050fa9a8 v8::internal::(anonymous namespace)::Invoke(v8::internal::Isolate*, v8::internal::(anonymous namespace)::InvokeParams const&) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+71: 0x1050fa30c v8::internal::Execution::Call(v8::internal::Isolate*, v8::internal::DirectHandle<v8::internal::Object>, v8::internal::DirectHandle<v8::internal::Object>, v8::base::Vector<v8::internal::DirectHandle<v8::internal::Object> const>) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+72: 0x104f6ec90 v8::Function::Call(v8::Isolate*, v8::Local<v8::Context>, v8::Local<v8::Value>, int, v8::Local<v8::Value>*) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+73: 0x104ba7180 node::InternalCallbackScope::Close() [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+74: 0x104ba73b0 node::InternalMakeCallback(node::Environment*, v8::Local<v8::Object>, v8::Local<v8::Object>, v8::Local<v8::Function>, int, v8::Local<v8::Value>*, node::async_context, v8::Local<v8::Value>) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+75: 0x104ba76b8 node::InternalMakeCallback(v8::Isolate*, v8::Local<v8::Object>, v8::Local<v8::Function>, int, v8::Local<v8::Value>*, node::async_context, v8::Local<v8::Value>) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+76: 0x104c465ec node::Environment::CheckImmediate(uv_check_s*) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+77: 0x105bc83b0 uv__run_check [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+78: 0x105bc11f8 uv_run [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+79: 0x104ba86a8 node::SpinEventLoopInternal(node::Environment*) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+80: 0x104d2ff24 node::NodeMainInstance::Run() [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+81: 0x104c807d8 node::Start(int, char**) [/Users/apple/.nvm/versions/node/v24.21.0/bin/node]
+82: 0x18050be00 start [/usr/lib/dyld]

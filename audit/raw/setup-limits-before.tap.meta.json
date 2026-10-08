@@ -1,0 +1,18 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "test/audit-setup-limits.test.js"
+  ],
+  "wallTimeMs": 156,
+  "budgets": {
+    "seconds": 10,
+    "rssMiB": 256
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": 1,
+  "signal": null,
+  "aborted": null
+}

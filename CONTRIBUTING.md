@@ -33,29 +33,29 @@ Thank you for your interest in improving LazyLayers!
 
 ## Running Benchmarks
 
-Benchmarks are deterministic across runs for byte counts and measure serialization vs baselines:
+Serialization fixtures use deterministic data; timing results vary by runtime and machine:
 
 ```bash
 node benchmarks/run.mjs
 ```
 
+The [cache audit guide](audit/README.md) covers bounded correctness, memory, before/after performance and real Docker fault tests. Use `npm run test:audit`, `npm run bench:audit:e2e` and `npm run test:audit:chaos` for disposable, capped infrastructure. Run equivalent CPU comparisons sequentially and retain raw results, resource budgets and failed gates. Never run load or chaos tools against production or an unapproved external service.
+
 ## Website Development
 
-The documentation landing page lives in `./site`:
+The Fumadocs documentation source lives in `documentation/content/docs`. From the repository root:
 
 ```bash
-cd site
-npm install
-npm run dev
+npm run docs:dev
+npm run docs:build
 ```
 
-To test a production build:
-```bash
-npm run build
-```
+See [documentation instructions](documentation/README.md) for content validation. The separate `site/` application has its own package and build; edit documentation behavior in the canonical Fumadocs source.
 
 ## Pull Request Guidelines
 
 - Keep PRs focused on one logical fix or feature.
 - Ensure all new features or bug fixes are accompanied by tests under `./test/`.
 - Ensure `npm run ci` passes without warnings or failures.
+- Update `CHANGELOG.md` and the relevant README/reference pages for behavioral or configuration changes. Keep unreleased changes labeled as such until a package release is made.
+- Treat critical correctness failures and statistically supported performance regressions as visible release-review gates. Do not silently replace a baseline or claim production readiness from one passing benchmark.

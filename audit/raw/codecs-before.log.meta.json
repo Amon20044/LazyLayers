@@ -1,0 +1,17 @@
+{
+  "command": [
+    "node",
+    "benchmarks/audit-codecs.mjs"
+  ],
+  "wallTimeMs": 16049,
+  "budgets": {
+    "seconds": 180,
+    "rssMiB": 768
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

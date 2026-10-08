@@ -1,0 +1,44 @@
+✖ audit: managed KV forwards constructor expanded limits to its internal reader (7.309459ms)
+✖ audit: managed namespace rejects malformed Unicode and excessive scope text before setup (1.0135ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 127.977291
+
+✖ failing tests:
+
+test at test/audit-setup-limits.test.js:11:1
+✖ audit: managed KV forwards constructor expanded limits to its internal reader (7.309459ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-setup-limits.test.js:23:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-setup-limits.test.js:27:1
+✖ audit: managed namespace rejects malformed Unicode and excessive scope text before setup (1.0135ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-setup-limits.test.js:29:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

@@ -1,0 +1,14 @@
+lookup/64: 36.224 ms median, 5 isolated runs
+lookup-stale/64: 49.395 ms median, 5 isolated runs
+has/32: 1.141 ms median, 5 isolated runs
+has/1024: 2.201 ms median, 5 isolated runs
+has/8192: 1.379 ms median, 5 isolated runs
+promotion/2048: 20.981 ms median, 5 isolated runs
+inflight/32: 4.045 ms median, 5 isolated runs
+inflight/1024: 2.524 ms median, 5 isolated runs
+herd/10: 2.715 ms median, 5 isolated runs
+herd/100: 2.976 ms median, 5 isolated runs
+herd/1000: 4.730 ms median, 5 isolated runs
+herd/10000: 27.564 ms median, 5 isolated runs
+herd/100000: 215.568 ms median, 5 isolated runs
+Raw results: audit/raw/benchmark-after.json

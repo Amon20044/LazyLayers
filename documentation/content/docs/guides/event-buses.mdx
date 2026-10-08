@@ -16,10 +16,10 @@ Three things, and they are the same on every transport.
 
 <CardGroup cols={2}>
   <Card title="Invalidations" icon="trash">
-    `delete` and `deleteByPattern` publish, and every peer drops the same keys from L1, L2, the negative cache, the stale copy and any in-flight promise.
+    `delete` and `deleteByPattern` publish. The publisher mutates shared L2; peers remove local L1, negative, stale and in-flight state.
   </Card>
   <Card title="Primed values" icon="bolt">
-    When a `getOrSet` loader resolves, the value itself is published. Every peer writes it straight into its own L1, so their first read of that key is already a local hit.
+    When a `getOrSet` loader resolves, peers receive a set hint. L2-backed peers read their own authoritative snapshot before promoting its current value and TTL. L1-only peers can use the scoped event value.
   </Card>
 </CardGroup>
 
@@ -37,7 +37,7 @@ Two things to know about it before you rely on it:
 ## The three event types
 
 <ParamField path="del" type="InvalidationEvent">
-  Published by `delete`. Carries `keys` and a per-key `generation`. A peer drops each key from L1, L2, the negative cache, the stale copy and any in-flight promise.
+  Published by `delete`. Carries `keys` and a per-key `generation`. The publisher deletes shared L2; a peer drops each key from local L1, the negative cache, the stale copy and any in-flight promise.
 </ParamField>
 
 <ParamField path="pattern" type="InvalidationEvent">
@@ -45,7 +45,7 @@ Two things to know about it before you rely on it:
 </ParamField>
 
 <ParamField path="set" type="InvalidationEvent">
-  Published when a `getOrSet` loader resolves. Carries `keys`, `value`, `ttlMs` and `generation`. A peer writes the value into its own L1 and clears that key's negative entry and in-flight promise.
+  Published when a `getOrSet` loader resolves. Carries `keys`, `value`, `ttlMs` and `generation`. L2-backed peers validate against their own current L2 snapshot; delayed payloads cannot overwrite a newer protected value. L1-only peers use the event payload within its scope.
 </ParamField>
 
 Only `set` carries a value. `del` and `pattern` carry key names, which is why they are cheap regardless of how large the underlying values are.

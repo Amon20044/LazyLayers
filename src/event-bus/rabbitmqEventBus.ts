@@ -1,11 +1,12 @@
 import amqp, { type Channel, type ChannelModel, type ConfirmChannel, type ConsumeMessage } from 'amqplib';
 
-import type { EventBus, EventBusHealth } from './eventBus.interface.js';
+import type { EventBus, EventBusHealth, EventBusStatus } from './eventBus.interface.js';
 import type { InvalidationEvent } from '../types/event.types.js';
 import { configureCacheLogger, type CacheLoggerOptions } from '../utils/debugLog.js';
 import { debugLog, errorLog, infoLog, warnLog } from '../utils/debugLog.js';
 import { decodeInvalidationEvent, encodeInvalidationEvent } from './eventCodec.js';
 import { EventBusRetryQueue, type EventBusRetryQueueOptions } from './retryQueue.js';
+import { EventBusHandlerQueue } from './handlerQueue.js';
 
 /**
  * Unacked messages a consumer may hold at once. The handler is acked only after
@@ -25,6 +26,9 @@ export interface RabbitMQEventBusOptions {
   persistent?: boolean;
   durableInvalidationMode?: boolean;
   prefetch?: number;
+  handlerConcurrency?: number;
+  handlerMaxSize?: number;
+  handlerMaxBytes?: number;
   routingKey?: string;
   queueName?: string;
   exclusiveQueue?: boolean;
@@ -55,13 +59,21 @@ export class RabbitMQEventBus implements EventBus {
   private reconnectAttempt = 0;
   private closed = false;
   private readonly retryQueue: EventBusRetryQueue;
+  private readonly statusListeners = new Set<(status: EventBusStatus) => void>();
+  private handlerQueue: EventBusHandlerQueue | null = null;
+  private needsReconciliation = false;
 
   constructor(
     private readonly exchange: string,
     private readonly options: RabbitMQEventBusOptions = {},
   ) {
     configureCacheLogger(options.logging);
+    const prefetch = options.prefetch ?? DEFAULT_RABBITMQ_PREFETCH;
+    if (!Number.isSafeInteger(prefetch) || prefetch < 1 || prefetch > 65_535) {
+      throw new RangeError('RabbitMQ prefetch must be a positive integer no greater than 65535');
+    }
     this.retryQueue = new EventBusRetryQueue(options.retryQueue);
+    this.handlerQueue = this.createHandlerQueue();
   }
 
   async connect(): Promise<void> {
@@ -147,6 +159,7 @@ export class RabbitMQEventBus implements EventBus {
 
     // Remembered so the consumer can be rebuilt after a connection loss.
     this.handler = handler;
+    this.handlerQueue ??= this.createHandlerQueue();
 
     if (this.consumerTag) {
       return;
@@ -172,6 +185,8 @@ export class RabbitMQEventBus implements EventBus {
         // node failover). The connection is still up, so nothing else would
         // notice that this instance stopped receiving invalidations.
         this.consumerTag = null;
+        this.handlerQueue?.discardPending();
+        this.emitStatus('disconnected');
         errorLog('rabbitmq event bus consumer cancelled by broker', {
           exchange: this.exchange,
           queue: this.queueName,
@@ -180,32 +195,29 @@ export class RabbitMQEventBus implements EventBus {
         return;
       }
 
-      const event = decodeInvalidationEvent(message.content);
-
-      if (!event) {
-        warnLog('rabbitmq event bus ignored invalid message', { exchange: this.exchange });
-        this.settle(channel, message, undefined);
-        return;
+      // Keep only the bounded owned wire snapshot and the numeric delivery tag;
+      // retaining the original message would keep its network buffer alive too.
+      const deliveryTag = message.fields.deliveryTag;
+      const accepted = this.handlerQueue?.enqueueEncoded(message.content, decodeInvalidationEvent,
+        (error) => this.settle(channel, deliveryTag, error));
+      if (!accepted) {
+        this.markDeliveryGap(new Error('RabbitMQ event handler queue overflow'));
+        this.settle(channel, deliveryTag, new Error('RabbitMQ delivery rejected'));
+        this.reconcileIfIdle();
       }
-
-      // Promise.resolve().then(...) rather than Promise.resolve(handler(event)):
-      // a handler that throws synchronously would otherwise escape into
-      // amqplib's delivery callback and take the process down. The ack happens
-      // only after the handler resolves, so a crash mid-handler leaves the
-      // message unacked and the broker redelivers it.
-      void Promise.resolve()
-        .then(() => handler(event))
-        .then(
-          () => this.settle(channel, message, undefined),
-          (error: unknown) => this.settle(channel, message, error ?? new Error('rabbitmq handler rejected')),
-        );
     });
     this.consumerTag = consumeResult.consumerTag;
+    this.emitStatus('subscribed');
     debugLog('rabbitmq event bus subscribed', { exchange: this.exchange, queue: queue.queue });
   }
 
   async disconnect(): Promise<void> {
     this.closed = true;
+    this.handlerQueue?.close();
+    this.handlerQueue = null;
+    this.needsReconciliation = false;
+    this.retryQueue.clear();
+    this.emitStatus('disconnected');
     this.handler = null;
 
     if (this.reconnectTimer) {
@@ -293,14 +305,30 @@ export class RabbitMQEventBus implements EventBus {
    */
   private watchConnection(connection: ChannelModel, channel: Channel, publishChannel: ConfirmChannel): void {
     connection.on('error', (error) => {
+      this.emitStatus('error');
       errorLog('rabbitmq event bus connection error', { exchange: this.exchange, error });
     });
 
     channel.on('error', (error) => {
+      this.emitStatus('error');
       errorLog('rabbitmq event bus channel error', { exchange: this.exchange, error });
     });
+    const onChannelClose = () => {
+      if (this.connection !== connection || this.closed) return;
+      this.connection = null;
+      this.channel = null;
+      this.publishChannel = null;
+      this.consumerTag = null;
+      this.handlerQueue?.discardPending();
+      this.emitStatus('disconnected');
+      void this.closeQuietly('close connection after channel loss', () => connection.close());
+      this.scheduleReconnect();
+    };
+    channel.on('close', onChannelClose);
+    publishChannel.on('close', onChannelClose);
 
     publishChannel.on('error', (error) => {
+      this.emitStatus('error');
       errorLog('rabbitmq event bus publish channel error', { exchange: this.exchange, error });
     });
 
@@ -313,6 +341,8 @@ export class RabbitMQEventBus implements EventBus {
       this.channel = null;
       this.publishChannel = null;
       this.consumerTag = null;
+      this.handlerQueue?.discardPending();
+      this.emitStatus('disconnected');
 
       if (this.closed) {
         return;
@@ -366,6 +396,7 @@ export class RabbitMQEventBus implements EventBus {
       this.reconnectAttempt = 0;
       infoLog('rabbitmq event bus reconnected', { exchange: this.exchange, queue: this.queueName });
     } catch (error) {
+      this.emitStatus('error');
       errorLog('rabbitmq event bus reconnect failed', { exchange: this.exchange, error });
       this.scheduleReconnect();
     }
@@ -376,8 +407,10 @@ export class RabbitMQEventBus implements EventBus {
    * channel died while the handler was running, and an unhandled rejection there
    * would take the process down for a message the broker will redeliver anyway.
    */
-  private settle(channel: Channel, message: ConsumeMessage, error: unknown): void {
+  private settle(channel: Channel, deliveryTag: number, error: unknown): void {
+    const message = { fields: { deliveryTag } } as ConsumeMessage;
     if (error !== undefined) {
+      this.emitStatus('error');
       errorLog('rabbitmq event bus handler failed', { exchange: this.exchange, error });
     }
 
@@ -395,13 +428,54 @@ export class RabbitMQEventBus implements EventBus {
     }
   }
 
+  private createHandlerQueue(): EventBusHandlerQueue {
+    return new EventBusHandlerQueue((event) => this.handler?.(event), {
+      concurrency: this.options.handlerConcurrency ?? this.options.prefetch ?? DEFAULT_RABBITMQ_PREFETCH,
+      maxSize: this.options.handlerMaxSize,
+      maxBytes: this.options.handlerMaxBytes,
+      onError: (error) => this.markDeliveryGap(error),
+      onOverflow: () => this.markDeliveryGap(new Error('RabbitMQ handler queue overflow')),
+      onIdle: () => this.reconcileIfIdle(),
+    });
+  }
+
+  private markDeliveryGap(error: unknown): void {
+    this.needsReconciliation = true;
+    this.emitStatus('error');
+    warnLog('rabbitmq invalidation delivery gap', { exchange: this.exchange, error });
+  }
+
+  private reconcileIfIdle(): void {
+    if (!this.needsReconciliation || this.closed || !this.consumerTag
+      || this.handlerQueue?.activeCount || this.handlerQueue?.pendingCount) return;
+    this.needsReconciliation = false;
+    // Subscribers conservatively clear L1 on this recovery notification.
+    this.emitStatus('subscribed');
+  }
+
+  onStatus(listener: (status: EventBusStatus) => void): () => void {
+    this.statusListeners.add(listener);
+    return () => this.statusListeners.delete(listener);
+  }
+
+  private emitStatus(status: EventBusStatus): void {
+    for (const listener of this.statusListeners) {
+      try { listener(status); } catch { /* observers cannot affect delivery */ }
+    }
+  }
+
   private async closeQuietly(step: string, close: () => Promise<unknown>): Promise<void> {
+    let timer: NodeJS.Timeout | undefined;
     try {
-      await close();
+      await Promise.race([Promise.resolve().then(close), new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('RabbitMQ teardown deadline exceeded')), 1000);
+      })]);
     } catch (error) {
       // Teardown must never throw: a broker that already dropped the connection
       // rejects every close, and one rejection would skip the remaining steps.
       warnLog('rabbitmq event bus teardown step failed', { exchange: this.exchange, step, error });
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 

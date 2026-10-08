@@ -2,8 +2,8 @@ import type { CacheKey, CacheOptions, CacheStore } from '../types/index.js';
 import type { CloudflareKVNamespace } from '../cache/cloudflareKvStore.js';
 import { matchesPattern } from '../cache/pattern.js';
 import { decodeKVRecord, encodeKVRecord } from './kvWire.js';
-import { deserializeCacheValue, serializeCacheValue } from '../utils/cacheSerializer.js';
-import { validateKVCompression, type CloudflareKVCompression } from '../utils/serializerPolicy.js';
+import { decodePortableCacheRecord, serializeCacheValue } from '../utils/cacheSerializer.js';
+import { resolveDecodeLimits, validateKVCompression, type CloudflareKVCompression, type DecodeLimits, type ResolvedDecodeLimits } from '../utils/serializerPolicy.js';
 import type { CloudflareInvalidationPublisher } from './invalidationQueue.js';
 export {
   CloudflareQueueInvalidationPublisher,
@@ -17,8 +17,8 @@ export type {
   CloudflareQueueSender,
 } from './invalidationQueue.js';
 export type { CloudflareKVNamespace } from '../cache/cloudflareKvStore.js';
-export type { CloudflareKVCompression } from '../utils/serializerPolicy.js';
-export { cacheSerializer, deserializeCacheValue, serializeCacheValue } from '../utils/cacheSerializer.js';
+export type { CloudflareKVCompression, DecodeLimits, DecodedCacheRecord } from '../utils/serializerPolicy.js';
+export { cacheSerializer, deserializeCacheValue, serializeCacheValue, decodePortableCacheRecord } from '../utils/cacheSerializer.js';
 
 const DEFAULT_TTL_MS = 60 * 60 * 1_000;
 
@@ -31,14 +31,18 @@ export interface CloudflareWorkerKVStoreOptions {
   maxPatternScanKeys?: number;
   /** Adaptive gzip for HC1 MessagePack values (default), or none. */
   compression?: CloudflareKVCompression;
+  /** Limits for internal KV decode. Default: 25 MiB wire/expanded, bounded depth and collections. */
+  decodeLimits?: DecodeLimits;
 }
 
 /** Workers-safe KV store. It reads/writes the portable HC1 formats used by Node. */
 export class CloudflareWorkerKVStore<V> implements CacheStore<CacheKey, V> {
   private readonly prefix: string;
+  private readonly decodeLimits: ResolvedDecodeLimits;
 
   constructor(private readonly namespace: CloudflareKVNamespace, private readonly options: CloudflareWorkerKVStoreOptions = {}) {
     this.prefix = options.prefix ?? 'cache:';
+    this.decodeLimits = resolveDecodeLimits(options.decodeLimits);
     if (!this.prefix) throw new RangeError('Cloudflare KV prefix cannot be empty');
     validateKVCompression(options.compression);
     const max = options.maxPatternScanKeys ?? 400;
@@ -62,9 +66,13 @@ export class CloudflareWorkerKVStore<V> implements CacheStore<CacheKey, V> {
   async getWithTtl(key: CacheKey): Promise<{ value: V; ttlRemainingMs: number } | undefined> {
     const raw = await this.namespace.get(this.key(key), 'arrayBuffer');
     if (raw === null) return undefined;
-    const entry = decodeKVRecord(raw);
+    if (raw.byteLength > this.decodeLimits.maxEncodedBytes + 12) return undefined;
+    let entry;
+    try { entry = decodeKVRecord(raw); }
+    catch { return undefined; }
     if (entry.ttlRemainingMs <= 0) return undefined;
-    return { value: await deserializeCacheValue(entry.payload) as V, ttlRemainingMs: entry.ttlRemainingMs };
+    const decoded = await decodePortableCacheRecord(entry.payload, this.decodeLimits);
+    return decoded.hit ? { value: decoded.value as V, ttlRemainingMs: entry.ttlRemainingMs } : undefined;
   }
 
   async getOrSet(key: CacheKey, loader: () => Promise<V | undefined>, options?: CacheOptions): Promise<V | undefined> {
@@ -174,11 +182,22 @@ export class CloudflareWorkerMemoryStore<V> {
 }
 
 /** Request-scoped cache facade with an optional reusable in-memory L1. */
+interface WorkerKeyRevision { revision: number; references: number }
+interface WorkerMutationGuard { name: string; state: WorkerKeyRevision; revision: number; epoch: number }
+
+/** Terminal facade closure; the separately owned KV and reusable L1 remain usable. */
+export class CloudflareWorkerCacheClosedError extends Error {
+  readonly code = 'CACHE_CLOSED';
+  constructor() { super('Cloudflare Worker cache is closed'); this.name = 'CloudflareWorkerCacheClosedError'; }
+}
+
 export class CloudflareWorkerCache<V> {
   readonly l2: CloudflareWorkerKVStore<V>;
   private readonly inflight = new Map<string, Promise<V | undefined>>();
-  private readonly generations = new Map<string, number>();
+  private readonly keyRevisions = new Map<string, WorkerKeyRevision>();
   private readonly l1TtlMs: number;
+  private closed = false;
+  private epoch = 0;
 
   constructor(namespace: CloudflareKVNamespace, private readonly options: CloudflareWorkerCacheOptions<V> = {}) {
     this.l2 = new CloudflareWorkerKVStore<V>(namespace, options);
@@ -187,71 +206,131 @@ export class CloudflareWorkerCache<V> {
   }
 
   async get(key: CacheKey): Promise<V | undefined> {
-    const local = this.options.l1?.get(this.localKey(key));
-    if (local !== undefined) return local;
-    const entry = await this.l2.getWithTtl(key);
-    if (entry) this.options.l1?.set(this.localKey(key), entry.value, Math.max(1, Math.floor(Math.min(this.l1TtlMs, entry.ttlRemainingMs))));
-    return entry?.value;
+    this.ensureOpen();
+    const guard = this.observeKey(key);
+    try {
+      const local = this.options.l1?.get(this.localKey(key));
+      if (local !== undefined) return local;
+      const startedAt = performance.now();
+      const entry = await this.l2.getWithTtl(key);
+      if (!entry) return undefined;
+      const remaining = Math.floor(Math.min(this.l1TtlMs, entry.ttlRemainingMs - (performance.now() - startedAt)));
+      if (remaining <= 0) return undefined;
+      if (this.isCurrent(guard)) this.options.l1?.set(this.localKey(key), entry.value, remaining);
+      return entry.value;
+    } finally { this.releaseKey(guard); }
   }
 
   async getOrSet(key: CacheKey, loader: () => Promise<V | undefined>, options?: CacheOptions): Promise<V | undefined> {
+    this.ensureOpen();
     const cached = await this.get(key).catch((error: unknown) => {
       this.reportError(error, 'get');
       return undefined;
     });
     if (cached !== undefined) return cached;
+    this.ensureOpen();
     const name = String(key);
     const pending = this.inflight.get(name);
     if (pending) return pending;
-    const generation = this.generations.get(name) ?? 0;
-    const promise = (async () => {
+    const guard = this.observeKey(key);
+    // Register before a custom loader can reenter or yield to a second request.
+    const promise = Promise.resolve().then(async () => {
+      if (this.closed) throw new CloudflareWorkerCacheClosedError();
       const value = await loader();
-      if (value !== undefined && (this.generations.get(name) ?? 0) === generation) {
-        try { await this.set(key, value, options); }
+      if (value !== undefined && this.isCurrent(guard)) {
+        const publicationStarted = performance.now();
+        try { await this.publishValue(key, value, options ?? {}, guard); }
         catch (error) {
           this.reportError(error, 'set');
-          this.options.l1?.set(this.localKey(key), value, this.l1TtlMs);
+          const ttlMs = options?.levels?.L2?.ttlMs ?? options?.ttlMs ?? this.options.ttlMs ?? DEFAULT_TTL_MS;
+          const remaining = Math.floor(Math.min(this.l1TtlMs, ttlMs - (performance.now() - publicationStarted)));
+          if (this.isCurrent(guard) && remaining > 0) this.options.l1?.set(this.localKey(key), value, remaining);
         }
       }
       return value;
-    })();
+    });
     this.inflight.set(name, promise);
     try { return await promise; }
-    finally { this.inflight.delete(name); }
+    finally {
+      if (this.inflight.get(name) === promise) this.inflight.delete(name);
+      this.releaseKey(guard);
+    }
   }
 
   async set(key: CacheKey, value: V, options: CacheOptions = {}): Promise<void> {
+    this.ensureOpen();
     if (value === undefined) return this.delete(key);
-    const name = String(key);
-    this.generations.set(name, (this.generations.get(name) ?? 0) + 1);
-    this.options.l1?.delete(this.localKey(key));
-    await this.l2.set(key, value, options);
-    const ttlMs = options.levels?.L2?.ttlMs ?? options.ttlMs ?? this.options.ttlMs ?? DEFAULT_TTL_MS;
-    this.options.l1?.set(this.localKey(key), value, Math.min(this.l1TtlMs, ttlMs));
+    const guard = this.observeKey(key, true);
+    try {
+      this.inflight.delete(String(key));
+      this.options.l1?.delete(this.localKey(key));
+      await this.publishValue(key, value, options, guard);
+    } finally { this.releaseKey(guard); }
   }
 
   async has(key: CacheKey): Promise<boolean> { return (await this.get(key)) !== undefined; }
   async delete(key: CacheKey): Promise<void> {
-    const name = String(key);
-    this.generations.set(name, (this.generations.get(name) ?? 0) + 1);
-    this.options.l1?.delete(this.localKey(key));
-    await this.invalidateWithQueue(() => this.l2.delete(key), () => this.options.invalidationPublisher!.publishKey(String(key)));
+    this.ensureOpen();
+    const guard = this.observeKey(key, true);
+    try {
+      this.inflight.delete(String(key));
+      this.options.l1?.delete(this.localKey(key));
+      await this.invalidateWithQueue(() => this.l2.delete(key), () => this.options.invalidationPublisher!.publishKey(String(key)));
+    } finally { this.releaseKey(guard); }
   }
   async invalidate(key: CacheKey): Promise<void> { await this.delete(key); }
   async deleteByPattern(pattern: string): Promise<void> {
-    for (const key of this.inflight.keys()) {
-      if (matchesPattern(key, pattern)) this.generations.set(key, (this.generations.get(key) ?? 0) + 1);
+    this.ensureOpen();
+    for (const [key, state] of this.keyRevisions) {
+      if (matchesPattern(key, pattern)) { state.revision += 1; this.inflight.delete(key); }
     }
     this.options.l1?.deleteByPattern(`${this.options.prefix ?? 'cache:'}${pattern}`);
     await this.invalidateWithQueue(() => this.l2.deleteByPattern(pattern), () => this.options.invalidationPublisher!.publishPattern(pattern));
   }
   async invalidateByPattern(pattern: string): Promise<void> { await this.deleteByPattern(pattern); }
   async clear(): Promise<void> { await this.deleteByPattern('*'); }
-  async size(): Promise<number> { return this.l2.size(); }
+  async size(): Promise<number> { this.ensureOpen(); return this.l2.size(); }
   async prewarm(key: CacheKey, loader: () => Promise<V | undefined>, options?: CacheOptions): Promise<V | undefined> {
     return this.getOrSet(key, loader, options);
   }
-  async close(): Promise<void> { this.inflight.clear(); }
+  async close(): Promise<void> {
+    if (this.closed) return;
+    this.closed = true; this.epoch += 1;
+    this.inflight.clear(); this.keyRevisions.clear();
+  }
+
+  private async publishValue(key: CacheKey, value: V, options: CacheOptions, guard: WorkerMutationGuard): Promise<void> {
+    if (!this.isCurrent(guard)) return;
+    const startedAt = performance.now();
+    await this.l2.set(key, value, options);
+    // A dispatched KV write cannot be conditionally cancelled. This check
+    // protects local publication, not KV's eventual shared mutation ordering.
+    if (!this.isCurrent(guard)) return;
+    const ttlMs = options.levels?.L2?.ttlMs ?? options.ttlMs ?? this.options.ttlMs ?? DEFAULT_TTL_MS;
+    const remaining = Math.floor(Math.min(this.l1TtlMs, ttlMs - (performance.now() - startedAt)));
+    if (remaining > 0) this.options.l1?.set(this.localKey(key), value, remaining);
+  }
+
+  private observeKey(key: CacheKey, mutate = false): WorkerMutationGuard {
+    const name = String(key);
+    let state = this.keyRevisions.get(name);
+    if (!state) { state = { revision: 0, references: 0 }; this.keyRevisions.set(name, state); }
+    state.references += 1;
+    if (mutate) state.revision += 1;
+    return { name, state, revision: state.revision, epoch: this.epoch };
+  }
+
+  private releaseKey(guard: WorkerMutationGuard): void {
+    guard.state.references -= 1;
+    if (guard.state.references === 0 && this.keyRevisions.get(guard.name) === guard.state) this.keyRevisions.delete(guard.name);
+  }
+
+  private isCurrent(guard: WorkerMutationGuard): boolean {
+    return !this.closed && guard.epoch === this.epoch && guard.state.revision === guard.revision
+      && this.keyRevisions.get(guard.name) === guard.state;
+  }
+
+  private ensureOpen(): void { if (this.closed) throw new CloudflareWorkerCacheClosedError(); }
 
   private localKey(key: CacheKey): string { return `${this.options.prefix ?? 'cache:'}${String(key)}`; }
   private reportError(error: unknown, operation: 'get' | 'set'): void {

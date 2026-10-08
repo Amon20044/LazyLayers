@@ -1,0 +1,2783 @@
+
+added 69 packages in 4s
+
+> lazy-layers-cache@0.6.2 typecheck
+> tsc -p tsconfig.json --noEmit
+
+
+> lazy-layers-cache@0.6.2 build
+> tsc -p tsconfig.json && node scripts/build-cjs.cjs
+
+TAP version 13
+# Subtest: RedisStore registers cached scripts and keeps data/lease keys in one slot
+ok 1 - RedisStore registers cached scripts and keeps data/lease keys in one slot
+  ---
+  duration_ms: 2.019208
+  ...
+# Subtest: v2 direct writes and deletes fence an outstanding fill lease
+ok 2 - v2 direct writes and deletes fence an outstanding fill lease
+  ---
+  duration_ms: 1.436125
+  ...
+# Subtest: RedisStore recovers a definite NOSCRIPT without replaying through another mutation
+ok 3 - RedisStore recovers a definite NOSCRIPT without replaying through another mutation
+  ---
+  duration_ms: 0.469125
+  ...
+# Subtest: real Redis keeps the replacement value when a former owner resumes
+ok 4 - real Redis keeps the replacement value when a former owner resumes
+  ---
+  duration_ms: 12.254666
+  ...
+# Subtest: HybridCache never promotes or broadcasts a fill rejected by the ownership check
+ok 5 - HybridCache never promotes or broadcasts a fill rejected by the ownership check
+  ---
+  duration_ms: 3.564875
+  ...
+# Subtest: MemoryStore.get binary fields cannot mutate retained encoded cache state
+ok 6 - MemoryStore.get binary fields cannot mutate retained encoded cache state
+  ---
+  duration_ms: 3.544
+  ...
+# Subtest: MemoryStore.inspect binary previews cannot mutate retained encoded cache state
+ok 7 - MemoryStore.inspect binary previews cannot mutate retained encoded cache state
+  ---
+  duration_ms: 0.751417
+  ...
+# Subtest: strict binary decode owns its result while legacy no-option decode keeps its behavior
+ok 8 - strict binary decode owns its result while legacy no-option decode keeps its behavior
+  ---
+  duration_ms: 0.934625
+  ...
+# Subtest: portable strict binary decode owns its result while public legacy view semantics remain
+ok 9 - portable strict binary decode owns its result while public legacy view semantics remain
+  ---
+  duration_ms: 0.323916
+  ...
+# Subtest: audit: wildcard matcher preserves literal and newline semantics over seeded cases
+ok 10 - audit: wildcard matcher preserves literal and newline semantics over seeded cases
+  ---
+  duration_ms: 20.607292
+  ...
+# Subtest: audit: adversarial wildcard matching completes within a bounded subprocess
+ok 11 - audit: adversarial wildcard matching completes within a bounded subprocess
+  ---
+  duration_ms: 13.700292
+  ...
+# Subtest: audit: invalidation metadata rejects nonfinite time and malformed typed keys
+ok 12 - audit: invalidation metadata rejects nonfinite time and malformed typed keys
+  ---
+  duration_ms: 1.6795
+  ...
+# Subtest: audit: event decode bounds key fanout before allocating invalidation operations
+ok 13 - audit: event decode bounds key fanout before allocating invalidation operations
+  ---
+  duration_ms: 4.722042
+  ...
+# Subtest: audit: NATS transport gaps flush L1 and recover trust without owning caller connection
+ok 14 - audit: NATS transport gaps flush L1 and recover trust without owning caller connection
+  ---
+  duration_ms: 5.76425
+  ...
+# Subtest: audit: RabbitMQ exposes consumer and connection loss through status observers
+ok 15 - audit: RabbitMQ exposes consumer and connection loss through status observers
+  ---
+  duration_ms: 0.41875
+  ...
+# Subtest: audit: Redis delivery overflow reconciles trust after active handlers finish
+ok 16 - audit: Redis delivery overflow reconciles trust after active handlers finish
+  ---
+  duration_ms: 1.8615
+  ...
+# Subtest: audit: RabbitMQ rejects unlimited prefetch configuration
+ok 17 - audit: RabbitMQ rejects unlimited prefetch configuration
+  ---
+  duration_ms: 0.226333
+  ...
+# Subtest: audit: RabbitMQ bounds retained deliveries by bytes and heals rejected-message gaps
+ok 18 - audit: RabbitMQ bounds retained deliveries by bytes and heals rejected-message gaps
+  ---
+  duration_ms: 0.864083
+  ...
+# Subtest: audit: RabbitMQ channel-only closure drops subscription trust
+ok 19 - audit: RabbitMQ channel-only closure drops subscription trust
+  ---
+  duration_ms: 0.289083
+  ...
+# Subtest: audit: a failed lease acquisition returns the origin result without overwriting a protected winner
+ok 20 - audit: a failed lease acquisition returns the origin result without overwriting a protected winner
+  ---
+  duration_ms: 6.857917
+  ...
+# Subtest: audit: explicitly unlocked contention fallback does not publish into protected cache state
+ok 21 - audit: explicitly unlocked contention fallback does not publish into protected cache state
+  ---
+  duration_ms: 0.792333
+  ...
+# Subtest: audit: distinct malformed UTF-16 keys retain distinct Redis wire identities
+ok 22 - audit: distinct malformed UTF-16 keys retain distinct Redis wire identities
+  ---
+  duration_ms: 0.290875
+  ...
+# Subtest: audit: Redis v2 nested prefixes cannot delete another namespace by clearing a shorter prefix
+ok 23 - audit: Redis v2 nested prefixes cannot delete another namespace by clearing a shorter prefix
+  ---
+  duration_ms: 0.591625
+  ...
+# Subtest: audit: Redis patterns use only star as wildcard and preserve literal question/bracket bytes
+ok 24 - audit: Redis patterns use only star as wildcard and preserve literal question/bracket bytes
+  ---
+  duration_ms: 0.277583
+  ...
+# Subtest: audit: legacy metadata key collisions are rejected before a Redis command is issued
+ok 25 - audit: legacy metadata key collisions are rejected before a Redis command is issued
+  ---
+  duration_ms: 0.211209
+  ...
+# Subtest: audit: scoped events reject wrong/untagged namespaces before deduplication and publish their scope
+ok 26 - audit: scoped events reject wrong/untagged namespaces before deduplication and publish their scope
+  ---
+  duration_ms: 0.713833
+  ...
+# Subtest: audit: negative keys cannot bypass a small shared memory budget and are released on close
+ok 27 - audit: negative keys cannot bypass a small shared memory budget and are released on close
+  ---
+  duration_ms: 2.442417
+  ...
+# Subtest: audit: event deduplication keys have a byte cap and release their shared reservations
+ok 28 - audit: event deduplication keys have a byte cap and release their shared reservations
+  ---
+  duration_ms: 0.96275
+  ...
+# Subtest: audit: generation-byte saturation never exposes an older v0 entry or accepts a delayed old fill
+ok 29 - audit: generation-byte saturation never exposes an older v0 entry or accepts a delayed old fill
+  ---
+  duration_ms: 1.860708
+  ...
+# Subtest: audit: a restarted peer lower-generation delete cannot leave a higher-generation cache value readable
+ok 30 - audit: a restarted peer lower-generation delete cannot leave a higher-generation cache value readable
+  ---
+  duration_ms: 0.844542
+  ...
+# Subtest: audit: default unversioned caches evict lower-generation deletes after restart including legacy numeric aliases
+ok 31 - audit: default unversioned caches evict lower-generation deletes after restart including legacy numeric aliases
+  ---
+  duration_ms: 0.710833
+  ...
+# Subtest: audit: concurrent custom reads cannot retain unlimited distinct revision-map key bytes
+ok 32 - audit: concurrent custom reads cannot retain unlimited distinct revision-map key bytes
+  ---
+  duration_ms: 5.338667
+  ...
+# Subtest: audit: a stale custom-L1 publication cannot leave an older value after a replacement write
+ok 33 - audit: a stale custom-L1 publication cannot leave an older value after a replacement write
+  ---
+  duration_ms: 0.243875
+  ...
+# Subtest: audit: built-in L1 keeps a replacement value when an older committed write resumes
+ok 34 - audit: built-in L1 keeps a replacement value when an older committed write resumes
+  ---
+  duration_ms: 0.372541
+  ...
+# Subtest: audit: corrupt Redis bytes are a miss while a legitimate null remains a cache hit
+ok 35 - audit: corrupt Redis bytes are a miss while a legitimate null remains a cache hit
+  ---
+  duration_ms: 0.656292
+  ...
+# Subtest: audit: negative maxEntries zero disables retained misses
+ok 36 - audit: negative maxEntries zero disables retained misses
+  ---
+  duration_ms: 0.271041
+  ...
+# Subtest: audit: non-finite cache metadata budgets are rejected before creating resources
+ok 37 - audit: non-finite cache metadata budgets are rejected before creating resources
+  ---
+  duration_ms: 0.1525
+  ...
+# Subtest: audit: invalid per-operation metadata budgets reject without invoking the loader
+ok 38 - audit: invalid per-operation metadata budgets reject without invoking the loader
+  ---
+  duration_ms: 0.1315
+  ...
+# Subtest: audit: tracked in-flight key bytes are finite even when callers use large distinct keys
+ok 39 - audit: tracked in-flight key bytes are finite even when callers use large distinct keys
+  ---
+  duration_ms: 3.677958
+  ...
+# Subtest: audit: queued origin keys are byte bounded and cancellation releases their ledger reservations
+ok 40 - audit: queued origin keys are byte bounded and cancellation releases their ledger reservations
+  ---
+  duration_ms: 0.620792
+  ...
+# Subtest: audit: a generation-zero restart cannot see a deleted old version when a v1 write queued concurrently
+ok 41 - audit: a generation-zero restart cannot see a deleted old version when a v1 write queued concurrently
+  ---
+  duration_ms: 0.464917
+  ...
+# Subtest: audit: subscription completion cannot restore trust after an immediate transport loss
+ok 42 - audit: subscription completion cannot restore trust after an immediate transport loss
+  ---
+  duration_ms: 0.176584
+  ...
+# Subtest: audit: custom-bus malformed typed keys cannot poison numeric L1 state
+ok 43 - audit: custom-bus malformed typed keys cannot poison numeric L1 state
+  ---
+  duration_ms: 0.293916
+  ...
+# Subtest: audit: local lease expiry survives a backward clock change during an event-loop stall
+ok 44 - audit: local lease expiry survives a backward clock change during an event-loop stall
+  ---
+  duration_ms: 22.103333
+  ...
+# Subtest: audit: read-only L2 queues charge retained key bytes and shed oversized queued work
+ok 45 - audit: read-only L2 queues charge retained key bytes and shed oversized queued work
+  ---
+  duration_ms: 0.385875
+  ...
+# Subtest: audit: corrupt encoded L1 records are removed when Hybrid reads them
+ok 46 - audit: corrupt encoded L1 records are removed when Hybrid reads them
+  ---
+  duration_ms: 0.330417
+  ...
+# Subtest: audit: dashboard previews reject compressed expansion beyond their preview budget
+ok 47 - audit: dashboard previews reject compressed expansion beyond their preview budget
+  ---
+  duration_ms: 1.74875
+  ...
+# Subtest: audit: a poisoned Redis catalogue cannot expose another namespace through inspection
+ok 48 - audit: a poisoned Redis catalogue cannot expose another namespace through inspection
+  ---
+  duration_ms: 0.1155
+  ...
+# Subtest: audit: per-write Redis entry limits and scoped namespace metadata reject malformed configuration
+ok 49 - audit: per-write Redis entry limits and scoped namespace metadata reject malformed configuration
+  ---
+  duration_ms: 0.130875
+  ...
+# Subtest: audit: one hot key has a finite follower budget and every accepted follower shares one load
+ok 50 - audit: one hot key has a finite follower budget and every accepted follower shares one load
+  ---
+  duration_ms: 0.885791
+  ...
+# Subtest: audit: loader errors fan out to accepted followers and release the entire follower budget
+ok 51 - audit: loader errors fan out to accepted followers and release the entire follower budget
+  ---
+  duration_ms: 0.57025
+  ...
+# Subtest: audit: accepted followers retain shutdown response compatibility and release B after settlement
+ok 52 - audit: accepted followers retain shutdown response compatibility and release B after settlement
+  ---
+  duration_ms: 1.114708
+  ...
+# Subtest: audit: small B rejects retained L2 keys before queuing while leaving the active call bounded
+ok 53 - audit: small B rejects retained L2 keys before queuing while leaving the active call bounded
+  ---
+  duration_ms: 1.492208
+  ...
+# Subtest: audit: timed-out L2 calls hold their retained-byte reservation until actual settlement
+ok 54 - audit: timed-out L2 calls hold their retained-byte reservation until actual settlement
+  ---
+  duration_ms: 5.697625
+  ...
+# Subtest: audit: delayed authoritative set hints cannot extend L1 past the snapshot TTL
+ok 55 - audit: delayed authoritative set hints cannot extend L1 past the snapshot TTL
+  ---
+  duration_ms: 44.91525
+  ...
+# Subtest: audit: nonencoded custom L1 promotion receives the authoritative remaining TTL for reads and peer hints
+ok 56 - audit: nonencoded custom L1 promotion receives the authoritative remaining TTL for reads and peer hints
+  ---
+  duration_ms: 0.366084
+  ...
+# Subtest: audit: Redis snapshot rejects oversized network payloads before GET and inspection uses its preview cap
+ok 57 - audit: Redis snapshot rejects oversized network payloads before GET and inspection uses its preview cap
+  ---
+  duration_ms: 0.403208
+  ...
+# Subtest: audit: distinct concurrent fills all retain their own values
+ok 58 - audit: distinct concurrent fills all retain their own values
+  ---
+  duration_ms: 6.518375
+  ...
+# Subtest: audit: invalidation fences an origin fill already inside asynchronous L1 set
+ok 59 - audit: invalidation fences an origin fill already inside asynchronous L1 set
+  ---
+  duration_ms: 0.427459
+  ...
+# Subtest: audit: close aborts an active leader and its late result cannot repopulate state
+ok 60 - audit: close aborts an active leader and its late result cannot repopulate state
+  ---
+  duration_ms: 0.376792
+  ...
+# Subtest: audit: closed caches reject subsequent reads and writes
+ok 61 - audit: closed caches reject subsequent reads and writes
+  ---
+  duration_ms: 0.389167
+  ...
+# Subtest: audit: numeric remote deletion clears numeric L1 state
+ok 62 - audit: numeric remote deletion clears numeric L1 state
+  ---
+  duration_ms: 0.576292
+  ...
+# Subtest: audit: numeric peer priming clears the matching numeric negative cache
+ok 63 - audit: numeric peer priming clears the matching numeric negative cache
+  ---
+  duration_ms: 0.694583
+  ...
+# Subtest: audit: equal-generation obsolete peer priming reconciles the authoritative L2 value
+ok 64 - audit: equal-generation obsolete peer priming reconciles the authoritative L2 value
+  ---
+  duration_ms: 0.431375
+  ...
+# Subtest: audit: a fill started before subscription readiness cannot publish across initial reconciliation
+ok 65 - audit: a fill started before subscription readiness cannot publish across initial reconciliation
+  ---
+  duration_ms: 1.815459
+  ...
+# Subtest: audit: a key filled while waiting for an origin slot skips the queued loader
+ok 66 - audit: a key filled while waiting for an origin slot skips the queued loader
+  ---
+  duration_ms: 3.136208
+  ...
+# Subtest: audit: a queued leader whose lease expired leaves the queue without invoking origin
+ok 67 - audit: a queued leader whose lease expired leaves the queue without invoking origin
+  ---
+  duration_ms: 90.869458
+  ...
+# Subtest: audit: Redis v2 pattern invalidation fences a cold key containing only a lease
+ok 68 - audit: Redis v2 pattern invalidation fences a cold key containing only a lease
+  ---
+  duration_ms: 0.685958
+  ...
+# Subtest: audit: Redis v2 clear treats prefix glob characters as literal namespace bytes
+ok 69 - audit: Redis v2 clear treats prefix glob characters as literal namespace bytes
+  ---
+  duration_ms: 0.688584
+  ...
+# Subtest: audit: Redis v2 direct delete removes admitted logical keys beginning with __
+ok 70 - audit: Redis v2 direct delete removes admitted logical keys beginning with __
+  ---
+  duration_ms: 0.246166
+  ...
+# Subtest: audit: Redis owner rejection after lease expiration protects the newer value
+ok 71 - audit: Redis owner rejection after lease expiration protects the newer value
+  ---
+  duration_ms: 0.248333
+  ...
+# Subtest: audit: delivery recovery survives an unrelated write while L1 reconciliation is pending
+ok 72 - audit: delivery recovery survives an unrelated write while L1 reconciliation is pending
+  ---
+  duration_ms: 0.923541
+  ...
+# Subtest: audit: unique absent-key invalidations have finite retained generation metadata
+ok 73 - audit: unique absent-key invalidations have finite retained generation metadata
+  ---
+  duration_ms: 52.901666
+  ...
+# Subtest: audit: closed event queue cannot resurrect deliveries or retain new events
+ok 74 - audit: closed event queue cannot resurrect deliveries or retain new events
+  ---
+  duration_ms: 1.969042
+  ...
+# Subtest: audit: an unencodable event cannot bypass byte accounting
+ok 75 - audit: an unencodable event cannot bypass byte accounting
+  ---
+  duration_ms: 6.9725
+  ...
+# Subtest: audit: event queue limits must be finite valid integers
+ok 76 - audit: event queue limits must be finite valid integers
+  ---
+  duration_ms: 0.175458
+  ...
+# Subtest: audit: discarding pending events releases bytes and preserves active accounting
+ok 77 - audit: discarding pending events releases bytes and preserves active accounting
+  ---
+  duration_ms: 0.903542
+  ...
+# Subtest: audit: retry admission counts the active publication against the byte budget
+ok 78 - audit: retry admission counts the active publication against the byte budget
+  ---
+  duration_ms: 0.83625
+  ...
+# Subtest: audit: retry clear keeps active bytes accounted until publication settles
+ok 79 - audit: retry clear keeps active bytes accounted until publication settles
+  ---
+  duration_ms: 0.203458
+  ...
+# Subtest: public portable default keeps legacy foreign records while strict reads reject them
+ok 80 - public portable default keeps legacy foreign records while strict reads reject them
+  ---
+  duration_ms: 1.762167
+  ...
+# Subtest: Node KV: corrupt and unsupported records reload, while cached null remains a hit
+ok 81 - Node KV: corrupt and unsupported records reload, while cached null remains a hit
+  ---
+  duration_ms: 0.753458
+  ...
+# Subtest: Node KV: configured expanded limits cannot turn oversized records into hits
+ok 82 - Node KV: configured expanded limits cannot turn oversized records into hits
+  ---
+  duration_ms: 9.23225
+  ...
+# Subtest: Worker KV: corrupt and unsupported records reload, while cached null remains a hit
+ok 83 - Worker KV: corrupt and unsupported records reload, while cached null remains a hit
+  ---
+  duration_ms: 0.597458
+  ...
+# Subtest: Worker KV: configured expanded limits cannot turn oversized records into hits
+ok 84 - Worker KV: configured expanded limits cannot turn oversized records into hits
+  ---
+  duration_ms: 1.617209
+  ...
+# Subtest: memory profile exits unsuccessfully for a false ledger assertion
+ok 85 - memory profile exits unsuccessfully for a false ledger assertion
+  ---
+  duration_ms: 87.899666
+  ...
+# Subtest: SSE stops replay, live and heartbeat writes at backpressure and resumes on drain
+ok 86 - SSE stops replay, live and heartbeat writes at backpressure and resumes on drain
+  ---
+  duration_ms: 2.569917
+  ...
+# Subtest: SSE has a finite client budget and releases it exactly once on close
+ok 87 - SSE has a finite client budget and releases it exactly once on close
+  ---
+  duration_ms: 0.245875
+  ...
+# Subtest: collector bounds retained oversized keys and error messages while preserving counters
+ok 88 - collector bounds retained oversized keys and error messages while preserving counters
+  ---
+  duration_ms: 2.044959
+  ...
+# Subtest: SSE bounds each frame before serializing an oversized metadata string
+ok 89 - SSE bounds each frame before serializing an oversized metadata string
+  ---
+  duration_ms: 0.301917
+  ...
+# Subtest: normal captured metadata is detached from mutable source references
+ok 90 - normal captured metadata is detached from mutable source references
+  ---
+  duration_ms: 0.446167
+  ...
+# Subtest: new stream limits reject non-finite or non-positive settings
+ok 91 - new stream limits reject non-finite or non-positive settings
+  ---
+  duration_ms: 0.949667
+  ...
+# Subtest: audit: managed KV forwards constructor expanded limits to its internal reader
+ok 92 - audit: managed KV forwards constructor expanded limits to its internal reader
+  ---
+  duration_ms: 7.665125
+  ...
+# Subtest: audit: managed namespace rejects malformed Unicode and excessive scope text before setup
+ok 93 - audit: managed namespace rejects malformed Unicode and excessive scope text before setup
+  ---
+  duration_ms: 0.353542
+  ...
+# Subtest: audit Worker: a KV read completed after deletion cannot restore L1
+ok 94 - audit Worker: a KV read completed after deletion cannot restore L1
+  ---
+  duration_ms: 2.231375
+  ...
+# Subtest: audit Worker: an older KV snapshot cannot replace a newer direct L1 set
+ok 95 - audit Worker: an older KV snapshot cannot replace a newer direct L1 set
+  ---
+  duration_ms: 0.343125
+  ...
+# Subtest: audit Worker: an in-progress KV put invalidated before completion cannot prime L1
+ok 96 - audit Worker: an in-progress KV put invalidated before completion cannot prime L1
+  ---
+  duration_ms: 0.19125
+  ...
+# Subtest: audit Worker: a delayed older put cannot replace newer local publication
+ok 97 - audit Worker: a delayed older put cannot replace newer local publication
+  ---
+  duration_ms: 0.448042
+  ...
+# Subtest: audit Worker: failed fill fallback respects a newer invalidation
+ok 98 - audit Worker: failed fill fallback respects a newer invalidation
+  ---
+  duration_ms: 0.336792
+  ...
+# Subtest: audit Worker: failed KV fallback cannot outlive an explicit short request TTL
+ok 99 - audit Worker: failed KV fallback cannot outlive an explicit short request TTL
+  ---
+  duration_ms: 34.5975
+  ...
+# Subtest: audit Worker: close suppresses an outstanding read promotion
+ok 100 - audit Worker: close suppresses an outstanding read promotion
+  ---
+  duration_ms: 0.437875
+  ...
+# Subtest: audit Worker: close suppresses a loader result before any KV write
+ok 101 - audit Worker: close suppresses a loader result before any KV write
+  ---
+  duration_ms: 0.269042
+  ...
+# Subtest: audit Worker: close prevents a pending KV put from priming L1
+ok 102 - audit Worker: close prevents a pending KV put from priming L1
+  ---
+  duration_ms: 0.353458
+  ...
+# Subtest: audit Worker: new operations on a closed facade reject without loading or writing
+ok 103 - audit Worker: new operations on a closed facade reject without loading or writing
+  ---
+  duration_ms: 0.792791
+  ...
+# Subtest: audit Worker: invalidated replacement flights survive older completion and release active revision state
+ok 104 - audit Worker: invalidated replacement flights survive older completion and release active revision state
+  ---
+  duration_ms: 1.526125
+  ...
+# Subtest: audit Worker: unique absent invalidations do not retain historical generation keys
+ok 105 - audit Worker: unique absent invalidations do not retain historical generation keys
+  ---
+  duration_ms: 0.805083
+  ...
+# Subtest: audit Worker: pattern invalidation fences a pending KV read promotion
+ok 106 - audit Worker: pattern invalidation fences a pending KV read promotion
+  ---
+  duration_ms: 0.380083
+  ...
+# Subtest: Node gzip policy and the Worker facade emit the same HC1 bytes
+ok 107 - Node gzip policy and the Worker facade emit the same HC1 bytes
+  ---
+  duration_ms: 10.096625
+  ...
+# Subtest: portable serializer keeps null, sentinel, and earlier JSON records distinct
+ok 108 - portable serializer keeps null, sentinel, and earlier JSON records distinct
+  ---
+  duration_ms: 0.235333
+  ...
+# Subtest: Worker facade misses Node-only tags and rejects an untagged payload
+ok 109 - Worker facade misses Node-only tags and rejects an untagged payload
+  ---
+  duration_ms: 0.181042
+  ...
+# Subtest: compression none and a poor gzip saving stay raw MessagePack
+ok 110 - compression none and a poor gzip saving stay raw MessagePack
+  ---
+  duration_ms: 1.181375
+  ...
+# Subtest: KV compression mode is validated by the facade
+ok 111 - KV compression mode is validated by the facade
+  ---
+  duration_ms: 0.057333
+  ...
+# Subtest: stores and retrieves values
+ok 112 - stores and retrieves values
+  ---
+  duration_ms: 3.085583
+  ...
+# Subtest: expires values after ttl
+ok 113 - expires values after ttl
+  ---
+  duration_ms: 15.322334
+  ...
+# Subtest: respects l1 max entries
+ok 114 - respects l1 max entries
+  ---
+  duration_ms: 0.569625
+  ...
+# Subtest: deduplicates concurrent lazy loads with inflight entries
+ok 115 - deduplicates concurrent lazy loads with inflight entries
+  ---
+  duration_ms: 12.085459
+  ...
+# Subtest: keeps existing inflight entries protected when inflight capacity is full
+ok 116 - keeps existing inflight entries protected when inflight capacity is full
+  ---
+  duration_ms: 0.835209
+  ...
+# Subtest: bypasses inflight tracking when maxEntries is zero
+ok 117 - bypasses inflight tracking when maxEntries is zero
+  ---
+  duration_ms: 12.068125
+  ...
+# [ERROR] l2 cache operation failed open {
+#   operation: 'set',
+#   key: 'safe',
+#   state: 'open',
+#   error: Error: l2 set failed
+#       at Object.set (file:///work/test/cache.test.js:230:13)
+#       at file:///work/dist/cache/hybridCache.js:405:29
+#       at boundedCall (file:///work/dist/cache/hybridCache.js:1052:44)
+# }
+# [ERROR] event-bus publish failed open {
+#   type: 'del',
+#   state: 'open',
+#   error: Error: publish failed
+#       at Object.publish (file:///work/test/cache.test.js:283:13)
+#       at HybridCache.publishInvalidation (file:///work/dist/cache/hybridCache.js:1005:41)
+#       at HybridCache.delete (file:///work/dist/cache/hybridCache.js:574:20)
+#       at async TestContext.<anonymous> (file:///work/test/cache.test.js:298:3)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+# }
+# Subtest: allows getOrSet to override ttl per key
+ok 118 - allows getOrSet to override ttl per key
+  ---
+  duration_ms: 18.590542
+  ...
+# Subtest: warms l1 from l2 on l1 miss
+ok 119 - warms l1 from l2 on l1 miss
+  ---
+  duration_ms: 0.742042
+  ...
+# Subtest: deletes values by wildcard pattern
+ok 120 - deletes values by wildcard pattern
+  ---
+  duration_ms: 0.737125
+  ...
+# Subtest: fails open when l2 operations fail
+ok 121 - fails open when l2 operations fail
+  ---
+  duration_ms: 1.669709
+  ...
+# Subtest: fails open when event bus publish fails
+ok 122 - fails open when event bus publish fails
+  ---
+  duration_ms: 0.589667
+  ...
+# Subtest: negative caching avoids repeated loaders for known misses
+ok 123 - negative caching avoids repeated loaders for known misses
+  ---
+  duration_ms: 0.419375
+  ...
+# [ERROR] cache loader failed {
+#   key: 'profile',
+#   error: Error: db down
+#       at file:///work/test/cache.test.js:342:11
+#       at file:///work/dist/cache/hybridCache.js:648:28
+# }
+# Subtest: fail-safe returns stale value when loader fails
+ok 124 - fail-safe returns stale value when loader fails
+  ---
+  duration_ms: 18.854333
+  ...
+# [ERROR] cache loader failed {
+#   key: 'profile',
+#   error: LoaderTimeoutError: soft-timeout
+#       at LazyLayersCache.runLoaderWithTimeouts (file:///work/dist/cache/hybridCache.js:1179:23)
+#       at async LazyLayersCache.loadAndStore (file:///work/dist/cache/hybridCache.js:656:25)
+#       at async LazyLayersCache.loadWithDistributedLock (file:///work/dist/cache/hybridCache.js:836:20)
+#       at async TestContext.<anonymous> (file:///work/test/cache.test.js:365:16)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+#     reason: 'soft-timeout'
+#   }
+# }
+# Subtest: soft timeout returns stale value
+ok 125 - soft timeout returns stale value
+  ---
+  duration_ms: 23.248208
+  ...
+# Subtest: emits observability events
+ok 126 - emits observability events
+  ---
+  duration_ms: 0.442125
+  ...
+# Subtest: distributed lock prevents cross-instance duplicate loaders
+ok 127 - distributed lock prevents cross-instance duplicate loaders
+  ---
+  duration_ms: 24.493375
+  ...
+# Subtest: versioning writes new generations after deletes
+ok 128 - versioning writes new generations after deletes
+  ---
+  duration_ms: 0.570459
+  ...
+# Subtest: dedupes invalidation events by id
+ok 129 - dedupes invalidation events by id
+  ---
+  duration_ms: 1.058833
+  ...
+# Subtest: nats jetstream mode requires a durable consumer name
+ok 130 - nats jetstream mode requires a durable consumer name
+  ---
+  duration_ms: 0.418333
+  ...
+# Subtest: nats core mode can use an injected connection
+ok 131 - nats core mode can use an injected connection
+  ---
+  duration_ms: 0.338917
+  ...
+# Subtest: nats core mode preflight connect checks the injected connection
+ok 132 - nats core mode preflight connect checks the injected connection
+  ---
+  duration_ms: 0.138416
+  ...
+# Subtest: nats jetstream health check reports missing durable name before network connection
+ok 133 - nats jetstream health check reports missing durable name before network connection
+  ---
+  duration_ms: 0.096
+  ...
+# Subtest: redis event bus health checks publisher and subscriber
+ok 134 - redis event bus health checks publisher and subscriber
+  ---
+  duration_ms: 0.165209
+  ...
+# Subtest: rabbitmq health reports missing url before initialization
+ok 135 - rabbitmq health reports missing url before initialization
+  ---
+  duration_ms: 0.170208
+  ...
+# Subtest: production logging option suppresses cache logs
+ok 136 - production logging option suppresses cache logs
+  ---
+  duration_ms: 0.209209
+  ...
+# Subtest: development logging option enables cache logs
+ok 137 - development logging option enables cache logs
+  ---
+  duration_ms: 0.1085
+  ...
+# Subtest: createCache returns a LazyLayersCache compatibility instance
+ok 138 - createCache returns a LazyLayersCache compatibility instance
+  ---
+  duration_ms: 0.054375
+  ...
+# Subtest: LazyLayersCache defaults to L1 only when L2 is not provided
+ok 139 - LazyLayersCache defaults to L1 only when L2 is not provided
+  ---
+  duration_ms: 0.218333
+  ...
+# Subtest: LazyLayersCache can explicitly disable L2 with l2 false
+ok 140 - LazyLayersCache can explicitly disable L2 with l2 false
+  ---
+  duration_ms: 0.126792
+  ...
+# Subtest: LazyLayersCache can explicitly disable L1 and use only L2
+ok 141 - LazyLayersCache can explicitly disable L1 and use only L2
+  ---
+  duration_ms: 0.339583
+  ...
+# Subtest: LazyLayersCache with both layers disabled does not retain values
+ok 142 - LazyLayersCache with both layers disabled does not retain values
+  ---
+  duration_ms: 0.13775
+  ...
+# Subtest: getOrSet broadcasts loader result so peer instances populate L1 without rerunning the loader
+ok 143 - getOrSet broadcasts loader result so peer instances populate L1 without rerunning the loader
+  ---
+  duration_ms: 2.995875
+  ...
+# Subtest: getOrSet broadcast can be disabled via broadcastSet=false
+ok 144 - getOrSet broadcast can be disabled via broadcastSet=false
+  ---
+  duration_ms: 0.520792
+  ...
+# Subtest: direct set() calls do not broadcast set events
+ok 145 - direct set() calls do not broadcast set events
+  ---
+  duration_ms: 0.269875
+  ...
+# Subtest: remote set events emit set:received and clear negative cache
+ok 146 - remote set events emit set:received and clear negative cache
+  ---
+  duration_ms: 2.888583
+  ...
+# Subtest: remote set events with older generations are ignored after a delete
+ok 147 - remote set events with older generations are ignored after a delete
+  ---
+  duration_ms: 0.402791
+  ...
+# Subtest: remote deletes advance to their generation before later remote sets are accepted
+ok 148 - remote deletes advance to their generation before later remote sets are accepted
+  ---
+  duration_ms: 0.369166
+  ...
+# Subtest: getOrSet skips set broadcasts when the encoded payload exceeds broadcastSetMaxBytes
+ok 149 - getOrSet skips set broadcasts when the encoded payload exceeds broadcastSetMaxBytes
+  ---
+  duration_ms: 1.075166
+  ...
+# Subtest: remote set events from self source are ignored
+ok 150 - remote set events from self source are ignored
+  ---
+  duration_ms: 0.25375
+  ...
+# Subtest: Cloudflare KV L2 retains the requested logical TTL below the platform minimum
+ok 151 - Cloudflare KV L2 retains the requested logical TTL below the platform minimum
+  ---
+  duration_ms: 37.310958
+  ...
+# Subtest: Cloudflare KV L2 scopes and paginates pattern deletion
+ok 152 - Cloudflare KV L2 scopes and paginates pattern deletion
+  ---
+  duration_ms: 0.449208
+  ...
+# Subtest: setupCache selects KV L2 without implicitly using REDIS_URL
+ok 153 - setupCache selects KV L2 without implicitly using REDIS_URL
+  ---
+  duration_ms: 3.800958
+  ...
+# Subtest: Cloudflare platform event parser accepts build and KV lifecycle events only
+ok 154 - Cloudflare platform event parser accepts build and KV lifecycle events only
+  ---
+  duration_ms: 0.116666
+  ...
+# Subtest: Node and Worker KV stores share the same HC1 MessagePack wire format
+ok 155 - Node and Worker KV stores share the same HC1 MessagePack wire format
+  ---
+  duration_ms: 0.631834
+  ...
+# Subtest: adaptive KV gzip saves large MessagePack values and remains readable in both runtimes
+ok 156 - adaptive KV gzip saves large MessagePack values and remains readable in both runtimes
+  ---
+  duration_ms: 7.697416
+  ...
+# Subtest: existing HC1J records and cached null stay readable across both KV stores
+ok 157 - existing HC1J records and cached null stay readable across both KV stores
+  ---
+  duration_ms: 0.470125
+  ...
+# Subtest: KV compression opt-out and small values retain interoperable MessagePack
+ok 158 - KV compression opt-out and small values retain interoperable MessagePack
+  ---
+  duration_ms: 0.251458
+  ...
+# Subtest: Worker cache deduplicates loaders and invalidates a key family
+ok 159 - Worker cache deduplicates loaders and invalidates a key family
+  ---
+  duration_ms: 7.369875
+  ...
+# Subtest: Worker L1 isolates prefixes and preserves the same value types as KV
+ok 160 - Worker L1 isolates prefixes and preserves the same value types as KV
+  ---
+  duration_ms: 0.241833
+  ...
+# Subtest: Worker pattern scan bound rejects a broad purge before deleting keys
+ok 161 - Worker pattern scan bound rejects a broad purge before deleting keys
+  ---
+  duration_ms: 0.257375
+  ...
+# Subtest: Worker and managed Node caches publish application invalidations
+ok 162 - Worker and managed Node caches publish application invalidations
+  ---
+  duration_ms: 0.596667
+  ...
+# Subtest: Queue REST sender posts a JSON invalidation with bearer auth
+ok 163 - Queue REST sender posts a JSON invalidation with bearer auth
+  ---
+  duration_ms: 10.252875
+  ...
+# Subtest: Node REST namespace sends binary KV operations with scoped bearer auth
+ok 164 - Node REST namespace sends binary KV operations with scoped bearer auth
+  ---
+  duration_ms: 1.000667
+  ...
+# Subtest: strict decode distinguishes malformed records from cached null
+ok 165 - strict decode distinguishes malformed records from cached null
+  ---
+  duration_ms: 1.372042
+  ...
+# Subtest: strict readers reject malformed UTF-8 while public legacy defaults remain compatible
+ok 166 - strict readers reject malformed UTF-8 while public legacy defaults remain compatible
+  ---
+  duration_ms: 1.486542
+  ...
+# Subtest: L1 rejects corrupt wire UTF-8 rather than returning replacement data
+ok 167 - L1 rejects corrupt wire UTF-8 rather than returning replacement data
+  ---
+  duration_ms: 1.326792
+  ...
+# Subtest: explicit exported decode limits preserve unbounded-default compatibility
+ok 168 - explicit exported decode limits preserve unbounded-default compatibility
+  ---
+  duration_ms: 0.732375
+  ...
+# Subtest: raw JSON and MessagePack honor encoded and expanded byte limits
+ok 169 - raw JSON and MessagePack honor encoded and expanded byte limits
+  ---
+  duration_ms: 0.229875
+  ...
+# Subtest: gzip output cap prevents expanded output from becoming a cache hit
+ok 170 - gzip output cap prevents expanded output from becoming a cache hit
+  ---
+  duration_ms: 0.705333
+  ...
+# Subtest: native length-prefixed codecs reject oversized advertised output
+ok 171 - native length-prefixed codecs reject oversized advertised output
+  ---
+  duration_ms: 0.146042
+  ...
+# Subtest: every installed compressed codec enforces explicit expanded output limits
+ok 172 - every installed compressed codec enforces explicit expanded output limits
+  ---
+  duration_ms: 0.653708
+  ...
+# Subtest: explicit string limits reject before allocating a UTF-8 buffer
+ok 173 - explicit string limits reject before allocating a UTF-8 buffer
+  ---
+  duration_ms: 0.360958
+  ...
+# Subtest: a tiny MessagePack header cannot allocate an advertised large array
+ok 174 - a tiny MessagePack header cannot allocate an advertised large array
+  ---
+  duration_ms: 0.152791
+  ...
+# Subtest: strict depth, per-collection and aggregate-value budgets bound parser work
+ok 175 - strict depth, per-collection and aggregate-value budgets bound parser work
+  ---
+  duration_ms: 0.511
+  ...
+# Subtest: known emitted MessagePack extensions keep their legacy round-trip values
+ok 176 - known emitted MessagePack extensions keep their legacy round-trip values
+  ---
+  duration_ms: 1.805375
+  ...
+# Subtest: foreign record/reference/bundled extensions become reloadable misses
+ok 177 - foreign record/reference/bundled extensions become reloadable misses
+  ---
+  duration_ms: 0.074791
+  ...
+# Subtest: portable raw and gzip records enforce the configured decoded cap
+ok 178 - portable raw and gzip records enforce the configured decoded cap
+  ---
+  duration_ms: 7.813709
+  ...
+# Subtest: invalid decode limits fail at configuration boundaries
+ok 179 - invalid decode limits fail at configuration boundaries
+  ---
+  duration_ms: 0.248417
+  ...
+# Subtest: L1 uses configured strict limits and cleans up rejected decoded records
+ok 180 - L1 uses configured strict limits and cleans up rejected decoded records
+  ---
+  duration_ms: 0.809667
+  ...
+# Subtest: Redis lock renewal only extends a live lock owned by the supplied token
+ok 181 - Redis lock renewal only extends a live lock owned by the supplied token
+  ---
+  duration_ms: 269.740167
+  ...
+# Subtest: real Redis expiry herd shares one load without lock configuration
+ok 182 - real Redis expiry herd shares one load without lock configuration
+  ---
+  duration_ms: 2255.864668
+  ...
+# Subtest: real Redis renews a slow loader beyond its original lease
+ok 183 - real Redis renews a slow loader beyond its original lease
+  ---
+  duration_ms: 466.468959
+  ...
+# Subtest: default getOrSet shares a refresh after expiry even when it exceeds the old two-second wait
+ok 184 - default getOrSet shares a refresh after expiry even when it exceeds the old two-second wait
+  ---
+  duration_ms: 2242.208251
+  ...
+# Subtest: expiry in L1 alone refills from L2 without invoking the loader
+ok 185 - expiry in L1 alone refills from L2 without invoking the loader
+  ---
+  duration_ms: 29.564583
+  ...
+# Subtest: slow loads renew their lease automatically and release it after completion
+ok 186 - slow loads renew their lease automatically and release it after completion
+  ---
+  duration_ms: 599.589251
+  ...
+# Subtest: contention timeout rejects without running the loader and exposes an exported error
+ok 187 - contention timeout rejects without running the loader and exposes an exported error
+  ---
+  duration_ms: 35.124208
+  ...
+# [ERROR] cache loader failed {
+#   key: 'hot',
+#   error: Error: origin failed
+#       at TestContext.<anonymous> (file:///work/test/distributed-lock.test.js:131:17)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+# }
+# Subtest: contention timeout serves eligible stale data without refreshing its expiry
+ok 188 - contention timeout serves eligible stale data without refreshing its expiry
+  ---
+  duration_ms: 50.87425
+  ...
+# Subtest: the old unlocked fallback remains an explicit per-call opt-in
+ok 189 - the old unlocked fallback remains an explicit per-call opt-in
+  ---
+  duration_ms: 2.409458
+  ...
+# Subtest: waiters retry a released lock after the original loader fails
+ok 190 - waiters retry a released lock after the original loader fails
+  ---
+  duration_ms: 59.021083
+  ...
+# [ERROR] l2 cache operation failed open {
+#   operation: 'acquireLock',
+#   key: 'hot',
+#   state: 'closed',
+#   error: Error: Redis unavailable
+#       at l2.acquireLock (file:///work/test/distributed-lock.test.js:158:40)
+#       at file:///work/dist/cache/hybridCache.js:868:83
+#       at boundedCall (file:///work/dist/cache/hybridCache.js:1052:44)
+# }
+# Subtest: waiters can take over an expired lock left by a crashed owner
+ok 191 - waiters can take over an expired lock left by a crashed owner
+  ---
+  duration_ms: 57.935125
+  ...
+# Subtest: acquisition rechecks the cache to avoid loading a result published after the original miss
+ok 192 - acquisition rechecks the cache to avoid loading a result published after the original miss
+  ---
+  duration_ms: 1.921667
+  ...
+# Subtest: initial Redis lock failure preserves fail-open behavior
+ok 193 - initial Redis lock failure preserves fail-open behavior
+  ---
+  duration_ms: 1.594833
+  ...
+# [ERROR] l2 cache operation failed open {
+#   operation: 'acquireLock',
+#   key: 'hot',
+#   state: 'closed',
+#   error: Error: Redis unavailable
+#       at l2.acquireLock (file:///work/test/distributed-lock.test.js:168:11)
+#       at file:///work/dist/cache/hybridCache.js:868:83
+#       at boundedCall (file:///work/dist/cache/hybridCache.js:1052:44)
+# }
+# [ERROR] l2 cache operation failed open {
+#   operation: 'acquireLock',
+#   key: 'hot',
+#   state: 'closed',
+#   error: Error: Redis unavailable
+#       at l2.acquireLock (file:///work/test/distributed-lock.test.js:168:11)
+#       at file:///work/dist/cache/hybridCache.js:868:83
+#       at boundedCall (file:///work/dist/cache/hybridCache.js:1052:44)
+# }
+# [ERROR] l2 cache operation failed open {
+#   operation: 'acquireLock',
+#   key: 'hot',
+#   state: 'closed',
+#   error: Error: Redis unavailable
+#       at l2.acquireLock (file:///work/test/distributed-lock.test.js:168:11)
+#       at file:///work/dist/cache/hybridCache.js:868:83
+#       at boundedCall (file:///work/dist/cache/hybridCache.js:1052:44)
+# }
+# [ERROR] l2 cache operation failed open {
+#   operation: 'acquireLock',
+#   key: 'hot',
+#   state: 'closed',
+#   error: Error: Redis unavailable
+#       at l2.acquireLock (file:///work/test/distributed-lock.test.js:168:11)
+#       at file:///work/dist/cache/hybridCache.js:868:83
+#       at boundedCall (file:///work/dist/cache/hybridCache.js:1052:44)
+# }
+# [ERROR] l2 cache operation failed open {
+#   operation: 'acquireLock',
+#   key: 'hot',
+#   state: 'closed',
+#   error: Error: Redis unavailable
+#       at l2.acquireLock (file:///work/test/distributed-lock.test.js:168:11)
+#       at file:///work/dist/cache/hybridCache.js:868:83
+#       at boundedCall (file:///work/dist/cache/hybridCache.js:1052:44)
+# }
+# Subtest: Redis errors after observed contention do not bypass the known owner
+ok 194 - Redis errors after observed contention do not bypass the known owner
+  ---
+  duration_ms: 30.968208
+  ...
+# [ERROR] cache loader failed {
+#   key: 'hot',
+#   error: DistributedLockLostError: Lost the distributed cache lock for hot
+#       at lose (file:///work/dist/cache/distributedLock.js:44:17)
+#       at Timeout.<anonymous> (file:///work/dist/cache/distributedLock.js:70:21) {
+#     key: 'hot',
+#     code: 'DISTRIBUTED_LOCK_LOST'
+#   }
+# }
+# Subtest: lost ownership aborts the loader and prevents a late result from overwriting the new owner
+ok 195 - lost ownership aborts the loader and prevents a late result from overwriting the new owner
+  ---
+  duration_ms: 40.537167
+  ...
+# [ERROR] cache loader failed {
+#   key: 'hot',
+#   error: DistributedLockLostError: Lost the distributed cache lock for hot
+#       at Timeout.lose (file:///work/dist/cache/distributedLock.js:44:17)
+#       at listOnTimeout (node:internal/timers:581:17)
+#       at process.processTimers (node:internal/timers:519:7) {
+#     key: 'hot',
+#     code: 'DISTRIBUTED_LOCK_LOST'
+#   }
+# }
+# Subtest: a hung renewal is bounded by the current lease deadline
+ok 196 - a hung renewal is bounded by the current lease deadline
+  ---
+  duration_ms: 61.501208
+  ...
+# [ERROR] cache loader failed {
+#   key: 'hot',
+#   error: DistributedLockLostError: Lost the distributed cache lock for hot
+#       at Timeout.lose (file:///work/dist/cache/distributedLock.js:44:17)
+#       at listOnTimeout (node:internal/timers:581:17)
+#       at process.processTimers (node:internal/timers:519:7) {
+#     key: 'hot',
+#     code: 'DISTRIBUTED_LOCK_LOST'
+#   }
+# }
+# Subtest: custom stores without renewal remain compatible but cannot publish after their lease expires
+ok 197 - custom stores without renewal remain compatible but cannot publish after their lease expires
+  ---
+  duration_ms: 110.860667
+  ...
+# Subtest: invalid lock timings reject rather than creating an unbounded wait
+ok 198 - invalid lock timings reject rather than creating an unbounded wait
+  ---
+  duration_ms: 0.631875
+  ...
+# [ERROR] l2 cache operation failed open {
+#   operation: 'renewLock',
+#   key: 'hot',
+#   state: 'closed',
+#   error: L2OperationTimeoutError: L2 operation timed out after 2000ms: renewLock
+#       at Timeout._onTimeout (file:///work/dist/cache/l2OperationGate.js:75:115)
+#       at listOnTimeout (node:internal/timers:581:17)
+#       at process.processTimers (node:internal/timers:519:7) {
+#     operation: 'renewLock',
+#     timeoutMs: 2000,
+#     code: 'L2_OPERATION_TIMEOUT'
+#   }
+# }
+# Subtest: local default dedupe survives the former five-second entry lifetime
+ok 199 - local default dedupe survives the former five-second entry lifetime
+  ---
+  duration_ms: 5101.990711
+  ...
+# Subtest: an older completion does not remove a replacement in-flight entry
+ok 200 - an older completion does not remove a replacement in-flight entry
+  ---
+  duration_ms: 11.219333
+  ...
+# Subtest: Live managed setup: production Redis path is ready and closes cleanly
+ok 201 - Live managed setup: production Redis path is ready and closes cleanly
+  ---
+  duration_ms: 20.931291
+  ...
+# Subtest: Live Redis E2E: Real RedisStore & RedisEventBus cross-instance coherence
+ok 202 - Live Redis E2E: Real RedisStore & RedisEventBus cross-instance coherence
+  ---
+  duration_ms: 471.31575
+  ...
+# Subtest: Live Redis E2E: Distributed Lock stampede collapse across independent instances
+ok 203 - Live Redis E2E: Distributed Lock stampede collapse across independent instances
+  ---
+  duration_ms: 126.819834
+  ...
+# Subtest: Live RabbitMQ E2E: Durable fanout and cross-instance invalidation
+ok 204 - Live RabbitMQ E2E: Durable fanout and cross-instance invalidation
+  ---
+  duration_ms: 385.415042
+  ...
+# Subtest: Live NATS E2E: Core fanout and JetStream stream broadcast
+ok 205 - Live NATS E2E: Core fanout and JetStream stream broadcast
+  ---
+  duration_ms: 647.614959
+  ...
+# [lazy-layers-cache] Observability dashboard enabled (mounted handler). It exposes cache contents + live activity and is intended for development/staging. Secure it (token / localhost bind) and avoid leaving it on in production. Set observability.quiet=true (or LAZY_OBS_QUIET=1) to silence this notice.
+# [lazy-layers-cache] Observability dashboard enabled (mounted handler). It exposes cache contents + live activity and is intended for development/staging. Secure it (token / localhost bind) and avoid leaving it on in production. Set observability.quiet=true (or LAZY_OBS_QUIET=1) to silence this notice.
+# [lazy-layers-cache] Observability dashboard enabled (mounted handler). It exposes cache contents + live activity and is intended for development/staging. Secure it (token / localhost bind) and avoid leaving it on in production. Set observability.quiet=true (or LAZY_OBS_QUIET=1) to silence this notice.
+# [lazy-layers-cache] Observability dashboard enabled (mounted handler). It exposes cache contents + live activity and is intended for development/staging. Secure it (token / localhost bind) and avoid leaving it on in production. Set observability.quiet=true (or LAZY_OBS_QUIET=1) to silence this notice.
+# [lazy-layers-cache] Observability dashboard enabled (mounted handler). It exposes cache contents + live activity and is intended for development/staging. Secure it (token / localhost bind) and avoid leaving it on in production. Set observability.quiet=true (or LAZY_OBS_QUIET=1) to silence this notice.
+# Subtest: Live Cluster Monitoring: 5-Node Redis Cluster with Live Observability & Prometheus Monitoring
+ok 206 - Live Cluster Monitoring: 5-Node Redis Cluster with Live Observability & Prometheus Monitoring
+  ---
+  duration_ms: 631.199125
+  ...
+# Subtest: Live Cluster Fanout: 5-Node RabbitMQ & NATS cross-instance invalidation
+ok 207 - Live Cluster Fanout: 5-Node RabbitMQ & NATS cross-instance invalidation
+  ---
+  duration_ms: 2028.064459
+  ...
+# Subtest: E2E: 5-Node Cluster concurrent stampede & automatic L1 priming
+ok 208 - E2E: 5-Node Cluster concurrent stampede & automatic L1 priming
+  ---
+  duration_ms: 60.690167
+  ...
+# Subtest: E2E: Per-key generation counters reject out-of-order stale sets
+ok 209 - E2E: Per-key generation counters reject out-of-order stale sets
+  ---
+  duration_ms: 32.429625
+  ...
+# [ERROR] l2 cache operation failed open {
+#   operation: 'get',
+#   key: 'status:1',
+#   state: 'closed',
+#   error: Error: Redis connection lost ECONNREFUSED
+#       at TestContext.<anonymous> (file:///work/test/e2e.test.js:445:26)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+# }
+# [ERROR] l2 cache operation failed open {
+#   operation: 'get',
+#   key: 'status:2',
+#   state: 'closed',
+#   error: Error: Redis timeout ETIMEDOUT
+#       at TestContext.<anonymous> (file:///work/test/e2e.test.js:449:26)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+# }
+# [ERROR] l2 cache operation failed open {
+#   operation: 'get',
+#   key: 'status:3',
+#   state: 'closed',
+#   error: Error: Redis down
+#       at TestContext.<anonymous> (file:///work/test/e2e.test.js:453:26)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+# }
+# Subtest: E2E: Wildcard pattern invalidation clears matching keys across all nodes
+ok 210 - E2E: Wildcard pattern invalidation clears matching keys across all nodes
+  ---
+  duration_ms: 43.777625
+  ...
+# Subtest: E2E: Circuit breaker trips on Redis failure, failing open without throwing
+ok 211 - E2E: Circuit breaker trips on Redis failure, failing open without throwing
+  ---
+  duration_ms: 63.015916
+  ...
+# [ERROR] cache loader failed {
+#   key: 'config:api',
+#   error: LoaderTimeoutError: hard-timeout
+#       at LazyLayersCache.runLoaderWithTimeouts (file:///work/dist/cache/hybridCache.js:1188:23)
+#       at async LazyLayersCache.loadAndStore (file:///work/dist/cache/hybridCache.js:656:25)
+#       at async LazyLayersCache.loadWithDistributedLock (file:///work/dist/cache/hybridCache.js:836:20)
+#       at async TestContext.<anonymous> (file:///work/test/e2e.test.js:510:18)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+#     reason: 'hard-timeout'
+#   }
+# }
+# [lazy-layers-cache] Observability dashboard enabled (mounted handler). It exposes cache contents + live activity and is intended for development/staging. Secure it (token / localhost bind) and avoid leaving it on in production. Set observability.quiet=true (or LAZY_OBS_QUIET=1) to silence this notice.
+# Subtest: E2E: Stale fallback serves previous L1 value when loader times out
+ok 212 - E2E: Stale fallback serves previous L1 value when loader times out
+  ---
+  duration_ms: 113.068834
+  ...
+# Subtest: E2E: Observability handler serves UI, JSON APIs, and Prometheus metrics
+ok 213 - E2E: Observability handler serves UI, JSON APIs, and Prometheus metrics
+  ---
+  duration_ms: 1.655209
+  ...
+# Subtest: E2E: Serializer size-tiering and 100% roundtrip fidelity across types
+ok 214 - E2E: Serializer size-tiering and 100% roundtrip fidelity across types
+  ---
+  duration_ms: 3.379875
+  ...
+# Subtest: MemoryStore round-trips string
+ok 215 - MemoryStore round-trips string
+  ---
+  duration_ms: 1.737875
+  ...
+# Subtest: MemoryStore round-trips empty string
+ok 216 - MemoryStore round-trips empty string
+  ---
+  duration_ms: 0.14525
+  ...
+# Subtest: MemoryStore round-trips number
+ok 217 - MemoryStore round-trips number
+  ---
+  duration_ms: 0.120083
+  ...
+# Subtest: MemoryStore round-trips zero
+ok 218 - MemoryStore round-trips zero
+  ---
+  duration_ms: 0.144167
+  ...
+# Subtest: MemoryStore round-trips false
+ok 219 - MemoryStore round-trips false
+  ---
+  duration_ms: 0.105459
+  ...
+# Subtest: MemoryStore round-trips null
+ok 220 - MemoryStore round-trips null
+  ---
+  duration_ms: 0.073042
+  ...
+# Subtest: MemoryStore round-trips object
+ok 221 - MemoryStore round-trips object
+  ---
+  duration_ms: 0.313291
+  ...
+# Subtest: MemoryStore round-trips array
+ok 222 - MemoryStore round-trips array
+  ---
+  duration_ms: 0.202
+  ...
+# Subtest: MemoryStore round-trips date string
+ok 223 - MemoryStore round-trips date string
+  ---
+  duration_ms: 0.241458
+  ...
+# Subtest: MemoryStore round-trips large payload
+ok 224 - MemoryStore round-trips large payload
+  ---
+  duration_ms: 0.386083
+  ...
+# Subtest: MemoryStore deleteByPattern handles *
+ok 225 - MemoryStore deleteByPattern handles *
+  ---
+  duration_ms: 0.413375
+  ...
+# Subtest: MemoryStore deleteByPattern handles user:*
+ok 226 - MemoryStore deleteByPattern handles user:*
+  ---
+  duration_ms: 0.240084
+  ...
+# Subtest: MemoryStore deleteByPattern handles *:1
+ok 227 - MemoryStore deleteByPattern handles *:1
+  ---
+  duration_ms: 0.191625
+  ...
+# Subtest: MemoryStore deleteByPattern handles user:?
+ok 228 - MemoryStore deleteByPattern handles user:?
+  ---
+  duration_ms: 0.198375
+  ...
+# Subtest: MemoryStore deleteByPattern handles literal.+
+ok 229 - MemoryStore deleteByPattern handles literal.+
+  ---
+  duration_ms: 0.132667
+  ...
+# Subtest: MemoryStore deleteByPattern handles prefix*suffix
+ok 230 - MemoryStore deleteByPattern handles prefix*suffix
+  ---
+  duration_ms: 0.243417
+  ...
+# Subtest: MemoryStore deleteByPattern handles no-match:*
+ok 231 - MemoryStore deleteByPattern handles no-match:*
+  ---
+  duration_ms: 0.229584
+  ...
+# Subtest: MemoryStore deleteByPattern handles order:*
+ok 232 - MemoryStore deleteByPattern handles order:*
+  ---
+  duration_ms: 0.207542
+  ...
+# Subtest: MemoryStore keeps newest 1 entries
+ok 233 - MemoryStore keeps newest 1 entries
+  ---
+  duration_ms: 0.236542
+  ...
+# Subtest: MemoryStore keeps newest 2 entries
+ok 234 - MemoryStore keeps newest 2 entries
+  ---
+  duration_ms: 0.119291
+  ...
+# Subtest: MemoryStore keeps newest 3 entries
+ok 235 - MemoryStore keeps newest 3 entries
+  ---
+  duration_ms: 0.206875
+  ...
+# Subtest: MemoryStore keeps newest 5 entries
+ok 236 - MemoryStore keeps newest 5 entries
+  ---
+  duration_ms: 0.126833
+  ...
+# Subtest: MemoryStore per-call ttl overrides constructor ttl
+ok 237 - MemoryStore per-call ttl overrides constructor ttl
+  ---
+  duration_ms: 15.228958
+  ...
+# Subtest: MemoryStore level ttl overrides constructor ttl
+ok 238 - MemoryStore level ttl overrides constructor ttl
+  ---
+  duration_ms: 14.552208
+  ...
+# Subtest: MemoryStore default ttl keeps fresh values
+ok 239 - MemoryStore default ttl keeps fresh values
+  ---
+  duration_ms: 0.218625
+  ...
+# Subtest: MemoryStore delete only removes one key
+ok 240 - MemoryStore delete only removes one key
+  ---
+  duration_ms: 0.200792
+  ...
+# Subtest: MemoryStore clear removes all keys
+ok 241 - MemoryStore clear removes all keys
+  ---
+  duration_ms: 0.084583
+  ...
+# Subtest: MemoryStore getOrSet does not store undefined
+ok 242 - MemoryStore getOrSet does not store undefined
+  ---
+  duration_ms: 0.074833
+  ...
+# Subtest: MemoryStore getOrSet reuses cached value
+ok 243 - MemoryStore getOrSet reuses cached value
+  ---
+  duration_ms: 0.105334
+  ...
+# Subtest: LazyLayersCache layer mode emits levels for default L1
+ok 244 - LazyLayersCache layer mode emits levels for default L1
+  ---
+  duration_ms: 0.81925
+  ...
+# Subtest: LazyLayersCache layer mode emits levels for explicit L2 off
+ok 245 - LazyLayersCache layer mode emits levels for explicit L2 off
+  ---
+  duration_ms: 0.133375
+  ...
+# Subtest: LazyLayersCache layer mode emits levels for L2 only
+ok 246 - LazyLayersCache layer mode emits levels for L2 only
+  ---
+  duration_ms: 0.339958
+  ...
+# Subtest: LazyLayersCache layer mode emits levels for L1 plus L2
+ok 247 - LazyLayersCache layer mode emits levels for L1 plus L2
+  ---
+  duration_ms: 0.212791
+  ...
+# Subtest: LazyLayersCache layer mode emits levels for no layers
+ok 248 - LazyLayersCache layer mode emits levels for no layers
+  ---
+  duration_ms: 0.092334
+  ...
+# Subtest: HybridCache promotes L2 hit into L1
+ok 249 - HybridCache promotes L2 hit into L1
+  ---
+  duration_ms: 1.130334
+  ...
+# Subtest: HybridCache with L1 disabled does not promote L2 hits
+ok 250 - HybridCache with L1 disabled does not promote L2 hits
+  ---
+  duration_ms: 0.308458
+  ...
+# Subtest: HybridCache has checks L2 when L1 misses
+ok 251 - HybridCache has checks L2 when L1 misses
+  ---
+  duration_ms: 0.123
+  ...
+# Subtest: HybridCache delete removes L1 and L2
+ok 252 - HybridCache delete removes L1 and L2
+  ---
+  duration_ms: 0.446375
+  ...
+# Subtest: HybridCache clear removes matching data from both layers
+ok 253 - HybridCache clear removes matching data from both layers
+  ---
+  duration_ms: 0.37375
+  ...
+# Subtest: HybridCache deleteByPattern keeps unrelated keys
+ok 254 - HybridCache deleteByPattern keeps unrelated keys
+  ---
+  duration_ms: 1.735458
+  ...
+# Subtest: HybridCache per-call ttl applies to getOrSet writes
+ok 255 - HybridCache per-call ttl applies to getOrSet writes
+  ---
+  duration_ms: 15.899334
+  ...
+# Subtest: HybridCache inflight disabled runs concurrent loaders
+ok 256 - HybridCache inflight disabled runs concurrent loaders
+  ---
+  duration_ms: 5.859042
+  ...
+# Subtest: HybridCache expired inflight starts a new loader
+ok 257 - HybridCache expired inflight starts a new loader
+  ---
+  duration_ms: 5.026334
+  ...
+# Subtest: HybridCache negative cache can be disabled per instance
+ok 258 - HybridCache negative cache can be disabled per instance
+  ---
+  duration_ms: 0.432792
+  ...
+# [ERROR] cache loader failed {
+#   key: 'error',
+#   error: Error: loader failed
+#       at file:///work/test/edge-cases.test.js:671:13
+#       at file:///work/dist/cache/hybridCache.js:648:28
+# }
+# Subtest: HybridCache negative cache expires
+ok 259 - HybridCache negative cache expires
+  ---
+  duration_ms: 16.057
+  ...
+# Subtest: HybridCache negative cache maxEntries evicts oldest miss
+ok 260 - HybridCache negative cache maxEntries evicts oldest miss
+  ---
+  duration_ms: 0.473667
+  ...
+# Subtest: HybridCache delete clears negative cache for key
+ok 261 - HybridCache delete clears negative cache for key
+  ---
+  duration_ms: 0.267458
+  ...
+# Subtest: HybridCache deleteByPattern clears matching negative entries
+ok 262 - HybridCache deleteByPattern clears matching negative entries
+  ---
+  duration_ms: 0.23325
+  ...
+# Subtest: HybridCache loader error throws without failSafe
+ok 263 - HybridCache loader error throws without failSafe
+  ---
+  duration_ms: 1.144333
+  ...
+# [ERROR] cache loader failed {
+#   key: 'profile',
+#   error: Error: db down
+#       at file:///work/test/edge-cases.test.js:689:13
+#       at file:///work/dist/cache/hybridCache.js:648:28
+# }
+# Subtest: HybridCache stale entry expires after failSafe ttl
+ok 264 - HybridCache stale entry expires after failSafe ttl
+  ---
+  duration_ms: 23.5855
+  ...
+# [ERROR] cache loader failed {
+#   key: 'slow',
+#   error: LoaderTimeoutError: hard-timeout
+#       at HybridCache.runLoaderWithTimeouts (file:///work/dist/cache/hybridCache.js:1188:23)
+#       at async HybridCache.loadAndStore (file:///work/dist/cache/hybridCache.js:656:25)
+#       at async HybridCache.loadWithDistributedLock (file:///work/dist/cache/hybridCache.js:836:20)
+#       at async waitForActual (node:assert:533:5)
+#       at async Function.rejects (node:assert:654:25)
+#       at async TestContext.<anonymous> (file:///work/test/edge-cases.test.js:698:3)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+#     reason: 'hard-timeout'
+#   }
+# }
+# Subtest: HybridCache hard timeout rejects without stale
+ok 265 - HybridCache hard timeout rejects without stale
+  ---
+  duration_ms: 7.025084
+  ...
+# [ERROR] cache loader failed {
+#   key: 'slow',
+#   error: LoaderTimeoutError: hard-timeout
+#       at HybridCache.runLoaderWithTimeouts (file:///work/dist/cache/hybridCache.js:1188:23)
+#       at async HybridCache.loadAndStore (file:///work/dist/cache/hybridCache.js:656:25)
+#       at async HybridCache.loadWithDistributedLock (file:///work/dist/cache/hybridCache.js:836:20)
+#       at async TestContext.<anonymous> (file:///work/test/edge-cases.test.js:718:16)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+#     reason: 'hard-timeout'
+#   }
+# }
+# Subtest: HybridCache hard timeout returns stale when failSafe has stale
+ok 266 - HybridCache hard timeout returns stale when failSafe has stale
+  ---
+  duration_ms: 21.464167
+  ...
+# [ERROR] cache loader failed {
+#   key: 'signal',
+#   error: LoaderTimeoutError: hard-timeout
+#       at HybridCache.runLoaderWithTimeouts (file:///work/dist/cache/hybridCache.js:1188:23)
+#       at async HybridCache.loadAndStore (file:///work/dist/cache/hybridCache.js:656:25)
+#       at async HybridCache.loadWithDistributedLock (file:///work/dist/cache/hybridCache.js:836:20)
+#       at async waitForActual (node:assert:533:5)
+#       at async Function.rejects (node:assert:654:25)
+#       at async TestContext.<anonymous> (file:///work/test/edge-cases.test.js:728:3)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+#     reason: 'hard-timeout'
+#   }
+# }
+# [ERROR] cache event handler failed {
+#   event: 'set',
+#   error: Error: metrics down
+#       at HybridCache.events (file:///work/test/edge-cases.test.js:745:15)
+#       at HybridCache.emit (file:///work/dist/cache/hybridCache.js:1559:17)
+#       at HybridCache.writeValue (file:///work/dist/cache/hybridCache.js:413:14)
+#       at async HybridCache.set (file:///work/dist/cache/hybridCache.js:351:13)
+#       at async TestContext.<anonymous> (file:///work/test/edge-cases.test.js:750:3)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+# }
+# [ERROR] cache event handler failed {
+#   event: 'hit',
+#   error: Error: metrics down
+#       at HybridCache.events (file:///work/test/edge-cases.test.js:745:15)
+#       at HybridCache.emit (file:///work/dist/cache/hybridCache.js:1559:17)
+#       at HybridCache.readValue (file:///work/dist/cache/hybridCache.js:458:22)
+#       at async HybridCache.get (file:///work/dist/cache/hybridCache.js:423:20)
+#       at async TestContext.<anonymous> (file:///work/test/edge-cases.test.js:752:16)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+# }
+# Subtest: HybridCache loader receives abort signal
+ok 267 - HybridCache loader receives abort signal
+  ---
+  duration_ms: 5.15125
+  ...
+# Subtest: HybridCache event handler errors do not break operations
+ok 268 - HybridCache event handler errors do not break operations
+  ---
+  duration_ms: 0.79525
+  ...
+# Subtest: HybridCache ignores invalidation events from same source
+ok 269 - HybridCache ignores invalidation events from same source
+  ---
+  duration_ms: 1.095708
+  ...
+# Subtest: HybridCache applies remote delete invalidation
+ok 270 - HybridCache applies remote delete invalidation
+  ---
+  duration_ms: 1.704708
+  ...
+# Subtest: HybridCache applies remote pattern invalidation
+ok 271 - HybridCache applies remote pattern invalidation
+  ---
+  duration_ms: 1.577
+  ...
+# [ERROR] event-bus publish failed open {
+#   type: 'del',
+#   state: 'open',
+#   error: Error: bus down
+#       at Object.publish (file:///work/test/edge-cases.test.js:860:13)
+#       at HybridCache.publishInvalidation (file:///work/dist/cache/hybridCache.js:1005:41)
+#       at HybridCache.delete (file:///work/dist/cache/hybridCache.js:574:20)
+#       at async TestContext.<anonymous> (file:///work/test/edge-cases.test.js:871:3)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+# }
+# [ERROR] l2 cache operation failed open {
+#   operation: 'set',
+#   key: 'a',
+#   state: 'open',
+#   error: Error: l2 down
+#       at Object.set (file:///work/test/edge-cases.test.js:882:13)
+#       at file:///work/dist/cache/hybridCache.js:405:29
+#       at boundedCall (file:///work/dist/cache/hybridCache.js:1052:44)
+# }
+# Subtest: HybridCache can skip event subscription
+ok 272 - HybridCache can skip event subscription
+  ---
+  duration_ms: 1.508959
+  ...
+# Subtest: HybridCache publishes delete invalidations
+ok 273 - HybridCache publishes delete invalidations
+  ---
+  duration_ms: 0.21525
+  ...
+# Subtest: HybridCache publishes pattern invalidations
+ok 274 - HybridCache publishes pattern invalidations
+  ---
+  duration_ms: 0.158459
+  ...
+# Subtest: HybridCache event bus publish circuit opens after failure
+ok 275 - HybridCache event bus publish circuit opens after failure
+  ---
+  duration_ms: 0.343833
+  ...
+# Subtest: HybridCache L2 circuit emits skipped after opening
+ok 276 - HybridCache L2 circuit emits skipped after opening
+  ---
+  duration_ms: 0.652333
+  ...
+# Subtest: HybridCache versioning leaves old L2 generation unread
+ok 277 - HybridCache versioning leaves old L2 generation unread
+  ---
+  duration_ms: 0.381458
+  ...
+# Subtest: HybridCache clear bumps generation through pattern delete
+ok 278 - HybridCache clear bumps generation through pattern delete
+  ---
+  duration_ms: 0.314583
+  ...
+# Subtest: createCache accepts default generics and stores mixed values at runtime
+ok 279 - createCache accepts default generics and stores mixed values at runtime
+  ---
+  duration_ms: 0.216083
+  ...
+# Subtest: RedisStore round-trips string
+ok 280 - RedisStore round-trips string
+  ---
+  duration_ms: 0.472667
+  ...
+# Subtest: RedisStore round-trips empty string
+ok 281 - RedisStore round-trips empty string
+  ---
+  duration_ms: 0.062917
+  ...
+# Subtest: RedisStore round-trips number
+ok 282 - RedisStore round-trips number
+  ---
+  duration_ms: 0.049708
+  ...
+# Subtest: RedisStore round-trips zero
+ok 283 - RedisStore round-trips zero
+  ---
+  duration_ms: 0.046334
+  ...
+# Subtest: RedisStore round-trips false
+ok 284 - RedisStore round-trips false
+  ---
+  duration_ms: 0.048708
+  ...
+# Subtest: RedisStore round-trips null
+ok 285 - RedisStore round-trips null
+  ---
+  duration_ms: 0.045375
+  ...
+# Subtest: RedisStore round-trips object
+ok 286 - RedisStore round-trips object
+  ---
+  duration_ms: 0.061958
+  ...
+# Subtest: RedisStore round-trips array
+ok 287 - RedisStore round-trips array
+  ---
+  duration_ms: 0.11275
+  ...
+# Subtest: RedisStore round-trips date string
+ok 288 - RedisStore round-trips date string
+  ---
+  duration_ms: 0.095916
+  ...
+# Subtest: RedisStore round-trips large payload
+ok 289 - RedisStore round-trips large payload
+  ---
+  duration_ms: 0.254167
+  ...
+# Subtest: RedisStore returns undefined for missing key and removes stale index member
+ok 290 - RedisStore returns undefined for missing key and removes stale index member
+  ---
+  duration_ms: 0.085042
+  ...
+# Subtest: RedisStore per-call ttl overrides constructor ttl
+ok 291 - RedisStore per-call ttl overrides constructor ttl
+  ---
+  duration_ms: 15.258041
+  ...
+# Subtest: RedisStore defaults to native TTL accounting without a namespace index
+ok 292 - RedisStore defaults to native TTL accounting without a namespace index
+  ---
+  duration_ms: 0.345292
+  ...
+# Subtest: RedisStore L2 level ttl overrides global ttl
+ok 293 - RedisStore L2 level ttl overrides global ttl
+  ---
+  duration_ms: 17.203375
+  ...
+# Subtest: RedisStore has uses prefixed key
+ok 294 - RedisStore has uses prefixed key
+  ---
+  duration_ms: 0.163125
+  ...
+# Subtest: RedisStore getOrSet stores loader result
+ok 295 - RedisStore getOrSet stores loader result
+  ---
+  duration_ms: 0.5105
+  ...
+# Subtest: RedisStore getOrSet does not store undefined
+ok 296 - RedisStore getOrSet does not store undefined
+  ---
+  duration_ms: 0.127334
+  ...
+# Subtest: RedisStore indexed deleteByPattern handles user:*
+ok 297 - RedisStore indexed deleteByPattern handles user:*
+  ---
+  duration_ms: 0.511542
+  ...
+# Subtest: RedisStore indexed deleteByPattern handles *:1
+ok 298 - RedisStore indexed deleteByPattern handles *:1
+  ---
+  duration_ms: 0.15375
+  ...
+# Subtest: RedisStore indexed deleteByPattern handles literal.+
+ok 299 - RedisStore indexed deleteByPattern handles literal.+
+  ---
+  duration_ms: 0.109083
+  ...
+# Subtest: RedisStore indexed deleteByPattern handles prefix*suffix
+ok 300 - RedisStore indexed deleteByPattern handles prefix*suffix
+  ---
+  duration_ms: 0.110667
+  ...
+# Subtest: RedisStore indexed deleteByPattern handles *
+ok 301 - RedisStore indexed deleteByPattern handles *
+  ---
+  duration_ms: 0.165833
+  ...
+# Subtest: RedisStore scan deleteByPattern handles user:* without index
+ok 302 - RedisStore scan deleteByPattern handles user:* without index
+  ---
+  duration_ms: 0.12175
+  ...
+# Subtest: RedisStore scan deleteByPattern handles *:1 without index
+ok 303 - RedisStore scan deleteByPattern handles *:1 without index
+  ---
+  duration_ms: 0.070084
+  ...
+# Subtest: RedisStore scan deleteByPattern handles literal.+ without index
+ok 304 - RedisStore scan deleteByPattern handles literal.+ without index
+  ---
+  duration_ms: 0.056875
+  ...
+# Subtest: RedisStore maxEntries trims oldest indexed values
+ok 305 - RedisStore maxEntries trims oldest indexed values
+  ---
+  duration_ms: 3.521583
+  ...
+# Subtest: RedisStore index trim rechecks a candidate before deleting a refreshed value
+ok 306 - RedisStore index trim rechecks a candidate before deleting a refreshed value
+  ---
+  duration_ms: 1.475709
+  ...
+# Subtest: RedisStore deleteStrategy del uses DEL path
+ok 307 - RedisStore deleteStrategy del uses DEL path
+  ---
+  duration_ms: 0.088709
+  ...
+# Subtest: RedisStore default deleteStrategy uses UNLINK path
+ok 308 - RedisStore default deleteStrategy uses UNLINK path
+  ---
+  duration_ms: 0.048417
+  ...
+# Subtest: RedisStore clear removes all prefixed keys
+ok 309 - RedisStore clear removes all prefixed keys
+  ---
+  duration_ms: 0.134541
+  ...
+# Subtest: RedisStore size uses index when enabled
+ok 310 - RedisStore size uses index when enabled
+  ---
+  duration_ms: 0.045458
+  ...
+# Subtest: RedisStore size scans keys when index is disabled
+ok 311 - RedisStore size scans keys when index is disabled
+  ---
+  duration_ms: 0.045125
+  ...
+# Subtest: RedisStore acquireLock succeeds once per key
+ok 312 - RedisStore acquireLock succeeds once per key
+  ---
+  duration_ms: 0.052292
+  ...
+# Subtest: RedisStore releaseLock releases matching token only
+ok 313 - RedisStore releaseLock releases matching token only
+  ---
+  duration_ms: 0.108667
+  ...
+# Subtest: RedisStore lock expires by ttl
+ok 314 - RedisStore lock expires by ttl
+  ---
+  duration_ms: 15.616375
+  ...
+# Subtest: RedisEventBus publishes encoded messages
+ok 315 - RedisEventBus publishes encoded messages
+  ---
+  duration_ms: 0.436125
+  ...
+# Subtest: RedisEventBus subscribe ignores duplicate subscribe calls
+ok 316 - RedisEventBus subscribe ignores duplicate subscribe calls
+  ---
+  duration_ms: 0.136625
+  ...
+# Subtest: RedisEventBus processes subscribed messages with bounded handler concurrency
+ok 317 - RedisEventBus processes subscribed messages with bounded handler concurrency
+  ---
+  duration_ms: 10.851334
+  ...
+# Subtest: EventBusRetryQueue caps queued events by default
+ok 318 - EventBusRetryQueue caps queued events by default
+  ---
+  duration_ms: 58.24025
+  ...
+# Subtest: EventBusRetryQueue drops new events when maxSize is zero
+ok 319 - EventBusRetryQueue drops new events when maxSize is zero
+  ---
+  duration_ms: 0.156333
+  ...
+# Subtest: set owns input values and get/getEncoded are defensive
+ok 320 - set owns input values and get/getEncoded are defensive
+  ---
+  duration_ms: 2.721209
+  ...
+# Subtest: two stores share cap and close releases all accounting including empty history
+ok 321 - two stores share cap and close releases all accounting including empty history
+  ---
+  duration_ms: 0.449666
+  ...
+# Subtest: oversize candidate does not evict existing hot entry and rejected replacement invalidates old value
+ok 322 - oversize candidate does not evict existing hot entry and rejected replacement invalidates old value
+  ---
+  duration_ms: 0.430375
+  ...
+# Subtest: expiry and explicit deletion release bytes; undefined misses differ from cached null
+ok 323 - expiry and explicit deletion release bytes; undefined misses differ from cached null
+  ---
+  duration_ms: 31.064333
+  ...
+# Subtest: encoded subarray is copied and charges only owned payload plus fixed overhead
+ok 324 - encoded subarray is copied and charges only owned payload plus fixed overhead
+  ---
+  duration_ms: 1.002083
+  ...
+# Subtest: metadata inspection does not decode unknown original size
+ok 325 - metadata inspection does not decode unknown original size
+  ---
+  duration_ms: 0.455333
+  ...
+# Subtest: count limit remains active when byte admission and auto eviction are disabled
+ok 326 - count limit remains active when byte admission and auto eviction are disabled
+  ---
+  duration_ms: 0.389292
+  ...
+# Subtest: concurrent writes never exceed byte ceiling
+ok 327 - concurrent writes never exceed byte ceiling
+  ---
+  duration_ms: 1.627458
+  ...
+# Subtest: default singleton rejects conflicting configuration and can be reset cleanly
+ok 328 - default singleton rejects conflicting configuration and can be reset cleanly
+  ---
+  duration_ms: 0.724875
+  ...
+# Subtest: fail-safe retains one encoded snapshot and releases its shared budget on close
+ok 329 - fail-safe retains one encoded snapshot and releases its shared budget on close
+  ---
+  duration_ms: 18.036167
+  ...
+# Subtest: custom L1 stores can use fail-safe without exposing a memory budget
+ok 330 - custom L1 stores can use fail-safe without exposing a memory budget
+  ---
+  duration_ms: 0.472583
+  ...
+# Subtest: encoded fast path requires the Lazy Layers wire-format marker
+ok 331 - encoded fast path requires the Lazy Layers wire-format marker
+  ---
+  duration_ms: 0.331292
+  ...
+# Subtest: encoded L2 promotion preserves a shorter remaining TTL
+ok 332 - encoded L2 promotion preserves a shorter remaining TTL
+  ---
+  duration_ms: 302.387959
+  ...
+# Subtest: persistent encoded L2 values use the configured L1 TTL instead of one millisecond
+ok 333 - persistent encoded L2 values use the configured L1 TTL instead of one millisecond
+  ---
+  duration_ms: 309.730292
+  ...
+# Subtest: redis event bus disconnect leaves the caller's client alone
+ok 334 - redis event bus disconnect leaves the caller's client alone
+  ---
+  duration_ms: 0.956583
+  ...
+# Subtest: redis event bus removes its message listener on disconnect
+ok 335 - redis event bus removes its message listener on disconnect
+  ---
+  duration_ms: 0.08775
+  ...
+# Subtest: redis event bus disconnect is idempotent and survives a dead connection
+ok 336 - redis event bus disconnect is idempotent and survives a dead connection
+  ---
+  duration_ms: 0.126209
+  ...
+# Subtest: redis event bus disconnect before subscribe does not throw
+ok 337 - redis event bus disconnect before subscribe does not throw
+  ---
+  duration_ms: 0.046458
+  ...
+# Subtest: redis event bus delivers decoded messages and ignores garbage
+ok 338 - redis event bus delivers decoded messages and ignores garbage
+  ---
+  duration_ms: 3.142083
+  ...
+# Subtest: redis event bus survives a handler that throws synchronously
+ok 339 - redis event bus survives a handler that throws synchronously
+  ---
+  duration_ms: 0.449166
+  ...
+# Subtest: retry queue does not publish a buffered event twice under concurrent publishes
+ok 340 - retry queue does not publish a buffered event twice under concurrent publishes
+  ---
+  duration_ms: 0.844583
+  ...
+# Subtest: nats core reports unhealthy once its subscription ends
+ok 341 - nats core reports unhealthy once its subscription ends
+  ---
+  duration_ms: 0.84125
+  ...
+# Subtest: nats disconnect is idempotent and does not throw on a dead connection
+ok 342 - nats disconnect is idempotent and does not throw on a dead connection
+  ---
+  duration_ms: 0.297875
+  ...
+# Subtest: nats disconnect does not drain a connection it did not create
+ok 343 - nats disconnect does not drain a connection it did not create
+  ---
+  duration_ms: 0.139542
+  ...
+# Subtest: nats disconnect bounds a subscription drain that never settles
+ok 344 - nats disconnect bounds a subscription drain that never settles
+  ---
+  duration_ms: 1001.442126
+  ...
+# Subtest: rabbitmq disconnect before init does not throw and is idempotent
+ok 345 - rabbitmq disconnect before init does not throw and is idempotent
+  ---
+  duration_ms: 0.398875
+  ...
+# Subtest: a failed remote invalidation is retried instead of dropped as a duplicate
+ok 346 - a failed remote invalidation is retried instead of dropped as a duplicate
+  ---
+  duration_ms: 1.748
+  ...
+# Subtest: a successfully applied invalidation is still deduplicated
+ok 347 - a successfully applied invalidation is still deduplicated
+  ---
+  duration_ms: 0.61375
+  ...
+# Subtest: remote delete is local-only and trust recovers only after subscription acknowledgement
+ok 348 - remote delete is local-only and trust recovers only after subscription acknowledgement
+  ---
+  duration_ms: 27.357417
+  ...
+# Subtest: handler queue counts active encoded bytes and reports overflow
+ok 349 - handler queue counts active encoded bytes and reports overflow
+  ---
+  duration_ms: 1.79025
+  ...
+# Subtest: retry queue bounds retained encoded bytes and exposes drops
+ok 350 - retry queue bounds retained encoded bytes and exposes drops
+  ---
+  duration_ms: 0.335875
+  ...
+# Subtest: L1 and L2 can select independent write codecs without changing reads
+ok 351 - L1 and L2 can select independent write codecs without changing reads
+  ---
+  duration_ms: 3.512042
+  ...
+# Subtest: re-encoding a promotion preserves the source expiry budget
+ok 352 - re-encoding a promotion preserves the source expiry budget
+  ---
+  duration_ms: 0.894084
+  ...
+# Subtest: a direct L1 has check performs no global expiration sweep
+ok 353 - a direct L1 has check performs no global expiration sweep
+  ---
+  duration_ms: 3.9915
+  ...
+# Subtest: a queried expired key releases its bytes without purging other entries
+ok 354 - a queried expired key releases its bytes without purging other entries
+  ---
+  duration_ms: 20.536
+  ...
+# Subtest: a large configured count cannot preallocate storage before byte admission
+ok 355 - a large configured count cannot preallocate storage before byte admission
+  ---
+  duration_ms: 0.502667
+  ...
+# Subtest: closed L1 stores do not invoke serialization hooks or resurrect entries
+ok 356 - closed L1 stores do not invoke serialization hooks or resurrect entries
+  ---
+  duration_ms: 0.375833
+  ...
+# Subtest: expired entries cannot create an unbounded victim-search scan on admission
+ok 357 - expired entries cannot create an unbounded victim-search scan on admission
+  ---
+  duration_ms: 24.410708
+  ...
+# Subtest: corrupt records reload while a legitimate cached null remains a hit
+ok 358 - corrupt records reload while a legitimate cached null remains a hit
+  ---
+  duration_ms: 0.413625
+  ...
+# Subtest: inspection limits constrain actual decode despite forged expanded-size metadata
+ok 359 - inspection limits constrain actual decode despite forged expanded-size metadata
+  ---
+  duration_ms: 0.525583
+  ...
+# Subtest: percentage and units resolve against effective runtime capacity
+ok 360 - percentage and units resolve against effective runtime capacity
+  ---
+  duration_ms: 1.330375
+  ...
+# Subtest: nested cgroup limits use the smallest valid constraint
+ok 361 - nested cgroup limits use the smallest valid constraint
+  ---
+  duration_ms: 0.141542
+  ...
+# Subtest: shared ledger never exceeds target and release is idempotently bounded
+ok 362 - shared ledger never exceeds target and release is idempotently bounded
+  ---
+  duration_ms: 0.676417
+  ...
+# Subtest: sampling pressure shrinks target and bounds round-robin maintenance
+ok 363 - sampling pressure shrinks target and bounds round-robin maintenance
+  ---
+  duration_ms: 0.464917
+  ...
+# Subtest: synthetic critical pressure evicts L1 entries and blocks new admissions
+ok 364 - synthetic critical pressure evicts L1 entries and blocks new admissions
+  ---
+  duration_ms: 2.043208
+  ...
+# Subtest: synthetic sustained pressure and recovery use hysteresis instead of flapping
+ok 365 - synthetic sustained pressure and recovery use hysteresis instead of flapping
+  ---
+  duration_ms: 7.512083
+  ...
+# Subtest: synthetic pressure can evict fail-safe snapshots from the shared byte budget
+ok 366 - synthetic pressure can evict fail-safe snapshots from the shared byte budget
+  ---
+  duration_ms: 3.366167
+  ...
+# Subtest: critical pressure serves Redis-like L2 hits without promoting them into L1
+ok 367 - critical pressure serves Redis-like L2 hits without promoting them into L1
+  ---
+  duration_ms: 1.8875
+  ...
+# Subtest: peer priming under pressure removes obsolete L1 state without installing the replacement
+ok 368 - peer priming under pressure removes obsolete L1 state without installing the replacement
+  ---
+  duration_ms: 0.830375
+  ...
+# Subtest: inspectBuffer labels every available encoding and runtime fallback
+ok 369 - inspectBuffer labels every available encoding and runtime fallback
+  ---
+  duration_ms: 4.01075
+  ...
+# Subtest: collector ring buffer is bounded and overwrites oldest
+ok 370 - collector ring buffer is bounded and overwrites oldest
+  ---
+  duration_ms: 1.465875
+  ...
+# Subtest: collector counters and hit ratio
+ok 371 - collector counters and hit ratio
+  ---
+  duration_ms: 0.267541
+  ...
+# Subtest: collector live subscribe receives events and unsubscribe stops them
+ok 372 - collector live subscribe receives events and unsubscribe stops them
+  ---
+  duration_ms: 0.091083
+  ...
+# Subtest: MemoryStore.inspect: peek does not change eviction order
+ok 373 - MemoryStore.inspect: peek does not change eviction order
+  ---
+  duration_ms: 2.681541
+  ...
+# Subtest: MemoryStore.inspect: match filter, pagination, value truncation
+ok 374 - MemoryStore.inspect: match filter, pagination, value truncation
+  ---
+  duration_ms: 0.517542
+  ...
+# Subtest: resolveObservabilityOptions: defaults, env overrides, precedence
+ok 375 - resolveObservabilityOptions: defaults, env overrides, precedence
+  ---
+  duration_ms: 0.232708
+  ...
+# [lazy-layers-cache] Observability dashboard enabled (mounted handler). It exposes cache contents + live activity and is intended for development/staging. Secure it (token / localhost bind) and avoid leaving it on in production. Set observability.quiet=true (or LAZY_OBS_QUIET=1) to silence this notice.
+# Subtest: handler: route passthrough, auth, and JSON endpoints
+ok 376 - handler: route passthrough, auth, and JSON endpoints
+  ---
+  duration_ms: 4.604708
+  ...
+# Subtest: cache with observability:true exposes a mountable handler
+ok 377 - cache with observability:true exposes a mountable handler
+  ---
+  duration_ms: 1.723292
+  ...
+# Subtest: cache without observability attaches nothing
+ok 378 - cache without observability attaches nothing
+  ---
+  duration_ms: 0.156917
+  ...
+# Subtest: renderPrometheus emits exposition format with level labels, no key cardinality
+ok 379 - renderPrometheus emits exposition format with level labels, no key cardinality
+  ---
+  duration_ms: 0.280375
+  ...
+# Subtest: prometheus endpoint: 404 when disabled, public scrape when enabled
+ok 380 - prometheus endpoint: 404 when disabled, public scrape when enabled
+  ---
+  duration_ms: 0.666833
+  ...
+# Subtest: telemetry diagnostics channel receives the raw event stream
+ok 381 - telemetry diagnostics channel receives the raw event stream
+  ---
+  duration_ms: 0.595958
+  ...
+# Subtest: origin gate bounds distinct misses when inflight tracking is disabled
+ok 382 - origin gate bounds distinct misses when inflight tracking is disabled
+  ---
+  duration_ms: 47.830292
+  ...
+# Subtest: queue timeout rejects with a typed overload and does not start a loader
+ok 383 - queue timeout rejects with a typed overload and does not start a loader
+  ---
+  duration_ms: 0.842125
+  ...
+# Subtest: close rejects queued origin work
+ok 384 - close rejects queued origin work
+  ---
+  duration_ms: 22.42725
+  ...
+# [ERROR] cache loader failed {
+#   key: 'first',
+#   error: LoaderTimeoutError: hard-timeout
+#       at HybridCache.runLoaderWithTimeouts (file:///work/dist/cache/hybridCache.js:1188:23)
+#       at async HybridCache.loadAndStore (file:///work/dist/cache/hybridCache.js:656:25)
+#       at async HybridCache.loadWithDistributedLock (file:///work/dist/cache/hybridCache.js:836:20)
+#       at async waitForActual (node:assert:533:5)
+#       at async Function.rejects (node:assert:654:25)
+#       at async TestContext.<anonymous> (file:///work/test/origin-load-gate.test.js:50:3)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+#     reason: 'hard-timeout'
+#   }
+# }
+# Subtest: timed out caller still occupies the origin slot until ignored loader settles
+ok 385 - timed out caller still occupies the origin slot until ignored loader settles
+  ---
+  duration_ms: 38.936125
+  ...
+# Subtest: bounded discovery reports advertised and unavailable commands without CONFIG
+ok 386 - bounded discovery reports advertised and unavailable commands without CONFIG
+  ---
+  duration_ms: 2.007417
+  ...
+# Subtest: command discovery is hard bounded and exposes its limits
+ok 387 - command discovery is hard bounded and exposes its limits
+  ---
+  duration_ms: 0.370042
+  ...
+# Subtest: ACL denial is classified safely and leaves operation capabilities unknown
+ok 388 - ACL denial is classified safely and leaves operation capabilities unknown
+  ---
+  duration_ms: 0.560209
+  ...
+# Subtest: missing client methods are unknown rather than optimistic
+ok 389 - missing client methods are unknown rather than optimistic
+  ---
+  duration_ms: 0.102209
+  ...
+# Subtest: timeouts remain bounded and classify the affected discovery as unknown
+ok 390 - timeouts remain bounded and classify the affected discovery as unknown
+  ---
+  duration_ms: 6.717042
+  ...
+# Subtest: malformed and oversized replies are unavailable without parsing unbounded data
+ok 391 - malformed and oversized replies are unavailable without parsing unbounded data
+  ---
+  duration_ms: 0.432916
+  ...
+# Subtest: unsupported Redis versions stop capability probing
+ok 392 - unsupported Redis versions stop capability probing
+  ---
+  duration_ms: 0.109167
+  ...
+# Subtest: registry deduplicates discovery and invalidates on reconnect
+ok 393 - registry deduplicates discovery and invalidates on reconnect
+  ---
+  duration_ms: 0.360833
+  ...
+# Subtest: published client contract is read-only and reconnect hooks are optional
+ok 394 - published client contract is read-only and reconnect hooks are optional
+  ---
+  duration_ms: 0.137667
+  ...
+# Subtest: Redis 6 INFO replies meet the core cache compatibility baseline
+ok 395 - Redis 6 INFO replies meet the core cache compatibility baseline
+  ---
+  duration_ms: 0.993667
+  ...
+# Subtest: Redis 8 INFO replies are recognized without probing modules
+ok 396 - Redis 8 INFO replies are recognized without probing modules
+  ---
+  duration_ms: 0.062334
+  ...
+# Subtest: malformed INFO replies return a safe compatibility issue
+ok 397 - malformed INFO replies return a safe compatibility issue
+  ---
+  duration_ms: 0.053666
+  ...
+# Subtest: Redis errors distinguish ACL, unsupported-command, and transport failures
+ok 398 - Redis errors distinguish ACL, unsupported-command, and transport failures
+  ---
+  duration_ms: 0.148042
+  ...
+# Subtest: setupCache accepts Redis 6 and reports unsupported Redis versions actionably
+ok 399 - setupCache accepts Redis 6 and reports unsupported Redis versions actionably
+  ---
+  duration_ms: 3.141833
+  ...
+# Subtest: setupCache never downgrades ACL and INFO command failures to optional health
+ok 400 - setupCache never downgrades ACL and INFO command failures to optional health
+  ---
+  duration_ms: 1.318291
+  ...
+# Subtest: transport health failures remain classified separately from compatibility failures
+ok 401 - transport health failures remain classified separately from compatibility failures
+  ---
+  duration_ms: 0.1045
+  ...
+# Subtest: pipeline validator preserves cause and redacts key context
+ok 402 - pipeline validator preserves cause and redacts key context
+  ---
+  duration_ms: 0.743708
+  ...
+# Subtest: L2 gate bounds queued count and retained bytes
+ok 403 - L2 gate bounds queued count and retained bytes
+  ---
+  duration_ms: 0.455708
+  ...
+# Subtest: L2 timeout does not release active slot before underlying settles
+ok 404 - L2 timeout does not release active slot before underlying settles
+  ---
+  duration_ms: 4.338458
+  ...
+# Subtest: half-open breaker admits one probe
+ok 405 - half-open breaker admits one probe
+  ---
+  duration_ms: 0.1395
+  ...
+# Subtest: origin gate retains duplicate queued callers and releases permits idempotently
+ok 406 - origin gate retains duplicate queued callers and releases permits idempotently
+  ---
+  duration_ms: 0.225291
+  ...
+# Subtest: release: a local invalidation fences an already-running origin load
+ok 407 - release: a local invalidation fences an already-running origin load
+  ---
+  duration_ms: 3.119959
+  ...
+# Subtest: release: an initial subscription failure never enables L1 trust
+ok 408 - release: an initial subscription failure never enables L1 trust
+  ---
+  duration_ms: 0.4105
+  ...
+# Subtest: release: a second disconnect fences an outstanding recovery flush
+ok 409 - release: a second disconnect fences an outstanding recovery flush
+  ---
+  duration_ms: 2.955375
+  ...
+# Subtest: release: a delayed remote set cannot resurrect a newer remote delete
+ok 410 - release: a delayed remote set cannot resurrect a newer remote delete
+  ---
+  duration_ms: 1.622542
+  ...
+# Subtest: release: a delayed L2 promotion cannot repopulate L1 after invalidation
+ok 411 - release: a delayed L2 promotion cannot repopulate L1 after invalidation
+  ---
+  duration_ms: 0.775167
+  ...
+# Subtest: release: Redis reconnect explicitly subscribes again and resumes delivery
+ok 412 - release: Redis reconnect explicitly subscribes again and resumes delivery
+  ---
+  duration_ms: 1.49325
+  ...
+# Subtest: release: a stale reconnect acknowledgement cannot restore subscription status
+ok 413 - release: a stale reconnect acknowledgement cannot restore subscription status
+  ---
+  duration_ms: 0.503333
+  ...
+# Subtest: release: Redis discards pre-gap pending deliveries before trusting reconnection
+ok 414 - release: Redis discards pre-gap pending deliveries before trusting reconnection
+  ---
+  duration_ms: 0.721584
+  ...
+# Subtest: release: retry overflow during publishing does not silently remove the next event
+ok 415 - release: retry overflow during publishing does not silently remove the next event
+  ---
+  duration_ms: 0.362
+  ...
+# Subtest: release: retry queues own an immutable payload snapshot
+ok 416 - release: retry queues own an immutable payload snapshot
+  ---
+  duration_ms: 0.129375
+  ...
+# Subtest: negative caching is on with no configuration
+ok 417 - negative caching is on with no configuration
+  ---
+  duration_ms: 16.145333
+  ...
+# Subtest: negative caching can still be turned off deliberately
+ok 418 - negative caching can still be turned off deliberately
+  ---
+  duration_ms: 0.533708
+  ...
+# [ERROR] cache loader failed {
+#   key: 'k',
+#   error: Error: origin is down
+#       at file:///work/test/safe-defaults.test.js:61:11
+#       at file:///work/dist/cache/hybridCache.js:648:28
+# }
+# Subtest: fail-safe keeps a stale copy with no configuration
+ok 419 - fail-safe keeps a stale copy with no configuration
+  ---
+  duration_ms: 66.844708
+  ...
+# [ERROR] cache loader failed {
+#   key: 'k',
+#   error: Error: origin is down
+#       at file:///work/test/safe-defaults.test.js:77:51
+#       at file:///work/dist/cache/hybridCache.js:648:28
+# }
+# Subtest: fail-safe can still be turned off deliberately
+ok 420 - fail-safe can still be turned off deliberately
+  ---
+  duration_ms: 62.147583
+  ...
+# [ERROR] cache loader failed {
+#   key: 'hangs',
+#   error: LoaderTimeoutError: hard-timeout
+#       at LazyLayersCache.runLoaderWithTimeouts (file:///work/dist/cache/hybridCache.js:1188:23)
+#       at async LazyLayersCache.loadAndStore (file:///work/dist/cache/hybridCache.js:656:25)
+#       at async LazyLayersCache.loadWithDistributedLock (file:///work/dist/cache/hybridCache.js:836:20)
+#       at async waitForActual (node:assert:533:5)
+#       at async Function.rejects (node:assert:654:25)
+#       at async TestContext.<anonymous> (file:///work/test/safe-defaults.test.js:86:3)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+#     reason: 'hard-timeout'
+#   }
+# }
+# Subtest: a loader that never returns is bounded
+ok 421 - a loader that never returns is bounded
+  ---
+  duration_ms: 61.78825
+  ...
+# [ERROR] cache loader failed {
+#   key: 'hangs',
+#   error: LoaderTimeoutError: hard-timeout
+#       at LazyLayersCache.runLoaderWithTimeouts (file:///work/dist/cache/hybridCache.js:1188:23)
+#       at async LazyLayersCache.loadAndStore (file:///work/dist/cache/hybridCache.js:656:25)
+#       at async LazyLayersCache.loadWithDistributedLock (file:///work/dist/cache/hybridCache.js:836:20)
+#       at async TestContext.<anonymous> (file:///work/test/safe-defaults.test.js:96:3)
+#       at async Test.run (node:internal/test_runner/test:797:9)
+#       at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+#     reason: 'hard-timeout'
+#   }
+# }
+# Subtest: the loader receives an abort signal that actually fires
+ok 422 - the loader receives an abort signal that actually fires
+  ---
+  duration_ms: 83.693459
+  ...
+# Subtest: in-flight dedupe collapses a herd with no configuration
+ok 423 - in-flight dedupe collapses a herd with no configuration
+  ---
+  duration_ms: 38.617833
+  ...
+# Subtest: circuit breakers are closed and armed by default
+ok 424 - circuit breakers are closed and armed by default
+  ---
+  duration_ms: 0.16275
+  ...
+# Subtest: an opted-out breaker never trips
+ok 425 - an opted-out breaker never trips
+  ---
+  duration_ms: 0.0965
+  ...
+# Subtest: a single-process cache is unaffected by the distributed lock default
+ok 426 - a single-process cache is unaffected by the distributed lock default
+  ---
+  duration_ms: 0.918542
+  ...
+# Subtest: the observability dashboard stays off unless asked for
+ok 427 - the observability dashboard stays off unless asked for
+  ---
+  duration_ms: 0.264833
+  ...
+# Subtest: setupCache resolves to a managed production cache in L1-only mode
+ok 428 - setupCache resolves to a managed production cache in L1-only mode
+  ---
+  duration_ms: 16.865167
+  ...
+# Subtest: setupCache waits for bus health and subscription, then owns bus cleanup
+ok 429 - setupCache waits for bus health and subscription, then owns bus cleanup
+  ---
+  duration_ms: 8.716625
+  ...
+# Subtest: setupCache fails closed when configured infrastructure is unhealthy
+ok 430 - setupCache fails closed when configured infrastructure is unhealthy
+  ---
+  duration_ms: 4.007083
+  ...
+# Subtest: setupCache bounds a startup check that never settles
+ok 431 - setupCache bounds a startup check that never settles
+  ---
+  duration_ms: 10.112792
+  ...
+# Subtest: plain object: serialize and deserialize round-trips
+ok 432 - plain object: serialize and deserialize round-trips
+  ---
+  duration_ms: 1.502792
+  ...
+# Subtest: listing response: deep round-trip preserves nested structure
+ok 433 - listing response: deep round-trip preserves nested structure
+  ---
+  duration_ms: 1.023167
+  ...
+# Subtest: null serializes via sentinel and deserializes to null
+ok 434 - null serializes via sentinel and deserializes to null
+  ---
+  duration_ms: 0.088334
+  ...
+# Subtest: undefined serializes via sentinel and deserializes to null
+ok 435 - undefined serializes via sentinel and deserializes to null
+  ---
+  duration_ms: 0.054625
+  ...
+# Subtest: plain string round-trips through msgpack
+ok 436 - plain string round-trips through msgpack
+  ---
+  duration_ms: 0.080584
+  ...
+# Subtest: legacy JSON string (no buffer) deserializes to object
+ok 437 - legacy JSON string (no buffer) deserializes to object
+  ---
+  duration_ms: 0.057208
+  ...
+# Subtest: legacy JSON buffer (no prefix) deserializes to object
+ok 438 - legacy JSON buffer (no prefix) deserializes to object
+  ---
+  duration_ms: 0.076125
+  ...
+# Subtest: legacy raw msgpack buffer (no prefix) deserializes to object
+ok 439 - legacy raw msgpack buffer (no prefix) deserializes to object
+  ---
+  duration_ms: 0.058625
+  ...
+# Subtest: legacy sentinel string deserializes to null
+ok 440 - legacy sentinel string deserializes to null
+  ---
+  duration_ms: 0.141833
+  ...
+# Subtest: small payload uses plain msgpack encoding
+ok 441 - small payload uses plain msgpack encoding
+  ---
+  duration_ms: 0.1325
+  ...
+# Subtest: large payload is compressed by the top tier when savings >= 15%
+ok 442 - large payload is compressed by the top tier when savings >= 15%
+  ---
+  duration_ms: 0.475125
+  ...
+# Subtest: large but incompressible payload falls back to msgpack
+ok 443 - large but incompressible payload falls back to msgpack
+  ---
+  duration_ms: 7.557833
+  ...
+# Subtest: JSON debug mode uses HC1J encoding
+ok 444 - JSON debug mode uses HC1J encoding
+  ---
+  duration_ms: 0.151541
+  ...
+# Subtest: CACHE_DEBUG_SERIALIZATION=true also triggers JSON mode
+ok 445 - CACHE_DEBUG_SERIALIZATION=true also triggers JSON mode
+  ---
+  duration_ms: 0.138208
+  ...
+# Subtest: HC1M values decode correctly
+ok 446 - HC1M values decode correctly
+  ---
+  duration_ms: 0.121083
+  ...
+# Subtest: compressed values decode correctly
+ok 447 - compressed values decode correctly
+  ---
+  duration_ms: 0.395292
+  ...
+# Subtest: HC1J values decode correctly
+ok 448 - HC1J values decode correctly
+  ---
+  duration_ms: 0.125083
+  ...
+# Subtest: hasPrefix is O(1) and matches only on full 4-byte prefix
+ok 449 - hasPrefix is O(1) and matches only on full 4-byte prefix
+  ---
+  duration_ms: 0.144583
+  ...
+# Subtest: stripPrefix removes the prefix bytes without copying
+ok 450 - stripPrefix removes the prefix bytes without copying
+  ---
+  duration_ms: 0.071333
+  ...
+# Subtest: getCompressionSavings returns saved fraction (100KB -> 25KB == 0.75)
+ok 451 - getCompressionSavings returns saved fraction (100KB -> 25KB == 0.75)
+  ---
+  duration_ms: 0.084833
+  ...
+# Subtest: shouldGzip returns false for small payloads regardless of savings
+ok 452 - shouldGzip returns false for small payloads regardless of savings
+  ---
+  duration_ms: 0.043541
+  ...
+# Subtest: shouldGzip returns false when savings are below 15%
+ok 453 - shouldGzip returns false when savings are below 15%
+  ---
+  duration_ms: 0.039875
+  ...
+# Subtest: shouldGzip returns true for large payloads with >=15% savings
+ok 454 - shouldGzip returns true for large payloads with >=15% savings
+  ---
+  duration_ms: 0.033
+  ...
+# Subtest: Uint8Array input is supported by deserialize
+ok 455 - Uint8Array input is supported by deserialize
+  ---
+  duration_ms: 0.060875
+  ...
+# Subtest: non-JSON, non-sentinel string is returned as-is
+ok 456 - non-JSON, non-sentinel string is returned as-is
+  ---
+  duration_ms: 0.043083
+  ...
+# Subtest: corrupted prefixed buffer returns null instead of throwing
+ok 457 - corrupted prefixed buffer returns null instead of throwing
+  ---
+  duration_ms: 0.598834
+  ...
+# Subtest: sentinel decoded via deserialize never leaks the marker string
+ok 458 - sentinel decoded via deserialize never leaks the marker string
+  ---
+  duration_ms: 0.038958
+  ...
+# Subtest: an unserializable value throws instead of storing garbage
+ok 459 - an unserializable value throws instead of storing garbage
+  ---
+  duration_ms: 5.483291
+  ...
+# Subtest: an unserializable value does not fail the read path
+ok 460 - an unserializable value does not fail the read path
+  ---
+  duration_ms: 18.318334
+  ...
+# Subtest: a caller who caches the sentinel string gets it back
+ok 461 - a caller who caches the sentinel string gets it back
+  ---
+  duration_ms: 0.153292
+  ...
+# Subtest: sentinel buffers written by older versions still decode to null
+ok 462 - sentinel buffers written by older versions still decode to null
+  ---
+  duration_ms: 0.204042
+  ...
+# Subtest: the default top tier uses zstd when available and lz4 otherwise
+ok 463 - the default top tier uses zstd when available and lz4 otherwise
+  ---
+  duration_ms: 11.012
+  ...
+# Subtest: zstd is used once it is switched on, and round-trips
+ok 464 - zstd is used once it is switched on, and round-trips
+  ---
+  duration_ms: 0.613625
+  ...
+# Subtest: gzip buffers still decode after switching to zstd
+ok 465 - gzip buffers still decode after switching to zstd
+  ---
+  duration_ms: 0.865
+  ...
+# Subtest: an unknown tag from a newer release reads as a miss
+ok 466 - an unknown tag from a newer release reads as a miss
+  ---
+  duration_ms: 0.180667
+  ...
+# Subtest: payloads under the small-value floor are never compressed
+ok 467 - payloads under the small-value floor are never compressed
+  ---
+  duration_ms: 0.12475
+  ...
+# Subtest: mid-sized payloads are compressed, which the old 64 KB floor skipped
+ok 468 - mid-sized payloads are compressed, which the old 64 KB floor skipped
+  ---
+  duration_ms: 0.236291
+  ...
+# Subtest: a custom tier array is honoured
+ok 469 - a custom tier array is honoured
+  ---
+  duration_ms: 0.9845
+  ...
+# Subtest: a malformed tier list is rejected at configuration time
+ok 470 - a malformed tier list is rejected at configuration time
+  ---
+  duration_ms: 0.190916
+  ...
+# Subtest: a tier naming an uninstalled codec falls back instead of throwing
+ok 471 - a tier naming an uninstalled codec falls back instead of throwing
+  ---
+  duration_ms: 0.531791
+  ...
+# Subtest: transaction source graph contains no L1/cache dependency
+ok 472 - transaction source graph contains no L1/cache dependency
+  ---
+  duration_ms: 6.551709
+  ...
+# Subtest: store exposes explicit outcomes and does not require a local result cache
+ok 473 - store exposes explicit outcomes and does not require a local result cache
+  ---
+  duration_ms: 3.0215
+  ...
+# Subtest: transport failure after dispatch is unknown, while an unready primary is unavailable
+ok 474 - transport failure after dispatch is unknown, while an unready primary is unavailable
+  ---
+  duration_ms: 1.021875
+  ...
+# Subtest: a command timeout after dispatch is unknown and does not free the gate early
+ok 475 - a command timeout after dispatch is unknown and does not free the gate early
+  ---
+  duration_ms: 5.054542
+  ...
+# Subtest: canonical operation keys share a Redis Cluster hash tag per operation
+ok 476 - canonical operation keys share a Redis Cluster hash tag per operation
+  ---
+  duration_ms: 0.415375
+  ...
+# Subtest: recovery after a provider effect reuses the durable provider identity
+ok 477 - recovery after a provider effect reuses the durable provider identity
+  ---
+  duration_ms: 40.1045
+  ...
+# Subtest: ticket resource locking is independent of request idempotency
+ok 478 - ticket resource locking is independent of request idempotency
+  ---
+  duration_ms: 277.150208
+  ...
+# Subtest: Redis v1 state machine serializes ownership and preserves terminal results
+ok 479 - Redis v1 state machine serializes ownership and preserves terminal results
+  ---
+  duration_ms: 54.076
+  ...
+# Subtest: an expired Redis lease can be taken over, but the former owner cannot renew or complete
+ok 480 - an expired Redis lease can be taken over, but the former owner cannot renew or complete
+  ---
+  duration_ms: 65.335708
+  ...
+1..480
+# tests 480
+# suites 0
+# pass 480
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 24141.119261
+
+> lazy-layers-cache@0.6.2 verify:package
+> node scripts/verify-package.mjs
+
+Package verification passed for lazy-layers-cache@0.6.2.
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: '@cloudflare/kv-asset-handler@0.5.0',
+npm warn EBADENGINE   required: { node: '>=22.0.0' },
+npm warn EBADENGINE   current: { node: 'v20.20.2', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: '@nats-io/nuid@3.0.0',
+npm warn EBADENGINE   required: { node: '>= 22.x' },
+npm warn EBADENGINE   current: { node: 'v20.20.2', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'miniflare@5.20260923.0-alpha',
+npm warn EBADENGINE   required: { node: '>=22.0.0' },
+npm warn EBADENGINE   current: { node: 'v20.20.2', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'wrangler@4.140.0',
+npm warn EBADENGINE   required: { node: '>=22.0.0' },
+npm warn EBADENGINE   current: { node: 'v20.20.2', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

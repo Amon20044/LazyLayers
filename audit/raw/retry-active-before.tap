@@ -1,0 +1,105 @@
+✖ audit: closed event queue cannot resurrect deliveries or retain new events (0.82175ms)
+✖ audit: an unencodable event cannot bypass byte accounting (3.398625ms)
+✖ audit: event queue limits must be finite valid integers (0.109041ms)
+✔ audit: discarding pending events releases bytes and preserves active accounting (1.781167ms)
+✖ audit: retry admission counts the active publication against bytes and count (0.966459ms)
+✖ audit: retry clear keeps active bytes accounted until publication settles (0.153916ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 1
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 76.478625
+
+✖ failing tests:
+
+test at test/audit-event-queue.test.js:10:1
+✖ audit: closed event queue cannot resurrect deliveries or retain new events (0.82175ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-event-queue.test.js:14:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-event-queue.test.js:18:1
+✖ audit: an unencodable event cannot bypass byte accounting (3.398625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-event-queue.test.js:21:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-event-queue.test.js:24:1
+✖ audit: event queue limits must be finite valid integers (0.109041ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception (RangeError).
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-event-queue.test.js:26:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at test/audit-event-queue.test.js:39:1
+✖ audit: retry admission counts the active publication against bytes and count (0.966459ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-event-queue.test.js:46:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-event-queue.test.js:53:1
+✖ audit: retry clear keeps active bytes accounted until publication settles (0.153916ms)
+  TypeError: queue.clear is not a function
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-event-queue.test.js:60:11)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

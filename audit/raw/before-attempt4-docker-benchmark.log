@@ -1,0 +1,22 @@
+HTTP calibration 1000: 998 successful RPS, p99=3.06 ms, dropped=0
+HTTP calibration 10000: 9971 successful RPS, p99=10.51 ms, dropped=0
+warm-100 #1: 101 successful RPS, p99=3.78 ms, origin=0, errors=0, clientDropped=0
+warm-100 #2: 101 successful RPS, p99=3.15 ms, origin=0, errors=0, clientDropped=0
+warm-100 #3: 101 successful RPS, p99=3.26 ms, origin=0, errors=0, clientDropped=0
+warm-1000 #1: 996 successful RPS, p99=2.22 ms, origin=0, errors=0, clientDropped=0
+warm-1000 #2: 998 successful RPS, p99=2.68 ms, origin=0, errors=0, clientDropped=0
+warm-1000 #3: 998 successful RPS, p99=2.25 ms, origin=0, errors=0, clientDropped=0
+l1-disabled #1: 997 successful RPS, p99=4.48 ms, origin=0, errors=0, clientDropped=0
+l1-disabled #2: 507 successful RPS, p99=3.57 ms, origin=0, errors=492, clientDropped=0
+Raw E2E results: audit/raw/e2e-before.json
+file:///Users/apple/Desktop/LazyLayers/benchmarks/audit-e2e.mjs:33
+    const listener = (message) => { if (message?.id !== id) return; clearTimeout(timer); child.off('message', listener); message.error ? reject(new Error(`${message.error.name}: ${message.error.message}`)) : resolve(message.value); };
+                                                                                                                                                ^
+
+Error: Error: connect EADDRNOTAVAIL 127.0.0.1:57001 - Local (0.0.0.0:0)
+    at ChildProcess.listener (file:///Users/apple/Desktop/LazyLayers/benchmarks/audit-e2e.mjs:33:145)
+    at ChildProcess.emit (node:events:514:28)
+    at emit (node:internal/child_process:989:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:91:21)
+
+Node.js v24.21.0

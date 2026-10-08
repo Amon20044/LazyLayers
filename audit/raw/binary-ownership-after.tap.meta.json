@@ -1,0 +1,23 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-concurrency=1",
+    "--test-timeout=5000",
+    "test/audit-binary-ownership.test.js",
+    "test/decode-limits.test.js"
+  ],
+  "wallTimeMs": 359,
+  "budgets": {
+    "seconds": 20,
+    "rssMiB": 256,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 128
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 111083520,
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

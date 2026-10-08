@@ -7,6 +7,40 @@ export const MIN_COMPRESSION_SAVINGS = 0.15;
 /** Decoded gzip body cap. Matches the Cloudflare KV value limit. */
 export const MAX_PORTABLE_DECODED_BYTES = 25 * 1024 * 1024;
 
+/** Limits for untrusted cache records. They do not estimate a decoded JS heap. */
+export interface DecodeLimits {
+  maxEncodedBytes?: number;
+  maxDecodedBytes?: number;
+  maxDepth?: number;
+  maxCollectionLength?: number;
+  maxTotalValues?: number;
+}
+export type DecodedCacheRecord = { hit: true; value: unknown } | { hit: false };
+export interface ResolvedDecodeLimits {
+  maxEncodedBytes: number;
+  maxDecodedBytes: number;
+  maxDepth: number;
+  maxCollectionLength: number;
+  maxTotalValues: number;
+}
+export const DEFAULT_DECODE_MAX_DEPTH = 128;
+export const DEFAULT_DECODE_MAX_COLLECTION_LENGTH = 1_000_000;
+export const DEFAULT_DECODE_MAX_TOTAL_VALUES = 1_000_000;
+
+export function resolveDecodeLimits(options: DecodeLimits = {}): ResolvedDecodeLimits {
+  const limits = {
+    maxEncodedBytes: options.maxEncodedBytes ?? MAX_PORTABLE_DECODED_BYTES,
+    maxDecodedBytes: options.maxDecodedBytes ?? MAX_PORTABLE_DECODED_BYTES,
+    maxDepth: options.maxDepth ?? DEFAULT_DECODE_MAX_DEPTH,
+    maxCollectionLength: options.maxCollectionLength ?? DEFAULT_DECODE_MAX_COLLECTION_LENGTH,
+    maxTotalValues: options.maxTotalValues ?? DEFAULT_DECODE_MAX_TOTAL_VALUES,
+  };
+  for (const [name, value] of Object.entries(limits)) {
+    if (!Number.isSafeInteger(value) || value <= 0) throw new RangeError(`${name} must be a positive safe integer`);
+  }
+  return limits;
+}
+
 export const HC1_TAG_BYTES = 4;
 export const HC1_MSGPACK_TAG = 'HC1M';
 export const HC1_GZIP_TAG = 'HC1G';

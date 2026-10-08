@@ -1,0 +1,1 @@
+{"output":"audit/raw/heap-summary-before.json","open":{"storeCount":20,"directArrayCount":100,"directArraySelfBytes":7520,"backingSelfBytes":4406400},"closed":{"storeCount":1,"cachePresentCount":1,"directArrayCount":5,"directArraySelfBytes":376,"backingSelfBytes":220320}}

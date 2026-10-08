@@ -1,0 +1,5 @@
+{
+  "baselineCommit": "ca9c02a04349a89278cd81b5b25d0000503cc5a3",
+  "baselineDependencies": "identical lockfile; shared installed modules",
+  "node": "v24.21.0"
+}

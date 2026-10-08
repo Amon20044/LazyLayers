@@ -1,0 +1,84 @@
+TAP version 13
+# Subtest: audit: NATS transport gaps flush L1 and recover trust without owning caller connection
+not ok 1 - audit: NATS transport gaps flush L1 and recover trust without owning caller connection
+  ---
+  duration_ms: 3.493542
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-bus-recovery.test.js:36:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-bus-recovery.test.js:43:12)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: audit: RabbitMQ exposes consumer and connection loss through status observers
+not ok 2 - audit: RabbitMQ exposes consumer and connection loss through status observers
+  ---
+  duration_ms: 0.429166
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-bus-recovery.test.js:52:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'undefined'
+    - 'function'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'function'
+  actual: 'undefined'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-bus-recovery.test.js:54:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: audit: Redis delivery overflow reconciles trust after active handlers finish
+not ok 3 - audit: Redis delivery overflow reconciles trust after active handlers finish
+  ---
+  duration_ms: 1.896958
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-bus-recovery.test.js:71:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'error'
+    - 'subscribed'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'subscribed'
+  actual: 'error'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-bus-recovery.test.js:83:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 0
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 117.476459

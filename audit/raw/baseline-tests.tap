@@ -1,0 +1,688 @@
+✔ RedisStore registers cached scripts and keeps data/lease keys in one slot (2.359375ms)
+✔ v2 direct writes and deletes fence an outstanding fill lease (0.367583ms)
+✔ RedisStore recovers a definite NOSCRIPT without replaying through another mutation (0.313792ms)
+﹣ real Redis keeps the replacement value when a former owner resumes (0.040125ms) # SKIP
+✔ HybridCache never promotes or broadcasts a fill rejected by the ownership check (2.63325ms)
+✔ Node gzip policy and the Worker facade emit the same HC1 bytes (11.55225ms)
+✔ portable serializer keeps null, sentinel, and earlier JSON records distinct (0.231542ms)
+✔ Worker facade misses Node-only tags and rejects an untagged payload (0.381125ms)
+✔ compression none and a poor gzip saving stay raw MessagePack (4.738167ms)
+✔ KV compression mode is validated by the facade (0.081292ms)
+✔ stores and retrieves values (2.810083ms)
+✔ expires values after ttl (16.95325ms)
+✔ respects l1 max entries (0.524917ms)
+✔ deduplicates concurrent lazy loads with inflight entries (12.618417ms)
+✔ keeps existing inflight entries protected when inflight capacity is full (0.553167ms)
+✔ bypasses inflight tracking when maxEntries is zero (11.525542ms)
+✔ allows getOrSet to override ttl per key (16.555833ms)
+✔ warms l1 from l2 on l1 miss (0.449541ms)
+✔ deletes values by wildcard pattern (0.451625ms)
+✔ fails open when l2 operations fail (0.649083ms)
+✔ fails open when event bus publish fails (0.32175ms)
+✔ negative caching avoids repeated loaders for known misses (0.194ms)
+✔ fail-safe returns stale value when loader fails (15.960375ms)
+[ERROR] l2 cache operation failed open {
+  operation: 'set',
+  key: 'safe',
+  state: 'open',
+  error: Error: l2 set failed
+      at Object.set (file:///Users/apple/Desktop/LazyLayers/test/cache.test.js:230:13)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:279:29
+}
+[ERROR] event-bus publish failed open {
+  type: 'del',
+  state: 'open',
+  error: Error: publish failed
+      at Object.publish (file:///Users/apple/Desktop/LazyLayers/test/cache.test.js:283:13)
+      at HybridCache.publishInvalidation (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:755:41)
+      at HybridCache.delete (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:404:20)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/cache.test.js:298:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+}
+[ERROR] cache loader failed {
+  key: 'profile',
+  error: Error: db down
+      at file:///Users/apple/Desktop/LazyLayers/test/cache.test.js:342:11
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:463:29
+}
+[ERROR] cache loader failed {
+  key: 'profile',
+  error: LoaderTimeoutError: soft-timeout
+      at LazyLayersCache.runLoaderWithTimeouts (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:855:23)
+      at async LazyLayersCache.loadAndStore (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:467:21)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/cache.test.js:365:16)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    reason: 'soft-timeout'
+  }
+}
+✔ soft timeout returns stale value (21.201208ms)
+✔ emits observability events (0.291667ms)
+✔ distributed lock prevents cross-instance duplicate loaders (22.577375ms)
+✔ versioning writes new generations after deletes (0.345625ms)
+✔ dedupes invalidation events by id (0.470792ms)
+✔ nats jetstream mode requires a durable consumer name (0.293958ms)
+✔ nats core mode can use an injected connection (0.154083ms)
+✔ nats core mode preflight connect checks the injected connection (0.09175ms)
+✔ nats jetstream health check reports missing durable name before network connection (0.070125ms)
+✔ redis event bus health checks publisher and subscriber (0.125417ms)
+✔ rabbitmq health reports missing url before initialization (0.088708ms)
+✔ production logging option suppresses cache logs (0.122833ms)
+✔ development logging option enables cache logs (0.099708ms)
+✔ createCache returns a LazyLayersCache compatibility instance (0.073167ms)
+✔ LazyLayersCache defaults to L1 only when L2 is not provided (0.133875ms)
+✔ LazyLayersCache can explicitly disable L2 with l2 false (0.101416ms)
+✔ LazyLayersCache can explicitly disable L1 and use only L2 (0.175375ms)
+✔ LazyLayersCache with both layers disabled does not retain values (0.048833ms)
+✔ getOrSet broadcasts loader result so peer instances populate L1 without rerunning the loader (1.319583ms)
+✔ getOrSet broadcast can be disabled via broadcastSet=false (0.3735ms)
+✔ direct set() calls do not broadcast set events (0.301625ms)
+✔ remote set events emit set:received and clear negative cache (0.334667ms)
+✔ remote set events with older generations are ignored after a delete (0.248416ms)
+✔ remote deletes advance to their generation before later remote sets are accepted (0.355583ms)
+✔ getOrSet skips set broadcasts when the encoded payload exceeds broadcastSetMaxBytes (0.516708ms)
+✔ remote set events from self source are ignored (0.291958ms)
+✔ Cloudflare KV L2 retains the requested logical TTL below the platform minimum (31.863625ms)
+✔ Cloudflare KV L2 scopes and paginates pattern deletion (0.500042ms)
+✔ setupCache selects KV L2 without implicitly using REDIS_URL (2.840917ms)
+✔ Cloudflare platform event parser accepts build and KV lifecycle events only (0.12425ms)
+✔ Node and Worker KV stores share the same HC1 MessagePack wire format (0.5805ms)
+✔ adaptive KV gzip saves large MessagePack values and remains readable in both runtimes (4.704ms)
+✔ existing HC1J records and cached null stay readable across both KV stores (0.398125ms)
+✔ KV compression opt-out and small values retain interoperable MessagePack (0.148417ms)
+✔ Worker cache deduplicates loaders and invalidates a key family (6.51475ms)
+✔ Worker L1 isolates prefixes and preserves the same value types as KV (0.271542ms)
+✔ Worker pattern scan bound rejects a broad purge before deleting keys (0.235084ms)
+✔ Worker and managed Node caches publish application invalidations (1.092792ms)
+✔ Queue REST sender posts a JSON invalidation with bearer auth (1.156042ms)
+✔ Node REST namespace sends binary KV operations with scoped bearer auth (0.547958ms)
+﹣ Redis lock renewal only extends a live lock owned by the supplied token (0.391583ms) # SKIP
+﹣ real Redis expiry herd shares one load without lock configuration (0.059459ms) # SKIP
+﹣ real Redis renews a slow loader beyond its original lease (0.047333ms) # SKIP
+✔ default getOrSet shares a refresh after expiry even when it exceeds the old two-second wait (2225.387792ms)
+✔ expiry in L1 alone refills from L2 without invoking the loader (26.713333ms)
+✔ slow loads renew their lease automatically and release it after completion (587.796292ms)
+✔ contention timeout rejects without running the loader and exposes an exported error (32.1705ms)
+[ERROR] cache loader failed {
+  key: 'hot',
+  error: Error: origin failed
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:131:17)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+}
+✔ contention timeout serves eligible stale data without refreshing its expiry (48.605417ms)
+✔ the old unlocked fallback remains an explicit per-call opt-in (0.543958ms)
+✔ waiters retry a released lock after the original loader fails (52.567833ms)
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:158:40)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:648:83
+}
+✔ waiters can take over an expired lock left by a crashed owner (51.823125ms)
+✔ acquisition rechecks the cache to avoid loading a result published after the original miss (0.486375ms)
+✔ initial Redis lock failure preserves fail-open behavior (0.585167ms)
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:648:83
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:648:83
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:648:83
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:648:83
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:648:83
+}
+✔ Redis errors after observed contention do not bypass the known owner (30.994667ms)
+[ERROR] cache loader failed {
+  key: 'hot',
+  error: DistributedLockLostError: Lost the distributed cache lock for hot
+      at lose (file:///Users/apple/Desktop/LazyLayers/dist/cache/distributedLock.js:42:17)
+      at Timeout.<anonymous> (file:///Users/apple/Desktop/LazyLayers/dist/cache/distributedLock.js:68:21) {
+    key: 'hot',
+    code: 'DISTRIBUTED_LOCK_LOST'
+  }
+}
+✔ lost ownership aborts the loader and prevents a late result from overwriting the new owner (42.562167ms)
+[ERROR] cache loader failed {
+  key: 'hot',
+  error: DistributedLockLostError: Lost the distributed cache lock for hot
+      at Timeout.lose (file:///Users/apple/Desktop/LazyLayers/dist/cache/distributedLock.js:42:17)
+      at listOnTimeout (node:internal/timers:685:17)
+      at process.processTimers (node:internal/timers:618:7) {
+    key: 'hot',
+    code: 'DISTRIBUTED_LOCK_LOST'
+  }
+}
+✔ a hung renewal is bounded by the current lease deadline (62.122125ms)
+[ERROR] cache loader failed {
+  key: 'hot',
+  error: DistributedLockLostError: Lost the distributed cache lock for hot
+      at Timeout.lose (file:///Users/apple/Desktop/LazyLayers/dist/cache/distributedLock.js:42:17)
+      at listOnTimeout (node:internal/timers:685:17)
+      at process.processTimers (node:internal/timers:618:7) {
+    key: 'hot',
+    code: 'DISTRIBUTED_LOCK_LOST'
+  }
+}
+✔ custom stores without renewal remain compatible but cannot publish after their lease expires (112.063209ms)
+✔ invalid lock timings reject rather than creating an unbounded wait (1.038125ms)
+[ERROR] l2 cache operation failed open {
+  operation: 'renewLock',
+  key: 'hot',
+  state: 'closed',
+  error: L2OperationTimeoutError: L2 operation timed out after 2000ms: renewLock
+      at Timeout._onTimeout (file:///Users/apple/Desktop/LazyLayers/dist/cache/l2OperationGate.js:75:115)
+      at listOnTimeout (node:internal/timers:685:17)
+      at process.processTimers (node:internal/timers:618:7) {
+    operation: 'renewLock',
+    timeoutMs: 2000,
+    code: 'L2_OPERATION_TIMEOUT'
+  }
+}
+✔ local default dedupe survives the former five-second entry lifetime (5101.438042ms)
+✔ an older completion does not remove a replacement in-flight entry (11.477291ms)
+﹣ Live managed setup: production Redis path is ready and closes cleanly (0.5155ms) # REDIS_URL not provided, skipping managed setup test
+﹣ Live Redis E2E: Real RedisStore & RedisEventBus cross-instance coherence (0.123167ms) # REDIS_URL not provided, skipping live Redis test
+﹣ Live Redis E2E: Distributed Lock stampede collapse across independent instances (0.17125ms) # REDIS_URL not provided, skipping live Redis distributed lock test
+﹣ Live RabbitMQ E2E: Durable fanout and cross-instance invalidation (0.143708ms) # RABBITMQ_URL not provided, skipping live RabbitMQ test
+﹣ Live NATS E2E: Core fanout and JetStream stream broadcast (0.204583ms) # NATS_URL not provided, skipping live NATS test
+﹣ Live Cluster Monitoring: 5-Node Redis Cluster with Live Observability & Prometheus Monitoring (0.258708ms) # REDIS_URL not provided, skipping live 5-node cluster monitoring test
+﹣ Live Cluster Fanout: 5-Node RabbitMQ & NATS cross-instance invalidation (0.139125ms) # Neither RABBITMQ_URL nor NATS_URL provided, skipping 5-node cluster fanout test
+✔ E2E: 5-Node Cluster concurrent stampede & automatic L1 priming (60.516708ms)
+✔ E2E: Per-key generation counters reject out-of-order stale sets (33.641ms)
+[ERROR] l2 cache operation failed open {
+  operation: 'get',
+  key: 'status:1',
+  state: 'closed',
+  error: Error: Redis connection lost ECONNREFUSED
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/e2e.test.js:445:26)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'get',
+  key: 'status:2',
+  state: 'closed',
+  error: Error: Redis timeout ETIMEDOUT
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/e2e.test.js:449:26)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'get',
+  key: 'status:3',
+  state: 'closed',
+  error: Error: Redis down
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/e2e.test.js:453:26)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+}
+✔ E2E: Wildcard pattern invalidation clears matching keys across all nodes (50.194ms)
+✔ E2E: Circuit breaker trips on Redis failure, failing open without throwing (65.241834ms)
+[ERROR] cache loader failed {
+  key: 'config:api',
+  error: LoaderTimeoutError: hard-timeout
+      at LazyLayersCache.runLoaderWithTimeouts (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:864:23)
+      at async LazyLayersCache.loadAndStore (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:467:21)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/e2e.test.js:510:18)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    reason: 'hard-timeout'
+  }
+}
+[lazy-layers-cache] Observability dashboard enabled (mounted handler). It exposes cache contents + live activity and is intended for development/staging. Secure it (token / localhost bind) and avoid leaving it on in production. Set observability.quiet=true (or LAZY_OBS_QUIET=1) to silence this notice.
+✔ E2E: Stale fallback serves previous L1 value when loader times out (114.827542ms)
+✔ E2E: Observability handler serves UI, JSON APIs, and Prometheus metrics (2.432625ms)
+✔ E2E: Serializer size-tiering and 100% roundtrip fidelity across types (5.266ms)
+✔ MemoryStore round-trips string (2.476458ms)
+✔ MemoryStore round-trips empty string (0.312875ms)
+✔ MemoryStore round-trips number (0.262458ms)
+✔ MemoryStore round-trips zero (0.226291ms)
+✔ MemoryStore round-trips false (0.225833ms)
+✔ MemoryStore round-trips null (0.184917ms)
+✔ MemoryStore round-trips object (0.599708ms)
+✔ MemoryStore round-trips array (0.273125ms)
+✔ MemoryStore round-trips date string (0.2425ms)
+✔ MemoryStore round-trips large payload (0.449167ms)
+✔ MemoryStore deleteByPattern handles * (0.461458ms)
+✔ MemoryStore deleteByPattern handles user:* (0.340417ms)
+✔ MemoryStore deleteByPattern handles *:1 (0.202583ms)
+✔ MemoryStore deleteByPattern handles user:? (0.226584ms)
+✔ MemoryStore deleteByPattern handles literal.+ (0.193ms)
+✔ MemoryStore deleteByPattern handles prefix*suffix (0.189375ms)
+✔ MemoryStore deleteByPattern handles no-match:* (0.172292ms)
+✔ MemoryStore deleteByPattern handles order:* (0.172667ms)
+✔ MemoryStore keeps newest 1 entries (0.210875ms)
+✔ MemoryStore keeps newest 2 entries (0.088375ms)
+✔ MemoryStore keeps newest 3 entries (0.094708ms)
+✔ MemoryStore keeps newest 5 entries (0.067208ms)
+✔ MemoryStore per-call ttl overrides constructor ttl (15.91875ms)
+✔ MemoryStore level ttl overrides constructor ttl (16.31275ms)
+✔ MemoryStore default ttl keeps fresh values (0.251459ms)
+✔ MemoryStore delete only removes one key (0.165625ms)
+✔ MemoryStore clear removes all keys (0.148417ms)
+✔ MemoryStore getOrSet does not store undefined (0.136209ms)
+✔ MemoryStore getOrSet reuses cached value (0.137833ms)
+✔ LazyLayersCache layer mode emits levels for default L1 (0.8255ms)
+✔ LazyLayersCache layer mode emits levels for explicit L2 off (0.171834ms)
+✔ LazyLayersCache layer mode emits levels for L2 only (0.278333ms)
+✔ LazyLayersCache layer mode emits levels for L1 plus L2 (0.202542ms)
+✔ LazyLayersCache layer mode emits levels for no layers (0.079459ms)
+✔ HybridCache promotes L2 hit into L1 (0.561458ms)
+✔ HybridCache with L1 disabled does not promote L2 hits (0.228208ms)
+✔ HybridCache has checks L2 when L1 misses (0.249125ms)
+✔ HybridCache delete removes L1 and L2 (0.463708ms)
+✔ HybridCache clear removes matching data from both layers (0.424292ms)
+✔ HybridCache deleteByPattern keeps unrelated keys (0.336125ms)
+✔ HybridCache per-call ttl applies to getOrSet writes (17.383ms)
+✔ HybridCache inflight disabled runs concurrent loaders (5.195125ms)
+✔ HybridCache expired inflight starts a new loader (6.2395ms)
+✔ HybridCache negative cache can be disabled per instance (0.392125ms)
+[ERROR] cache loader failed {
+  key: 'error',
+  error: Error: loader failed
+      at file:///Users/apple/Desktop/LazyLayers/test/edge-cases.test.js:671:13
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:463:29
+}
+✔ HybridCache negative cache expires (16.579792ms)
+✔ HybridCache negative cache maxEntries evicts oldest miss (0.380458ms)
+✔ HybridCache delete clears negative cache for key (0.49075ms)
+✔ HybridCache deleteByPattern clears matching negative entries (0.772667ms)
+✔ HybridCache loader error throws without failSafe (1.260083ms)
+[ERROR] cache loader failed {
+  key: 'profile',
+  error: Error: db down
+      at file:///Users/apple/Desktop/LazyLayers/test/edge-cases.test.js:689:13
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:463:29
+}
+✔ HybridCache stale entry expires after failSafe ttl (22.0925ms)
+[ERROR] cache loader failed {
+  key: 'slow',
+  error: LoaderTimeoutError: hard-timeout
+      at HybridCache.runLoaderWithTimeouts (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:864:23)
+      at async HybridCache.loadAndStore (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:467:21)
+      at async waitForActual (node:assert:646:5)
+      at async strict.rejects (node:assert:769:25)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/edge-cases.test.js:698:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    reason: 'hard-timeout'
+  }
+}
+✔ HybridCache hard timeout rejects without stale (6.623375ms)
+[ERROR] cache loader failed {
+  key: 'slow',
+  error: LoaderTimeoutError: hard-timeout
+      at HybridCache.runLoaderWithTimeouts (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:864:23)
+      at async HybridCache.loadAndStore (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:467:21)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/edge-cases.test.js:718:16)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    reason: 'hard-timeout'
+  }
+}
+✔ HybridCache hard timeout returns stale when failSafe has stale (22.284167ms)
+[ERROR] cache loader failed {
+  key: 'signal',
+  error: LoaderTimeoutError: hard-timeout
+      at HybridCache.runLoaderWithTimeouts (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:864:23)
+      at async HybridCache.loadAndStore (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:467:21)
+      at async waitForActual (node:assert:646:5)
+      at async strict.rejects (node:assert:769:25)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/edge-cases.test.js:728:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    reason: 'hard-timeout'
+  }
+}
+[ERROR] cache event handler failed {
+  event: 'set',
+  error: Error: metrics down
+      at HybridCache.events (file:///Users/apple/Desktop/LazyLayers/test/edge-cases.test.js:745:15)
+      at HybridCache.emit (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:1114:17)
+      at HybridCache.set (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:283:14)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/edge-cases.test.js:750:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+}
+[ERROR] cache event handler failed {
+  event: 'hit',
+  error: Error: metrics down
+      at HybridCache.events (file:///Users/apple/Desktop/LazyLayers/test/edge-cases.test.js:745:15)
+      at HybridCache.emit (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:1114:17)
+      at HybridCache.get (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:300:22)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/edge-cases.test.js:752:16)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+}
+✔ HybridCache loader receives abort signal (6.378792ms)
+✔ HybridCache event handler errors do not break operations (0.377959ms)
+✔ HybridCache ignores invalidation events from same source (0.530042ms)
+✔ HybridCache applies remote delete invalidation (1.629458ms)
+✔ HybridCache applies remote pattern invalidation (1.548292ms)
+[ERROR] event-bus publish failed open {
+  type: 'del',
+  state: 'open',
+  error: Error: bus down
+      at Object.publish (file:///Users/apple/Desktop/LazyLayers/test/edge-cases.test.js:860:13)
+      at HybridCache.publishInvalidation (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:755:41)
+      at HybridCache.delete (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:404:20)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/edge-cases.test.js:871:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'set',
+  key: 'a',
+  state: 'open',
+  error: Error: l2 down
+      at Object.set (file:///Users/apple/Desktop/LazyLayers/test/edge-cases.test.js:882:13)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:279:29
+}
+✔ HybridCache can skip event subscription (1.375958ms)
+✔ HybridCache publishes delete invalidations (0.189042ms)
+✔ HybridCache publishes pattern invalidations (0.139208ms)
+✔ HybridCache event bus publish circuit opens after failure (0.297916ms)
+✔ HybridCache L2 circuit emits skipped after opening (0.2265ms)
+✔ HybridCache versioning leaves old L2 generation unread (0.313708ms)
+✔ HybridCache clear bumps generation through pattern delete (0.303792ms)
+✔ createCache accepts default generics and stores mixed values at runtime (0.219583ms)
+✔ RedisStore round-trips string (0.7205ms)
+✔ RedisStore round-trips empty string (0.128292ms)
+✔ RedisStore round-trips number (0.085333ms)
+✔ RedisStore round-trips zero (0.094083ms)
+✔ RedisStore round-trips false (0.1075ms)
+✔ RedisStore round-trips null (0.186458ms)
+✔ RedisStore round-trips object (0.130333ms)
+✔ RedisStore round-trips array (0.103416ms)
+✔ RedisStore round-trips date string (0.077875ms)
+✔ RedisStore round-trips large payload (0.223125ms)
+✔ RedisStore returns undefined for missing key and removes stale index member (0.192917ms)
+✔ RedisStore per-call ttl overrides constructor ttl (15.802125ms)
+✔ RedisStore defaults to native TTL accounting without a namespace index (0.405791ms)
+✔ RedisStore L2 level ttl overrides global ttl (16.304083ms)
+✔ RedisStore has uses prefixed key (0.12525ms)
+✔ RedisStore getOrSet stores loader result (0.114583ms)
+✔ RedisStore getOrSet does not store undefined (0.0565ms)
+✔ RedisStore indexed deleteByPattern handles user:* (0.524667ms)
+✔ RedisStore indexed deleteByPattern handles *:1 (0.168334ms)
+✔ RedisStore indexed deleteByPattern handles literal.+ (0.13325ms)
+✔ RedisStore indexed deleteByPattern handles prefix*suffix (0.143166ms)
+✔ RedisStore indexed deleteByPattern handles * (0.16775ms)
+✔ RedisStore scan deleteByPattern handles user:* without index (0.217416ms)
+✔ RedisStore scan deleteByPattern handles *:1 without index (0.108458ms)
+✔ RedisStore scan deleteByPattern handles literal.+ without index (0.082958ms)
+✔ RedisStore maxEntries trims oldest indexed values (2.889958ms)
+✔ RedisStore index trim rechecks a candidate before deleting a refreshed value (1.412375ms)
+✔ RedisStore deleteStrategy del uses DEL path (0.105667ms)
+✔ RedisStore default deleteStrategy uses UNLINK path (0.056042ms)
+✔ RedisStore clear removes all prefixed keys (0.103458ms)
+✔ RedisStore size uses index when enabled (0.059458ms)
+✔ RedisStore size scans keys when index is disabled (0.062916ms)
+✔ RedisStore acquireLock succeeds once per key (0.06575ms)
+✔ RedisStore releaseLock releases matching token only (0.12475ms)
+✔ RedisStore lock expires by ttl (15.88125ms)
+✔ RedisEventBus publishes encoded messages (0.331ms)
+✔ RedisEventBus subscribe ignores duplicate subscribe calls (0.156459ms)
+✔ RedisEventBus processes subscribed messages with bounded handler concurrency (11.464208ms)
+✔ EventBusRetryQueue caps queued events by default (46.416458ms)
+✔ EventBusRetryQueue drops new events when maxSize is zero (0.213125ms)
+✔ set owns input values and get/getEncoded are defensive (3.199458ms)
+✔ two stores share cap and close releases all accounting including empty history (0.632916ms)
+✔ oversize candidate does not evict existing hot entry and rejected replacement invalidates old value (0.9435ms)
+✔ expiry and explicit deletion release bytes; undefined misses differ from cached null (31.9575ms)
+✔ encoded subarray is copied and charges only owned payload plus fixed overhead (0.837291ms)
+✔ metadata inspection does not decode unknown original size (0.552291ms)
+✔ count limit remains active when byte admission and auto eviction are disabled (0.404334ms)
+✔ concurrent writes never exceed byte ceiling (0.975875ms)
+✔ default singleton rejects conflicting configuration and can be reset cleanly (0.839208ms)
+✔ fail-safe retains one encoded snapshot and releases its shared budget on close (18.373667ms)
+✔ custom L1 stores can use fail-safe without exposing a memory budget (0.41225ms)
+✔ encoded fast path requires the Lazy Layers wire-format marker (0.235375ms)
+✔ encoded L2 promotion preserves a shorter remaining TTL (302.922167ms)
+✔ persistent encoded L2 values use the configured L1 TTL instead of one millisecond (307.639167ms)
+✔ redis event bus disconnect leaves the caller's client alone (1.801917ms)
+✔ redis event bus removes its message listener on disconnect (0.197834ms)
+✔ redis event bus disconnect is idempotent and survives a dead connection (0.172958ms)
+✔ redis event bus disconnect before subscribe does not throw (0.092791ms)
+✔ redis event bus delivers decoded messages and ignores garbage (3.480125ms)
+✔ redis event bus survives a handler that throws synchronously (0.524ms)
+✔ retry queue does not publish a buffered event twice under concurrent publishes (0.854708ms)
+✔ nats core reports unhealthy once its subscription ends (0.950416ms)
+✔ nats disconnect is idempotent and does not throw on a dead connection (0.414ms)
+✔ nats disconnect does not drain a connection it did not create (0.243542ms)
+✔ nats disconnect bounds a subscription drain that never settles (1000.965042ms)
+✔ rabbitmq disconnect before init does not throw and is idempotent (0.352708ms)
+✔ a failed remote invalidation is retried instead of dropped as a duplicate (1.169583ms)
+✔ a successfully applied invalidation is still deduplicated (0.2545ms)
+✔ remote delete is local-only and trust recovers only after subscription acknowledgement (2.527959ms)
+✔ handler queue counts active encoded bytes and reports overflow (0.562833ms)
+✔ retry queue bounds retained encoded bytes and exposes drops (0.688792ms)
+✔ L1 and L2 can select independent write codecs without changing reads (3.71175ms)
+✔ re-encoding a promotion preserves the source expiry budget (1.177667ms)
+✔ percentage and units resolve against effective runtime capacity (0.954875ms)
+✔ nested cgroup limits use the smallest valid constraint (0.1855ms)
+✔ shared ledger never exceeds target and release is idempotently bounded (0.292708ms)
+✔ sampling pressure shrinks target and bounds round-robin maintenance (0.304833ms)
+✔ synthetic critical pressure evicts L1 entries and blocks new admissions (2.758125ms)
+✔ synthetic sustained pressure and recovery use hysteresis instead of flapping (0.361666ms)
+✔ synthetic pressure can evict fail-safe snapshots from the shared byte budget (2.331084ms)
+✔ critical pressure serves Redis-like L2 hits without promoting them into L1 (1.469041ms)
+✔ peer priming under pressure removes obsolete L1 state without installing the replacement (1.251959ms)
+✔ inspectBuffer labels every available encoding and runtime fallback (6.896625ms)
+✔ collector ring buffer is bounded and overwrites oldest (0.422167ms)
+✔ collector counters and hit ratio (0.185291ms)
+✔ collector live subscribe receives events and unsubscribe stops them (0.121125ms)
+✔ MemoryStore.inspect: peek does not change eviction order (5.300292ms)
+✔ MemoryStore.inspect: match filter, pagination, value truncation (0.619375ms)
+✔ resolveObservabilityOptions: defaults, env overrides, precedence (0.29325ms)
+[lazy-layers-cache] Observability dashboard enabled (mounted handler). It exposes cache contents + live activity and is intended for development/staging. Secure it (token / localhost bind) and avoid leaving it on in production. Set observability.quiet=true (or LAZY_OBS_QUIET=1) to silence this notice.
+✔ handler: route passthrough, auth, and JSON endpoints (3.915583ms)
+✔ cache with observability:true exposes a mountable handler (1.683333ms)
+✔ cache without observability attaches nothing (0.299ms)
+✔ renderPrometheus emits exposition format with level labels, no key cardinality (0.38125ms)
+✔ prometheus endpoint: 404 when disabled, public scrape when enabled (0.5965ms)
+✔ telemetry diagnostics channel receives the raw event stream (0.7585ms)
+[ERROR] cache loader failed {
+  key: 'second',
+  error: OriginLoadOverloadError: Origin load queue is full or its wait deadline expired
+      at OriginLoadGate.acquire (file:///Users/apple/Desktop/LazyLayers/dist/cache/originLoadGate.js:49:19)
+      at HybridCache.loadAndStore (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:460:55)
+      at async waitForActual (node:assert:646:5)
+      at async strict.rejects (node:assert:769:25)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/origin-load-gate.test.js:26:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    key: 'second',
+    code: 'ORIGIN_LOAD_OVERLOADED'
+  }
+}
+✔ origin gate bounds distinct misses when inflight tracking is disabled (46.905333ms)
+✔ queue timeout rejects with a typed overload and does not start a loader (1.168958ms)
+✔ close rejects queued origin work (21.388625ms)
+[ERROR] cache loader failed {
+  key: 'first',
+  error: LoaderTimeoutError: hard-timeout
+      at HybridCache.runLoaderWithTimeouts (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:864:23)
+      at async HybridCache.loadAndStore (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:467:21)
+      at async waitForActual (node:assert:646:5)
+      at async strict.rejects (node:assert:769:25)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/origin-load-gate.test.js:46:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    reason: 'hard-timeout'
+  }
+}
+✔ timed out caller still occupies the origin slot until ignored loader settles (38.28825ms)
+✔ bounded discovery reports advertised and unavailable commands without CONFIG (1.956708ms)
+✔ command discovery is hard bounded and exposes its limits (0.309125ms)
+✔ ACL denial is classified safely and leaves operation capabilities unknown (0.35925ms)
+✔ missing client methods are unknown rather than optimistic (0.106917ms)
+✔ timeouts remain bounded and classify the affected discovery as unknown (5.112458ms)
+✔ malformed and oversized replies are unavailable without parsing unbounded data (0.477042ms)
+✔ unsupported Redis versions stop capability probing (0.243834ms)
+✔ registry deduplicates discovery and invalidates on reconnect (0.493ms)
+✔ published client contract is read-only and reconnect hooks are optional (0.087708ms)
+✔ Redis 6 INFO replies meet the core cache compatibility baseline (1.072417ms)
+✔ Redis 8 INFO replies are recognized without probing modules (0.104625ms)
+✔ malformed INFO replies return a safe compatibility issue (0.097375ms)
+✔ Redis errors distinguish ACL, unsupported-command, and transport failures (0.345542ms)
+✔ setupCache accepts Redis 6 and reports unsupported Redis versions actionably (3.783875ms)
+✔ setupCache never downgrades ACL and INFO command failures to optional health (0.399083ms)
+✔ transport health failures remain classified separately from compatibility failures (0.162667ms)
+✔ pipeline validator preserves cause and redacts key context (1.008166ms)
+✔ L2 gate bounds queued count and retained bytes (0.423667ms)
+✔ L2 timeout does not release active slot before underlying settles (4.889208ms)
+✔ half-open breaker admits one probe (0.272375ms)
+✔ origin gate retains duplicate queued callers and releases permits idempotently (0.489ms)
+✔ release: a local invalidation fences an already-running origin load (3.826833ms)
+✔ release: an initial subscription failure never enables L1 trust (0.613584ms)
+✔ release: a second disconnect fences an outstanding recovery flush (2.326583ms)
+✔ release: a delayed remote set cannot resurrect a newer remote delete (0.855167ms)
+✔ release: a delayed L2 promotion cannot repopulate L1 after invalidation (0.756708ms)
+✔ release: Redis reconnect explicitly subscribes again and resumes delivery (3.519875ms)
+✔ release: a stale reconnect acknowledgement cannot restore subscription status (0.506958ms)
+✔ release: Redis discards pre-gap pending deliveries before trusting reconnection (0.889083ms)
+✔ release: retry overflow during publishing does not silently remove the next event (0.366583ms)
+✔ release: retry queues own an immutable payload snapshot (0.207333ms)
+✔ negative caching is on with no configuration (3.572875ms)
+✔ negative caching can still be turned off deliberately (0.51575ms)
+[ERROR] cache loader failed {
+  key: 'k',
+  error: Error: origin is down
+      at file:///Users/apple/Desktop/LazyLayers/test/safe-defaults.test.js:61:11
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:463:29
+}
+✔ fail-safe keeps a stale copy with no configuration (64.61725ms)
+[ERROR] cache loader failed {
+  key: 'k',
+  error: Error: origin is down
+      at file:///Users/apple/Desktop/LazyLayers/test/safe-defaults.test.js:77:51
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:463:29
+}
+✔ fail-safe can still be turned off deliberately (62.456334ms)
+[ERROR] cache loader failed {
+  key: 'hangs',
+  error: LoaderTimeoutError: hard-timeout
+      at LazyLayersCache.runLoaderWithTimeouts (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:864:23)
+      at async LazyLayersCache.loadAndStore (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:467:21)
+      at async waitForActual (node:assert:646:5)
+      at async strict.rejects (node:assert:769:25)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/safe-defaults.test.js:86:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    reason: 'hard-timeout'
+  }
+}
+✔ a loader that never returns is bounded (61.852208ms)
+[ERROR] cache loader failed {
+  key: 'hangs',
+  error: LoaderTimeoutError: hard-timeout
+      at LazyLayersCache.runLoaderWithTimeouts (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:864:23)
+      at async LazyLayersCache.loadAndStore (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:467:21)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/safe-defaults.test.js:96:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    reason: 'hard-timeout'
+  }
+}
+✔ the loader receives an abort signal that actually fires (82.845958ms)
+✔ in-flight dedupe collapses a herd with no configuration (34.252625ms)
+✔ circuit breakers are closed and armed by default (0.193667ms)
+✔ an opted-out breaker never trips (0.062042ms)
+✔ a single-process cache is unaffected by the distributed lock default (0.32925ms)
+✔ the observability dashboard stays off unless asked for (0.16475ms)
+✔ setupCache resolves to a managed production cache in L1-only mode (1.365792ms)
+✔ setupCache waits for bus health and subscription, then owns bus cleanup (5.831417ms)
+✔ setupCache fails closed when configured infrastructure is unhealthy (0.181458ms)
+✔ setupCache bounds a startup check that never settles (11.328208ms)
+✔ plain object: serialize and deserialize round-trips (1.677916ms)
+✔ listing response: deep round-trip preserves nested structure (0.535042ms)
+✔ null serializes via sentinel and deserializes to null (0.092167ms)
+✔ undefined serializes via sentinel and deserializes to null (0.071709ms)
+✔ plain string round-trips through msgpack (0.100834ms)
+✔ legacy JSON string (no buffer) deserializes to object (0.090458ms)
+✔ legacy JSON buffer (no prefix) deserializes to object (0.11225ms)
+✔ legacy raw msgpack buffer (no prefix) deserializes to object (0.09875ms)
+✔ legacy sentinel string deserializes to null (0.066417ms)
+✔ small payload uses plain msgpack encoding (0.145875ms)
+✔ large payload is compressed by the top tier when savings >= 15% (0.888541ms)
+✔ large but incompressible payload falls back to msgpack (3.168666ms)
+✔ JSON debug mode uses HC1J encoding (0.231875ms)
+✔ CACHE_DEBUG_SERIALIZATION=true also triggers JSON mode (0.088542ms)
+✔ HC1M values decode correctly (0.18525ms)
+✔ compressed values decode correctly (0.580042ms)
+✔ HC1J values decode correctly (0.167334ms)
+✔ hasPrefix is O(1) and matches only on full 4-byte prefix (0.102209ms)
+✔ stripPrefix removes the prefix bytes without copying (0.078125ms)
+✔ getCompressionSavings returns saved fraction (100KB -> 25KB == 0.75) (0.06ms)
+✔ shouldGzip returns false for small payloads regardless of savings (0.040875ms)
+✔ shouldGzip returns false when savings are below 15% (0.039208ms)
+✔ shouldGzip returns true for large payloads with >=15% savings (0.039083ms)
+✔ Uint8Array input is supported by deserialize (0.073417ms)
+✔ non-JSON, non-sentinel string is returned as-is (0.056ms)
+✔ corrupted prefixed buffer returns null instead of throwing (2.335959ms)
+✔ sentinel decoded via deserialize never leaks the marker string (0.072625ms)
+✔ an unserializable value throws instead of storing garbage (6.463208ms)
+✔ an unserializable value does not fail the read path (4.503ms)
+✔ a caller who caches the sentinel string gets it back (0.1155ms)
+✔ sentinel buffers written by older versions still decode to null (0.100083ms)
+✔ the default top tier uses zstd when available and lz4 otherwise (2.756875ms)
+✔ zstd is used once it is switched on, and round-trips (5.574667ms)
+✔ gzip buffers still decode after switching to zstd (3.581083ms)
+✔ an unknown tag from a newer release reads as a miss (0.112792ms)
+✔ payloads under the small-value floor are never compressed (0.106875ms)
+✔ mid-sized payloads are compressed, which the old 64 KB floor skipped (0.228417ms)
+✔ a custom tier array is honoured (0.520917ms)
+✔ a malformed tier list is rejected at configuration time (0.117542ms)
+✔ a tier naming an uninstalled codec falls back instead of throwing (0.407ms)
+✔ transaction source graph contains no L1/cache dependency (2.810875ms)
+✔ store exposes explicit outcomes and does not require a local result cache (2.165709ms)
+✔ transport failure after dispatch is unknown, while an unready primary is unavailable (0.788209ms)
+✔ a command timeout after dispatch is unknown and does not free the gate early (4.127208ms)
+✔ canonical operation keys share a Redis Cluster hash tag per operation (0.191292ms)
+✔ recovery after a provider effect reuses the durable provider identity (39.47975ms)
+✔ ticket resource locking is independent of request idempotency (323.839959ms)
+﹣ Redis v1 state machine serializes ownership and preserves terminal results (0.335125ms) # SKIP
+﹣ an expired Redis lease can be taken over, but the former owner cannot renew or complete (0.055041ms) # SKIP
+ℹ tests 356
+ℹ suites 0
+ℹ pass 343
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 13
+ℹ todo 0
+ℹ duration_ms 14664.767167

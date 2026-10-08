@@ -1,0 +1,4 @@
+npm notice run documentation@0.0.19 types:check
+npm notice run next typegen && tsc --noEmit
+Generating route types...
+✓ Types generated successfully

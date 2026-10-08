@@ -1,4 +1,5 @@
 export { decodeInvalidationEvent, encodeInvalidationEvent } from './eventCodec.js';
+export type { EventDecodeOptions } from './eventCodec.js';
 export type { EventBus, EventBusHealth, EventBusStatus } from './eventBus.interface.js';
 export type {
   NatsEventBusHealth,

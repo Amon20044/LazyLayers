@@ -1,0 +1,27 @@
+npm notice run documentation@0.0.19 build
+npm notice run next build --webpack
+▲ Next.js 16.3.0 (webpack)
+- Environments: .env.local
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/apple/Desktop/LazyLayers/package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/apple/Desktop/LazyLayers/documentation/package-lock.json
+
+✓ Running next.config.mjs took 43ms
+
+  Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Parsing of /Users/apple/Desktop/LazyLayers/documentation/node_modules/fumadocs-mdx/dist/eval-Ck25S_U5.js for build dependencies failed at 'import(pathToFileURL(outfile).href)'.
+<w> Build dependencies behind this expression are ignored and might cause incorrect cache invalidation.
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Parsing of /Users/apple/Desktop/LazyLayers/documentation/node_modules/fumadocs-mdx/dist/load-from-file-DSDlZhTM.js for build dependencies failed at 'import(url.href)'.
+<w> Build dependencies behind this expression are ignored and might cause incorrect cache invalidation.
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Parsing of /Users/apple/Desktop/LazyLayers/documentation/node_modules/fumadocs-mdx/dist/load-from-file-DSDlZhTM.js for build dependencies failed at 'import(url.href)'.
+<w> Build dependencies behind this expression are ignored and might cause incorrect cache invalidation.
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Parsing of /Users/apple/Desktop/LazyLayers/documentation/node_modules/fumadocs-mdx/dist/load-from-file-DSDlZhTM.js for build dependencies failed at 'import(url.href)'.
+<w> Build dependencies behind this expression are ignored and might cause incorrect cache invalidation.
+✓ Compiled successfully in 17.4s
+  Running TypeScript ...
+  Finished TypeScript in 1690ms ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/108) ...

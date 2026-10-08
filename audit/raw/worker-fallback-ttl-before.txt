@@ -1,0 +1,28 @@
+TAP version 13
+# Subtest: audit Worker: failed KV fallback cannot outlive an explicit short request TTL
+not ok 1 - audit Worker: failed KV fallback cannot outlive an explicit short request TTL
+  ---
+  duration_ms: 1.048333
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:79:1'
+  failureType: 'testCodeFailure'
+  error: 'Failure fallback must respect requested freshness'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:84:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 41.494167

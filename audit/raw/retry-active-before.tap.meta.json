@@ -1,0 +1,18 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "test/audit-event-queue.test.js"
+  ],
+  "wallTimeMs": 105,
+  "budgets": {
+    "seconds": 10,
+    "rssMiB": 256
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": 1,
+  "signal": null,
+  "aborted": null
+}

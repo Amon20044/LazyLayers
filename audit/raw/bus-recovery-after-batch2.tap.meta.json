@@ -1,0 +1,23 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-reporter=tap",
+    "--test-timeout=3000",
+    "test/audit-bus-recovery.test.js",
+    "test/audit-boundaries.test.js",
+    "test/audit-event-queue.test.js",
+    "test/event-bus.test.js"
+  ],
+  "wallTimeMs": 1187,
+  "budgets": {
+    "seconds": 20,
+    "rssMiB": 256
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 150110208,
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

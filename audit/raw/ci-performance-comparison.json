@@ -1,0 +1,235 @@
+{
+  "before": "audit/raw/ci-before.json",
+  "after": "audit/raw/ci-after.json",
+  "methodology": "10000 deterministic bootstrap resamples of medians; 95% family interval; tolerance max(10%,3 baseline relative MAD); >=5 repetitions required; shared hardware/short runs limit inference",
+  "rows": [
+    {
+      "name": "lookup",
+      "n": 64,
+      "repetitions": {
+        "before": 7,
+        "after": 7
+      },
+      "baselineMs": 8.452957999999995,
+      "afterMs": 11.132625000000004,
+      "changePercent": 31.700938298758974,
+      "baselineRelativeMad": 0.0109034020990039,
+      "toleratedRelativeRegression": 0.1,
+      "medianRatioFamily95BootstrapInterval": [
+        1.2247582472997258,
+        1.4767518510883217
+      ],
+      "regression": true,
+      "insufficientRepetitionsForGate": false
+    },
+    {
+      "name": "lookup-stale",
+      "n": 64,
+      "repetitions": {
+        "before": 7,
+        "after": 7
+      },
+      "baselineMs": 11.103583,
+      "afterMs": 13.780708000000004,
+      "changePercent": 24.110460560343473,
+      "baselineRelativeMad": 0.01352419304651574,
+      "toleratedRelativeRegression": 0.1,
+      "medianRatioFamily95BootstrapInterval": [
+        1.1624960350386417,
+        1.27623993506194
+      ],
+      "regression": true,
+      "insufficientRepetitionsForGate": false
+    },
+    {
+      "name": "has",
+      "n": 32,
+      "repetitions": {
+        "before": 7,
+        "after": 7
+      },
+      "baselineMs": 1.2609580000000022,
+      "afterMs": 0.42362499999998704,
+      "changePercent": -66.40451149047102,
+      "baselineRelativeMad": 0.030334872374804076,
+      "toleratedRelativeRegression": 0.1,
+      "medianRatioFamily95BootstrapInterval": [
+        0.3036826603020813,
+        0.3980318159079571
+      ],
+      "regression": false,
+      "insufficientRepetitionsForGate": false
+    },
+    {
+      "name": "has",
+      "n": 1024,
+      "repetitions": {
+        "before": 7,
+        "after": 7
+      },
+      "baselineMs": 22.495708000000008,
+      "afterMs": 0.555499999999995,
+      "changePercent": -97.53064006698524,
+      "baselineRelativeMad": 0.004448982001366567,
+      "toleratedRelativeRegression": 0.1,
+      "medianRatioFamily95BootstrapInterval": [
+        0.023727767334198104,
+        0.06875806028833556
+      ],
+      "regression": false,
+      "insufficientRepetitionsForGate": false
+    },
+    {
+      "name": "has",
+      "n": 8192,
+      "repetitions": {
+        "before": 7,
+        "after": 7
+      },
+      "baselineMs": 203.29845899999998,
+      "afterMs": 0.4231250000000131,
+      "changePercent": -99.79187004068731,
+      "baselineRelativeMad": 0.005181426387496692,
+      "toleratedRelativeRegression": 0.1,
+      "medianRatioFamily95BootstrapInterval": [
+        0.001982769166738218,
+        0.0023291853647978153
+      ],
+      "regression": false,
+      "insufficientRepetitionsForGate": false
+    },
+    {
+      "name": "promotion",
+      "n": 512,
+      "repetitions": {
+        "before": 7,
+        "after": 7
+      },
+      "baselineMs": 11.160375000000002,
+      "afterMs": 9.466457999999989,
+      "changePercent": -15.177957729915104,
+      "baselineRelativeMad": 0.008937871711300043,
+      "toleratedRelativeRegression": 0.1,
+      "medianRatioFamily95BootstrapInterval": [
+        0.786377338873385,
+        0.8697996522167017
+      ],
+      "regression": false,
+      "insufficientRepetitionsForGate": false
+    },
+    {
+      "name": "inflight",
+      "n": 32,
+      "repetitions": {
+        "before": 7,
+        "after": 7
+      },
+      "baselineMs": 3.4068340000000035,
+      "afterMs": 1.1260419999999982,
+      "changePercent": -66.94755306539746,
+      "baselineRelativeMad": 0.005185459579188623,
+      "toleratedRelativeRegression": 0.1,
+      "medianRatioFamily95BootstrapInterval": [
+        0.3233651002300366,
+        0.3851418798707441
+      ],
+      "regression": false,
+      "insufficientRepetitionsForGate": false
+    },
+    {
+      "name": "inflight",
+      "n": 1024,
+      "repetitions": {
+        "before": 7,
+        "after": 7
+      },
+      "baselineMs": 26.429541,
+      "afterMs": 0.7113329999999962,
+      "changePercent": -97.30856846889624,
+      "baselineRelativeMad": 0.0189276839881553,
+      "toleratedRelativeRegression": 0.1,
+      "medianRatioFamily95BootstrapInterval": [
+        0.025028044220618228,
+        0.02872756276797641
+      ],
+      "regression": false,
+      "insufficientRepetitionsForGate": false
+    },
+    {
+      "name": "herd",
+      "n": 10,
+      "repetitions": {
+        "before": 7,
+        "after": 7
+      },
+      "baselineMs": 3.0197499999999877,
+      "afterMs": 2.783417,
+      "changePercent": -7.82624389436174,
+      "baselineRelativeMad": 0.16256842453845535,
+      "toleratedRelativeRegression": 0.4877052736153661,
+      "medianRatioFamily95BootstrapInterval": [
+        0.6078290337102936,
+        1.1224212423591287
+      ],
+      "regression": false,
+      "insufficientRepetitionsForGate": false
+    },
+    {
+      "name": "herd",
+      "n": 100,
+      "repetitions": {
+        "before": 7,
+        "after": 7
+      },
+      "baselineMs": 2.625374999999991,
+      "afterMs": 2.901291999999998,
+      "changePercent": 10.509622434890552,
+      "baselineRelativeMad": 0.014474122744374058,
+      "toleratedRelativeRegression": 0.1,
+      "medianRatioFamily95BootstrapInterval": [
+        1.0558131983475698,
+        1.2167266300098276
+      ],
+      "regression": false,
+      "insufficientRepetitionsForGate": false
+    },
+    {
+      "name": "herd",
+      "n": 1000,
+      "repetitions": {
+        "before": 7,
+        "after": 7
+      },
+      "baselineMs": 3.634958999999995,
+      "afterMs": 4.893084000000002,
+      "changePercent": 34.61180717581706,
+      "baselineRelativeMad": 0.016850533939997313,
+      "toleratedRelativeRegression": 0.1,
+      "medianRatioFamily95BootstrapInterval": [
+        1.2320853548253048,
+        1.6623140446841218
+      ],
+      "regression": true,
+      "insufficientRepetitionsForGate": false
+    },
+    {
+      "name": "herd",
+      "n": 10000,
+      "repetitions": {
+        "before": 7,
+        "after": 7
+      },
+      "baselineMs": 13.946957999999995,
+      "afterMs": 25.051292000000004,
+      "changePercent": 79.61832250444874,
+      "baselineRelativeMad": 0.007674863579570206,
+      "toleratedRelativeRegression": 0.1,
+      "medianRatioFamily95BootstrapInterval": [
+        1.7228988833922587,
+        1.8772630576634695
+      ],
+      "regression": true,
+      "insufficientRepetitionsForGate": false
+    }
+  ]
+}

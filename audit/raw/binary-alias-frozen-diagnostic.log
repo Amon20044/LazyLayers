@@ -1,0 +1,2 @@
+{"label":"baseline","bufferResult":true,"expected":[17,34,51],"afterGet":[99,34,51],"afterInspect":[99,88,51]}
+{"label":"frozen-final","bufferResult":true,"expected":[17,34,51],"afterGet":[99,34,51],"afterInspect":[99,88,51]}

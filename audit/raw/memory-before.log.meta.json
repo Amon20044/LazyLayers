@@ -1,0 +1,24 @@
+{
+  "command": [
+    "env",
+    "LAZY_AUDIT_MODULE=file:///private/tmp/lazy-layers-ca9c02a-audit/dist/index.js",
+    "LAZY_AUDIT_OUTPUT=audit/raw/memory-before.json",
+    "LAZY_AUDIT_SNAPSHOTS=1",
+    "LAZY_AUDIT_LABEL=before",
+    "node",
+    "scripts/audit-memory-profile.mjs"
+  ],
+  "wallTimeMs": 3815,
+  "budgets": {
+    "seconds": 180,
+    "rssMiB": 768,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 256
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 294518784,
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

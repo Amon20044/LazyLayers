@@ -1,0 +1,367 @@
+✖ audit: a failed lease acquisition returns the origin result without overwriting a protected winner (5.11325ms)
+✖ audit: explicitly unlocked contention fallback does not publish into protected cache state (0.572833ms)
+✖ audit: distinct malformed UTF-16 keys retain distinct Redis wire identities (0.346125ms)
+✖ audit: Redis v2 nested prefixes cannot delete another namespace by clearing a shorter prefix (0.47325ms)
+✖ audit: Redis patterns use only star as wildcard and preserve literal question/bracket bytes (0.74725ms)
+✖ audit: legacy metadata key collisions are rejected before a Redis command is issued (0.601834ms)
+✖ audit: scoped events reject wrong/untagged namespaces before deduplication and publish their scope (0.557083ms)
+✖ audit: negative keys cannot bypass a small shared memory budget and are released on close (2.101083ms)
+✖ audit: event deduplication keys have a byte cap and release their shared reservations (4.879583ms)
+✖ audit: generation-byte saturation never exposes an older v0 entry or accepts a delayed old fill (1.231125ms)
+✖ audit: concurrent custom reads cannot retain unlimited distinct revision-map key bytes (3.760042ms)
+✖ audit: a stale custom-L1 publication cannot leave an older value after a replacement write (0.347417ms)
+✔ audit: built-in L1 keeps a replacement value when an older committed write resumes (0.502ms)
+✖ audit: corrupt Redis bytes are a miss while a legitimate null remains a cache hit (0.440166ms)
+✖ audit: negative maxEntries zero disables retained misses (0.148916ms)
+✖ audit: non-finite cache metadata budgets are rejected before creating resources (0.100167ms)
+✖ audit: invalid per-operation metadata budgets reject without invoking the loader (0.317125ms)
+✖ audit: tracked in-flight key bytes are finite even when callers use large distinct keys (3.11825ms)
+✖ audit: queued origin keys are byte bounded and cancellation releases their ledger reservations (501.785834ms)
+✔ audit: a generation-zero restart cannot see a deleted old version when a v1 write queued concurrently (0.979375ms)
+✖ audit: subscription completion cannot restore trust after an immediate transport loss (0.476209ms)
+✔ audit: custom-bus malformed typed keys cannot poison numeric L1 state (0.523667ms)
+✖ audit: local lease expiry survives a backward clock change during an event-loop stall (20.349333ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 3
+ℹ fail 20
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 695.979875
+
+✖ failing tests:
+
+test at test/audit-coordination-boundaries.test.js:46:1
+✖ audit: a failed lease acquisition returns the origin result without overwriting a protected winner (5.11325ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'obsolete'
+  - 'winner'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:64:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'obsolete',
+    expected: 'winner',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:69:1
+✖ audit: explicitly unlocked contention fallback does not publish into protected cache state (0.572833ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'obsolete'
+  - 'winner'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:82:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'obsolete',
+    expected: 'winner',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:85:1
+✖ audit: distinct malformed UTF-16 keys retain distinct Redis wire identities (0.346125ms)
+  AssertionError [ERR_ASSERTION]: UTF-8 replacement must not collapse the complete physical keys
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:92:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:99:1
+✖ audit: Redis v2 nested prefixes cannot delete another namespace by clearing a shorter prefix (0.47325ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'child-value'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:107:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'child-value',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:112:1
+✖ audit: Redis patterns use only star as wildcard and preserve literal question/bracket bytes (0.74725ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'question'
+  - undefined
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:119:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'question',
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:124:1
+✖ audit: legacy metadata key collisions are rejected before a Redis command is issued (0.601834ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:127:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /reserved|collid/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:132:1
+✖ audit: scoped events reject wrong/untagged namespaces before deduplication and publish their scope (0.557083ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'current'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:141:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'current',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:148:1
+✖ audit: negative keys cannot bypass a small shared memory budget and are released on close (2.101083ms)
+  AssertionError [ERR_ASSERTION]: Raw negative keys must not bypass B
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:156:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:162:1
+✖ audit: event deduplication keys have a byte cap and release their shared reservations (4.879583ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(retainedKeyBytes(cache.seenEvents) <= ledger.hardCap)
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:171:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:177:1
+✖ audit: generation-byte saturation never exposes an older v0 entry or accepts a delayed old fill (1.231125ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(retainedKeyBytes(cache.generations) <= 2 * 1024 * 1024)
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:192:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:202:1
+✖ audit: concurrent custom reads cannot retain unlimited distinct revision-map key bytes (3.760042ms)
+  TypeError: cache.getCoordinationStats is not a function
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:209:19)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at test/audit-coordination-boundaries.test.js:215:1
+✖ audit: a stale custom-L1 publication cannot leave an older value after a replacement write (0.347417ms)
+  AssertionError [ERR_ASSERTION]: Custom adapters may conservatively evict; they must not retain stale data
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:230:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'obsolete',
+    expected: 'obsolete',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:253:1
+✖ audit: corrupt Redis bytes are a miss while a legitimate null remains a cache hit (0.440166ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + null
+  - 'recovered'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:262:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 'recovered',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:268:1
+✖ audit: negative maxEntries zero disables retained misses (0.148916ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:274:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:278:1
+✖ audit: non-finite cache metadata budgets are rejected before creating resources (0.100167ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:289:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /finite|integer|budget/i,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:293:1
+✖ audit: invalid per-operation metadata budgets reject without invoking the loader (0.317125ms)
+  AssertionError [ERR_ASSERTION]: The error is expected to be an instance of "RangeError". Received "AssertionError"
+  
+  Error message:
+  
+  invalid options cannot invoke origin
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:296:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: invalid options cannot invoke origin
+        at assert.rejects.cache.getOrSet.negativeCache.ttlMs (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:296:59)
+        at file:///private/tmp/lazy-layers-ca9c02a-audit/dist/cache/hybridCache.js:463:29,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:300:1
+✖ audit: tracked in-flight key bytes are finite even when callers use large distinct keys (3.11825ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(retainedKeyBytes(cache.inflight) <= 2 * 1024 * 1024)
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:306:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:312:1
+✖ audit: queued origin keys are byte bounded and cancellation releases their ledger reservations (501.785834ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /cancelled/. Input:
+  
+  'Origin load queue is full or its wait deadline expired'
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:322:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Origin load queue is full or its wait deadline expired',
+    expected: /cancelled/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:356:1
+✖ audit: subscription completion cannot restore trust after an immediate transport loss (0.476209ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:365:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/audit-coordination-boundaries.test.js:380:1
+✖ audit: local lease expiry survives a backward clock change during an event-loop stall (20.349333ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:390:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /Lost|lock/i,
+    operator: 'throws',
+    diff: 'simple'
+  }
+

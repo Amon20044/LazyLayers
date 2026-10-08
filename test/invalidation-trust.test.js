@@ -41,20 +41,23 @@ test("remote delete is local-only and trust recovers only after subscription ack
   await cache.close();
 });
 
-test("handler queue counts active encoded bytes and reports overflow", async () => {
+test("handler queue counts active encoded bytes and reports overflow", { timeout: 2000 }, async () => {
   let release;
   const overflow = [];
   const queue = new EventBusHandlerQueue(async () => new Promise((r) => { release = r; }), {
     concurrency: 1, maxSize: 2, maxBytes: 5, onError() {}, onOverflow: (x) => overflow.push(x),
   });
   const event = { type: "del", keys: ["a"], source: "p", ts: 1 };
-  assert.equal(queue.enqueue(event, Buffer.alloc(4)), true);
-  await wait();
-  assert.equal(queue.enqueue(event, Buffer.alloc(2)), false);
-  assert.equal(queue.retainedBytes, 4);
-  assert.equal(overflow.length, 1);
-  release();
-  await wait();
+  // This is an accounting fixture with its own decoder, not valid bus wire.
+  try {
+    assert.equal(queue.enqueueEncoded(Buffer.alloc(4), () => event), true);
+    await wait();
+    assert.equal(queue.enqueueEncoded(Buffer.alloc(2), () => event), false);
+    assert.equal(queue.retainedBytes, 4);
+    assert.equal(overflow.length, 1);
+  } finally {
+    release?.(); queue.close(); await wait();
+  }
 });
 
 test("retry queue bounds retained encoded bytes and exposes drops", async () => {

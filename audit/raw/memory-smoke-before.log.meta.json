@@ -1,0 +1,20 @@
+{
+  "command": [
+    "node",
+    "--expose-gc",
+    "scripts/audit-memory-smoke.mjs"
+  ],
+  "wallTimeMs": 30230,
+  "budgets": {
+    "seconds": 45,
+    "rssMiB": 512,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 512
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 131891200,
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

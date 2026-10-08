@@ -1,0 +1,22 @@
+{
+  "command": [
+    "node",
+    "--max-old-space-size=128",
+    "--test",
+    "--test-reporter=tap",
+    "--test-concurrency=1",
+    "--test-timeout=12000",
+    "test/audit-memory-harness.test.js"
+  ],
+  "wallTimeMs": 154,
+  "budgets": {
+    "seconds": 15,
+    "rssMiB": 256
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

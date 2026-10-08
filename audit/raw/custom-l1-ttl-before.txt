@@ -1,0 +1,28 @@
+TAP version 13
+# Subtest: audit: nonencoded custom L1 promotion receives the authoritative remaining TTL for reads and peer hints
+not ok 1 - audit: nonencoded custom L1 promotion receives the authoritative remaining TTL for reads and peer hints
+  ---
+  duration_ms: 1.759917
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:604:1'
+  failureType: 'testCodeFailure'
+  error: 'A custom L1 cannot inherit a longer normal-read TTL'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:617:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 122.498875

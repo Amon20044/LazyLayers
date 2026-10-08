@@ -1,0 +1,14 @@
+{
+  "src": {
+    "actual": "e451d7c9d3524779584211fe0571acff4e68cecbf1e32e6f8bb10f8face8fd08",
+    "expected": "e451d7c9d3524779584211fe0571acff4e68cecbf1e32e6f8bb10f8face8fd08",
+    "matches": true,
+    "fileCount": 58
+  },
+  "dist": {
+    "actual": "21ed478360f76848bfb2b79594169f80bda2b24fe0bf4f9caacbb9aa66608b95",
+    "expected": "21ed478360f76848bfb2b79594169f80bda2b24fe0bf4f9caacbb9aa66608b95",
+    "matches": true,
+    "fileCount": 232
+  }
+}

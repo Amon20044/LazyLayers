@@ -6,7 +6,13 @@ import { ObservabilityCollector } from './collector.js';
 import { ObservabilityInspector } from './inspector.js';
 import { renderDashboard } from './dashboard.js';
 import { renderPrometheus } from './prometheus.js';
-import type { ResolvedObservabilityOptions } from './types.js';
+import { encodeBoundedEvent, eventLimit } from './eventEncoding.js';
+import {
+  DEFAULT_OBSERVABILITY_MAX_EVENT_BYTES,
+  DEFAULT_OBSERVABILITY_MAX_STREAM_CLIENTS,
+  type RecordedEvent,
+  type ResolvedObservabilityOptions,
+} from './types.js';
 
 export interface ObservabilityHandlerDeps {
   collector: ObservabilityCollector;
@@ -30,6 +36,9 @@ export function createObservabilityHandler(
   const { collector, inspector, options } = deps;
   const base = options.route;
   const metricsPath = `${base}/metrics`;
+  const maxStreamClients = eventLimit(options.maxStreamClients ?? DEFAULT_OBSERVABILITY_MAX_STREAM_CLIENTS, 'maxStreamClients');
+  const maxStreamEventBytes = eventLimit(options.maxStreamEventBytes ?? DEFAULT_OBSERVABILITY_MAX_EVENT_BYTES, 'maxStreamEventBytes');
+  let activeStreams = 0;
 
   return (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
@@ -94,7 +103,12 @@ export function createObservabilityHandler(
           sendJson(res, 200, await inspector.config());
           return;
         case `${base}/stream`:
-          streamEvents(req, res, collector);
+          if (activeStreams >= maxStreamClients) {
+            sendJson(res, 503, { error: 'live event feed client limit reached' });
+            return;
+          }
+          activeStreams += 1;
+          streamEvents(req, res, collector, maxStreamEventBytes, () => { activeStreams -= 1; });
           return;
         case metricsPath: {
           if (!options.prometheus.enabled) {
@@ -127,41 +141,81 @@ function streamEvents(
   req: IncomingMessage,
   res: ServerResponse,
   collector: ObservabilityCollector,
+  maxEventBytes: number,
+  release: () => void,
 ): void {
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache, no-transform',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
-  });
-  res.write('retry: 3000\n\n');
-
-  // Replay the current ring buffer so a freshly opened tab has context.
-  for (const event of collector.recentEvents()) {
-    res.write(`data: ${JSON.stringify(event)}\n\n`);
-  }
-
-  const unsubscribe = collector.subscribe((event) => {
-    // Best-effort write; if the socket is backed up we skip rather than buffer.
-    if (!res.writableEnded && res.writable) {
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
-    }
-  });
-
-  const heartbeat = setInterval(() => {
-    if (!res.writableEnded) {
-      res.write(': ping\n\n');
-    }
-  }, 25_000);
-  heartbeat.unref?.();
-
+  let closed = false;
+  let blocked = res.writableNeedDrain;
+  let unsubscribe = (): void => {};
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
   const cleanup = (): void => {
-    clearInterval(heartbeat);
+    if (closed) return;
+    closed = true;
+    if (heartbeat) clearInterval(heartbeat);
     unsubscribe();
+    req.off('close', cleanup);
+    req.off('aborted', cleanup);
+    req.off('error', cleanup);
+    res.off('close', cleanup);
+    res.off('finish', cleanup);
+    res.off('error', cleanup);
+    res.off('drain', onDrain);
+    release();
   };
-
+  const onDrain = (): void => { if (!closed) blocked = res.writableNeedDrain; };
+  const canWrite = (): boolean => {
+    if (closed) return false;
+    if (res.writableEnded || res.destroyed || !res.writable) { cleanup(); return false; }
+    if (res.writableNeedDrain) blocked = true;
+    return !blocked;
+  };
+  const write = (frame: string): boolean => {
+    if (!canWrite() || Buffer.byteLength(frame, 'utf8') > maxEventBytes) return false;
+    try {
+      if (!res.write(frame) || res.writableNeedDrain) blocked = true;
+      return !blocked;
+    } catch {
+      cleanup();
+      return false;
+    }
+  };
+  const writeEvent = (event: RecordedEvent): void => {
+    if (!canWrite()) return;
+    const json = encodeBoundedEvent(event, maxEventBytes - 8); // "data: " + two newlines
+    if (json !== undefined) write(`data: ${json}\n\n`);
+  };
   req.on('close', cleanup);
+  req.on('aborted', cleanup);
+  req.on('error', cleanup);
   res.on('close', cleanup);
+  res.on('finish', cleanup);
+  res.on('error', cleanup);
+  res.on('drain', onDrain);
+
+  try {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    write('retry: 3000\n\n');
+    // Replay and live events are best effort. No application queue is retained
+    // while the socket is blocked; the next live event resumes after drain.
+    if (canWrite()) {
+      for (const event of collector.recentEvents()) {
+        if (!canWrite()) break;
+        writeEvent(event);
+      }
+    }
+    if (closed) return;
+    unsubscribe = collector.subscribe(writeEvent);
+    heartbeat = setInterval(() => { write(': ping\n\n'); }, 25_000);
+    heartbeat.unref?.();
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {

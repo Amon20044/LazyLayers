@@ -1,0 +1,197 @@
+{
+  "input": "audit/raw/after-empty-stores.heapsnapshot",
+  "snapshotNodeCount": 137099,
+  "open": {
+    "storeCount": 20,
+    "directArrayCount": 120,
+    "directArraySelfBytes": 3680,
+    "backingSelfBytes": 0
+  },
+  "closed": {
+    "storeCount": 1,
+    "cachePresentCount": 0,
+    "directArrayCount": 0,
+    "directArraySelfBytes": 0,
+    "backingSelfBytes": 0
+  },
+  "stores": [
+    {
+      "closed": true,
+      "cachePresent": false,
+      "directArrayCount": 0,
+      "directArraySelfBytes": 0,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    },
+    {
+      "closed": false,
+      "cachePresent": true,
+      "directArrayCount": 6,
+      "directArraySelfBytes": 184,
+      "backingNodeCount": 0,
+      "backingSelfBytes": 0
+    }
+  ],
+  "limits": {
+    "inputBytes": 67108864,
+    "recommendedHeapMiB": 256,
+    "recommendedWallSeconds": 20,
+    "recommendedRssMiB": 512
+  },
+  "notes": [
+    "Counts and self sizes of directly owned LRU arrays/backing nodes only; excludes keys, entries, contexts and shared code.",
+    "This is not a retained-size/dominator analysis and does not establish actual total memory per cache entry."
+  ]
+}

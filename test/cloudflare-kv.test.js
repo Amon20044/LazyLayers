@@ -149,7 +149,7 @@ test('existing HC1J records and cached null stay readable across both KV stores'
   assert.equal(await node.get('sentinel'), NULL_SENTINEL);
   const unsupported = encodeKVRecord(Buffer.concat([Buffer.from('HC1Z'), Buffer.from([1])]), Date.now() + 60_000);
   namespace.entries.set('shared:zstd', { bytes: unsupported });
-  assert.equal(await worker.get('zstd'), null);
+  assert.equal(await worker.get('zstd'), undefined);
 });
 
 test('KV compression opt-out and small values retain interoperable MessagePack', async () => {

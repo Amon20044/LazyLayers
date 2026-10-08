@@ -1,0 +1,251 @@
+{
+  "metadata": {
+    "generatedAt": "2026-10-08T13:11:42.082Z",
+    "node": "v24.21.0",
+    "os": "Darwin 25.5.0",
+    "cpu": "Apple M5",
+    "logicalCpus": 10,
+    "module": "file:///private/tmp/lazy-layers-ca9c02a-audit/dist/index.js",
+    "project": "lazy-layers-audit-762c41ad",
+    "instances": 2,
+    "independentProcesses": {
+      "workers": 2,
+      "origin": 1,
+      "loadGenerator": 1
+    },
+    "payloadBytes": 1024,
+    "requestDistribution": "seeded skew over 64 keys unless specified",
+    "repetitions": 3,
+    "budgets": {
+      "workersHeapMiBEach": 160,
+      "originHeapMiB": 160,
+      "generatorHeapMiB": 192,
+      "aggregateRssMiB": 768,
+      "totalMs": 110000,
+      "perLoadMs": 7000,
+      "requestsPerLoad": 100000,
+      "maxGeneratorOutstanding": 1500
+    },
+    "coordinatedOmission": "open-loop planned-arrival latency; unsent traffic separately counted; generator ceiling calibrated with HTTP bypass"
+  },
+  "capacity": [
+    {
+      "config": {
+        "urls": [
+          "http://127.0.0.1:56815",
+          "http://127.0.0.1:56814"
+        ],
+        "noop": true,
+        "rps": 1000,
+        "durationMs": 1000,
+        "distribution": "round-robin",
+        "payloadBytes": 1024
+      },
+      "offered": 1000,
+      "sent": 1000,
+      "completed": 1000,
+      "successful": 1000,
+      "errors": 0,
+      "timeouts": 0,
+      "clientDropped": 0,
+      "freshnessViolations": 0,
+      "elapsedMs": 1002.4415000000001,
+      "offeredRps": 1000,
+      "completedRps": 997.5644464041043,
+      "successfulRps": 997.5644464041043,
+      "errorRate": 0,
+      "bytesReceived": 1072840,
+      "maxOutstanding": 7,
+      "byWorker": [
+        500,
+        500
+      ],
+      "statuses": {
+        "200": 1000
+      },
+      "arrivalToCompletionMs": {
+        "p50": 1.118750000000091,
+        "p95": 2.049458999999999,
+        "p99": 3.2094999999999914,
+        "p999": 6.705709000000013
+      },
+      "dispatchedToCompletionMs": {
+        "p50": 0.3213750000001028,
+        "p95": 0.73762499999998,
+        "p99": 1.7132499999999027,
+        "p999": 5.743833999999993
+      },
+      "dispatchLagMs": {
+        "p50": 0.7756670000001122,
+        "p95": 1.4539170000000041,
+        "p99": 1.6591250000000173,
+        "p999": 1.9075000000000273
+      },
+      "runtime": {
+        "cpuMs": 307.821,
+        "peakSampledRssBytes": 100188160,
+        "processLifetimeMaxRssBytes": 100237312,
+        "memory": {
+          "rss": 100237312,
+          "heapTotal": 28655616,
+          "heapUsed": 15541128,
+          "external": 4722362,
+          "arrayBuffers": 1050177
+        },
+        "gc": {
+          "count": 14,
+          "totalMs": 7.882832944393158,
+          "maxMs": 1.6599169969558716
+        }
+      },
+      "coordinatedOmission": "Open-loop scheduled arrivals; latency includes dispatch delay. Unsent arrivals are explicit clientDropped errors, excluded from latency quantiles."
+    },
+    {
+      "config": {
+        "urls": [
+          "http://127.0.0.1:56815",
+          "http://127.0.0.1:56814"
+        ],
+        "noop": true,
+        "rps": 10000,
+        "durationMs": 1000,
+        "distribution": "round-robin",
+        "payloadBytes": 1024
+      },
+      "offered": 10000,
+      "sent": 10000,
+      "completed": 10000,
+      "successful": 10000,
+      "errors": 0,
+      "timeouts": 0,
+      "clientDropped": 0,
+      "freshnessViolations": 0,
+      "elapsedMs": 1003.169666,
+      "offeredRps": 10000,
+      "completedRps": 9968.403490382254,
+      "successfulRps": 9968.403490382254,
+      "errorRate": 0,
+      "bytesReceived": 10728430,
+      "maxOutstanding": 152,
+      "byWorker": [
+        5000,
+        5000
+      ],
+      "statuses": {
+        "200": 10000
+      },
+      "arrivalToCompletionMs": {
+        "p50": 2.11854100000005,
+        "p95": 7.976832999999942,
+        "p99": 13.083124999999995,
+        "p999": 17.33395799999994
+      },
+      "dispatchedToCompletionMs": {
+        "p50": 1.2230829999999742,
+        "p95": 5.395250000000033,
+        "p99": 10.598875000000021,
+        "p999": 16.717667000000006
+      },
+      "dispatchLagMs": {
+        "p50": 0.7927909999999656,
+        "p95": 2.2242499999999836,
+        "p99": 4.924874999999929,
+        "p999": 6.895290999999929
+      },
+      "runtime": {
+        "cpuMs": 742.46,
+        "peakSampledRssBytes": 199163904,
+        "processLifetimeMaxRssBytes": 221102080,
+        "memory": {
+          "rss": 220741632,
+          "heapTotal": 156319744,
+          "heapUsed": 35782256,
+          "external": 10247468,
+          "arrayBuffers": 3645737
+        },
+        "gc": {
+          "count": 35,
+          "totalMs": 26.765250027179718,
+          "maxMs": 5.6025829911231995
+        }
+      },
+      "coordinatedOmission": "Open-loop scheduled arrivals; latency includes dispatch delay. Unsent arrivals are explicit clientDropped errors, excluded from latency quantiles."
+    },
+    {
+      "config": {
+        "urls": [
+          "http://127.0.0.1:56815",
+          "http://127.0.0.1:56814"
+        ],
+        "noop": true,
+        "rps": 50000,
+        "durationMs": 1000,
+        "distribution": "round-robin",
+        "payloadBytes": 1024
+      },
+      "offered": 50000,
+      "sent": 8541,
+      "completed": 8541,
+      "successful": 5315,
+      "errors": 3226,
+      "timeouts": 0,
+      "clientDropped": 41459,
+      "freshnessViolations": 0,
+      "elapsedMs": 1395.427958,
+      "offeredRps": 50000,
+      "completedRps": 6120.702936353236,
+      "successfulRps": 3808.8673582387833,
+      "errorRate": 0.8937,
+      "bytesReceived": 5702146,
+      "maxOutstanding": 1024,
+      "byWorker": [
+        4270,
+        4271
+      ],
+      "statuses": {
+        "200": 5315,
+        "transport": 3226
+      },
+      "arrivalToCompletionMs": {
+        "p50": 88.06366700000001,
+        "p95": 664.8850420000001,
+        "p99": 671.3305419999999,
+        "p999": 672.77925
+      },
+      "dispatchedToCompletionMs": {
+        "p50": 58.879959,
+        "p95": 334.7632080000001,
+        "p99": 427.27258299999994,
+        "p999": 427.348375
+      },
+      "dispatchLagMs": {
+        "p50": 25.825208000000003,
+        "p95": 331.2721670000001,
+        "p99": 333.878792,
+        "p999": 334.442458
+      },
+      "runtime": {
+        "cpuMs": 1585.695,
+        "peakSampledRssBytes": 212811776,
+        "processLifetimeMaxRssBytes": 219463680,
+        "memory": {
+          "rss": 219480064,
+          "heapTotal": 171786240,
+          "heapUsed": 54131800,
+          "external": 4965370,
+          "arrayBuffers": 1162825
+        },
+        "gc": {
+          "count": 21,
+          "totalMs": 25.28270810842514,
+          "maxMs": 4.456250011920929
+        }
+      },
+      "coordinatedOmission": "Open-loop scheduled arrivals; latency includes dispatch delay. Unsent arrivals are explicit clientDropped errors, excluded from latency quantiles."
+    }
+  ],
+  "rows": [],
+  "notes": [
+    "Load generator/HTTP calibration failed at 50000 offered RPS; higher rates were not attempted."
+  ]
+}

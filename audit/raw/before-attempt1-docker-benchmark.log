@@ -1,0 +1,12 @@
+Raw E2E results: audit/raw/e2e-before.json
+file:///Users/apple/Desktop/LazyLayers/benchmarks/audit-e2e.mjs:31
+    const listener = (message) => { if (message?.id !== id) return; clearTimeout(timer); child.off('message', listener); message.error ? reject(new Error(`${message.error.name}: ${message.error.message}`)) : resolve(message.value); };
+                                                                                                                                                ^
+
+Error: TypeError: fetch failed
+    at ChildProcess.listener (file:///Users/apple/Desktop/LazyLayers/benchmarks/audit-e2e.mjs:31:145)
+    at ChildProcess.emit (node:events:514:28)
+    at emit (node:internal/child_process:989:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:91:21)
+
+Node.js v24.21.0

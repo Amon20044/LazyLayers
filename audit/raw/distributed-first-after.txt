@@ -1,0 +1,158 @@
+Command: env -u REDIS_URL -u RABBITMQ_URL -u NATS_URL node --max-old-space-size=256 --test --test-concurrency=1 --test-timeout=15000 test/audit-distributed-regressions.test.js test/atomic-publication.test.js test/distributed-lock.test.js test/release-safety-regressions.test.js
+Resource limits: 256 MiB old-space; 15 s default per-test deadline; local mocks only; one optional Redis integration test intentionally skipped.
+Exit code: 0
+
+✔ RedisStore registers cached scripts and keeps data/lease keys in one slot (1.693708ms)
+✔ v2 direct writes and deletes fence an outstanding fill lease (0.393375ms)
+✔ RedisStore recovers a definite NOSCRIPT without replaying through another mutation (0.318375ms)
+﹣ real Redis keeps the replacement value when a former owner resumes (0.037875ms) # SKIP
+✔ HybridCache never promotes or broadcasts a fill rejected by the ownership check (4.345875ms)
+✔ audit: distinct concurrent fills all retain their own values (4.787542ms)
+✔ audit: invalidation fences an origin fill already inside asynchronous L1 set (0.474292ms)
+✔ audit: close aborts an active leader and its late result cannot repopulate state (0.324ms)
+✔ audit: closed caches reject subsequent reads and writes (0.30225ms)
+✔ audit: numeric remote deletion clears numeric L1 state (0.402542ms)
+✔ audit: numeric peer priming clears the matching numeric negative cache (0.781083ms)
+✔ audit: equal-generation obsolete peer priming reconciles the authoritative L2 value (0.326958ms)
+✔ audit: a key filled while waiting for an origin slot skips the queued loader (3.192916ms)
+✔ audit: a queued leader whose lease expired leaves the queue without invoking origin (86.923833ms)
+✔ audit: Redis v2 pattern invalidation fences a cold key containing only a lease (0.937667ms)
+✔ audit: Redis v2 clear treats prefix glob characters as literal namespace bytes (0.370375ms)
+✔ audit: Redis v2 direct delete removes admitted logical keys beginning with __ (0.104791ms)
+✔ audit: Redis owner rejection after lease expiration protects the newer value (0.127166ms)
+✔ audit: delivery recovery survives an unrelated write while L1 reconciliation is pending (0.751875ms)
+✔ audit: unique absent-key invalidations have finite retained generation metadata (38.3895ms)
+
+✔ default getOrSet shares a refresh after expiry even when it exceeds the old two-second wait (2184.596583ms)
+✔ expiry in L1 alone refills from L2 without invoking the loader (28.071666ms)
+✔ slow loads renew their lease automatically and release it after completion (590.735292ms)
+✔ contention timeout rejects without running the loader and exposes an exported error (36.452167ms)
+[ERROR] cache loader failed {
+  key: 'hot',
+  error: Error: origin failed
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:131:17)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+}
+✔ contention timeout serves eligible stale data without refreshing its expiry (50.651708ms)
+✔ the old unlocked fallback remains an explicit per-call opt-in (1.596125ms)
+✔ waiters retry a released lock after the original loader fails (51.864125ms)
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:158:40)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:782:83
+}
+✔ waiters can take over an expired lock left by a crashed owner (52.230292ms)
+✔ acquisition rechecks the cache to avoid loading a result published after the original miss (0.737875ms)
+✔ initial Redis lock failure preserves fail-open behavior (0.931084ms)
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:782:83
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:782:83
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:782:83
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:782:83
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:782:83
+}
+✔ Redis errors after observed contention do not bypass the known owner (30.469ms)
+[ERROR] cache loader failed {
+  key: 'hot',
+  error: DistributedLockLostError: Lost the distributed cache lock for hot
+      at lose (file:///Users/apple/Desktop/LazyLayers/dist/cache/distributedLock.js:44:17)
+      at Timeout.<anonymous> (file:///Users/apple/Desktop/LazyLayers/dist/cache/distributedLock.js:70:21) {
+    key: 'hot',
+    code: 'DISTRIBUTED_LOCK_LOST'
+  }
+}
+✔ lost ownership aborts the loader and prevents a late result from overwriting the new owner (42.213625ms)
+[ERROR] cache loader failed {
+  key: 'hot',
+  error: DistributedLockLostError: Lost the distributed cache lock for hot
+      at Timeout.lose (file:///Users/apple/Desktop/LazyLayers/dist/cache/distributedLock.js:44:17)
+      at listOnTimeout (node:internal/timers:685:17)
+      at process.processTimers (node:internal/timers:618:7) {
+    key: 'hot',
+    code: 'DISTRIBUTED_LOCK_LOST'
+  }
+}
+✔ a hung renewal is bounded by the current lease deadline (62.462208ms)
+[ERROR] cache loader failed {
+  key: 'hot',
+  error: DistributedLockLostError: Lost the distributed cache lock for hot
+      at Timeout.lose (file:///Users/apple/Desktop/LazyLayers/dist/cache/distributedLock.js:44:17)
+      at listOnTimeout (node:internal/timers:685:17)
+      at process.processTimers (node:internal/timers:618:7) {
+    key: 'hot',
+    code: 'DISTRIBUTED_LOCK_LOST'
+  }
+}
+✔ custom stores without renewal remain compatible but cannot publish after their lease expires (112.437625ms)
+✔ invalid lock timings reject rather than creating an unbounded wait (0.581208ms)
+[ERROR] l2 cache operation failed open {
+  operation: 'renewLock',
+  key: 'hot',
+  state: 'closed',
+  error: L2OperationTimeoutError: L2 operation timed out after 2000ms: renewLock
+      at Timeout._onTimeout (file:///Users/apple/Desktop/LazyLayers/dist/cache/l2OperationGate.js:75:115)
+      at listOnTimeout (node:internal/timers:685:17)
+      at process.processTimers (node:internal/timers:618:7) {
+    operation: 'renewLock',
+    timeoutMs: 2000,
+    code: 'L2_OPERATION_TIMEOUT'
+  }
+}
+✔ local default dedupe survives the former five-second entry lifetime (5103.468291ms)
+✔ an older completion does not remove a replacement in-flight entry (13.559666ms)
+✔ release: a local invalidation fences an already-running origin load (2.446334ms)
+✔ release: an initial subscription failure never enables L1 trust (0.334042ms)
+✔ release: a second disconnect fences an outstanding recovery flush (5.04675ms)
+✔ release: a delayed remote set cannot resurrect a newer remote delete (1.026166ms)
+✔ release: a delayed L2 promotion cannot repopulate L1 after invalidation (1.587541ms)
+✔ release: Redis reconnect explicitly subscribes again and resumes delivery (1.43925ms)
+✔ release: a stale reconnect acknowledgement cannot restore subscription status (0.264292ms)
+✔ release: Redis discards pre-gap pending deliveries before trusting reconnection (0.45275ms)
+✔ release: retry overflow during publishing does not silently remove the next event (0.227458ms)
+✔ release: retry queues own an immutable payload snapshot (0.133292ms)
+ℹ tests 47
+ℹ suites 0
+ℹ pass 46
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 8939.352292
+

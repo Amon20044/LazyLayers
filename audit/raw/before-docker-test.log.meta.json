@@ -1,0 +1,118 @@
+{
+  "action": "test",
+  "label": "before",
+  "project": "lazy-layers-audit-121d4ef8",
+  "generatedAt": "2026-10-08T12:47:31.276Z",
+  "elapsedMs": 22598,
+  "node": "v24.21.0",
+  "os": "Darwin 25.5.0",
+  "cpu": "Apple M5",
+  "logicalCpus": 10,
+  "dockerVersion": "29.6.2",
+  "ports": {
+    "redis": "127.0.0.1:54866",
+    "rabbitmq": "127.0.0.1:54867",
+    "nats": "127.0.0.1:54868"
+  },
+  "containers": [
+    {
+      "Command": "\"docker-entrypoint.s…\"",
+      "CreatedAt": "2026-10-08 18:17:04 +0530 IST",
+      "ExitCode": 0,
+      "Health": "healthy",
+      "ID": "de13be6abbc8",
+      "Image": "nats:2.10-alpine",
+      "Labels": "desktop.docker.io/ports.scheme=v2,desktop.docker.io/ports/4222/tcp=127.0.0.1:,com.docker.compose.config-hash=c983dc4432c9c1b07f410fc135f3cde035d6e0d59c17f31fa6bc80ae117fb046,com.docker.compose.image=sha256:b83efabe3e7def1e0a4a31ec6e078999bb17c80363f881df35edc70fcb6bb927,com.docker.compose.oneoff=False,com.docker.compose.project=lazy-layers-audit-121d4ef8,com.docker.compose.project.config_files=/Users/apple/Desktop/LazyLayers/audit/compose.yml,com.docker.compose.project.working_dir=/Users/apple/Desktop/LazyLayers/audit,com.docker.compose.service=nats,lazy-layers.audit=disposable,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.version=5.3.1",
+      "LocalVolumes": "0",
+      "Mounts": "",
+      "Name": "lazy-layers-audit-121d4ef8-nats-1",
+      "Names": "lazy-layers-audit-121d4ef8-nats-1",
+      "Networks": "lazy-layers-audit-121d4ef8_default",
+      "Ports": "127.0.0.1:54868->4222/tcp",
+      "Project": "lazy-layers-audit-121d4ef8",
+      "Publishers": [
+        {
+          "URL": "127.0.0.1",
+          "TargetPort": 4222,
+          "PublishedPort": 54868,
+          "Protocol": "tcp"
+        }
+      ],
+      "RunningFor": "4 seconds ago",
+      "Service": "nats",
+      "Size": "0B",
+      "State": "running",
+      "Status": "Up 4 seconds (healthy)"
+    },
+    {
+      "Command": "\"docker-entrypoint.s…\"",
+      "CreatedAt": "2026-10-08 18:17:04 +0530 IST",
+      "ExitCode": 0,
+      "Health": "healthy",
+      "ID": "52e935f5e344",
+      "Image": "rabbitmq:3-alpine",
+      "Labels": "com.docker.compose.project.working_dir=/Users/apple/Desktop/LazyLayers/audit,com.docker.compose.service=rabbitmq,lazy-layers.audit=disposable,com.docker.compose.container-number=1,com.docker.compose.project.config_files=/Users/apple/Desktop/LazyLayers/audit/compose.yml,com.docker.compose.version=5.3.1,desktop.docker.io/ports.scheme=v2,desktop.docker.io/ports/5672/tcp=127.0.0.1:,com.docker.compose.config-hash=32e82b03266d18221c653cddde341537cb788221b71ef47fcf2b88c7dd81463e,com.docker.compose.depends_on=,com.docker.compose.image=sha256:d7af1c87c5f1eda13fcfca06db452bf3aeab6619fc3358b68535c0c02c4e52bc,com.docker.compose.oneoff=False,com.docker.compose.project=lazy-layers-audit-121d4ef8",
+      "LocalVolumes": "1",
+      "Mounts": "0a4df838c2383b…",
+      "Name": "lazy-layers-audit-121d4ef8-rabbitmq-1",
+      "Names": "lazy-layers-audit-121d4ef8-rabbitmq-1",
+      "Networks": "lazy-layers-audit-121d4ef8_default",
+      "Ports": "127.0.0.1:54867->5672/tcp",
+      "Project": "lazy-layers-audit-121d4ef8",
+      "Publishers": [
+        {
+          "URL": "127.0.0.1",
+          "TargetPort": 5672,
+          "PublishedPort": 54867,
+          "Protocol": "tcp"
+        }
+      ],
+      "RunningFor": "4 seconds ago",
+      "Service": "rabbitmq",
+      "Size": "0B",
+      "State": "running",
+      "Status": "Up 4 seconds (healthy)"
+    },
+    {
+      "Command": "\"docker-entrypoint.s…\"",
+      "CreatedAt": "2026-10-08 18:17:04 +0530 IST",
+      "ExitCode": 0,
+      "Health": "healthy",
+      "ID": "0abf2dbba2ed",
+      "Image": "redis:7-alpine",
+      "Labels": "desktop.docker.io/ports/6379/tcp=127.0.0.1:,lazy-layers.audit=disposable,com.docker.compose.depends_on=,com.docker.compose.project=lazy-layers-audit-121d4ef8,com.docker.compose.project.config_files=/Users/apple/Desktop/LazyLayers/audit/compose.yml,com.docker.compose.project.working_dir=/Users/apple/Desktop/LazyLayers/audit,com.docker.compose.service=redis,desktop.docker.io/ports.scheme=v2,com.docker.compose.config-hash=22d33ec69fde4d602e7c2ab8006e6b69781c65a5eda0b3e882535acfee585cc1,com.docker.compose.container-number=1,com.docker.compose.image=sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf,com.docker.compose.oneoff=False,com.docker.compose.version=5.3.1",
+      "LocalVolumes": "1",
+      "Mounts": "1bb276dedcce62…",
+      "Name": "lazy-layers-audit-121d4ef8-redis-1",
+      "Names": "lazy-layers-audit-121d4ef8-redis-1",
+      "Networks": "lazy-layers-audit-121d4ef8_default",
+      "Ports": "127.0.0.1:54866->6379/tcp",
+      "Project": "lazy-layers-audit-121d4ef8",
+      "Publishers": [
+        {
+          "URL": "127.0.0.1",
+          "TargetPort": 6379,
+          "PublishedPort": 54866,
+          "Protocol": "tcp"
+        }
+      ],
+      "RunningFor": "4 seconds ago",
+      "Service": "redis",
+      "Size": "0B",
+      "State": "running",
+      "Status": "Up 4 seconds (healthy)"
+    }
+  ],
+  "budgets": {
+    "redisMiB": 96,
+    "rabbitmqMiB": 512,
+    "natsMiB": 128,
+    "cpus": 2.5,
+    "childHeapMiB": 512,
+    "operationDeadlineMs": 180000,
+    "totalDeadlineMs": 360000
+  },
+  "code": 0,
+  "signal": null,
+  "interrupted": null
+}

@@ -1,0 +1,22 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "documentation",
+    "run",
+    "build"
+  ],
+  "wallTimeMs": 6343,
+  "budgets": {
+    "seconds": 150,
+    "rssMiB": 1536,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 512
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 1665482752,
+  "isolatedRedis": false,
+  "code": null,
+  "signal": "SIGKILL",
+  "aborted": "aggregate RSS budget exceeded"
+}

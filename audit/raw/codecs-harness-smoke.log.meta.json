@@ -1,0 +1,20 @@
+{
+  "command": [
+    "node",
+    "--expose-gc",
+    "--max-old-space-size=256",
+    "benchmarks/audit-codecs.mjs",
+    "--child"
+  ],
+  "wallTimeMs": 169,
+  "budgets": {
+    "seconds": 20,
+    "rssMiB": 512
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

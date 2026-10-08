@@ -1,0 +1,2301 @@
+{
+  "metadata": {
+    "timestamp": "2026-10-08T14:12:21.713Z",
+    "node": "v24.21.0",
+    "os": "Darwin 25.5.0",
+    "arch": "arm64",
+    "cpuModel": "Apple M5",
+    "logicalCpus": 10,
+    "hostMemoryBytes": 17179869184,
+    "module": "/var/folders/c0/v0_qvxvs47d5n90q2z2lpx5h0000gn/T/lazy-layers-perf-ci-QveStT/baseline/dist/index.js",
+    "repetitions": 7,
+    "quick": true,
+    "instanceCount": 1,
+    "network": "none",
+    "coordinatedOmission": "closed-loop sequential timings; not arrival-to-completion service latency",
+    "limits": {
+      "childSeconds": 45,
+      "childHeapMiB": 512,
+      "peakRssMiB": 640
+    }
+  },
+  "rows": [
+    {
+      "name": "lookup",
+      "n": 64,
+      "runs": [
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 8.170041999999995,
+          "throughputPerSec": 611991.9579360795,
+          "cpuMs": 17.038,
+          "cpuMsPerMillion": 3407.6000000000004,
+          "latencyMs": {
+            "p50": 0.0011669999999952552,
+            "p95": 0.002291999999997074,
+            "p99": 0.0036669999999929814,
+            "p999": 0.012416999999999234
+          },
+          "peakRssBytes": 116817920,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 8.360792000000004,
+          "throughputPerSec": 598029.4689785367,
+          "cpuMs": 17.708,
+          "cpuMsPerMillion": 3541.6,
+          "latencyMs": {
+            "p50": 0.001167000000009466,
+            "p95": 0.002332999999993035,
+            "p99": 0.0040000000000048885,
+            "p999": 0.012374999999991587
+          },
+          "peakRssBytes": 116965376,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 8.452957999999995,
+          "throughputPerSec": 591508.9132112099,
+          "cpuMs": 17.432,
+          "cpuMsPerMillion": 3486.3999999999996,
+          "latencyMs": {
+            "p50": 0.001207999999991216,
+            "p95": 0.0023339999999905103,
+            "p99": 0.003917000000001281,
+            "p999": 0.015457999999995309
+          },
+          "peakRssBytes": 116768768,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 8.820583999999997,
+          "throughputPerSec": 566855.8907210681,
+          "cpuMs": 20.492,
+          "cpuMsPerMillion": 4098.400000000001,
+          "latencyMs": {
+            "p50": 0.0012090000000029022,
+            "p95": 0.0024590000000017653,
+            "p99": 0.0038749999999936335,
+            "p999": 0.02270800000000861
+          },
+          "peakRssBytes": 117047296,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 8.52791599999999,
+          "throughputPerSec": 586309.7150581696,
+          "cpuMs": 17.67,
+          "cpuMsPerMillion": 3534.0000000000005,
+          "latencyMs": {
+            "p50": 0.001207999999991216,
+            "p95": 0.002332999999993035,
+            "p99": 0.004208000000005541,
+            "p999": 0.015957999999997696
+          },
+          "peakRssBytes": 116883456,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 8.445166999999998,
+          "throughputPerSec": 592054.6035383316,
+          "cpuMs": 17.448,
+          "cpuMsPerMillion": 3489.6000000000004,
+          "latencyMs": {
+            "p50": 0.0011669999999952552,
+            "p95": 0.002332999999993035,
+            "p99": 0.0036669999999929814,
+            "p999": 0.01795900000000472
+          },
+          "peakRssBytes": 116998144,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 8.587166999999994,
+          "throughputPerSec": 582264.2089061508,
+          "cpuMs": 19.309,
+          "cpuMsPerMillion": 3861.8,
+          "latencyMs": {
+            "p50": 0.001167000000009466,
+            "p95": 0.0024169999999941183,
+            "p99": 0.004333000000002585,
+            "p999": 0.014958999999990397
+          },
+          "peakRssBytes": 116883456,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "lookup-stale",
+      "n": 64,
+      "runs": [
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 11.041958999999991,
+          "throughputPerSec": 452818.2001038044,
+          "cpuMs": 20.501,
+          "cpuMsPerMillion": 4100.2,
+          "latencyMs": {
+            "p50": 0.0015420000000005984,
+            "p95": 0.0029580000000066775,
+            "p99": 0.004666999999997756,
+            "p999": 0.025625000000005116
+          },
+          "peakRssBytes": 125222912,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 10.95341599999999,
+          "throughputPerSec": 456478.59991805337,
+          "cpuMs": 18.47,
+          "cpuMsPerMillion": 3694,
+          "latencyMs": {
+            "p50": 0.0015409999999889124,
+            "p95": 0.0027919999999994616,
+            "p99": 0.004582999999996673,
+            "p999": 0.01445900000000222
+          },
+          "peakRssBytes": 122355712,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 11.620542,
+          "throughputPerSec": 430272.5294568876,
+          "cpuMs": 20.074,
+          "cpuMsPerMillion": 4014.8000000000006,
+          "latencyMs": {
+            "p50": 0.0015829999999965594,
+            "p95": 0.0030000000000001137,
+            "p99": 0.004750000000001364,
+            "p999": 0.016166999999995824
+          },
+          "peakRssBytes": 121503744,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 11.605374999999995,
+          "throughputPerSec": 430834.8502310354,
+          "cpuMs": 21.039,
+          "cpuMsPerMillion": 4207.8,
+          "latencyMs": {
+            "p50": 0.0016250000000042064,
+            "p95": 0.0030420000000077607,
+            "p99": 0.005250000000003752,
+            "p999": 0.02704199999999446
+          },
+          "peakRssBytes": 125075456,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 11.557958000000013,
+          "throughputPerSec": 432602.3679961455,
+          "cpuMs": 20.364,
+          "cpuMsPerMillion": 4072.8000000000006,
+          "latencyMs": {
+            "p50": 0.0015840000000082455,
+            "p95": 0.003082999999989511,
+            "p99": 0.004500000000007276,
+            "p999": 0.025041000000001645
+          },
+          "peakRssBytes": 125272064,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 11.103583,
+          "throughputPerSec": 450305.0952111584,
+          "cpuMs": 19.792,
+          "cpuMsPerMillion": 3958.4,
+          "latencyMs": {
+            "p50": 0.0015420000000005984,
+            "p95": 0.0029579999999924667,
+            "p99": 0.00633400000000961,
+            "p999": 0.02658399999999972
+          },
+          "peakRssBytes": 125566976,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 64,
+          "payloadBytes": 1024,
+          "distribution": "round-robin 64 keys",
+          "operations": 5000,
+          "elapsedMs": 11.055458000000002,
+          "throughputPerSec": 452265.2973761919,
+          "cpuMs": 19.538,
+          "cpuMsPerMillion": 3907.6,
+          "latencyMs": {
+            "p50": 0.0015420000000005984,
+            "p95": 0.0029160000000132413,
+            "p99": 0.0062500000000085265,
+            "p999": 0.030583000000007132
+          },
+          "peakRssBytes": 125206528,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "has",
+      "n": 32,
+      "runs": [
+        {
+          "residentEntries": 32,
+          "keyBytes": {
+            "min": 13,
+            "max": 14
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 1.2992089999999905,
+          "throughputPerSec": 769699.1015302445,
+          "cpuMs": 2.264,
+          "cpuMsPerMillion": 2264,
+          "latencyMs": {
+            "p50": 0.001041999999998211,
+            "p95": 0.0020000000000095497,
+            "p99": 0.004041999999998325,
+            "p999": 0.022917000000006738
+          },
+          "peakRssBytes": 101875712,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 32,
+          "keyBytes": {
+            "min": 13,
+            "max": 14
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 1.2323749999999905,
+          "throughputPerSec": 811441.3226493623,
+          "cpuMs": 2.153,
+          "cpuMsPerMillion": 2153,
+          "latencyMs": {
+            "p50": 0.000999999999990564,
+            "p95": 0.001958999999999378,
+            "p99": 0.004082999999994286,
+            "p999": 0.00883299999999565
+          },
+          "peakRssBytes": 101400576,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 32,
+          "keyBytes": {
+            "min": 13,
+            "max": 14
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 1.2493750000000006,
+          "throughputPerSec": 800400.2001000496,
+          "cpuMs": 2.139,
+          "cpuMsPerMillion": 2139,
+          "latencyMs": {
+            "p50": 0.0010420000000124219,
+            "p95": 0.0019580000000019027,
+            "p99": 0.0038339999999976726,
+            "p999": 0.007499999999993179
+          },
+          "peakRssBytes": 101744640,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 32,
+          "keyBytes": {
+            "min": 13,
+            "max": 14
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 1.310167000000007,
+          "throughputPerSec": 763261.4773536463,
+          "cpuMs": 2.167,
+          "cpuMsPerMillion": 2166.9999999999995,
+          "latencyMs": {
+            "p50": 0.001082999999994172,
+            "p95": 0.001999999999995339,
+            "p99": 0.0037500000000108002,
+            "p999": 0.014291000000000054
+          },
+          "peakRssBytes": 101777408,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 32,
+          "keyBytes": {
+            "min": 13,
+            "max": 14
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 1.2609580000000022,
+          "throughputPerSec": 793047.8255421658,
+          "cpuMs": 2.125,
+          "cpuMsPerMillion": 2125,
+          "latencyMs": {
+            "p50": 0.0010000000000047748,
+            "p95": 0.0020000000000095497,
+            "p99": 0.0049169999999918446,
+            "p999": 0.010708000000008155
+          },
+          "peakRssBytes": 101810176,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 32,
+          "keyBytes": {
+            "min": 13,
+            "max": 14
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 1.2215419999999995,
+          "throughputPerSec": 818637.4271208034,
+          "cpuMs": 2.094,
+          "cpuMsPerMillion": 2094,
+          "latencyMs": {
+            "p50": 0.0010410000000007358,
+            "p95": 0.0019580000000019027,
+            "p99": 0.0038339999999976726,
+            "p999": 0.008750000000006253
+          },
+          "peakRssBytes": 101826560,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 32,
+          "keyBytes": {
+            "min": 13,
+            "max": 14
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 1.3234580000000022,
+          "throughputPerSec": 755596.3241750009,
+          "cpuMs": 2.228,
+          "cpuMsPerMillion": 2228.0000000000005,
+          "latencyMs": {
+            "p50": 0.001041999999998211,
+            "p95": 0.0020000000000095497,
+            "p99": 0.004666999999997756,
+            "p999": 0.026542000000006283
+          },
+          "peakRssBytes": 101793792,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "has",
+      "n": 1024,
+      "runs": [
+        {
+          "residentEntries": 1024,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 22.39562500000001,
+          "throughputPerSec": 44651.57815421537,
+          "cpuMs": 22.867,
+          "cpuMsPerMillion": 22867.000000000004,
+          "latencyMs": {
+            "p50": 0.02166599999999619,
+            "p95": 0.02637500000000159,
+            "p99": 0.034041000000001986,
+            "p999": 0.11141700000000299
+          },
+          "peakRssBytes": 123748352,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 1024,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 22.495708000000008,
+          "throughputPerSec": 44452.924086674655,
+          "cpuMs": 22.962,
+          "cpuMsPerMillion": 22962,
+          "latencyMs": {
+            "p50": 0.021790999999993232,
+            "p95": 0.02633400000000563,
+            "p99": 0.03404199999999946,
+            "p999": 0.11945799999999451
+          },
+          "peakRssBytes": 123518976,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 1024,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 22.413124999999994,
+          "throughputPerSec": 44616.71453668332,
+          "cpuMs": 22.864,
+          "cpuMsPerMillion": 22864.000000000004,
+          "latencyMs": {
+            "p50": 0.02166599999999619,
+            "p95": 0.025458000000000425,
+            "p99": 0.03325000000000955,
+            "p999": 0.10666700000000162
+          },
+          "peakRssBytes": 123076608,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 1024,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 22.85537500000001,
+          "throughputPerSec": 43753.384050797664,
+          "cpuMs": 23.249,
+          "cpuMsPerMillion": 23249,
+          "latencyMs": {
+            "p50": 0.022167000000010262,
+            "p95": 0.024833000000000993,
+            "p99": 0.03466599999998721,
+            "p999": 0.1027080000000069
+          },
+          "peakRssBytes": 122994688,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 1024,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 22.511291999999997,
+          "throughputPerSec": 44422.15044787301,
+          "cpuMs": 22.906,
+          "cpuMsPerMillion": 22906,
+          "latencyMs": {
+            "p50": 0.021625000000000227,
+            "p95": 0.026042000000003895,
+            "p99": 0.033415999999988344,
+            "p999": 0.0877089999999896
+          },
+          "peakRssBytes": 125599744,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 1024,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 22.800291,
+          "throughputPerSec": 43859.089342324616,
+          "cpuMs": 23.258,
+          "cpuMsPerMillion": 23257.999999999996,
+          "latencyMs": {
+            "p50": 0.02208300000000918,
+            "p95": 0.025500000000008072,
+            "p99": 0.039041999999994914,
+            "p999": 0.14191599999999482
+          },
+          "peakRssBytes": 123535360,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 1024,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 21.602084000000005,
+          "throughputPerSec": 46291.82999195817,
+          "cpuMs": 22.099,
+          "cpuMsPerMillion": 22099,
+          "latencyMs": {
+            "p50": 0.020915999999999713,
+            "p95": 0.023792000000000257,
+            "p99": 0.030915999999990618,
+            "p999": 0.12495899999998983
+          },
+          "peakRssBytes": 123650048,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "has",
+      "n": 8192,
+      "runs": [
+        {
+          "residentEntries": 8192,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 202.69962500000003,
+          "throughputPerSec": 4933.4082389150935,
+          "cpuMs": 204.423,
+          "cpuMsPerMillion": 204423,
+          "latencyMs": {
+            "p50": 0.19841700000000628,
+            "p95": 0.22816599999998743,
+            "p99": 0.26599999999999113,
+            "p999": 0.30008300000000077
+          },
+          "peakRssBytes": 126451712,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 8192,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 206.75270900000004,
+          "throughputPerSec": 4836.695997052207,
+          "cpuMs": 208.508,
+          "cpuMsPerMillion": 208508,
+          "latencyMs": {
+            "p50": 0.20333399999998392,
+            "p95": 0.23058299999999576,
+            "p99": 0.259708000000046,
+            "p999": 0.28445800000000077
+          },
+          "peakRssBytes": 126566400,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 8192,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 203.29845899999998,
+          "throughputPerSec": 4918.876438704339,
+          "cpuMs": 204.866,
+          "cpuMsPerMillion": 204866.00000000003,
+          "latencyMs": {
+            "p50": 0.19900000000001228,
+            "p95": 0.22491600000000744,
+            "p99": 0.2647089999999821,
+            "p999": 0.35095799999999144
+          },
+          "peakRssBytes": 126664704,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 8192,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 202.412667,
+          "throughputPerSec": 4940.402272353835,
+          "cpuMs": 204.08,
+          "cpuMsPerMillion": 204080,
+          "latencyMs": {
+            "p50": 0.19733299999998621,
+            "p95": 0.22724999999999795,
+            "p99": 0.27029200000001197,
+            "p999": 0.30112499999998477
+          },
+          "peakRssBytes": 126402560,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 8192,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 207.66375,
+          "throughputPerSec": 4815.476942894463,
+          "cpuMs": 209.535,
+          "cpuMsPerMillion": 209535,
+          "latencyMs": {
+            "p50": 0.2037909999999954,
+            "p95": 0.23174999999999102,
+            "p99": 0.2757919999999956,
+            "p999": 0.3432500000000118
+          },
+          "peakRssBytes": 126730240,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 8192,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 205.919583,
+          "throughputPerSec": 4856.264690473854,
+          "cpuMs": 207.627,
+          "cpuMsPerMillion": 207627,
+          "latencyMs": {
+            "p50": 0.20108300000001122,
+            "p95": 0.2321659999999781,
+            "p99": 0.2737079999999992,
+            "p999": 0.30425000000002456
+          },
+          "peakRssBytes": 126631936,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 8192,
+          "keyBytes": {
+            "min": 13,
+            "max": 16
+          },
+          "payloadBytes": 64,
+          "operations": 1000,
+          "elapsedMs": 202.24508299999997,
+          "throughputPerSec": 4944.495980651357,
+          "cpuMs": 204.026,
+          "cpuMsPerMillion": 204026,
+          "latencyMs": {
+            "p50": 0.19762499999998795,
+            "p95": 0.22658300000000509,
+            "p99": 0.2674159999999972,
+            "p999": 0.299082999999996
+          },
+          "peakRssBytes": 125911040,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "promotion",
+      "n": 512,
+      "runs": [
+        {
+          "residentEntries": 512,
+          "payloadBytes": 1024,
+          "networkOperations": 0,
+          "operations": 512,
+          "elapsedMs": 11.295792000000006,
+          "throughputPerSec": 45326.61366285779,
+          "cpuMs": 25.385,
+          "cpuMsPerMillion": 49580.078125,
+          "latencyMs": {
+            "p50": 0.015332999999998265,
+            "p95": 0.02820799999999224,
+            "p99": 0.08424999999999727,
+            "p999": 1.3472499999999883
+          },
+          "peakRssBytes": 104267776,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 512,
+          "payloadBytes": 1024,
+          "networkOperations": 0,
+          "operations": 512,
+          "elapsedMs": 11.024083000000005,
+          "throughputPerSec": 46443.77223937808,
+          "cpuMs": 24.304,
+          "cpuMsPerMillion": 47468.75,
+          "latencyMs": {
+            "p50": 0.015584000000004039,
+            "p95": 0.028499999999993975,
+            "p99": 0.06995799999999974,
+            "p999": 1.1030410000000046
+          },
+          "peakRssBytes": 104857600,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 512,
+          "payloadBytes": 1024,
+          "networkOperations": 0,
+          "operations": 512,
+          "elapsedMs": 11.828290999999993,
+          "throughputPerSec": 43286.0503685613,
+          "cpuMs": 27.488,
+          "cpuMsPerMillion": 53687.5,
+          "latencyMs": {
+            "p50": 0.01616599999999835,
+            "p95": 0.03066599999999653,
+            "p99": 0.07870799999999178,
+            "p999": 1.1820000000000022
+          },
+          "peakRssBytes": 105578496,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 512,
+          "payloadBytes": 1024,
+          "networkOperations": 0,
+          "operations": 512,
+          "elapsedMs": 11.094457999999989,
+          "throughputPerSec": 46149.16744918954,
+          "cpuMs": 25.201,
+          "cpuMsPerMillion": 49220.703125,
+          "latencyMs": {
+            "p50": 0.015124999999997613,
+            "p95": 0.0264580000000052,
+            "p99": 0.08129100000000733,
+            "p999": 1.3887080000000083
+          },
+          "peakRssBytes": 105070592,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 512,
+          "payloadBytes": 1024,
+          "networkOperations": 0,
+          "operations": 512,
+          "elapsedMs": 11.10404100000001,
+          "throughputPerSec": 46109.33983402975,
+          "cpuMs": 24.175,
+          "cpuMsPerMillion": 47216.796875,
+          "latencyMs": {
+            "p50": 0.01504100000001074,
+            "p95": 0.026082999999999856,
+            "p99": 0.11658300000000565,
+            "p999": 1.1047499999999957
+          },
+          "peakRssBytes": 104972288,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 512,
+          "payloadBytes": 1024,
+          "networkOperations": 0,
+          "operations": 512,
+          "elapsedMs": 11.260125000000002,
+          "throughputPerSec": 45470.18794196333,
+          "cpuMs": 26.995,
+          "cpuMsPerMillion": 52724.609375,
+          "latencyMs": {
+            "p50": 0.015999999999991132,
+            "p95": 0.030083000000004745,
+            "p99": 0.07087500000000091,
+            "p999": 1.1068750000000023
+          },
+          "peakRssBytes": 106414080,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        {
+          "residentEntries": 512,
+          "payloadBytes": 1024,
+          "networkOperations": 0,
+          "operations": 512,
+          "elapsedMs": 11.160375000000002,
+          "throughputPerSec": 45876.59464847731,
+          "cpuMs": 24.821,
+          "cpuMsPerMillion": 48478.515625,
+          "latencyMs": {
+            "p50": 0.01566599999999596,
+            "p95": 0.03941599999998857,
+            "p99": 0.10200000000000387,
+            "p999": 0.9945420000000098
+          },
+          "peakRssBytes": 105152512,
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "inflight",
+      "n": 32,
+      "runs": [
+        {
+          "activeKeys": 32,
+          "operations": 1000,
+          "elapsedMs": 3.433791999999997,
+          "cpuMs": 11.094,
+          "throughputPerSec": 291223.23076062876,
+          "latencyMs": {
+            "p50": 0.0025830000000013342,
+            "p95": 0.007834000000002561,
+            "p99": 0.01274999999999693,
+            "p999": 0.040624999999991473
+          },
+          "loaderInvocations": 32,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 105775104,
+          "gc": {
+            "count": 1,
+            "totalMs": 0.09016701579093933,
+            "maxMs": 0.09016701579093933
+          }
+        },
+        {
+          "activeKeys": 32,
+          "operations": 1000,
+          "elapsedMs": 3.283040999999997,
+          "cpuMs": 9.39,
+          "throughputPerSec": 304595.64775462775,
+          "latencyMs": {
+            "p50": 0.0024169999999941183,
+            "p95": 0.006875000000007958,
+            "p99": 0.012208000000001107,
+            "p999": 0.036875000000009095
+          },
+          "loaderInvocations": 32,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 105938944,
+          "gc": {
+            "count": 1,
+            "totalMs": 0.07429099082946777,
+            "maxMs": 0.07429099082946777
+          }
+        },
+        {
+          "activeKeys": 32,
+          "operations": 1000,
+          "elapsedMs": 3.3960419999999942,
+          "cpuMs": 9.828,
+          "throughputPerSec": 294460.4336459919,
+          "latencyMs": {
+            "p50": 0.0024999999999977263,
+            "p95": 0.006833000000000311,
+            "p99": 0.013082999999994627,
+            "p999": 0.05770799999999099
+          },
+          "loaderInvocations": 32,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 105889792,
+          "gc": {
+            "count": 1,
+            "totalMs": 0.07291698455810547,
+            "maxMs": 0.07291698455810547
+          }
+        },
+        {
+          "activeKeys": 32,
+          "operations": 1000,
+          "elapsedMs": 3.424500000000009,
+          "cpuMs": 9.246,
+          "throughputPerSec": 292013.43261789967,
+          "latencyMs": {
+            "p50": 0.002290999999999599,
+            "p95": 0.007583999999994262,
+            "p99": 0.013750000000001705,
+            "p999": 0.028750000000002274
+          },
+          "loaderInvocations": 32,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 105316352,
+          "gc": {
+            "count": 1,
+            "totalMs": 0.07275000214576721,
+            "maxMs": 0.07275000214576721
+          }
+        },
+        {
+          "activeKeys": 32,
+          "operations": 1000,
+          "elapsedMs": 3.423374999999993,
+          "cpuMs": 9.667,
+          "throughputPerSec": 292109.39496841625,
+          "latencyMs": {
+            "p50": 0.002500000000011937,
+            "p95": 0.007000000000005002,
+            "p99": 0.013292000000006965,
+            "p999": 0.05833300000000463
+          },
+          "loaderInvocations": 32,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 105906176,
+          "gc": {
+            "count": 1,
+            "totalMs": 0.07495799660682678,
+            "maxMs": 0.07495799660682678
+          }
+        },
+        {
+          "activeKeys": 32,
+          "operations": 1000,
+          "elapsedMs": 3.4068340000000035,
+          "cpuMs": 10.044,
+          "throughputPerSec": 293527.6564693199,
+          "latencyMs": {
+            "p50": 0.0024999999999977263,
+            "p95": 0.006875000000007958,
+            "p99": 0.012624999999999886,
+            "p999": 0.03762500000000557
+          },
+          "loaderInvocations": 32,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 106037248,
+          "gc": {
+            "count": 1,
+            "totalMs": 0.08220899105072021,
+            "maxMs": 0.08220899105072021
+          }
+        },
+        {
+          "activeKeys": 32,
+          "operations": 1000,
+          "elapsedMs": 3.2027499999999947,
+          "cpuMs": 9.344,
+          "throughputPerSec": 312231.67590352095,
+          "latencyMs": {
+            "p50": 0.0024999999999977263,
+            "p95": 0.006416999999999007,
+            "p99": 0.011832999999995764,
+            "p999": 0.017499999999998295
+          },
+          "loaderInvocations": 32,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 105431040,
+          "gc": {
+            "count": 2,
+            "totalMs": 0.527999997138977,
+            "maxMs": 0.4608749747276306
+          }
+        }
+      ]
+    },
+    {
+      "name": "inflight",
+      "n": 1024,
+      "runs": [
+        {
+          "activeKeys": 1024,
+          "operations": 1000,
+          "elapsedMs": 25.394000000000005,
+          "cpuMs": 28.212,
+          "throughputPerSec": 39379.38095613136,
+          "latencyMs": {
+            "p50": 0.023082999999999743,
+            "p95": 0.027708000000004063,
+            "p99": 0.035583000000002585,
+            "p999": 0.5878749999999968
+          },
+          "loaderInvocations": 1024,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 122503168,
+          "gc": {
+            "count": 6,
+            "totalMs": 2.814209967851639,
+            "maxMs": 1.1083749830722809
+          }
+        },
+        {
+          "activeKeys": 1024,
+          "operations": 1000,
+          "elapsedMs": 26.355166999999994,
+          "cpuMs": 29.136,
+          "throughputPerSec": 37943.223808826566,
+          "latencyMs": {
+            "p50": 0.024500000000003297,
+            "p95": 0.02795799999999815,
+            "p99": 0.035042000000004236,
+            "p999": 0.6064999999999969
+          },
+          "loaderInvocations": 1024,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 122748928,
+          "gc": {
+            "count": 6,
+            "totalMs": 2.8653759956359863,
+            "maxMs": 1.1758749783039093
+          }
+        },
+        {
+          "activeKeys": 1024,
+          "operations": 1000,
+          "elapsedMs": 26.158084000000002,
+          "cpuMs": 28.906,
+          "throughputPerSec": 38229.09965424073,
+          "latencyMs": {
+            "p50": 0.0239169999999973,
+            "p95": 0.028165999999998803,
+            "p99": 0.0357919999999865,
+            "p999": 0.5395000000000039
+          },
+          "loaderInvocations": 1024,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 122159104,
+          "gc": {
+            "count": 6,
+            "totalMs": 2.6759169697761536,
+            "maxMs": 0.9791249930858612
+          }
+        },
+        {
+          "activeKeys": 1024,
+          "operations": 1000,
+          "elapsedMs": 27.067166999999998,
+          "cpuMs": 30.053,
+          "throughputPerSec": 36945.12986896634,
+          "latencyMs": {
+            "p50": 0.025874999999999204,
+            "p95": 0.029583999999999833,
+            "p99": 0.032707999999999515,
+            "p999": 0.5755410000000012
+          },
+          "loaderInvocations": 1024,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 122437632,
+          "gc": {
+            "count": 6,
+            "totalMs": 2.6003730297088623,
+            "maxMs": 1.0622079968452454
+          }
+        },
+        {
+          "activeKeys": 1024,
+          "operations": 1000,
+          "elapsedMs": 26.429541,
+          "cpuMs": 29.509,
+          "throughputPerSec": 37836.449751435335,
+          "latencyMs": {
+            "p50": 0.024375000000006253,
+            "p95": 0.027875000000008754,
+            "p99": 0.03479199999999594,
+            "p999": 0.5784170000000017
+          },
+          "loaderInvocations": 1024,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 122388480,
+          "gc": {
+            "count": 6,
+            "totalMs": 2.7232100069522858,
+            "maxMs": 1.0761249959468842
+          }
+        },
+        {
+          "activeKeys": 1024,
+          "operations": 1000,
+          "elapsedMs": 26.929790999999994,
+          "cpuMs": 30.103,
+          "throughputPerSec": 37133.596766495524,
+          "latencyMs": {
+            "p50": 0.023541999999991958,
+            "p95": 0.029792000000000485,
+            "p99": 0.040833000000006336,
+            "p999": 0.6666660000000064
+          },
+          "loaderInvocations": 1024,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 122830848,
+          "gc": {
+            "count": 6,
+            "totalMs": 3.2399150133132935,
+            "maxMs": 1.2732079923152924
+          }
+        },
+        {
+          "activeKeys": 1024,
+          "operations": 1000,
+          "elapsedMs": 26.987042000000002,
+          "cpuMs": 30.863,
+          "throughputPerSec": 37054.82060612645,
+          "latencyMs": {
+            "p50": 0.02379099999998857,
+            "p95": 0.029583000000002357,
+            "p99": 0.04449999999999932,
+            "p999": 0.7680000000000007
+          },
+          "loaderInvocations": 1024,
+          "note": "registration latency only; pending loaders resolve after measurement",
+          "peakRssBytes": 122945536,
+          "gc": {
+            "count": 7,
+            "totalMs": 4.248582035303116,
+            "maxMs": 1.6049160063266754
+          }
+        }
+      ]
+    },
+    {
+      "name": "herd",
+      "n": 10,
+      "runs": [
+        {
+          "operations": 10,
+          "loaderInvocations": 1,
+          "followers": 9,
+          "elapsedMs": 4.039582999999993,
+          "cpuMs": 13.272,
+          "completedPerSec": 2475.503040784164,
+          "originLoadsPerRequest": 0.1,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92733440,
+              "heapUsed": 12342648,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 92749824,
+              "heapUsed": 12410392,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 6774.4
+          },
+          "simulated": true,
+          "peakRssBytes": 92749824,
+          "gc": {
+            "count": 2,
+            "totalMs": 3.3285419940948486,
+            "maxMs": 2.5107499957084656
+          }
+        },
+        {
+          "operations": 10,
+          "loaderInvocations": 1,
+          "followers": 9,
+          "elapsedMs": 4.295957999999999,
+          "cpuMs": 11.312,
+          "completedPerSec": 2327.7694986775946,
+          "originLoadsPerRequest": 0.1,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 93028352,
+              "heapUsed": 12341768,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 93077504,
+              "heapUsed": 12410424,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 6865.6
+          },
+          "simulated": true,
+          "peakRssBytes": 93093888,
+          "gc": {
+            "count": 2,
+            "totalMs": 4.390082985162735,
+            "maxMs": 3.6748749911785126
+          }
+        },
+        {
+          "operations": 10,
+          "loaderInvocations": 1,
+          "followers": 9,
+          "elapsedMs": 4.460250000000002,
+          "cpuMs": 13.635,
+          "completedPerSec": 2242.026792220166,
+          "originLoadsPerRequest": 0.1,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 95027200,
+              "heapUsed": 12348264,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 95043584,
+              "heapUsed": 12416824,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 6856
+          },
+          "simulated": true,
+          "peakRssBytes": 95076352,
+          "gc": {
+            "count": 2,
+            "totalMs": 7.203209012746811,
+            "maxMs": 3.636667013168335
+          }
+        },
+        {
+          "operations": 10,
+          "loaderInvocations": 1,
+          "followers": 9,
+          "elapsedMs": 3.0197499999999877,
+          "cpuMs": 9.001,
+          "completedPerSec": 3311.5324116234924,
+          "originLoadsPerRequest": 0.1,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92815360,
+              "heapUsed": 12343776,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 92831744,
+              "heapUsed": 12405808,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 6203.2
+          },
+          "simulated": true,
+          "peakRssBytes": 92848128,
+          "gc": {
+            "count": 1,
+            "totalMs": 2.8786250054836273,
+            "maxMs": 2.8786250054836273
+          }
+        },
+        {
+          "operations": 10,
+          "loaderInvocations": 1,
+          "followers": 9,
+          "elapsedMs": 2.8916250000000048,
+          "cpuMs": 10.152,
+          "completedPerSec": 3458.2630873643657,
+          "originLoadsPerRequest": 0.1,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92454912,
+              "heapUsed": 12343784,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 92504064,
+              "heapUsed": 12405624,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 6184
+          },
+          "simulated": true,
+          "peakRssBytes": 92504064,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.9342080056667328,
+            "maxMs": 1.9342080056667328
+          }
+        },
+        {
+          "operations": 10,
+          "loaderInvocations": 1,
+          "followers": 9,
+          "elapsedMs": 2.7622499999999945,
+          "cpuMs": 8.905,
+          "completedPerSec": 3620.2371255317294,
+          "originLoadsPerRequest": 0.1,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92487680,
+              "heapUsed": 12346464,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 92536832,
+              "heapUsed": 12404688,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 5822.4
+          },
+          "simulated": true,
+          "peakRssBytes": 92536832,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.6971670091152191,
+            "maxMs": 1.6971670091152191
+          }
+        },
+        {
+          "operations": 10,
+          "loaderInvocations": 1,
+          "followers": 9,
+          "elapsedMs": 2.528833999999989,
+          "cpuMs": 7.864,
+          "completedPerSec": 3954.3916287111147,
+          "originLoadsPerRequest": 0.1,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92553216,
+              "heapUsed": 12342816,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 92831744,
+              "heapUsed": 12405592,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 6277.6
+          },
+          "simulated": true,
+          "peakRssBytes": 92831744,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.6777909994125366,
+            "maxMs": 1.6777909994125366
+          }
+        }
+      ]
+    },
+    {
+      "name": "herd",
+      "n": 100,
+      "runs": [
+        {
+          "operations": 100,
+          "loaderInvocations": 1,
+          "followers": 99,
+          "elapsedMs": 2.5444579999999917,
+          "cpuMs": 7.459,
+          "completedPerSec": 39301.100666625396,
+          "originLoadsPerRequest": 0.01,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92815360,
+              "heapUsed": 12342072,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 92962816,
+              "heapUsed": 12432376,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 903.04
+          },
+          "simulated": true,
+          "peakRssBytes": 92962816,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.6397089958190918,
+            "maxMs": 1.6397089958190918
+          }
+        },
+        {
+          "operations": 100,
+          "loaderInvocations": 1,
+          "followers": 99,
+          "elapsedMs": 2.6209580000000017,
+          "cpuMs": 8.424,
+          "completedPerSec": 38153.98796928449,
+          "originLoadsPerRequest": 0.01,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92864512,
+              "heapUsed": 12343808,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 92979200,
+              "heapUsed": 12432136,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 883.28
+          },
+          "simulated": true,
+          "peakRssBytes": 92995584,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.7054170072078705,
+            "maxMs": 1.7054170072078705
+          }
+        },
+        {
+          "operations": 100,
+          "loaderInvocations": 1,
+          "followers": 99,
+          "elapsedMs": 2.625374999999991,
+          "cpuMs": 8.285,
+          "completedPerSec": 38089.79669571026,
+          "originLoadsPerRequest": 0.01,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92848128,
+              "heapUsed": 12342880,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 93077504,
+              "heapUsed": 12432176,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 892.96
+          },
+          "simulated": true,
+          "peakRssBytes": 93077504,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.7821249961853027,
+            "maxMs": 1.7821249961853027
+          }
+        },
+        {
+          "operations": 100,
+          "loaderInvocations": 1,
+          "followers": 99,
+          "elapsedMs": 2.728583999999998,
+          "cpuMs": 8.884,
+          "completedPerSec": 36649.045805443435,
+          "originLoadsPerRequest": 0.01,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92700672,
+              "heapUsed": 12346200,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 92766208,
+              "heapUsed": 12432280,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 860.8
+          },
+          "simulated": true,
+          "peakRssBytes": 92766208,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.8494159877300262,
+            "maxMs": 1.8494159877300262
+          }
+        },
+        {
+          "operations": 100,
+          "loaderInvocations": 1,
+          "followers": 99,
+          "elapsedMs": 2.3864580000000046,
+          "cpuMs": 7.446,
+          "completedPerSec": 41903.10493626948,
+          "originLoadsPerRequest": 0.01,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 93175808,
+              "heapUsed": 12341744,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 93224960,
+              "heapUsed": 12432240,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 904.96
+          },
+          "simulated": true,
+          "peakRssBytes": 93224960,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.7632080018520355,
+            "maxMs": 1.7632080018520355
+          }
+        },
+        {
+          "operations": 100,
+          "loaderInvocations": 1,
+          "followers": 99,
+          "elapsedMs": 2.663375000000002,
+          "cpuMs": 8.451,
+          "completedPerSec": 37546.34627117846,
+          "originLoadsPerRequest": 0.01,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92585984,
+              "heapUsed": 12342880,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 92635136,
+              "heapUsed": 12430856,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 879.76
+          },
+          "simulated": true,
+          "peakRssBytes": 92635136,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.7971670031547546,
+            "maxMs": 1.7971670031547546
+          }
+        },
+        {
+          "operations": 100,
+          "loaderInvocations": 1,
+          "followers": 99,
+          "elapsedMs": 2.6334579999999903,
+          "cpuMs": 8.143,
+          "completedPerSec": 37972.88584059452,
+          "originLoadsPerRequest": 0.01,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92979200,
+              "heapUsed": 12343008,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 93044736,
+              "heapUsed": 12431144,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 881.36
+          },
+          "simulated": true,
+          "peakRssBytes": 93044736,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.6478330194950104,
+            "maxMs": 1.6478330194950104
+          }
+        }
+      ]
+    },
+    {
+      "name": "herd",
+      "n": 1000,
+      "runs": [
+        {
+          "operations": 1000,
+          "loaderInvocations": 1,
+          "followers": 999,
+          "elapsedMs": 3.634958999999995,
+          "cpuMs": 11.789,
+          "completedPerSec": 275106.26667315955,
+          "originLoadsPerRequest": 0.001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92848128,
+              "heapUsed": 12343008,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 93224960,
+              "heapUsed": 12566456,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 223.448
+          },
+          "simulated": true,
+          "peakRssBytes": 93241344,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.7332080006599426,
+            "maxMs": 1.7332080006599426
+          }
+        },
+        {
+          "operations": 1000,
+          "loaderInvocations": 1,
+          "followers": 999,
+          "elapsedMs": 3.9277919999999966,
+          "cpuMs": 11.625,
+          "completedPerSec": 254595.96638518557,
+          "originLoadsPerRequest": 0.001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92798976,
+              "heapUsed": 12341536,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 93093888,
+              "heapUsed": 12566128,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 224.592
+          },
+          "simulated": true,
+          "peakRssBytes": 93093888,
+          "gc": {
+            "count": 1,
+            "totalMs": 2.058249980211258,
+            "maxMs": 2.058249980211258
+          }
+        },
+        {
+          "operations": 1000,
+          "loaderInvocations": 1,
+          "followers": 999,
+          "elapsedMs": 3.5449580000000083,
+          "cpuMs": 11.574,
+          "completedPerSec": 282090.7892279676,
+          "originLoadsPerRequest": 0.001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92864512,
+              "heapUsed": 12342272,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 93257728,
+              "heapUsed": 12565192,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 222.92
+          },
+          "simulated": true,
+          "peakRssBytes": 93257728,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.6728749871253967,
+            "maxMs": 1.6728749871253967
+          }
+        },
+        {
+          "operations": 1000,
+          "loaderInvocations": 1,
+          "followers": 999,
+          "elapsedMs": 3.5737079999999963,
+          "cpuMs": 10.442,
+          "completedPerSec": 279821.4067853336,
+          "originLoadsPerRequest": 0.001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 93339648,
+              "heapUsed": 12343048,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 93569024,
+              "heapUsed": 12566504,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 223.456
+          },
+          "simulated": true,
+          "peakRssBytes": 93569024,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.676125019788742,
+            "maxMs": 1.676125019788742
+          }
+        },
+        {
+          "operations": 1000,
+          "loaderInvocations": 1,
+          "followers": 999,
+          "elapsedMs": 3.499458000000004,
+          "cpuMs": 9.847,
+          "completedPerSec": 285758.53746494424,
+          "originLoadsPerRequest": 0.001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92372992,
+              "heapUsed": 12346448,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 92618752,
+              "heapUsed": 12566304,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 219.856
+          },
+          "simulated": true,
+          "peakRssBytes": 92618752,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.7150830030441284,
+            "maxMs": 1.7150830030441284
+          }
+        },
+        {
+          "operations": 1000,
+          "loaderInvocations": 1,
+          "followers": 999,
+          "elapsedMs": 3.6580419999999947,
+          "cpuMs": 10.966,
+          "completedPerSec": 273370.28935151687,
+          "originLoadsPerRequest": 0.001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 93077504,
+              "heapUsed": 12342032,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 93257728,
+              "heapUsed": 12566488,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 224.456
+          },
+          "simulated": true,
+          "peakRssBytes": 93257728,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.7790409922599792,
+            "maxMs": 1.7790409922599792
+          }
+        },
+        {
+          "operations": 1000,
+          "loaderInvocations": 1,
+          "followers": 999,
+          "elapsedMs": 3.6447919999999954,
+          "cpuMs": 10.82,
+          "completedPerSec": 274364.0789378382,
+          "originLoadsPerRequest": 0.001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92717056,
+              "heapUsed": 12343216,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 92962816,
+              "heapUsed": 12566664,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 223.448
+          },
+          "simulated": true,
+          "peakRssBytes": 92962816,
+          "gc": {
+            "count": 1,
+            "totalMs": 1.7022500038146973,
+            "maxMs": 1.7022500038146973
+          }
+        }
+      ]
+    },
+    {
+      "name": "herd",
+      "n": 10000,
+      "runs": [
+        {
+          "operations": 10000,
+          "loaderInvocations": 1,
+          "followers": 9999,
+          "elapsedMs": 13.682041999999996,
+          "cpuMs": 32.277,
+          "completedPerSec": 730885.0535614496,
+          "originLoadsPerRequest": 0.0001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92733440,
+              "heapUsed": 12341680,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 106479616,
+              "heapUsed": 13523864,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 118.2184
+          },
+          "simulated": true,
+          "peakRssBytes": 106512384,
+          "gc": {
+            "count": 4,
+            "totalMs": 3.6749170124530792,
+            "maxMs": 1.94862499833107
+          }
+        },
+        {
+          "operations": 10000,
+          "loaderInvocations": 1,
+          "followers": 9999,
+          "elapsedMs": 13.597209000000007,
+          "cpuMs": 30.883,
+          "completedPerSec": 735445.0461120363,
+          "originLoadsPerRequest": 0.0001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 93356032,
+              "heapUsed": 12343456,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 106414080,
+              "heapUsed": 13521552,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 117.8096
+          },
+          "simulated": true,
+          "peakRssBytes": 106463232,
+          "gc": {
+            "count": 4,
+            "totalMs": 3.4482069611549377,
+            "maxMs": 1.689415991306305
+          }
+        },
+        {
+          "operations": 10000,
+          "loaderInvocations": 1,
+          "followers": 9999,
+          "elapsedMs": 13.946957999999995,
+          "cpuMs": 31.77,
+          "completedPerSec": 717002.2308807414,
+          "originLoadsPerRequest": 0.0001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92733440,
+              "heapUsed": 12343816,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 107020288,
+              "heapUsed": 13520712,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 117.6896
+          },
+          "simulated": true,
+          "peakRssBytes": 107069440,
+          "gc": {
+            "count": 4,
+            "totalMs": 3.7933759689331055,
+            "maxMs": 1.8859169781208038
+          }
+        },
+        {
+          "operations": 10000,
+          "loaderInvocations": 1,
+          "followers": 9999,
+          "elapsedMs": 13.982708000000002,
+          "cpuMs": 31.971,
+          "completedPerSec": 715169.0502297551,
+          "originLoadsPerRequest": 0.0001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92766208,
+              "heapUsed": 12341896,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 106479616,
+              "heapUsed": 13520880,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 117.8984
+          },
+          "simulated": true,
+          "peakRssBytes": 106528768,
+          "gc": {
+            "count": 4,
+            "totalMs": 3.7520419657230377,
+            "maxMs": 1.83924999833107
+          }
+        },
+        {
+          "operations": 10000,
+          "loaderInvocations": 1,
+          "followers": 9999,
+          "elapsedMs": 13.839917,
+          "cpuMs": 31.357,
+          "completedPerSec": 722547.6857989827,
+          "originLoadsPerRequest": 0.0001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92454912,
+              "heapUsed": 12342648,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 106905600,
+              "heapUsed": 13525360,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 118.2712
+          },
+          "simulated": true,
+          "peakRssBytes": 106938368,
+          "gc": {
+            "count": 5,
+            "totalMs": 4.325459003448486,
+            "maxMs": 1.7368749976158142
+          }
+        },
+        {
+          "operations": 10000,
+          "loaderInvocations": 1,
+          "followers": 9999,
+          "elapsedMs": 14.047957999999994,
+          "cpuMs": 33.305,
+          "completedPerSec": 711847.2307505478,
+          "originLoadsPerRequest": 0.0001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92930048,
+              "heapUsed": 12342152,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 106266624,
+              "heapUsed": 13524360,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 118.2208
+          },
+          "simulated": true,
+          "peakRssBytes": 106315776,
+          "gc": {
+            "count": 4,
+            "totalMs": 3.706833988428116,
+            "maxMs": 1.8786669969558716
+          }
+        },
+        {
+          "operations": 10000,
+          "loaderInvocations": 1,
+          "followers": 9999,
+          "elapsedMs": 14.063333999999998,
+          "cpuMs": 33.065,
+          "completedPerSec": 711068.9399825106,
+          "originLoadsPerRequest": 0.0001,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1,
+          "memory": {
+            "before": {
+              "rss": 92569600,
+              "heapUsed": 12342296,
+              "external": 4490342,
+              "arrayBuffers": 287809
+            },
+            "pending": {
+              "rss": 106348544,
+              "heapUsed": 13524288,
+              "external": 4293714,
+              "arrayBuffers": 287825
+            },
+            "pendingHeapBytesPerCaller": 118.1992
+          },
+          "simulated": true,
+          "peakRssBytes": 106397696,
+          "gc": {
+            "count": 4,
+            "totalMs": 3.771792024374008,
+            "maxMs": 1.7335410118103027
+          }
+        }
+      ]
+    }
+  ]
+}

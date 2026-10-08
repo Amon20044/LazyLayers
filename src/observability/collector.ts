@@ -1,4 +1,6 @@
 import type { CacheEvent } from '../cache/events.js';
+import { encodeBoundedEvent, eventLimit } from './eventEncoding.js';
+import { DEFAULT_OBSERVABILITY_MAX_EVENT_BYTES } from './types.js';
 import type {
   ObservabilityCounters,
   OverviewSnapshot,
@@ -41,16 +43,15 @@ function emptyCounters(): ObservabilityCounters {
 /**
  * Captures the cache's live `CacheEvent` stream for the observability dashboard.
  *
- * Design constraints (see plan):
- *   - O(1) per event: bump a counter + write one ring-buffer slot + fan out.
- *   - Bounded memory: a fixed-size circular buffer, overwriting the oldest event.
- *     Nothing is ever persisted to Redis/disk — the feed is in-memory only.
- *   - Backpressure-safe fan-out: a throwing/slow SSE listener can't stall the
- *     hot path (errors are swallowed; listeners are expected to drop, not block).
+ * Counter/ring updates are constant work; metadata capture depends on bounded
+ * encoded size and fan-out is linear in subscribers. Callbacks run synchronously
+ * and must return promptly. A throwing callback cannot fail a cache operation.
+ * The ring retains only bounded plain-data snapshots, never original values.
  */
 export class ObservabilityCollector {
   private readonly buffer: Array<RecordedEvent | undefined>;
   private readonly maxEvents: number;
+  private readonly maxEventBytes: number;
   private writeIndex = 0;
   private buffered = 0;
   private seq = 0;
@@ -58,8 +59,9 @@ export class ObservabilityCollector {
   private readonly listeners = new Set<EventListener>();
   private readonly startedAt = Date.now();
 
-  constructor(maxEvents: number) {
+  constructor(maxEvents: number, maxEventBytes = DEFAULT_OBSERVABILITY_MAX_EVENT_BYTES) {
     this.maxEvents = Math.max(1, maxEvents);
+    this.maxEventBytes = eventLimit(maxEventBytes, 'maxEventBytes');
     this.buffer = new Array<RecordedEvent | undefined>(this.maxEvents);
   }
 
@@ -67,12 +69,23 @@ export class ObservabilityCollector {
   readonly handle = (event: CacheEvent): void => {
     this.count(event);
 
-    const recorded: RecordedEvent = {
+    let recorded: RecordedEvent = {
       seq: ++this.seq,
       ts: Date.now(),
       type: event.type,
-      data: sanitize(event),
+      data: sanitize(event, this.maxEventBytes) ?? { truncated: true },
     };
+
+    let encoded = encodeBoundedEvent(recorded, this.maxEventBytes);
+    if (encoded === undefined) {
+      recorded = { ...recorded, data: { truncated: true } };
+      encoded = encodeBoundedEvent(recorded, this.maxEventBytes);
+    }
+    // An explicitly tiny byte limit may not fit even an event header.
+    if (encoded === undefined) return;
+    // Parsing this bounded encoding detaches arrays and string backing stores
+    // from caller-owned payloads before retaining the snapshot in the ring.
+    recorded = JSON.parse(encoded) as RecordedEvent;
 
     this.buffer[this.writeIndex] = recorded;
     this.writeIndex = (this.writeIndex + 1) % this.maxEvents;
@@ -227,20 +240,48 @@ export class ObservabilityCollector {
 }
 
 /** Flatten an event to a plain, JSON-safe record (errors → messages). */
-function sanitize(event: CacheEvent): Record<string, unknown> {
-  const data: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(event)) {
-    if (key === 'type') continue;
-
-    if (key === 'error') {
-      data.error = value instanceof Error ? value.message : String(value);
-    } else if (typeof value === 'bigint') {
-      data[key] = value.toString();
-    } else {
-      data[key] = value;
+function sanitize(event: CacheEvent, maxBytes: number): Record<string, unknown> | undefined {
+  const data: Record<string, unknown> = Object.create(null);
+  let fields = 0;
+  try {
+    for (const key in event) {
+      if (key === 'type' || !Object.hasOwn(event, key)) continue;
+      if (++fields > 256) return undefined;
+      const property = Object.getOwnPropertyDescriptor(event, key);
+      if (!property || !('value' in property)) return undefined;
+      const value = property.value;
+      if (key === 'error') {
+        if (value instanceof Error) {
+          const message = Object.getOwnPropertyDescriptor(value, 'message');
+          if (message && (!('value' in message) || typeof message.value !== 'string')) return undefined;
+          data.error = message?.value ?? '';
+        } else if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === undefined) {
+          data.error = String(value);
+        } else if (typeof value === 'bigint') {
+          const text = boundedBigint(value, maxBytes);
+          if (text === undefined) return undefined;
+          data.error = text;
+        } else if (typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+          data.error = '[object Object]';
+        } else return undefined;
+      } else if (typeof value === 'bigint') {
+        const text = boundedBigint(value, maxBytes);
+        if (text === undefined) return undefined;
+        data[key] = text;
+      } else data[key] = value;
     }
+    return data;
+  } catch {
+    return undefined;
   }
+}
 
-  return data;
+function boundedBigint(value: bigint, maxBytes: number): string | undefined {
+  // Compare with a bounded threshold. Shifting a hostile input right would
+  // itself copy most of that input before rejection. Even an explicitly large
+  // capture limit does not create an unbounded threshold allocation here.
+  const digits = Math.min(maxBytes, DEFAULT_OBSERVABILITY_MAX_EVENT_BYTES);
+  const threshold = 1n << BigInt(digits * 4);
+  if (value >= threshold || value <= -threshold) return undefined;
+  return value.toString();
 }

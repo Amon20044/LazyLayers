@@ -1,0 +1,13 @@
+lookup/64: 11.133 ms median, 7 isolated runs
+lookup-stale/64: 13.781 ms median, 7 isolated runs
+has/32: 0.424 ms median, 7 isolated runs
+has/1024: 0.555 ms median, 7 isolated runs
+has/8192: 0.423 ms median, 7 isolated runs
+promotion/512: 9.466 ms median, 7 isolated runs
+inflight/32: 1.126 ms median, 7 isolated runs
+inflight/1024: 0.711 ms median, 7 isolated runs
+herd/10: 2.783 ms median, 7 isolated runs
+herd/100: 2.901 ms median, 7 isolated runs
+herd/1000: 4.893 ms median, 7 isolated runs
+herd/10000: 25.051 ms median, 7 isolated runs
+Raw results: audit/raw/ci-after.json

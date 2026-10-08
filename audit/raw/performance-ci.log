@@ -1,0 +1,26 @@
+{"command":["npm","run","build"],"wallTimeMs":847,"budgets":{"seconds":30,"rssMiB":768,"maxOutputBytes":16777216,"childHeapMiB":512},"rssMonitoringAvailable":true,"peakSampledRssBytes":446054400,"isolatedRedis":false,"code":0,"signal":null,"aborted":null}
+{"command":["/Users/apple/.nvm/versions/node/v24.21.0/bin/node","benchmarks/audit.mjs","--quick"],"wallTimeMs":10694,"budgets":{"seconds":60,"rssMiB":768,"maxOutputBytes":16777216,"childHeapMiB":512},"rssMonitoringAvailable":true,"peakSampledRssBytes":179240960,"isolatedRedis":false,"code":0,"signal":null,"aborted":null}
+{"command":["/Users/apple/.nvm/versions/node/v24.21.0/bin/node","benchmarks/audit.mjs","--quick"],"wallTimeMs":8502,"budgets":{"seconds":60,"rssMiB":768,"maxOutputBytes":16777216,"childHeapMiB":512},"rssMonitoringAvailable":true,"peakSampledRssBytes":177881088,"isolatedRedis":false,"code":0,"signal":null,"aborted":null}
+lookup/64: 31.7%, interval 1.225–1.477 REGRESSION
+lookup-stale/64: 24.1%, interval 1.162–1.276 REGRESSION
+has/32: -66.4%, interval 0.304–0.398
+has/1024: -97.5%, interval 0.024–0.069
+has/8192: -99.8%, interval 0.002–0.002
+promotion/512: -15.2%, interval 0.786–0.870
+inflight/32: -66.9%, interval 0.323–0.385
+inflight/1024: -97.3%, interval 0.025–0.029
+herd/10: -7.8%, interval 0.608–1.122
+herd/100: 10.5%, interval 1.056–1.217
+herd/1000: 34.6%, interval 1.232–1.662 REGRESSION
+herd/10000: 79.6%, interval 1.723–1.877 REGRESSION
+file:///Users/apple/Desktop/LazyLayers/scripts/audit-ci.mjs:23
+    child.once('exit', (code) => { clearTimeout(timer); try { process.kill(-child.pid, 'SIGKILL'); } catch {} children.delete(child); code === 0 ? resolvePromise() : reject(new Error(`${command} exited ${code}`)); });
+                                                                                                                                                                             ^
+
+Error: /Users/apple/.nvm/versions/node/v24.21.0/bin/node exited 1
+    at ChildProcess.<anonymous> (file:///Users/apple/Desktop/LazyLayers/scripts/audit-ci.mjs:23:174)
+    at ChildProcess.wrapper (node:events:639:12)
+    at ChildProcess.emit (node:events:514:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:295:12)
+
+Node.js v24.21.0

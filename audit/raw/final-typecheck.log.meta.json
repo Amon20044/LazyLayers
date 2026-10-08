@@ -1,0 +1,20 @@
+{
+  "command": [
+    "npm",
+    "run",
+    "typecheck"
+  ],
+  "wallTimeMs": 564,
+  "budgets": {
+    "seconds": 90,
+    "rssMiB": 768,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 512
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 443121664,
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

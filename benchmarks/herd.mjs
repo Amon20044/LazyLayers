@@ -24,6 +24,7 @@ async function run(label, makeCache, opts = {}) {
   const results = await Promise.all(
     Array.from({ length: N }, () => cache.getOrSet('user:1', loader, opts)),
   );
+  await cache.close();
   const ms = performance.now() - t0;
 
   const allSame = results.every((r) => r && r.id === 'u1');
@@ -42,7 +43,7 @@ const naive = await run(
   () => new LazyLayersCache({
     ttlMs: 60_000,
     inflight: { enabled: false },
-    originLoad: { enabled: false },
+    originLoad: { enabled: false, maxConcurrent: N, maxQueued: 0 },
   }),
 );
 

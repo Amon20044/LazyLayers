@@ -1,0 +1,118 @@
+{
+  "generatedAt": "2026-10-08T13:53:12.138Z",
+  "snapshot": "/var/folders/c0/v0_qvxvs47d5n90q2z2lpx5h0000gn/T/lazy-layers-audit-final-m74j45f9",
+  "node": "v24.21.0",
+  "sourceDigest": "e451d7c9d3524779584211fe0571acff4e68cecbf1e32e6f8bb10f8face8fd08",
+  "esmBuildDigest": "21ed478360f76848bfb2b79594169f80bda2b24fe0bf4f9caacbb9aa66608b95",
+  "hashVerification": {
+    "raw": "independent-verification-final-hashes.json",
+    "rawSha256": "86c52a628508b4eddb5d99a13ca8c6b35476b9be601ddf319a930f96efd229b8"
+  },
+  "budgets": {
+    "customChecks": {
+      "seconds": 10,
+      "rssMiB": 160,
+      "maxOutputBytes": 16777216,
+      "childHeapMiB": 64
+    },
+    "customChecksPeakSampledRssBytes": "NOT MEASURED",
+    "customChecksMaximumPointSampleRssBytes": 90832896,
+    "targetedSuite": {
+      "seconds": 30,
+      "rssMiB": 256,
+      "maxOutputBytes": 16777216,
+      "childHeapMiB": 128
+    },
+    "targetedSuitePeakSampledRssBytes": 154091520,
+    "perTestDeadlineMs": 3000
+  },
+  "targetedSuite": {
+    "tests": 93,
+    "passed": 93,
+    "failed": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "wallTimeMs": 818,
+    "raw": "independent-verification-tests.log",
+    "rawSha256": "6f71027ed1b187ee36c6dd1fb968c7846f90f3d31888222fff19d9f7f5a3544a"
+  },
+  "customChecks": {
+    "raw": "independent-binary-ownership-verification.json",
+    "rawSha256": "7d0c117e4e15a2d78a3644024ef55c4cdd4f338df96fd1a6c181f4d1c1505b3b",
+    "script": "independent-binary-ownership-verification.mjs",
+    "scriptSha256": "6006ea2074e8e8732085ee89763397e78bdbbc40f0b7020ae7f7a1bfbcb6700c",
+    "cases": [
+      {
+        "name": "direct MemoryStore.get nested Buffer mutation preserves resident bytes",
+        "status": "PASS",
+        "observed": {
+          "mutatedReturnedValue": [
+            99,
+            34,
+            51
+          ],
+          "retainedValue": [
+            17,
+            34,
+            51
+          ],
+          "bufferTypePreserved": true
+        }
+      },
+      {
+        "name": "direct MemoryStore.inspect Buffer preview mutation preserves resident bytes",
+        "status": "PASS",
+        "observed": {
+          "mutatedPreview": [
+            17,
+            88,
+            51
+          ],
+          "retainedValue": [
+            17,
+            34,
+            51
+          ],
+          "bufferTypePreserved": true
+        }
+      },
+      {
+        "name": "strict Node binary decoder owns its result and public legacy decoder remains a view",
+        "status": "PASS",
+        "observed": {
+          "strictInputUnchanged": true,
+          "legacyViewObserved": true,
+          "bufferTypePreserved": true
+        }
+      },
+      {
+        "name": "strict portable binary decoder owns its result and public legacy decoder remains a view",
+        "status": "PASS",
+        "observed": {
+          "strictInputUnchanged": true,
+          "legacyViewObserved": true
+        }
+      }
+    ]
+  },
+  "priorFreezeAdversarialChecks": {
+    "raw": "independent-verification-first-freeze.json",
+    "rawSha256": "d546a112268945326831e2d21d0ab62f3e914faed50cc5e84a81d033b65f2dc9",
+    "note": "Five independently constructed allocation/publication/restarted-peer checks ran on the first freeze. Their regression suites are included in the revised 93-test run. The previous freeze still contained the separately reproduced binary ownership defect and is not a final release candidate."
+  },
+  "verificationTests": {
+    "audit-binary-ownership.test.js": "a3542cd1af5d21b58f8333dc684c94510bbf8d5225040f4aaee6222fe7c34c5b",
+    "audit-coordination-boundaries.test.js": "69eb0723c4101ba76c8a9351fe14f6f6f8d65d6171a316be49250d87ab81dcaa",
+    "audit-distributed-regressions.test.js": "1afee4ac952307d0ac250f6249c9f09f31b18b435a623d227dbab4448156a6ee",
+    "audit-observability-bounds.test.js": "d7341855392cecefb83186c22a1f4b3d727d2683b24fb23f7238568d8abcf8cc",
+    "audit-worker-lifecycle.test.js": "925e90e8057267733680aa3b6ee1389c53fa3e96652baa170bd6df4c9a053429",
+    "decode-limits.test.js": "1bde6ac5c1ef990bdeeba31c69c0dbb02d8881eed650ee233ed17f69cc2e8c62"
+  },
+  "limitations": [
+    "Offline protocol doubles do not verify live Redis Lua/failover/Cluster behavior.",
+    "Array preallocation interception verifies rejection before allocation; it is not a measured RSS improvement.",
+    "Legacy public no-option decoding intentionally preserves prior bounds and view behavior.",
+    "The tiny custom mutation run completed before the runner's first 250 ms RSS sample; runner peak is NOT MEASURED, while five explicit process RSS samples are labeled point samples.",
+    "Final benchmark, chaos and long-duration memory evidence is separate and pending."
+  ]
+}

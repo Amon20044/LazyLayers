@@ -1,0 +1,20 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-reporter=tap",
+    "--test-timeout=3000",
+    "test/audit-event-queue.test.js"
+  ],
+  "wallTimeMs": 113,
+  "budgets": {
+    "seconds": 15,
+    "rssMiB": 256
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": 1,
+  "signal": null,
+  "aborted": null
+}

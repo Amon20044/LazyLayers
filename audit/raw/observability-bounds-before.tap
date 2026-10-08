@@ -1,0 +1,171 @@
+TAP version 13
+# Subtest: SSE stops replay, live and heartbeat writes at backpressure and resumes on drain
+not ok 1 - SSE stops replay, live and heartbeat writes at backpressure and resumes on drain
+  ---
+  duration_ms: 2.592417
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-observability-bounds.test.js:48:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    one false write must stop all further writes until drain
+    
+    42 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 42
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-observability-bounds.test.js:67:12)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.start (node:internal/test_runner/test:1262:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+  ...
+# Subtest: SSE has a finite client budget and releases it exactly once on close
+not ok 2 - SSE has a finite client budget and releases it exactly once on close
+  ---
+  duration_ms: 0.174458
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-observability-bounds.test.js:86:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    200 !== 503
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 503
+  actual: 200
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-observability-bounds.test.js:100:12)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: collector bounds retained oversized keys and error messages while preserving counters
+not ok 3 - collector bounds retained oversized keys and error messages while preserving counters
+  ---
+  duration_ms: 1.616083
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-observability-bounds.test.js:116:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(Buffer.byteLength(JSON.stringify(event)) <= 64 * 1024)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-observability-bounds.test.js:124:12)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: SSE bounds each frame before serializing an oversized metadata string
+not ok 4 - SSE bounds each frame before serializing an oversized metadata string
+  ---
+  duration_ms: 0.151625
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-observability-bounds.test.js:133:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    oversized replay must be rejected before JSON allocation
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-observability-bounds.test.js:148:12)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: normal captured metadata is detached from mutable source references
+not ok 5 - normal captured metadata is detached from mutable source references
+  ---
+  duration_ms: 0.444042
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-observability-bounds.test.js:158:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      {
+        key: 'small',
+        levels: [
+          'L1',
+    +     'L2'
+        ]
+      }
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    key: 'small'
+    levels:
+      0: 'L1'
+  actual:
+    key: 'small'
+    levels:
+      0: 'L1'
+      1: 'L2'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-observability-bounds.test.js:163:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: new stream limits reject non-finite or non-positive settings
+not ok 6 - new stream limits reject non-finite or non-positive settings
+  ---
+  duration_ms: 0.11125
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-observability-bounds.test.js:166:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception (RangeError).'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-observability-bounds.test.js:169:14)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 0
+# fail 6
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 117.073125

@@ -1,0 +1,22 @@
+{
+  "command": [
+    "node",
+    "--max-old-space-size=64",
+    "--input-type=module",
+    "-e",
+    "import {readFileSync} from \"node:fs\"; import {pathToFileURL} from \"node:url\"; const final=readFileSync(\"audit/raw/final-snapshot-path.txt\",\"utf8\").trim(); for(const [label,location] of [[\"baseline\",\"/private/tmp/lazy-layers-ca9c02a-audit/dist/index.js\"],[\"frozen-final\",`${final}/dist/index.js`]]){const m=await import(pathToFileURL(location)); const budget=new m.MemoryBudget({maxMemory:65536,sampleIntervalMs:0}); const store=new m.MemoryStore({memoryBudget:budget,levels:{L1:{codec:{compression:\"none\"},admission:{enabled:false}}}});try{await store.set(\"x\",{binary:Buffer.from([17,34,51])}); const value=await store.get(\"x\");value.binary[0]=99;const afterGet=Array.from((await store.get(\"x\")).binary);const page=await store.inspect();page.keys[0].value.binary[1]=88;const afterInspect=Array.from((await store.get(\"x\")).binary);console.log(JSON.stringify({label,bufferResult:Buffer.isBuffer(value.binary),expected:[17,34,51],afterGet,afterInspect}));}finally{store.close();budget.close();}}"
+  ],
+  "wallTimeMs": 128,
+  "budgets": {
+    "seconds": 5,
+    "rssMiB": 128,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 512
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

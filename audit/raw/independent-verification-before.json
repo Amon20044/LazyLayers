@@ -1,0 +1,50 @@
+{
+  "baselineCommit": "ca9c02a04349a89278cd81b5b25d0000503cc5a3",
+  "module": "file:///private/tmp/lazy-layers-ca9c02a-audit/dist/index.js",
+  "scope": "Two deterministic, offline adversarial reproductions; neither executes live Redis Lua or measures service performance.",
+  "budgets": {
+    "heapMiB": 64,
+    "outageRaceWallDeadlineMs": 2000,
+    "messagePackAllocation": "Intercepted before allocation; declared length only 131072 elements."
+  },
+  "cases": [
+    {
+      "name": "truncated MessagePack array32 metadata allocates before rejection",
+      "status": "FAILURE REPRODUCED",
+      "fixture": "HC1M followed by 0xdd and big-endian unsigned length 131072, with no elements",
+      "observed": {
+        "inputBytes": 9,
+        "attemptedDeclaredArrayLengths": [131072],
+        "publicDeserializeValue": null
+      },
+      "expected": "Strict internal decoding rejects the truncated container before attempting a declared-size array allocation.",
+      "sourceAtBaseline": "node_modules/msgpackr/unpack.js:465 and :700; src/utils/serializer.ts:468",
+      "method": "Replace global Array temporarily with a Proxy that throws only for the fixture's declared size; restore it in finally."
+    },
+    {
+      "name": "initial coordination outage fallback overwrites a newer protected publication",
+      "status": "FAILURE REPRODUCED",
+      "fixture": "Two L1-disabled HybridCache instances, two RedisStore v2 adapters, one local AuditRedis protocol double, no event bus",
+      "schedule": [
+        "A acquireLock rejects with simulated initial coordination outage",
+        "A starts its fallback loader and pauses",
+        "B acquires a lease and publishes winner",
+        "A resumes with obsolete",
+        "Read authoritative state through B's RedisStore"
+      ],
+      "observed": {
+        "newer": "winner",
+        "older": "obsolete",
+        "authoritativeValueAfterOlderFallback": "obsolete"
+      },
+      "expected": "A may return its fail-open loader value, but cannot overwrite or prime state protected by B's newer lease.",
+      "sourceAtBaseline": "src/cache/hybridCache.ts:849 initial failure fallback and :741 ordinary publication compatibility path",
+      "cleanup": "Release paused loader in finally, close both caches, clear protocol-double values, clear hard deadline."
+    }
+  ],
+  "limitations": [
+    "These are correctness counterexamples, not throughput or memory-per-entry measurements.",
+    "The Redis double implements command contracts but does not establish failover, Cluster or network-partition guarantees.",
+    "Final readiness requires re-testing the completed build and reviewing final changes."
+  ]
+}

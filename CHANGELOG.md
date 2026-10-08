@@ -6,6 +6,42 @@
 
 - Centralized portable cache value encoding behind `serializeCacheValue` and `deserializeCacheValue`, sharing HC1 tags, null handling, gzip thresholds, and Worker-safe decoding between Node.js and Workers.
 - Cloudflare KV adapters now call the shared serializer facade instead of maintaining their own encoding implementations.
+- Built-in L1 uses dynamically growing, count-bounded LRU storage, per-key expiry checks, and incremental accounting. Closing the store drops its owned cache structures.
+- Same-key followers join existing work before another cache read. In-flight maintenance and admission sampling use bounded work.
+- Event handler and retry queues retain owned wire snapshots with incremental byte accounting. Telemetry snapshots and SSE clients have finite retention and backpressure limits.
+
+### Added
+
+- Cache-wide `inflight.maxWaiters` protection, defaulting to 10,000, with `InflightOverloadError` and reservations held until the accepted work actually settles.
+- Bounded internal decoding through `decodeLimits`, including encoded/expanded size, nesting and collection checks, strict UTF-8 validation, and owned binary results.
+- Scoped invalidation metadata and typed numeric-key propagation. Shared-L2 peer hints verify authoritative data before local promotion.
+- Isolated Docker correctness, multi-process load and fault harnesses; memory snapshots, admission/codec experiments, raw results, and metrics configurations under `audit/`.
+- PR and scheduled performance workflows with repeated comparisons, variance-aware regression gates, resource limits and cleanup.
+
+### Fixed
+
+- An unleased loader fallback can no longer overwrite protected Redis v2 state or publish an unsafe peer success event after coordination failure.
+- Pattern invalidation fences matching lease-only keys. Redis v2 namespace filtering and escaped patterns preserve nested/foreign tenants and distinguish malformed Unicode keys.
+- Per-key mutation guards protect fills and promotions without suppressing unrelated writes. Lower-generation deletes conservatively invalidate local state rather than resurrecting forgotten versions.
+- Loader cancellation, queue admission rechecks, close guards, and remaining-TTL propagation prevent obsolete local publication and unintended TTL extension.
+- Corrupt internal records are cache misses; legitimate null remains a hit. Redis snapshots check encoded size before transferring an oversized value.
+- Decoded binary views no longer expose the retained cache bytes through ordinary reads or inspection.
+- Event queue overflow, malformed delivery and transport gaps trigger conservative reconciliation; reconnect must restore subscription trust after cleanup.
+- Worker local lifecycle guards prevent obsolete completion from restoring local state after invalidation or close.
+
+### Validation and measured trade-offs
+
+- The full isolated live-service suite passes 480 tests on Node 20, 22 and 24. The final 15-case fault matrix and 93 focused independent checks pass.
+- Paired Apple M5 / Node 24 measurements show 97.56% lower heap-plus-external retention for 20 empty stores and 99.83% faster membership/expiry checks at 8,192 entries.
+- Warm-read microbenchmarks take 30.46% longer, and the performance gate rejects warm-read and large accepted-herd regressions. Safety controls remain in place; this is not a universal speedup or production-readiness claim.
+- See the [full comparison](audit/10-before-after-comparison.md), [reproduction guide](audit/README.md), and [readiness gates](audit/12-production-readiness.md) for workload definitions, raw evidence and limitations.
+
+### Compatibility and rollout
+
+- Public signatures, exports, HC1 tags and permissive one-argument public decoding remain compatible. New resource errors, terminal close behavior, stricter internal decoding, Redis ACL requirements and scoped-event migration are documented in [migration notes](audit/migration.md).
+- Production dependencies and the lockfile are unchanged. This development version has not been published to npm.
+- Node 20 passes the tested runtime suite, but the current NATS transitive dependency declares Node 22 or newer; use Node 22+ for that integration.
+- Redis failover/Cluster, durable source fencing and invalidation, legacy/custom non-atomic adapters, Worker aggregate resource budgets, tenant-wide origin fairness and long-duration RSS guarantees remain open gates. Redis owner tokens do not fence external database effects, and KV remains eventually consistent.
 
 ## 0.6.1
 

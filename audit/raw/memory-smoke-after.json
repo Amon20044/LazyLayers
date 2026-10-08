@@ -1,0 +1,287 @@
+{
+  "metadata": {
+    "generatedAt": "2026-10-08T14:10:55.568Z",
+    "module": "file:///var/folders/c0/v0_qvxvs47d5n90q2z2lpx5h0000gn/T/lazy-layers-audit-final-m74j45f9/dist/index.js",
+    "node": "v24.21.0",
+    "cpu": "Apple M5",
+    "seconds": 30,
+    "workingKeys": 512,
+    "residentCap": 256,
+    "payloadBytes": 1024,
+    "ledgerCapBytes": 2097152,
+    "childRssCapBytes": 536870912,
+    "maxCycles": 5000,
+    "dutyDelayMs": 50,
+    "heapRangeSlackBytes": 1048576,
+    "observedBaselineVariabilityAllowanceBytes": 65536,
+    "durationClaim": "bounded smoke/endurance sample; not hours-long production endurance"
+  },
+  "elapsedMs": 30072.299333,
+  "cycles": 545,
+  "operations": 453440,
+  "checkpoints": [
+    {
+      "elapsedMs": 10.754625000000004,
+      "cycle": 0,
+      "heapUsed": 12959352,
+      "rss": 102907904,
+      "external": 4488729,
+      "entries": 192,
+      "ledgerBytes": 243904
+    },
+    {
+      "elapsedMs": 1064.543958,
+      "cycle": 19,
+      "heapUsed": 13126048,
+      "rss": 126992384,
+      "external": 4286169,
+      "entries": 0,
+      "ledgerBytes": 4096
+    },
+    {
+      "elapsedMs": 2077.3924159999997,
+      "cycle": 37,
+      "heapUsed": 11325784,
+      "rss": 132759552,
+      "external": 4483402,
+      "entries": 192,
+      "ledgerBytes": 243904
+    },
+    {
+      "elapsedMs": 3112.329541,
+      "cycle": 56,
+      "heapUsed": 11348328,
+      "rss": 135774208,
+      "external": 4483402,
+      "entries": 192,
+      "ledgerBytes": 243904
+    },
+    {
+      "elapsedMs": 4173.32425,
+      "cycle": 75,
+      "heapUsed": 11397800,
+      "rss": 136003584,
+      "external": 4483402,
+      "entries": 192,
+      "ledgerBytes": 243904
+    },
+    {
+      "elapsedMs": 5205.195333,
+      "cycle": 94,
+      "heapUsed": 11414160,
+      "rss": 136642560,
+      "external": 4483402,
+      "entries": 192,
+      "ledgerBytes": 243904
+    },
+    {
+      "elapsedMs": 6247.600458,
+      "cycle": 113,
+      "heapUsed": 11421280,
+      "rss": 134774784,
+      "external": 4483402,
+      "entries": 192,
+      "ledgerBytes": 243904
+    },
+    {
+      "elapsedMs": 7308.811791,
+      "cycle": 132,
+      "heapUsed": 11428480,
+      "rss": 134791168,
+      "external": 4483595,
+      "entries": 192,
+      "ledgerBytes": 244096
+    },
+    {
+      "elapsedMs": 8368.56925,
+      "cycle": 151,
+      "heapUsed": 11445960,
+      "rss": 123273216,
+      "external": 4483595,
+      "entries": 192,
+      "ledgerBytes": 244096
+    },
+    {
+      "elapsedMs": 9425.632958,
+      "cycle": 171,
+      "heapUsed": 11453664,
+      "rss": 126648320,
+      "external": 4483595,
+      "entries": 192,
+      "ledgerBytes": 244096
+    },
+    {
+      "elapsedMs": 10459.017458,
+      "cycle": 190,
+      "heapUsed": 11452328,
+      "rss": 116998144,
+      "external": 4483595,
+      "entries": 192,
+      "ledgerBytes": 244096
+    },
+    {
+      "elapsedMs": 11512.474291,
+      "cycle": 209,
+      "heapUsed": 11456984,
+      "rss": 117145600,
+      "external": 4483595,
+      "entries": 192,
+      "ledgerBytes": 244096
+    },
+    {
+      "elapsedMs": 12532.059625,
+      "cycle": 228,
+      "heapUsed": 11471728,
+      "rss": 119930880,
+      "external": 4483595,
+      "entries": 192,
+      "ledgerBytes": 244096
+    },
+    {
+      "elapsedMs": 13549.407958000002,
+      "cycle": 247,
+      "heapUsed": 11468416,
+      "rss": 120193024,
+      "external": 4483595,
+      "entries": 192,
+      "ledgerBytes": 244096
+    },
+    {
+      "elapsedMs": 14577.304166,
+      "cycle": 266,
+      "heapUsed": 11507832,
+      "rss": 120832000,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 15611.828125,
+      "cycle": 285,
+      "heapUsed": 11505312,
+      "rss": 121225216,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 16627.565833,
+      "cycle": 303,
+      "heapUsed": 11508016,
+      "rss": 125239296,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 17681.874207999997,
+      "cycle": 322,
+      "heapUsed": 11507680,
+      "rss": 125255680,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 18718.23925,
+      "cycle": 341,
+      "heapUsed": 11510464,
+      "rss": 125255680,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 19762.168916,
+      "cycle": 360,
+      "heapUsed": 11509728,
+      "rss": 125272064,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 20768.336165999997,
+      "cycle": 378,
+      "heapUsed": 11513416,
+      "rss": 125272064,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 21778.900999999998,
+      "cycle": 396,
+      "heapUsed": 11508608,
+      "rss": 126566400,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 22788.0265,
+      "cycle": 414,
+      "heapUsed": 11463904,
+      "rss": 126648320,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 23834.828707999997,
+      "cycle": 433,
+      "heapUsed": 11449208,
+      "rss": 127057920,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 24890.55375,
+      "cycle": 452,
+      "heapUsed": 11455056,
+      "rss": 127156224,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 25901.166375,
+      "cycle": 470,
+      "heapUsed": 11445984,
+      "rss": 127500288,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 26922.728958,
+      "cycle": 488,
+      "heapUsed": 11453496,
+      "rss": 127500288,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 27973.16675,
+      "cycle": 507,
+      "heapUsed": 11449824,
+      "rss": 127516672,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    },
+    {
+      "elapsedMs": 29012.467,
+      "cycle": 526,
+      "heapUsed": 11461752,
+      "rss": 127582208,
+      "external": 4483788,
+      "entries": 192,
+      "ledgerBytes": 244288
+    }
+  ],
+  "closedLedgerBytes": 0,
+  "failure": null
+}

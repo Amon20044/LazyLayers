@@ -1,0 +1,22 @@
+{
+  "command": [
+    "env",
+    "LAZY_AUDIT_MODULE=file:///private/tmp/lazy-layers-ca9c02a-audit/dist/index.js",
+    "LAZY_AUDIT_OUTPUT=audit/raw/queues-before.json",
+    "node",
+    "benchmarks/audit-queues.mjs"
+  ],
+  "wallTimeMs": 1770,
+  "budgets": {
+    "seconds": 90,
+    "rssMiB": 512,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 256
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 138526720,
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

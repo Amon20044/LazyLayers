@@ -61,11 +61,9 @@ The L2 round trip is a window, and a concurrent loader on this server can record
 
 ### Where the in-flight promise is registered
 
-**After the L2 read, not before.** This is the ordering that matters most, and the one worth being precise about.
+`getOrSet` first checks for a live same-key leader, then reads L1/L2 if none exists, and rechecks the in-flight map after that asynchronous read. Followers of an existing leader share its cache read and loader result. Requests that arrive before the first leader is registered can still perform separate reads, so this is not a promise of one Redis operation per cold-key burst.
 
-The in-flight map is consulted only once the read above has fully completed and returned nothing. It is not consulted at the top of `getOrSet`, and it is not consulted before the L2 round trip.
-
-The consequence is exact: **in-flight dedupe collapses loader calls, not L2 reads.** Ten thousand concurrent callers for one cold key each perform their own L1 lookup and their own L2 round trip. Then all but one of them find the in-flight entry and join it.
+Accepted followers are bounded by `inflight.maxWaiters` (10,000 across one cache by default) and the shared memory budget. Overflow throws `InflightOverloadError` without starting another loader.
 
 <Note>
   `benchmarks/herd.mjs` fires 10,000 concurrent `getOrSet` calls at a single cold key and counts loader calls. With dedupe on, the default, that is 1 loader call and 9,999 in-flight reuses. With dedupe off it is 10,000 loader calls. Both runs assert every caller received the correct value, so the collapse cannot come from dropping requests.
@@ -80,7 +78,7 @@ If `inflight.enabled` is `false`, either on the call or on the cache, the load r
 </Step>
 
 <Step title="Prune expired entries">
-The whole map is swept and entries past their `expiresAt` are removed. Unless explicitly set, `inflight.ttlMs` covers the loader hard timeout, the distributed wait budget when locking is active, and a 50 ms margin, with a 5,000 ms minimum. Default lifetimes are 10,050 ms without locking and 20,100 ms with Redis locking.
+Only the queried key is checked for expiry on this path; maintenance work is bounded. Unless explicitly set, `inflight.ttlMs` covers the loader hard timeout, the distributed wait budget when locking is active, and a 50 ms margin, with a 5,000 ms minimum. Default lifetimes are 10,050 ms without locking and 20,100 ms with Redis locking.
 </Step>
 
 <Step title="Join a live entry if there is one">
@@ -88,7 +86,7 @@ A live promise for the key means `inflight:reuse` is emitted and that same promi
 </Step>
 
 <Step title="Check the tracking cap">
-`inflight.maxEntries` bounds how many keys can be tracked at once. When the map is full, the new key emits `inflight:bypass` with `reason: 'maxEntries'` and loads directly, without being registered. Leave the option unset for an unbounded map.
+`inflight.maxEntries` bounds tracked keys (1,024 by default in the raw constructor). When tracking is full, a new key can bypass dedupe, but finite leader/origin admission still applies; bypass does not grant unlimited origin work.
 </Step>
 
 <Step title="Register, then return">

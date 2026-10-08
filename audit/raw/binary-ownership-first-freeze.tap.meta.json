@@ -1,0 +1,24 @@
+{
+  "command": [
+    "node",
+    "--max-old-space-size=64",
+    "--test",
+    "--test-reporter=tap",
+    "--test-concurrency=1",
+    "--test-timeout=3000",
+    "test/audit-binary-ownership.test.js"
+  ],
+  "wallTimeMs": 151,
+  "budgets": {
+    "seconds": 5,
+    "rssMiB": 128,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 64
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": 1,
+  "signal": null,
+  "aborted": null
+}

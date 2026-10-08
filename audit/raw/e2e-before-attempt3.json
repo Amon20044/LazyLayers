@@ -1,0 +1,2275 @@
+{
+  "metadata": {
+    "generatedAt": "2026-10-08T13:15:35.529Z",
+    "node": "v24.21.0",
+    "os": "Darwin 25.5.0",
+    "cpu": "Apple M5",
+    "logicalCpus": 10,
+    "module": "file:///private/tmp/lazy-layers-ca9c02a-audit/dist/index.js",
+    "project": "lazy-layers-audit-b27c0f45",
+    "instances": 2,
+    "independentProcesses": {
+      "workers": 2,
+      "origin": 1,
+      "loadGenerator": 1
+    },
+    "payloadBytes": 1024,
+    "requestDistribution": "seeded skew over 64 keys unless specified",
+    "repetitions": 3,
+    "budgets": {
+      "workersHeapMiBEach": 160,
+      "originHeapMiB": 160,
+      "generatorHeapMiB": 192,
+      "aggregateRssMiB": 768,
+      "totalMs": 110000,
+      "perLoadMs": 7000,
+      "requestsPerLoad": 100000,
+      "maxGeneratorOutstanding": 1500
+    },
+    "coordinatedOmission": "open-loop planned-arrival latency; unsent traffic separately counted; generator ceiling calibrated with HTTP bypass"
+  },
+  "capacity": [
+    {
+      "config": {
+        "urls": [
+          "http://127.0.0.1:56928",
+          "http://127.0.0.1:56927"
+        ],
+        "noop": true,
+        "rps": 1000,
+        "durationMs": 1000,
+        "distribution": "round-robin",
+        "payloadBytes": 1024
+      },
+      "offered": 1000,
+      "sent": 1000,
+      "completed": 1000,
+      "successful": 1000,
+      "errors": 0,
+      "timeouts": 0,
+      "clientDropped": 0,
+      "freshnessViolations": 0,
+      "elapsedMs": 1001.887583,
+      "offeredRps": 1000,
+      "completedRps": 998.1159732568519,
+      "successfulRps": 998.1159732568519,
+      "errorRate": 0,
+      "bytesReceived": 1072840,
+      "maxOutstanding": 8,
+      "byWorker": [
+        500,
+        500
+      ],
+      "statuses": {
+        "200": 1000
+      },
+      "arrivalToCompletionMs": {
+        "p50": 1.1784999999999854,
+        "p95": 2.0618749999999864,
+        "p99": 4.766540999999961,
+        "p999": 8.40279099999998
+      },
+      "dispatchedToCompletionMs": {
+        "p50": 0.3411669999999276,
+        "p95": 0.6945000000000618,
+        "p99": 2.9053749999999994,
+        "p999": 6.721042000000011
+      },
+      "dispatchLagMs": {
+        "p50": 0.8410410000000184,
+        "p95": 1.5630409999999983,
+        "p99": 1.7787500000000591,
+        "p999": 4.879249999999956
+      },
+      "runtime": {
+        "cpuMs": 297.486,
+        "peakSampledRssBytes": 101974016,
+        "processLifetimeMaxRssBytes": 102023168,
+        "memory": {
+          "rss": 102039552,
+          "heapTotal": 29179904,
+          "heapUsed": 15509824,
+          "external": 4722519,
+          "arrayBuffers": 1050334
+        },
+        "gc": {
+          "count": 14,
+          "totalMs": 7.046124994754791,
+          "maxMs": 1.1119590103626251
+        }
+      },
+      "coordinatedOmission": "Open-loop scheduled arrivals; latency includes dispatch delay. Unsent arrivals are explicit clientDropped errors, excluded from latency quantiles."
+    },
+    {
+      "config": {
+        "urls": [
+          "http://127.0.0.1:56928",
+          "http://127.0.0.1:56927"
+        ],
+        "noop": true,
+        "rps": 10000,
+        "durationMs": 1000,
+        "distribution": "round-robin",
+        "payloadBytes": 1024
+      },
+      "offered": 10000,
+      "sent": 10000,
+      "completed": 10000,
+      "successful": 10000,
+      "errors": 0,
+      "timeouts": 0,
+      "clientDropped": 0,
+      "freshnessViolations": 0,
+      "elapsedMs": 1003.591625,
+      "offeredRps": 10000,
+      "completedRps": 9964.212286048121,
+      "successfulRps": 9964.212286048121,
+      "errorRate": 0,
+      "bytesReceived": 10728430,
+      "maxOutstanding": 648,
+      "byWorker": [
+        5000,
+        5000
+      ],
+      "statuses": {
+        "200": 10000
+      },
+      "arrivalToCompletionMs": {
+        "p50": 2.4237920000000486,
+        "p95": 40.00579200000004,
+        "p99": 67.33404199999995,
+        "p999": 71.82187499999998
+      },
+      "dispatchedToCompletionMs": {
+        "p50": 1.3852080000000058,
+        "p95": 24.092040999999995,
+        "p99": 28.746875000000045,
+        "p999": 57.78712500000006
+      },
+      "dispatchLagMs": {
+        "p50": 0.8832089999999937,
+        "p95": 14.483624999999961,
+        "p99": 38.64712499999996,
+        "p999": 43.78008399999999
+      },
+      "runtime": {
+        "cpuMs": 762.622,
+        "peakSampledRssBytes": 210173952,
+        "processLifetimeMaxRssBytes": 210223104,
+        "memory": {
+          "rss": 210223104,
+          "heapTotal": 150028288,
+          "heapUsed": 37912056,
+          "external": 4554011,
+          "arrayBuffers": 881826
+        },
+        "gc": {
+          "count": 34,
+          "totalMs": 24.950791031122208,
+          "maxMs": 3.6957909762859344
+        }
+      },
+      "coordinatedOmission": "Open-loop scheduled arrivals; latency includes dispatch delay. Unsent arrivals are explicit clientDropped errors, excluded from latency quantiles."
+    }
+  ],
+  "rows": [
+    {
+      "name": "warm-100",
+      "repetition": 0,
+      "config": {},
+      "result": {
+        "config": {
+          "urls": [
+            "http://127.0.0.1:56928",
+            "http://127.0.0.1:56927"
+          ],
+          "durationMs": 1000,
+          "rps": 100,
+          "distribution": "zipf-like",
+          "payloadBytes": 1024,
+          "warm": true
+        },
+        "offered": 100,
+        "sent": 100,
+        "completed": 100,
+        "successful": 100,
+        "errors": 0,
+        "timeouts": 0,
+        "clientDropped": 0,
+        "freshnessViolations": 0,
+        "elapsedMs": 992.8801669999999,
+        "offeredRps": 100,
+        "completedRps": 100.71708885287866,
+        "successfulRps": 100.71708885287866,
+        "errorRate": 0,
+        "bytesReceived": 107253,
+        "maxOutstanding": 1,
+        "byWorker": [
+          50,
+          50
+        ],
+        "statuses": {
+          "200": 100
+        },
+        "arrivalToCompletionMs": {
+          "p50": 1.1935420000000363,
+          "p95": 2.105874999999969,
+          "p99": 7.049333999999931,
+          "p999": 7.528917000000035
+        },
+        "dispatchedToCompletionMs": {
+          "p50": 0.5046250000000043,
+          "p95": 1.183041000000003,
+          "p99": 3.130625000000009,
+          "p999": 3.6997499999999945
+        },
+        "dispatchLagMs": {
+          "p50": 0.6557500000000118,
+          "p95": 1.2288340000000062,
+          "p99": 4.056666999999948,
+          "p999": 4.728125000000034
+        },
+        "runtime": {
+          "cpuMs": 68.727,
+          "peakSampledRssBytes": 63537152,
+          "processLifetimeMaxRssBytes": 63537152,
+          "memory": {
+            "rss": 58081280,
+            "heapTotal": 13713408,
+            "heapUsed": 9545072,
+            "external": 4071877,
+            "arrayBuffers": 399692
+          },
+          "gc": {
+            "count": 4,
+            "totalMs": 1.2308329939842224,
+            "maxMs": 0.3720410168170929
+          }
+        },
+        "coordinatedOmission": "Open-loop scheduled arrivals; latency includes dispatch delay. Unsent arrivals are explicit clientDropped errors, excluded from latency quantiles."
+      },
+      "workers": [
+        {
+          "worker": "worker-0",
+          "requests": 50,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 50
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 1,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3113336832,
+                "rssBytes": 112885760,
+                "heapUsedBytes": 24372768,
+                "heapTotalBytes": 57114624,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 20.856,
+            "peakSampledRssBytes": 114589696,
+            "processLifetimeMaxRssBytes": 114589696,
+            "memory": {
+              "rss": 110804992,
+              "heapTotal": 55279616,
+              "heapUsed": 25468216,
+              "external": 5040782,
+              "arrayBuffers": 1076194
+            },
+            "gc": {
+              "count": 0,
+              "totalMs": 0,
+              "maxMs": 0
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-100:0:"
+          }
+        },
+        {
+          "worker": "worker-1",
+          "requests": 50,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 50
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 0,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3113336832,
+                "rssBytes": 112836608,
+                "heapUsedBytes": 24369696,
+                "heapTotalBytes": 56328192,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 22.953,
+            "peakSampledRssBytes": 113623040,
+            "processLifetimeMaxRssBytes": 114442240,
+            "memory": {
+              "rss": 109461504,
+              "heapTotal": 55017472,
+              "heapUsed": 16879496,
+              "external": 4541781,
+              "arrayBuffers": 577193
+            },
+            "gc": {
+              "count": 0,
+              "totalMs": 0,
+              "maxMs": 0
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-100:0:"
+          }
+        }
+      ],
+      "origin": {
+        "requests": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "completed": 0,
+        "active": 0,
+        "maxActive": 0,
+        "runtime": {
+          "cpuMs": 2.944,
+          "peakSampledRssBytes": 59572224,
+          "processLifetimeMaxRssBytes": 61423616,
+          "memory": {
+            "rss": 57409536,
+            "heapTotal": 13189120,
+            "heapUsed": 8436568,
+            "external": 4020950,
+            "arrayBuffers": 212207
+          },
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        "config": {
+          "latencyMs": 5,
+          "maxConcurrent": 64,
+          "fail": false,
+          "version": 1,
+          "payloadBytes": 1024
+        }
+      },
+      "redisOpsPerSentRequest": 0,
+      "originLoadsPerSentRequest": 0,
+      "cacheHitEventsPerSentRequest": 1,
+      "cpuMsPerMillion": 438090,
+      "aggregateWorkerPeakSampledRssBytes": 228212736,
+      "originAmplification": null,
+      "idealMissEpisodes": null
+    },
+    {
+      "name": "warm-100",
+      "repetition": 1,
+      "config": {},
+      "result": {
+        "config": {
+          "urls": [
+            "http://127.0.0.1:56928",
+            "http://127.0.0.1:56927"
+          ],
+          "durationMs": 1000,
+          "rps": 100,
+          "distribution": "zipf-like",
+          "payloadBytes": 1024,
+          "warm": true
+        },
+        "offered": 100,
+        "sent": 100,
+        "completed": 100,
+        "successful": 100,
+        "errors": 0,
+        "timeouts": 0,
+        "clientDropped": 0,
+        "freshnessViolations": 0,
+        "elapsedMs": 993.518417,
+        "offeredRps": 100,
+        "completedRps": 100.65238679918704,
+        "successfulRps": 100.65238679918704,
+        "errorRate": 0,
+        "bytesReceived": 107253,
+        "maxOutstanding": 1,
+        "byWorker": [
+          50,
+          50
+        ],
+        "statuses": {
+          "200": 100
+        },
+        "arrivalToCompletionMs": {
+          "p50": 1.5560830000000578,
+          "p95": 2.5677080000000387,
+          "p99": 2.809750000000008,
+          "p999": 3.3691669999999974
+        },
+        "dispatchedToCompletionMs": {
+          "p50": 0.8621249999999918,
+          "p95": 1.4869590000000699,
+          "p99": 1.9642499999999927,
+          "p999": 3.273834000000001
+        },
+        "dispatchLagMs": {
+          "p50": 0.6397920000000568,
+          "p95": 1.2521249999999782,
+          "p99": 1.3028329999999642,
+          "p999": 1.3834580000000187
+        },
+        "runtime": {
+          "cpuMs": 112.387,
+          "peakSampledRssBytes": 64045056,
+          "processLifetimeMaxRssBytes": 64077824,
+          "memory": {
+            "rss": 64077824,
+            "heapTotal": 13713408,
+            "heapUsed": 9573904,
+            "external": 4071877,
+            "arrayBuffers": 399692
+          },
+          "gc": {
+            "count": 4,
+            "totalMs": 1.854418009519577,
+            "maxMs": 0.7091670036315918
+          }
+        },
+        "coordinatedOmission": "Open-loop scheduled arrivals; latency includes dispatch delay. Unsent arrivals are explicit clientDropped errors, excluded from latency quantiles."
+      },
+      "workers": [
+        {
+          "worker": "worker-0",
+          "requests": 50,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 50
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 1,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3111288832,
+                "rssBytes": 111067136,
+                "heapUsedBytes": 26134616,
+                "heapTotalBytes": 55541760,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 31.373,
+            "peakSampledRssBytes": 111755264,
+            "processLifetimeMaxRssBytes": 114589696,
+            "memory": {
+              "rss": 111755264,
+              "heapTotal": 55803904,
+              "heapUsed": 25271352,
+              "external": 5441548,
+              "arrayBuffers": 1476960
+            },
+            "gc": {
+              "count": 0,
+              "totalMs": 0,
+              "maxMs": 0
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-100:1:"
+          }
+        },
+        {
+          "worker": "worker-1",
+          "requests": 50,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 50
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 0,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3111288832,
+                "rssBytes": 109559808,
+                "heapUsedBytes": 17542616,
+                "heapTotalBytes": 55017472,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 30.527,
+            "peakSampledRssBytes": 109805568,
+            "processLifetimeMaxRssBytes": 114442240,
+            "memory": {
+              "rss": 109805568,
+              "heapTotal": 55017472,
+              "heapUsed": 20370160,
+              "external": 4781351,
+              "arrayBuffers": 816763
+            },
+            "gc": {
+              "count": 0,
+              "totalMs": 0,
+              "maxMs": 0
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-100:1:"
+          }
+        }
+      ],
+      "origin": {
+        "requests": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "completed": 0,
+        "active": 0,
+        "maxActive": 0,
+        "runtime": {
+          "cpuMs": 3.965,
+          "peakSampledRssBytes": 58261504,
+          "processLifetimeMaxRssBytes": 61423616,
+          "memory": {
+            "rss": 58261504,
+            "heapTotal": 13189120,
+            "heapUsed": 9924968,
+            "external": 4021122,
+            "arrayBuffers": 212379
+          },
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        "config": {
+          "latencyMs": 5,
+          "maxConcurrent": 64,
+          "fail": false,
+          "version": 1,
+          "payloadBytes": 1024
+        }
+      },
+      "redisOpsPerSentRequest": 0,
+      "originLoadsPerSentRequest": 0,
+      "cacheHitEventsPerSentRequest": 1,
+      "cpuMsPerMillion": 619000.0000000001,
+      "aggregateWorkerPeakSampledRssBytes": 221560832,
+      "originAmplification": null,
+      "idealMissEpisodes": null
+    },
+    {
+      "name": "warm-100",
+      "repetition": 2,
+      "config": {},
+      "result": {
+        "config": {
+          "urls": [
+            "http://127.0.0.1:56928",
+            "http://127.0.0.1:56927"
+          ],
+          "durationMs": 1000,
+          "rps": 100,
+          "distribution": "zipf-like",
+          "payloadBytes": 1024,
+          "warm": true
+        },
+        "offered": 100,
+        "sent": 100,
+        "completed": 100,
+        "successful": 100,
+        "errors": 0,
+        "timeouts": 0,
+        "clientDropped": 0,
+        "freshnessViolations": 0,
+        "elapsedMs": 993.624542,
+        "offeredRps": 100,
+        "completedRps": 100.64163652672741,
+        "successfulRps": 100.64163652672741,
+        "errorRate": 0,
+        "bytesReceived": 107253,
+        "maxOutstanding": 1,
+        "byWorker": [
+          50,
+          50
+        ],
+        "statuses": {
+          "200": 100
+        },
+        "arrivalToCompletionMs": {
+          "p50": 1.2069999999999936,
+          "p95": 2.052500000000009,
+          "p99": 3.1741670000000006,
+          "p999": 3.482832999999971
+        },
+        "dispatchedToCompletionMs": {
+          "p50": 0.5142079999999396,
+          "p95": 1.1262499999999704,
+          "p99": 2.117582999999968,
+          "p999": 3.0854169999999996
+        },
+        "dispatchLagMs": {
+          "p50": 0.5679169999999658,
+          "p95": 1.2299579999999821,
+          "p99": 1.2867919999999913,
+          "p999": 1.3652500000000032
+        },
+        "runtime": {
+          "cpuMs": 85.996,
+          "peakSampledRssBytes": 64143360,
+          "processLifetimeMaxRssBytes": 64176128,
+          "memory": {
+            "rss": 64192512,
+            "heapTotal": 13713408,
+            "heapUsed": 9576312,
+            "external": 4071877,
+            "arrayBuffers": 399692
+          },
+          "gc": {
+            "count": 4,
+            "totalMs": 1.9705010056495667,
+            "maxMs": 0.8896250128746033
+          }
+        },
+        "coordinatedOmission": "Open-loop scheduled arrivals; latency includes dispatch delay. Unsent arrivals are explicit clientDropped errors, excluded from latency quantiles."
+      },
+      "workers": [
+        {
+          "worker": "worker-0",
+          "requests": 50,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 50
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 1,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3078602752,
+                "rssBytes": 111869952,
+                "heapUsedBytes": 25902968,
+                "heapTotalBytes": 56066048,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 23.13,
+            "peakSampledRssBytes": 115572736,
+            "processLifetimeMaxRssBytes": 115572736,
+            "memory": {
+              "rss": 115572736,
+              "heapTotal": 86474752,
+              "heapUsed": 22104912,
+              "external": 4902452,
+              "arrayBuffers": 937864
+            },
+            "gc": {
+              "count": 0,
+              "totalMs": 0,
+              "maxMs": 0
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-100:2:"
+          }
+        },
+        {
+          "worker": "worker-1",
+          "requests": 50,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 50
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 0,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3078602752,
+                "rssBytes": 109838336,
+                "heapUsedBytes": 20961768,
+                "heapTotalBytes": 55017472,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 17.84,
+            "peakSampledRssBytes": 110329856,
+            "processLifetimeMaxRssBytes": 114442240,
+            "memory": {
+              "rss": 110329856,
+              "heapTotal": 55017472,
+              "heapUsed": 23716648,
+              "external": 5020921,
+              "arrayBuffers": 1056333
+            },
+            "gc": {
+              "count": 0,
+              "totalMs": 0,
+              "maxMs": 0
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-100:2:"
+          }
+        }
+      ],
+      "origin": {
+        "requests": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "completed": 0,
+        "active": 0,
+        "maxActive": 0,
+        "runtime": {
+          "cpuMs": 2.259,
+          "peakSampledRssBytes": 58720256,
+          "processLifetimeMaxRssBytes": 61423616,
+          "memory": {
+            "rss": 58720256,
+            "heapTotal": 13451264,
+            "heapUsed": 9463592,
+            "external": 4020951,
+            "arrayBuffers": 212208
+          },
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        "config": {
+          "latencyMs": 5,
+          "maxConcurrent": 64,
+          "fail": false,
+          "version": 1,
+          "payloadBytes": 1024
+        }
+      },
+      "redisOpsPerSentRequest": 0,
+      "originLoadsPerSentRequest": 0,
+      "cacheHitEventsPerSentRequest": 1,
+      "cpuMsPerMillion": 409700,
+      "aggregateWorkerPeakSampledRssBytes": 225902592,
+      "originAmplification": null,
+      "idealMissEpisodes": null
+    },
+    {
+      "name": "warm-1000",
+      "repetition": 0,
+      "config": {},
+      "result": {
+        "config": {
+          "urls": [
+            "http://127.0.0.1:56928",
+            "http://127.0.0.1:56927"
+          ],
+          "durationMs": 1000,
+          "rps": 1000,
+          "distribution": "zipf-like",
+          "payloadBytes": 1024,
+          "warm": true
+        },
+        "offered": 1000,
+        "sent": 1000,
+        "completed": 1000,
+        "successful": 1000,
+        "errors": 0,
+        "timeouts": 0,
+        "clientDropped": 0,
+        "freshnessViolations": 0,
+        "elapsedMs": 1002.166,
+        "offeredRps": 1000,
+        "completedRps": 997.8386814160527,
+        "successfulRps": 997.8386814160527,
+        "errorRate": 0,
+        "bytesReceived": 1072460,
+        "maxOutstanding": 5,
+        "byWorker": [
+          500,
+          500
+        ],
+        "statuses": {
+          "200": 1000
+        },
+        "arrivalToCompletionMs": {
+          "p50": 1.068416999999954,
+          "p95": 1.8602919999999585,
+          "p99": 2.9537920000000213,
+          "p999": 5.1472499999999854
+        },
+        "dispatchedToCompletionMs": {
+          "p50": 0.34045800000001236,
+          "p95": 0.7024579999999787,
+          "p99": 1.9250419999999622,
+          "p999": 3.275000000000002
+        },
+        "dispatchLagMs": {
+          "p50": 0.7491249999999354,
+          "p95": 1.3611670000000018,
+          "p99": 1.4408750000000055,
+          "p999": 1.91599999999994
+        },
+        "runtime": {
+          "cpuMs": 317.001,
+          "peakSampledRssBytes": 100843520,
+          "processLifetimeMaxRssBytes": 100876288,
+          "memory": {
+            "rss": 100876288,
+            "heapTotal": 28917760,
+            "heapUsed": 15419496,
+            "external": 4721045,
+            "arrayBuffers": 1048860
+          },
+          "gc": {
+            "count": 14,
+            "totalMs": 7.281291991472244,
+            "maxMs": 1.184249997138977
+          }
+        },
+        "coordinatedOmission": "Open-loop scheduled arrivals; latency includes dispatch delay. Unsent arrivals are explicit clientDropped errors, excluded from latency quantiles."
+      },
+      "workers": [
+        {
+          "worker": "worker-0",
+          "requests": 500,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 500
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 1,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3032629248,
+                "rssBytes": 115572736,
+                "heapUsedBytes": 22670312,
+                "heapTotalBytes": 86474752,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 112.366,
+            "peakSampledRssBytes": 127762432,
+            "processLifetimeMaxRssBytes": 127778816,
+            "memory": {
+              "rss": 127778816,
+              "heapTotal": 86474752,
+              "heapUsed": 41783632,
+              "external": 6091069,
+              "arrayBuffers": 2126481
+            },
+            "gc": {
+              "count": 0,
+              "totalMs": 0,
+              "maxMs": 0
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-1000:0:"
+          }
+        },
+        {
+          "worker": "worker-1",
+          "requests": 500,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 500
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 0,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3032629248,
+                "rssBytes": 110395392,
+                "heapUsedBytes": 24312848,
+                "heapTotalBytes": 55017472,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 98.702,
+            "peakSampledRssBytes": 110936064,
+            "processLifetimeMaxRssBytes": 114442240,
+            "memory": {
+              "rss": 110936064,
+              "heapTotal": 55541760,
+              "heapUsed": 24414888,
+              "external": 5237207,
+              "arrayBuffers": 1272619
+            },
+            "gc": {
+              "count": 1,
+              "totalMs": 0.4275839924812317,
+              "maxMs": 0.4275839924812317
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-1000:0:"
+          }
+        }
+      ],
+      "origin": {
+        "requests": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "completed": 0,
+        "active": 0,
+        "maxActive": 0,
+        "runtime": {
+          "cpuMs": 2.865,
+          "peakSampledRssBytes": 60375040,
+          "processLifetimeMaxRssBytes": 61423616,
+          "memory": {
+            "rss": 60375040,
+            "heapTotal": 14499840,
+            "heapUsed": 9557736,
+            "external": 4020951,
+            "arrayBuffers": 212208
+          },
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        "config": {
+          "latencyMs": 5,
+          "maxConcurrent": 64,
+          "fail": false,
+          "version": 1,
+          "payloadBytes": 1024
+        }
+      },
+      "redisOpsPerSentRequest": 0,
+      "originLoadsPerSentRequest": 0,
+      "cacheHitEventsPerSentRequest": 1,
+      "cpuMsPerMillion": 211067.99999999997,
+      "aggregateWorkerPeakSampledRssBytes": 238698496,
+      "originAmplification": null,
+      "idealMissEpisodes": null
+    },
+    {
+      "name": "warm-1000",
+      "repetition": 1,
+      "config": {},
+      "result": {
+        "config": {
+          "urls": [
+            "http://127.0.0.1:56928",
+            "http://127.0.0.1:56927"
+          ],
+          "durationMs": 1000,
+          "rps": 1000,
+          "distribution": "zipf-like",
+          "payloadBytes": 1024,
+          "warm": true
+        },
+        "offered": 1000,
+        "sent": 1000,
+        "completed": 1000,
+        "successful": 1000,
+        "errors": 0,
+        "timeouts": 0,
+        "clientDropped": 0,
+        "freshnessViolations": 0,
+        "elapsedMs": 1001.965375,
+        "offeredRps": 1000,
+        "completedRps": 998.03848012213,
+        "successfulRps": 998.03848012213,
+        "errorRate": 0,
+        "bytesReceived": 1072460,
+        "maxOutstanding": 7,
+        "byWorker": [
+          500,
+          500
+        ],
+        "statuses": {
+          "200": 1000
+        },
+        "arrivalToCompletionMs": {
+          "p50": 1.1472090000000037,
+          "p95": 2.0241250000000264,
+          "p99": 4.548709000000031,
+          "p999": 6.504750000000058
+        },
+        "dispatchedToCompletionMs": {
+          "p50": 0.31387500000005275,
+          "p95": 0.6239169999999987,
+          "p99": 3.235875000000078,
+          "p999": 5.536166999999978
+        },
+        "dispatchLagMs": {
+          "p50": 0.8154590000000326,
+          "p95": 1.525041999999985,
+          "p99": 1.6713340000000017,
+          "p999": 3.2327920000000177
+        },
+        "runtime": {
+          "cpuMs": 285.483,
+          "peakSampledRssBytes": 101646336,
+          "processLifetimeMaxRssBytes": 101957632,
+          "memory": {
+            "rss": 101957632,
+            "heapTotal": 29179904,
+            "heapUsed": 13969008,
+            "external": 4553750,
+            "arrayBuffers": 881565
+          },
+          "gc": {
+            "count": 14,
+            "totalMs": 7.081374019384384,
+            "maxMs": 1.4618330001831055
+          }
+        },
+        "coordinatedOmission": "Open-loop scheduled arrivals; latency includes dispatch delay. Unsent arrivals are explicit clientDropped errors, excluded from latency quantiles."
+      },
+      "workers": [
+        {
+          "worker": "worker-0",
+          "requests": 500,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 500
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 1,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3075473408,
+                "rssBytes": 128286720,
+                "heapUsedBytes": 42339864,
+                "heapTotalBytes": 86474752,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 74.975,
+            "peakSampledRssBytes": 136298496,
+            "processLifetimeMaxRssBytes": 136298496,
+            "memory": {
+              "rss": 136298496,
+              "heapTotal": 86474752,
+              "heapUsed": 37649848,
+              "external": 6437375,
+              "arrayBuffers": 2472787
+            },
+            "gc": {
+              "count": 0,
+              "totalMs": 0,
+              "maxMs": 0
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-1000:1:"
+          }
+        },
+        {
+          "worker": "worker-1",
+          "requests": 500,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 500
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 0,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3072393216,
+                "rssBytes": 110968832,
+                "heapUsedBytes": 25006088,
+                "heapTotalBytes": 55541760,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 96.192,
+            "peakSampledRssBytes": 114769920,
+            "processLifetimeMaxRssBytes": 114769920,
+            "memory": {
+              "rss": 114769920,
+              "heapTotal": 86212608,
+              "heapUsed": 22713360,
+              "external": 4873877,
+              "arrayBuffers": 909289
+            },
+            "gc": {
+              "count": 3,
+              "totalMs": 4.097166985273361,
+              "maxMs": 2.601042002439499
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-1000:1:"
+          }
+        }
+      ],
+      "origin": {
+        "requests": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "completed": 0,
+        "active": 0,
+        "maxActive": 0,
+        "runtime": {
+          "cpuMs": 2.569,
+          "peakSampledRssBytes": 61128704,
+          "processLifetimeMaxRssBytes": 61423616,
+          "memory": {
+            "rss": 60981248,
+            "heapTotal": 11354112,
+            "heapUsed": 9644608,
+            "external": 4020951,
+            "arrayBuffers": 212208
+          },
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        "config": {
+          "latencyMs": 5,
+          "maxConcurrent": 64,
+          "fail": false,
+          "version": 1,
+          "payloadBytes": 1024
+        }
+      },
+      "redisOpsPerSentRequest": 0,
+      "originLoadsPerSentRequest": 0,
+      "cacheHitEventsPerSentRequest": 1,
+      "cpuMsPerMillion": 171167,
+      "aggregateWorkerPeakSampledRssBytes": 251068416,
+      "originAmplification": null,
+      "idealMissEpisodes": null
+    },
+    {
+      "name": "warm-1000",
+      "repetition": 2,
+      "config": {},
+      "result": {
+        "config": {
+          "urls": [
+            "http://127.0.0.1:56928",
+            "http://127.0.0.1:56927"
+          ],
+          "durationMs": 1000,
+          "rps": 1000,
+          "distribution": "zipf-like",
+          "payloadBytes": 1024,
+          "warm": true
+        },
+        "offered": 1000,
+        "sent": 1000,
+        "completed": 1000,
+        "successful": 1000,
+        "errors": 0,
+        "timeouts": 0,
+        "clientDropped": 0,
+        "freshnessViolations": 0,
+        "elapsedMs": 1002.359375,
+        "offeredRps": 1000,
+        "completedRps": 997.6461785474895,
+        "successfulRps": 997.6461785474895,
+        "errorRate": 0,
+        "bytesReceived": 1072460,
+        "maxOutstanding": 5,
+        "byWorker": [
+          500,
+          500
+        ],
+        "statuses": {
+          "200": 1000
+        },
+        "arrivalToCompletionMs": {
+          "p50": 1.0216249999999718,
+          "p95": 1.9179170000001022,
+          "p99": 2.4195000000000846,
+          "p999": 3.5684590000000043
+        },
+        "dispatchedToCompletionMs": {
+          "p50": 0.2903749999999974,
+          "p95": 0.6013339999999516,
+          "p99": 1.1052909999999656,
+          "p999": 3.3953340000000054
+        },
+        "dispatchLagMs": {
+          "p50": 0.7373750000000001,
+          "p95": 1.4808340000000726,
+          "p99": 1.6614590000000362,
+          "p999": 1.9221670000000586
+        },
+        "runtime": {
+          "cpuMs": 259.613,
+          "peakSampledRssBytes": 98729984,
+          "processLifetimeMaxRssBytes": 98811904,
+          "memory": {
+            "rss": 98811904,
+            "heapTotal": 28917760,
+            "heapUsed": 15715952,
+            "external": 4738698,
+            "arrayBuffers": 1066513
+          },
+          "gc": {
+            "count": 14,
+            "totalMs": 4.869207978248596,
+            "maxMs": 0.6785419881343842
+          }
+        },
+        "coordinatedOmission": "Open-loop scheduled arrivals; latency includes dispatch delay. Unsent arrivals are explicit clientDropped errors, excluded from latency quantiles."
+      },
+      "workers": [
+        {
+          "worker": "worker-0",
+          "requests": 500,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 500
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 1,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3071426560,
+                "rssBytes": 136806400,
+                "heapUsedBytes": 38202816,
+                "heapTotalBytes": 86474752,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 76.747,
+            "peakSampledRssBytes": 142983168,
+            "processLifetimeMaxRssBytes": 142983168,
+            "memory": {
+              "rss": 132644864,
+              "heapTotal": 88834048,
+              "heapUsed": 36441584,
+              "external": 6832455,
+              "arrayBuffers": 2867867
+            },
+            "gc": {
+              "count": 0,
+              "totalMs": 0,
+              "maxMs": 0
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-1000:2:"
+          }
+        },
+        {
+          "worker": "worker-1",
+          "requests": 500,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 500
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 0,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3071426560,
+                "rssBytes": 114769920,
+                "heapUsedBytes": 23282744,
+                "heapTotalBytes": 86212608,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 74.733,
+            "peakSampledRssBytes": 114753536,
+            "processLifetimeMaxRssBytes": 114769920,
+            "memory": {
+              "rss": 110657536,
+              "heapTotal": 86212608,
+              "heapUsed": 34636008,
+              "external": 5572264,
+              "arrayBuffers": 1607676
+            },
+            "gc": {
+              "count": 0,
+              "totalMs": 0,
+              "maxMs": 0
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-1000:2:"
+          }
+        }
+      ],
+      "origin": {
+        "requests": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "completed": 0,
+        "active": 0,
+        "maxActive": 0,
+        "runtime": {
+          "cpuMs": 2.194,
+          "peakSampledRssBytes": 57966592,
+          "processLifetimeMaxRssBytes": 61423616,
+          "memory": {
+            "rss": 57606144,
+            "heapTotal": 12402688,
+            "heapUsed": 9810224,
+            "external": 4020951,
+            "arrayBuffers": 212208
+          },
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        "config": {
+          "latencyMs": 5,
+          "maxConcurrent": 64,
+          "fail": false,
+          "version": 1,
+          "payloadBytes": 1024
+        }
+      },
+      "redisOpsPerSentRequest": 0,
+      "originLoadsPerSentRequest": 0,
+      "cacheHitEventsPerSentRequest": 1,
+      "cpuMsPerMillion": 151480.00000000003,
+      "aggregateWorkerPeakSampledRssBytes": 257736704,
+      "originAmplification": null,
+      "idealMissEpisodes": null
+    },
+    {
+      "name": "warm-10000",
+      "repetition": 0,
+      "config": {},
+      "result": {
+        "config": {
+          "urls": [
+            "http://127.0.0.1:56928",
+            "http://127.0.0.1:56927"
+          ],
+          "durationMs": 1000,
+          "rps": 10000,
+          "distribution": "zipf-like",
+          "payloadBytes": 1024,
+          "warm": true
+        },
+        "offered": 10000,
+        "sent": 6569,
+        "completed": 6569,
+        "successful": 2414,
+        "errors": 4155,
+        "timeouts": 0,
+        "clientDropped": 3431,
+        "freshnessViolations": 0,
+        "elapsedMs": 1248.560708,
+        "offeredRps": 10000,
+        "completedRps": 5261.257989227064,
+        "successfulRps": 1933.4262119035066,
+        "errorRate": 0.7586,
+        "bytesReceived": 2588898,
+        "maxOutstanding": 1024,
+        "byWorker": [
+          3285,
+          3284
+        ],
+        "statuses": {
+          "200": 2414,
+          "transport": 4155
+        },
+        "arrivalToCompletionMs": {
+          "p50": 142.86354199999994,
+          "p95": 259.6138749999999,
+          "p99": 262.954875,
+          "p999": 265.511792
+        },
+        "dispatchedToCompletionMs": {
+          "p50": 112.86708299999998,
+          "p95": 239.6801250000001,
+          "p99": 243.59533299999998,
+          "p999": 246.09283400000004
+        },
+        "dispatchLagMs": {
+          "p50": 18.729916999999887,
+          "p95": 34.20391699999999,
+          "p99": 47.03904200000005,
+          "p999": 52.636333000000036
+        },
+        "runtime": {
+          "cpuMs": 1289.732,
+          "peakSampledRssBytes": 174882816,
+          "processLifetimeMaxRssBytes": 174882816,
+          "memory": {
+            "rss": 174882816,
+            "heapTotal": 156581888,
+            "heapUsed": 34316608,
+            "external": 3949832,
+            "arrayBuffers": 277647
+          },
+          "gc": {
+            "count": 28,
+            "totalMs": 20.99579209089279,
+            "maxMs": 5.429250001907349
+          }
+        },
+        "coordinatedOmission": "Open-loop scheduled arrivals; latency includes dispatch delay. Unsent arrivals are explicit clientDropped errors, excluded from latency quantiles."
+      },
+      "workers": [
+        {
+          "worker": "worker-0",
+          "requests": 1207,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 1207
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 1,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3068690432,
+                "rssBytes": 132694016,
+                "heapUsedBytes": 37308960,
+                "heapTotalBytes": 88834048,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 77.711,
+            "peakSampledRssBytes": 143572992,
+            "processLifetimeMaxRssBytes": 143572992,
+            "memory": {
+              "rss": 136527872,
+              "heapTotal": 88047616,
+              "heapUsed": 36840192,
+              "external": 5676693,
+              "arrayBuffers": 1712105
+            },
+            "gc": {
+              "count": 3,
+              "totalMs": 2.121625006198883,
+              "maxMs": 1.071749985218048
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-10000:0:"
+          }
+        },
+        {
+          "worker": "worker-1",
+          "requests": 1207,
+          "errors": 0,
+          "redisCommands": 0,
+          "events": {
+            "hit:L1": 1207
+          },
+          "origin": {
+            "active": 0,
+            "queued": 0,
+            "rejected": 0,
+            "maxObserved": 0,
+            "closed": false
+          },
+          "l2": {
+            "active": 0,
+            "queued": 0,
+            "queuedBytes": 0,
+            "activeBytes": 0,
+            "retainedBytes": 0,
+            "rejected": 0,
+            "expired": 0,
+            "commandTimeouts": 0,
+            "closed": false
+          },
+          "memoryLedger": {
+            "retainedBytes": 80482,
+            "entries": 64,
+            "admitted": 64,
+            "rejected": 0,
+            "budget": {
+              "hardCap": 67108864,
+              "target": 67108864,
+              "accountedBytes": 84578,
+              "pressureState": "normal",
+              "categories": {
+                "metadata": 4096,
+                "fresh": 80482
+              },
+              "clients": 1,
+              "signals": {
+                "hostBytes": 17179869184,
+                "effectiveBytes": 17179869184,
+                "availableBytes": 3068690432,
+                "rssBytes": 111198208,
+                "heapUsedBytes": 35197432,
+                "heapTotalBytes": 86212608,
+                "heapLimitBytes": 369098752,
+                "available": {
+                  "hostBytes": true,
+                  "effectiveBytes": true,
+                  "availableBytes": true,
+                  "rssBytes": true,
+                  "heapUsedBytes": true,
+                  "heapTotalBytes": true,
+                  "heapLimitBytes": true,
+                  "cgroupBytes": false,
+                  "psiSomeAvg10": false
+                }
+              },
+              "evictions": 0,
+              "admissions": 65,
+              "failedAdmissions": 0
+            }
+          },
+          "maxActiveRefreshes": 0,
+          "maxQueuedOrigin": 0,
+          "maxQueuedL2Bytes": 0,
+          "maxInflightKeys": 0,
+          "runtime": {
+            "cpuMs": 68.59,
+            "peakSampledRssBytes": 130023424,
+            "processLifetimeMaxRssBytes": 130023424,
+            "memory": {
+              "rss": 128466944,
+              "heapTotal": 86212608,
+              "heapUsed": 35407688,
+              "external": 5790583,
+              "arrayBuffers": 1825995
+            },
+            "gc": {
+              "count": 1,
+              "totalMs": 1.0093750059604645,
+              "maxMs": 1.0093750059604645
+            }
+          },
+          "configuration": {
+            "prefix": "audit:e2e:94999eb1:warm-10000:0:"
+          }
+        }
+      ],
+      "origin": {
+        "requests": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "completed": 0,
+        "active": 0,
+        "maxActive": 0,
+        "runtime": {
+          "cpuMs": 1.527,
+          "peakSampledRssBytes": 61849600,
+          "processLifetimeMaxRssBytes": 61849600,
+          "memory": {
+            "rss": 61751296,
+            "heapTotal": 14761984,
+            "heapUsed": 9941768,
+            "external": 4020951,
+            "arrayBuffers": 212208
+          },
+          "gc": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        "config": {
+          "latencyMs": 5,
+          "maxConcurrent": 64,
+          "fail": false,
+          "version": 1,
+          "payloadBytes": 1024
+        }
+      },
+      "redisOpsPerSentRequest": 0,
+      "originLoadsPerSentRequest": 0,
+      "cacheHitEventsPerSentRequest": 0.36748363525650785,
+      "cpuMsPerMillion": 22271.426396711828,
+      "aggregateWorkerPeakSampledRssBytes": 273596416,
+      "originAmplification": null,
+      "idealMissEpisodes": null
+    }
+  ],
+  "notes": [
+    "50000 RPS: NOT MEASURED; 10000-RPS generator CPU/dispatch headroom did not justify increasing load.",
+    "warm-10000 hit automatic latency/error/client budget; larger rates are skipped."
+  ]
+}

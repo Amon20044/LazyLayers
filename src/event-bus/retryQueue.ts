@@ -12,22 +12,26 @@ export interface EventBusRetryQueueOptions {
 export const DEFAULT_EVENT_BUS_RETRY_QUEUE_MAX_SIZE = 10_000;
 export const DEFAULT_EVENT_BUS_RETRY_QUEUE_MAX_BYTES = 16 * 1024 * 1024;
 
-interface RetryEntry { encoded: Buffer; }
+interface RetryEntry { encoded: Buffer; discardAfterPublish?: boolean; }
 
 export class EventBusRetryQueue {
-  private readonly events: RetryEntry[] = [];
+  private readonly events = new Set<RetryEntry>();
   private bytes = 0;
   private dropped = 0;
   private flushing: Promise<void> | null = null;
   private flushingEntry: RetryEntry | null = null;
 
-  constructor(private readonly options: EventBusRetryQueueOptions = {}) {}
+  constructor(private readonly options: EventBusRetryQueueOptions = {}) {
+    for (const limit of [options.maxSize ?? DEFAULT_EVENT_BUS_RETRY_QUEUE_MAX_SIZE, options.maxBytes ?? DEFAULT_EVENT_BUS_RETRY_QUEUE_MAX_BYTES]) {
+      if (!Number.isSafeInteger(limit) || limit < 0) throw new RangeError('Event retry queue limits must be non-negative safe integers');
+    }
+  }
 
   get enabled(): boolean {
     return this.options.enabled !== false;
   }
 
-  get size(): number { return this.events.length; }
+  get size(): number { return this.events.size; }
   get retainedBytes(): number { return this.bytes; }
   get droppedCount(): number { return this.dropped; }
 
@@ -62,9 +66,16 @@ export class EventBusRetryQueue {
       return false;
     }
 
+    // maxSize retains the existing waiting-backlog contract. There is at most
+    // one active publication, included in maxBytes but additional to maxSize.
     if (this.waitingSize() >= maxSize) {
       const removed = this.removeOldestWaiting();
-      if (removed) this.bytes -= removed.encoded.byteLength;
+      if (!removed) {
+        this.dropped += 1;
+        this.options.onOverflow?.({ reason: 'count', bytes: encoded.byteLength, maxSize, maxBytes });
+        return false;
+      }
+      this.bytes -= removed.encoded.byteLength;
       this.dropped += 1;
       warnLog('event bus retry queue dropped oldest event', { maxSize });
       this.options.onOverflow?.({ reason: 'count', bytes: removed?.encoded.byteLength ?? 0, maxSize, maxBytes });
@@ -76,9 +87,14 @@ export class EventBusRetryQueue {
       this.dropped += 1;
       this.options.onOverflow?.({ reason: 'bytes', bytes: removed?.encoded.byteLength ?? 0, maxSize, maxBytes });
     }
-    this.events.push({ encoded });
+    if (this.bytes + encoded.byteLength > maxBytes) {
+      this.dropped += 1;
+      this.options.onOverflow?.({ reason: 'bytes', bytes: encoded.byteLength, maxSize, maxBytes });
+      return false;
+    }
+    this.events.add({ encoded });
     this.bytes += encoded.byteLength;
-    debugLog('event bus retry queued event', { size: this.events.length, type: event.type });
+    debugLog('event bus retry queued event', { size: this.events.size, type: event.type });
     return true;
   }
 
@@ -97,28 +113,44 @@ export class EventBusRetryQueue {
   }
 
   private async drain(publish: (event: InvalidationEvent) => Promise<void>): Promise<void> {
-    while (this.events.length > 0) {
-      const entry = this.events[0];
+    while (this.events.size > 0) {
+      const entry = this.events.values().next().value!;
       this.flushingEntry = entry;
       try {
         const event = decodeInvalidationEvent(entry.encoded);
         if (event) await publish(event);
-        if (this.events[0] === entry) {
-          this.events.shift();
+        if (this.events.delete(entry)) {
           this.bytes -= entry.encoded.byteLength;
         }
       } finally {
+        if (entry.discardAfterPublish && this.events.delete(entry)) this.bytes -= entry.encoded.byteLength;
         this.flushingEntry = null;
       }
     }
   }
 
   private waitingSize(): number {
-    return this.events.length - (this.flushingEntry ? 1 : 0);
+    return this.events.size - (this.flushingEntry && this.events.has(this.flushingEntry) ? 1 : 0);
   }
 
   private removeOldestWaiting(): RetryEntry | undefined {
-    const index = this.flushingEntry && this.events[0] === this.flushingEntry ? 1 : 0;
-    return this.events.splice(index, 1)[0];
+    for (const entry of this.events) {
+      if (entry === this.flushingEntry) continue;
+      this.events.delete(entry);
+      return entry;
+    }
+    return undefined;
+  }
+
+  clear(): void {
+    // The active publisher still owns its bytes until it really settles.
+    const active = this.flushingEntry;
+    this.events.clear();
+    this.bytes = 0;
+    if (active) {
+      active.discardAfterPublish = true;
+      this.events.add(active);
+      this.bytes = active.encoded.byteLength;
+    }
   }
 }

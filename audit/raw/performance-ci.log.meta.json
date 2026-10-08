@@ -1,0 +1,19 @@
+{
+  "command": [
+    "node",
+    "scripts/audit-ci.mjs"
+  ],
+  "wallTimeMs": 20448,
+  "budgets": {
+    "seconds": 180,
+    "rssMiB": 1024,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 512
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 598982656,
+  "isolatedRedis": false,
+  "code": 1,
+  "signal": null,
+  "aborted": null
+}

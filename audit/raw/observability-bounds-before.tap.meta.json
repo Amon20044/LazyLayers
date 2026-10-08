@@ -1,0 +1,22 @@
+{
+  "command": [
+    "node",
+    "--max-old-space-size=128",
+    "--test",
+    "--test-reporter=tap",
+    "--test-concurrency=1",
+    "--test-timeout=5000",
+    "test/audit-observability-bounds.test.js"
+  ],
+  "wallTimeMs": 143,
+  "budgets": {
+    "seconds": 15,
+    "rssMiB": 256
+  },
+  "rssMonitoringAvailable": false,
+  "peakSampledRssBytes": "NOT MEASURED",
+  "isolatedRedis": false,
+  "code": 1,
+  "signal": null,
+  "aborted": null
+}

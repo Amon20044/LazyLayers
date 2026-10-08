@@ -1,0 +1,37 @@
+HTTP calibration 1000: 997 successful RPS, p99=2.33 ms, dropped=0
+HTTP calibration 10000: 9963 successful RPS, p99=6.59 ms, dropped=0
+HTTP calibration 50000: 46088 successful RPS, p99=49.72 ms, dropped=3745
+warm-100 #1: 101 successful RPS, p99=3.63 ms, origin=0, errors=0, clientDropped=0
+warm-100 #2: 101 successful RPS, p99=2.32 ms, origin=0, errors=0, clientDropped=0
+warm-100 #3: 101 successful RPS, p99=3.08 ms, origin=0, errors=0, clientDropped=0
+warm-1000 #1: 998 successful RPS, p99=3.13 ms, origin=0, errors=0, clientDropped=0
+warm-1000 #2: 998 successful RPS, p99=2.06 ms, origin=0, errors=0, clientDropped=0
+warm-1000 #3: 998 successful RPS, p99=1.85 ms, origin=0, errors=0, clientDropped=0
+l1-disabled #1: 998 successful RPS, p99=2.93 ms, origin=0, errors=0, clientDropped=0
+l1-disabled #2: 998 successful RPS, p99=2.79 ms, origin=0, errors=0, clientDropped=0
+l1-disabled #3: 999 successful RPS, p99=2.61 ms, origin=0, errors=0, clientDropped=0
+compression-gzip #1: 998 successful RPS, p99=1.85 ms, origin=0, errors=0, clientDropped=0
+compression-gzip #2: 998 successful RPS, p99=2.02 ms, origin=0, errors=0, clientDropped=0
+compression-gzip #3: 999 successful RPS, p99=1.97 ms, origin=0, errors=0, clientDropped=0
+cold-one-key-lease #1: 9298 successful RPS, p99=106.20 ms, origin=1, errors=0, clientDropped=0
+cold-one-key-lease #2: 10436 successful RPS, p99=95.70 ms, origin=1, errors=0, clientDropped=0
+cold-one-key-lease #3: 10036 successful RPS, p99=98.36 ms, origin=1, errors=0, clientDropped=0
+cold-one-key-no-lease #1: 10117 successful RPS, p99=97.50 ms, origin=2, errors=0, clientDropped=0
+cold-one-key-no-lease #2: 10217 successful RPS, p99=95.56 ms, origin=2, errors=0, clientDropped=0
+cold-one-key-no-lease #3: 10067 successful RPS, p99=98.06 ms, origin=2, errors=0, clientDropped=0
+cold-one-key-no-singleflight #1: 660 successful RPS, p99=67.68 ms, origin=17, errors=176, clientDropped=0
+cold-one-key-no-singleflight #2: 653 successful RPS, p99=67.21 ms, origin=17, errors=176, clientDropped=0
+cold-one-key-no-singleflight #3: 655 successful RPS, p99=69.75 ms, origin=17, errors=176, clientDropped=0
+cold-distinct-overload #1: 151 successful RPS, p99=204.37 ms, origin=180, errors=820, clientDropped=0
+cold-distinct-overload #2: 153 successful RPS, p99=203.15 ms, origin=181, errors=819, clientDropped=0
+cold-distinct-overload #3: 152 successful RPS, p99=203.04 ms, origin=181, errors=819, clientDropped=0
+cold-distinct-limit-16 #1: 598 successful RPS, p99=487.18 ms, origin=899, errors=101, clientDropped=0
+cold-distinct-limit-16 #2: 606 successful RPS, p99=502.55 ms, origin=913, errors=87, clientDropped=0
+cold-distinct-limit-16 #3: 613 successful RPS, p99=476.66 ms, origin=896, errors=104, clientDropped=0
+stale-if-error #1: 999 successful RPS, p99=3.55 ms, origin=999, errors=0, clientDropped=0
+stale-if-error #2: 998 successful RPS, p99=3.35 ms, origin=997, errors=0, clientDropped=0
+stale-if-error #3: 998 successful RPS, p99=13.53 ms, origin=995, errors=0, clientDropped=0
+strict-origin-error #1: 0 successful RPS, p99=4.72 ms, origin=995, errors=1000, clientDropped=0
+strict-origin-error #2: 0 successful RPS, p99=3.60 ms, origin=999, errors=1000, clientDropped=0
+strict-origin-error #3: 0 successful RPS, p99=3.43 ms, origin=997, errors=1000, clientDropped=0
+Raw E2E results: audit/raw/e2e-after.json

@@ -21,8 +21,9 @@ import type { InvalidationEvent } from '../types/event.types.js';
 import { configureCacheLogger, type CacheLoggerOptions } from '../utils/debugLog.js';
 import { debugLog, errorLog, infoLog, warnLog } from '../utils/debugLog.js';
 import { decodeInvalidationEvent, encodeInvalidationEvent } from './eventCodec.js';
-import type { EventBus, EventBusHealth } from './eventBus.interface.js';
+import type { EventBus, EventBusHealth, EventBusStatus } from './eventBus.interface.js';
 import { EventBusRetryQueue, type EventBusRetryQueueOptions } from './retryQueue.js';
+import { EventBusHandlerQueue } from './handlerQueue.js';
 
 export type NatsEventBusMode = 'core' | 'jetstream';
 
@@ -53,6 +54,9 @@ export interface NatsEventBusOptions {
   retryQueue?: EventBusRetryQueueOptions;
   jetstream?: NatsJetStreamOptions;
   logging?: CacheLoggerOptions;
+  handlerConcurrency?: number;
+  handlerMaxSize?: number;
+  handlerMaxBytes?: number;
 }
 
 export interface NatsEventBusHealth extends EventBusHealth {
@@ -80,6 +84,11 @@ export class NatsEventBus implements EventBus {
   private subscribedAt = 0;
   private subscriptionLost = false;
   private closed = false;
+  private handlerQueue: EventBusHandlerQueue | null = null;
+  private readonly statusListeners = new Set<(status: EventBusStatus) => void>();
+  private statusMonitor?: { connection: NatsConnection; iterator: AsyncIterator<{ type: string }>; stopped: boolean };
+  private transportEpoch = 0;
+  private needsReconciliation = false;
 
   constructor(private readonly options: NatsEventBusOptions = {}) {
     configureCacheLogger(options.logging);
@@ -89,6 +98,7 @@ export class NatsEventBus implements EventBus {
   }
 
   async connect(): Promise<void> {
+    this.closed = false;
     if (this.getMode() === 'jetstream') {
       this.getDurableName();
     }
@@ -107,6 +117,7 @@ export class NatsEventBus implements EventBus {
       mode: this.getMode(),
       server: this.getServer(connection),
     });
+    this.emitStatus('ready');
   }
 
   async healthCheck(): Promise<NatsEventBusHealth> {
@@ -174,6 +185,10 @@ export class NatsEventBus implements EventBus {
       } else {
         await this.subscribeCore(handler);
       }
+      if (!this.subscriptionLost) this.emitStatus('subscribed');
+    } catch (error) {
+      this.emitStatus('error');
+      throw error;
     } finally {
       this.subscribing = false;
     }
@@ -181,6 +196,12 @@ export class NatsEventBus implements EventBus {
 
   async disconnect(): Promise<void> {
     this.closed = true;
+    this.transportEpoch++;
+    this.emitStatus('disconnected');
+    this.retryQueue.clear();
+    this.handlerQueue?.close();
+    this.handlerQueue = null;
+    this.stopStatusMonitor();
     this.handler = null;
     this.subscriptionLost = false;
 
@@ -286,6 +307,8 @@ export class NatsEventBus implements EventBus {
     }
 
     this.subscriptionLost = true;
+    this.transportEpoch++;
+    this.emitStatus('disconnected');
     errorLog('nats event bus subscription ended unexpectedly', {
       subject: this.getSubject(),
       mode: this.getMode(),
@@ -352,27 +375,36 @@ export class NatsEventBus implements EventBus {
   private async subscribeCore(handler: (event: InvalidationEvent) => void | Promise<void>): Promise<void> {
     const connection = await this.getConnection();
     const subject = this.getSubject();
-    const subscription = connection.subscribe(subject);
+    const queue = new EventBusHandlerQueue(handler, {
+      concurrency: this.options.handlerConcurrency ?? 1,
+      maxSize: this.options.handlerMaxSize,
+      maxBytes: this.options.handlerMaxBytes,
+      onError: (error) => { if (this.closed) return; errorLog('nats event bus handler failed', { subject, error }); this.markHandlerGap(); },
+      onOverflow: () => this.markHandlerGap(),
+      onIdle: () => { if (this.needsReconciliation) void this.reconcileSubscription(); },
+    });
+    this.handlerQueue?.close();
+    this.handlerQueue = queue;
+    const accept = (data: Uint8Array) => queue.enqueueEncoded(data, (raw) => {
+      const event = decodeInvalidationEvent(raw);
+      if (!event) this.markHandlerGap();
+      return event;
+    });
+    // Real subscriptions use callbacks to avoid the client's unbounded
+    // AsyncIterator backlog when application handlers are slow.
+    const subscription = connection.subscribe(subject, { callback: (error, message) => {
+      if (error) this.markHandlerGap();
+      else accept(message.data);
+    } });
 
     this.subscription = subscription;
     debugLog('nats event bus subscribed', { subject, mode: 'core' });
 
-    void (async () => {
-      for await (const message of subscription) {
-        const event = decodeInvalidationEvent(message.data);
-
-        if (!event) {
-          warnLog('nats event bus ignored invalid message', { subject });
-          continue;
-        }
-
-        try {
-          await handler(event);
-        } catch (error) {
-          errorLog('nats event bus handler failed', { subject, error });
-        }
-      }
-    })()
+    const ended = subscription.closed ?? (async () => {
+      // Compatibility with minimal injected clients lacking `closed`.
+      for await (const message of subscription) accept(message.data);
+    })();
+    void ended
       .catch((error) => {
         errorLog('nats event bus subscription failed', { subject, error });
       })
@@ -392,7 +424,7 @@ export class NatsEventBus implements EventBus {
 
     const js = jetstreamClient(connection);
     const consumer = await js.consumers.get(stream, durableName);
-    const messages = await consumer.consume();
+    const messages = await consumer.consume({ max_bytes: this.options.handlerMaxBytes ?? 16 * 1024 * 1024 });
 
     this.consumerMessages = messages;
     this.abortController = new AbortController();
@@ -411,6 +443,8 @@ export class NatsEventBus implements EventBus {
         if (!event) {
           warnLog('nats event bus ignored invalid message', { subject, stream });
           message.term();
+          this.markHandlerGap();
+          await this.reconcileSubscription();
           continue;
         }
 
@@ -419,7 +453,9 @@ export class NatsEventBus implements EventBus {
           message.ack();
         } catch (error) {
           errorLog('nats event bus handler failed', { subject, stream, error });
+          this.markHandlerGap();
           message.nak();
+          await this.reconcileSubscription();
         }
       }
     })()
@@ -492,6 +528,7 @@ export class NatsEventBus implements EventBus {
 
   private async getConnection(): Promise<NatsConnection> {
     if (this.connection && !this.connection.isClosed()) {
+      this.watchStatus(this.connection);
       return this.connection;
     }
 
@@ -500,8 +537,71 @@ export class NatsEventBus implements EventBus {
     // and the replacement is ours to drain. Without this the replacement would
     // leak on every disconnect().
     this.ownsConnection = true;
+    this.watchStatus(this.connection);
 
     return this.connection;
+  }
+
+  onStatus(listener: (status: EventBusStatus) => void): () => void {
+    this.statusListeners.add(listener);
+    return () => this.statusListeners.delete(listener);
+  }
+
+  private emitStatus(status: EventBusStatus): void {
+    for (const listener of this.statusListeners) {
+      try { listener(status); } catch { /* observers cannot affect transport */ }
+    }
+  }
+
+  private markHandlerGap(): void {
+    if (this.closed) return;
+    this.needsReconciliation = true;
+    this.emitStatus('error');
+  }
+
+  private async reconcileSubscription(): Promise<void> {
+    const epoch = this.transportEpoch;
+    try {
+      await this.connection?.flush();
+      if (this.closed || this.subscriptionLost || epoch !== this.transportEpoch) return;
+      this.needsReconciliation = false;
+      this.emitStatus('subscribed');
+    } catch { this.emitStatus('error'); }
+  }
+
+  private watchStatus(connection: NatsConnection): void {
+    if (this.statusMonitor?.connection === connection || typeof connection.status !== 'function') return;
+    this.stopStatusMonitor();
+    const monitor = { connection, iterator: connection.status()[Symbol.asyncIterator](), stopped: false };
+    this.statusMonitor = monitor;
+    void (async () => {
+      while (!monitor.stopped) {
+        const result = await monitor.iterator.next();
+        if (result.done || monitor.stopped) return;
+        const status = result.value.type;
+        if (status === 'disconnect') {
+          this.transportEpoch++;
+          this.subscriptionLost = true;
+          this.handlerQueue?.discardPending();
+          this.emitStatus('disconnected');
+        } else if (status === 'reconnect') {
+          const epoch = this.transportEpoch;
+          await connection.flush();
+          if (monitor.stopped || this.closed || epoch !== this.transportEpoch) continue;
+          this.subscriptionLost = false;
+          this.emitStatus('ready');
+          if (this.subscription || this.consumerMessages) this.emitStatus('subscribed');
+        } else if (status === 'error') this.emitStatus('error');
+      }
+    })().catch(() => { if (!monitor.stopped) { this.subscriptionLost = true; this.emitStatus('disconnected'); } });
+  }
+
+  private stopStatusMonitor(): void {
+    const monitor = this.statusMonitor;
+    this.statusMonitor = undefined;
+    if (!monitor) return;
+    monitor.stopped = true;
+    try { void Promise.resolve(monitor.iterator.return?.()).catch(() => undefined); } catch { /* an ended transport is already detached */ }
   }
 
   private getServer(connection: NatsConnection): string | undefined {

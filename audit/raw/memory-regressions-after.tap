@@ -1,0 +1,88 @@
+TAP version 13
+# Subtest: strict decode distinguishes malformed records from cached null
+ok 1 - strict decode distinguishes malformed records from cached null
+  ---
+  duration_ms: 0.897542
+  type: 'test'
+  ...
+# Subtest: explicit exported decode limits preserve unbounded-default compatibility
+ok 2 - explicit exported decode limits preserve unbounded-default compatibility
+  ---
+  duration_ms: 1.253625
+  type: 'test'
+  ...
+# Subtest: raw JSON and MessagePack honor encoded and expanded byte limits
+ok 3 - raw JSON and MessagePack honor encoded and expanded byte limits
+  ---
+  duration_ms: 0.233167
+  type: 'test'
+  ...
+# Subtest: gzip output cap prevents expanded output from becoming a cache hit
+ok 4 - gzip output cap prevents expanded output from becoming a cache hit
+  ---
+  duration_ms: 1.044
+  type: 'test'
+  ...
+# Subtest: native length-prefixed codecs reject oversized advertised output
+ok 5 - native length-prefixed codecs reject oversized advertised output
+  ---
+  duration_ms: 0.152416
+  type: 'test'
+  ...
+# Subtest: invalid decode limits fail at configuration boundaries
+ok 6 - invalid decode limits fail at configuration boundaries
+  ---
+  duration_ms: 0.258708
+  type: 'test'
+  ...
+# Subtest: L1 uses configured strict limits and cleans up rejected decoded records
+ok 7 - L1 uses configured strict limits and cleans up rejected decoded records
+  ---
+  duration_ms: 1.471916
+  type: 'test'
+  ...
+# Subtest: a direct L1 has check performs no global expiration sweep
+ok 8 - a direct L1 has check performs no global expiration sweep
+  ---
+  duration_ms: 2.022166
+  type: 'test'
+  ...
+# Subtest: a queried expired key releases its bytes without purging other entries
+ok 9 - a queried expired key releases its bytes without purging other entries
+  ---
+  duration_ms: 22.099041
+  type: 'test'
+  ...
+# Subtest: a large configured count cannot preallocate storage before byte admission
+ok 10 - a large configured count cannot preallocate storage before byte admission
+  ---
+  duration_ms: 0.40125
+  type: 'test'
+  ...
+# Subtest: closed L1 stores do not invoke serialization hooks or resurrect entries
+ok 11 - closed L1 stores do not invoke serialization hooks or resurrect entries
+  ---
+  duration_ms: 0.172
+  type: 'test'
+  ...
+# Subtest: corrupt records reload while a legitimate cached null remains a hit
+ok 12 - corrupt records reload while a legitimate cached null remains a hit
+  ---
+  duration_ms: 0.227417
+  type: 'test'
+  ...
+# Subtest: inspection limits constrain actual decode despite forged expanded-size metadata
+ok 13 - inspection limits constrain actual decode despite forged expanded-size metadata
+  ---
+  duration_ms: 0.668958
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 192.116792

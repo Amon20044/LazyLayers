@@ -1,7 +1,7 @@
 import type { CacheKey, CacheOptions, CacheStore } from '../types/index.js';
-import { deserializeCacheValue, serializeCacheValue } from '../utils/cacheSerializer.js';
+import { decodePortableCacheRecord, serializeCacheValue } from '../utils/cacheSerializer.js';
 import { decodeKVRecord, encodeKVRecord } from '../cloudflare/kvWire.js';
-import { validateKVCompression, type CloudflareKVCompression } from '../utils/serializerPolicy.js';
+import { resolveDecodeLimits, validateKVCompression, type CloudflareKVCompression, type ResolvedDecodeLimits } from '../utils/serializerPolicy.js';
 import { DEFAULT_CACHE_TTL_MS } from './defaults.js';
 import { matchesPattern } from './pattern.js';
 
@@ -35,12 +35,14 @@ export interface CloudflareKVStoreOptions extends CacheOptions {
  */
 export class CloudflareKVStore<V> implements CacheStore<CacheKey, V> {
   private readonly prefix: string;
+  private readonly decodeLimits: ResolvedDecodeLimits;
 
   constructor(
     private readonly namespace: CloudflareKVNamespace,
     private readonly options: CloudflareKVStoreOptions = {},
   ) {
     this.prefix = options.prefix ?? 'cache:';
+    this.decodeLimits = resolveDecodeLimits(options.decodeLimits);
     if (!this.prefix) throw new RangeError('Cloudflare KV prefix cannot be empty');
     validateKVCompression(options.compression);
     if (options.levels?.L2?.maxEntries !== undefined) {
@@ -64,15 +66,22 @@ export class CloudflareKVStore<V> implements CacheStore<CacheKey, V> {
 
   async get(key: CacheKey): Promise<V | undefined> {
     const entry = await this.readEncoded(key);
-    return entry ? await deserializeCacheValue(entry.buffer) as V : undefined;
+    if (!entry) return undefined;
+    const decoded = await decodePortableCacheRecord(entry.buffer, this.decodeLimits);
+    return decoded.hit ? decoded.value as V : undefined;
   }
 
   private async readEncoded(key: CacheKey): Promise<{ buffer: Uint8Array; ttlRemainingMs: number } | undefined> {
     const raw = await this.namespace.get(this.key(key), 'arrayBuffer');
     if (raw === null) return undefined;
-    const { payload, ttlRemainingMs } = decodeKVRecord(raw);
-    if (ttlRemainingMs <= 0) return undefined;
-    return { buffer: payload, ttlRemainingMs };
+    // The binding result is already allocated. Reject before parsing/expanding;
+    // do not delete a corrupt read from an eventually consistent namespace.
+    if (raw.byteLength > this.decodeLimits.maxEncodedBytes + 12) return undefined;
+    try {
+      const { payload, ttlRemainingMs } = decodeKVRecord(raw);
+      if (ttlRemainingMs <= 0) return undefined;
+      return { buffer: payload, ttlRemainingMs };
+    } catch { return undefined; }
   }
 
   async getOrSet(key: CacheKey, loader: () => Promise<V | undefined>, options?: CacheOptions): Promise<V | undefined> {
@@ -84,7 +93,7 @@ export class CloudflareKVStore<V> implements CacheStore<CacheKey, V> {
   }
 
   async has(key: CacheKey): Promise<boolean> {
-    return (await this.readEncoded(key)) !== undefined;
+    return (await this.get(key)) !== undefined;
   }
 
   async delete(key: CacheKey): Promise<void> {

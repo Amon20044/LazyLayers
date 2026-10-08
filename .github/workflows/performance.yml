@@ -1,0 +1,92 @@
+name: Bounded correctness and performance
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck && npm run build
+      - name: Correctness, complexity and concurrency regressions
+        run: node scripts/audit-runner.mjs --seconds=90 --rss-mib=768 --output=audit/raw/ci-correctness.tap -- node --test --test-concurrency=1 --test-timeout=15000 test/audit-*.test.js test/decode-limits.test.js test/memory-audit-regressions.test.js
+      - name: Memory leak smoke profile
+        run: node scripts/audit-runner.mjs --seconds=90 --rss-mib=768 --output=audit/raw/ci-memory.log -- node scripts/audit-memory-profile.mjs
+        env:
+          LAZY_AUDIT_OUTPUT: audit/raw/ci-memory.json
+      - name: Bounded stable-working-set memory smoke
+        run: node scripts/audit-runner.mjs --seconds=45 --rss-mib=512 --output=audit/raw/ci-memory-smoke.log -- node --expose-gc scripts/audit-memory-smoke.mjs
+      - name: Compare equivalent repeated microbenchmarks
+        run: node scripts/audit-ci.mjs
+        env:
+          LAZY_AUDIT_BASE_REF: ${{ github.event.pull_request.base.sha }}
+      - name: Store performance history and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-performance-${{ github.sha }}
+          path: audit/raw/
+          retention-days: 90
+
+  scheduled:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck && npm run build
+      - name: Full correctness suite with disposable live services
+        run: node scripts/audit-services.mjs test
+        env:
+          LAZY_AUDIT_LABEL: scheduled
+      - name: Multi-process controlled E2E load
+        run: node scripts/audit-services.mjs benchmark
+        env:
+          LAZY_AUDIT_LABEL: scheduled
+          LAZY_AUDIT_E2E_MAX_RPS: '10000'
+      - name: Lease, overload, restart and broker chaos
+        run: node scripts/audit-services.mjs chaos
+        env:
+          LAZY_AUDIT_LABEL: scheduled
+      - name: Larger-key and codec working sets
+        run: |
+          node scripts/audit-runner.mjs --seconds=180 --rss-mib=768 --output=audit/raw/scheduled-memory.log -- node scripts/audit-memory-profile.mjs
+          node scripts/audit-runner.mjs --seconds=180 --rss-mib=768 --output=audit/raw/scheduled-policies.log -- node benchmarks/audit-policies.mjs
+          node scripts/audit-runner.mjs --seconds=180 --rss-mib=768 --output=audit/raw/scheduled-codecs.log -- node benchmarks/audit-codecs.mjs
+      - name: Two-minute bounded memory endurance
+        run: node scripts/audit-runner.mjs --seconds=150 --rss-mib=512 --output=audit/raw/scheduled-memory-endurance.log -- node --expose-gc scripts/audit-memory-smoke.mjs
+        env:
+          LAZY_AUDIT_MEMORY_SECONDS: '120'
+      - name: Store release-candidate history
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate-performance-${{ github.sha }}
+          path: audit/raw/
+          retention-days: 90

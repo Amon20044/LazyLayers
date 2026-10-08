@@ -34,6 +34,7 @@ export class RedisEventBus implements EventBus {
   private handler: ((event: InvalidationEvent) => void | Promise<void>) | null = null;
   private resubscribing = false;
   private transportEpoch = 0;
+  private needsReconciliation = false;
   private readonly statusListeners = new Set<(status: EventBusStatus) => void>();
 
   constructor(redis: RedisClient, channel: string, private readonly options: RedisEventBusOptions = {}) {
@@ -113,10 +114,18 @@ export class RedisEventBus implements EventBus {
       onError: (error) => {
         errorLog('redis event bus handler failed', { channel: this.channel, error });
         this.emitStatus('error');
+        this.needsReconciliation = true;
       },
       onOverflow: (details) => {
         warnLog('redis event bus handler queue overflow', { channel: this.channel, ...details });
         this.emitStatus('error');
+        this.needsReconciliation = true;
+      },
+      onIdle: () => {
+        if (this.needsReconciliation && this.subscribed) {
+          this.needsReconciliation = false;
+          this.emitStatus('subscribed');
+        }
       },
     });
 
@@ -125,7 +134,11 @@ export class RedisEventBus implements EventBus {
         return;
       }
 
-      handlerQueue.enqueueEncoded(message, (raw) => decodeInvalidationEvent(raw));
+      handlerQueue.enqueueEncoded(message, (raw) => {
+        const event = decodeInvalidationEvent(raw);
+        if (!event) { this.needsReconciliation = true; this.emitStatus('error'); }
+        return event;
+      });
     };
 
     // Attach before SUBSCRIBE so a message delivered between the command
@@ -150,6 +163,8 @@ export class RedisEventBus implements EventBus {
   }
 
   async disconnect(): Promise<void> {
+    this.retryQueue.clear();
+    this.needsReconciliation = false;
     this.handlerQueue?.close();
     this.handlerQueue = null;
     this.handler = null;

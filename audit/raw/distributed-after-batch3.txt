@@ -1,0 +1,291 @@
+✔ RedisStore registers cached scripts and keeps data/lease keys in one slot (1.628583ms)
+✔ v2 direct writes and deletes fence an outstanding fill lease (0.381125ms)
+✔ RedisStore recovers a definite NOSCRIPT without replaying through another mutation (0.298708ms)
+﹣ real Redis keeps the replacement value when a former owner resumes (0.039667ms) # SKIP
+✔ HybridCache never promotes or broadcasts a fill rejected by the ownership check (3.005042ms)
+✔ audit: a failed lease acquisition returns the origin result without overwriting a protected winner (4.369875ms)
+✔ audit: explicitly unlocked contention fallback does not publish into protected cache state (0.451208ms)
+✔ audit: distinct malformed UTF-16 keys retain distinct Redis wire identities (0.251542ms)
+✔ audit: Redis v2 nested prefixes cannot delete another namespace by clearing a shorter prefix (0.451209ms)
+✔ audit: Redis patterns use only star as wildcard and preserve literal question/bracket bytes (0.208792ms)
+✔ audit: legacy metadata key collisions are rejected before a Redis command is issued (0.189375ms)
+✔ audit: scoped events reject wrong/untagged namespaces before deduplication and publish their scope (0.566792ms)
+✔ audit: negative keys cannot bypass a small shared memory budget and are released on close (1.793167ms)
+✔ audit: event deduplication keys have a byte cap and release their shared reservations (0.833ms)
+✔ audit: generation-byte saturation never exposes an older v0 entry or accepts a delayed old fill (3.309959ms)
+✔ audit: concurrent custom reads cannot retain unlimited distinct revision-map key bytes (2.44075ms)
+✔ audit: a stale custom-L1 publication cannot leave an older value after a replacement write (0.230041ms)
+✔ audit: built-in L1 keeps a replacement value when an older committed write resumes (0.327833ms)
+✔ audit: corrupt Redis bytes are a miss while a legitimate null remains a cache hit (0.41075ms)
+✔ audit: negative maxEntries zero disables retained misses (0.12325ms)
+✔ audit: non-finite cache metadata budgets are rejected before creating resources (0.149833ms)
+✔ audit: invalid per-operation metadata budgets reject without invoking the loader (0.086084ms)
+✔ audit: tracked in-flight key bytes are finite even when callers use large distinct keys (2.593834ms)
+✔ audit: queued origin keys are byte bounded and cancellation releases their ledger reservations (0.4425ms)
+✔ audit: a generation-zero restart cannot see a deleted old version when a v1 write queued concurrently (0.420625ms)
+✔ audit: subscription completion cannot restore trust after an immediate transport loss (0.215583ms)
+✔ audit: custom-bus malformed typed keys cannot poison numeric L1 state (0.177542ms)
+✔ audit: local lease expiry survives a backward clock change during an event-loop stall (20.60125ms)
+✔ audit: distinct concurrent fills all retain their own values (3.833875ms)
+✔ audit: invalidation fences an origin fill already inside asynchronous L1 set (0.418292ms)
+✔ audit: close aborts an active leader and its late result cannot repopulate state (1.229917ms)
+✔ audit: closed caches reject subsequent reads and writes (0.3345ms)
+✔ audit: numeric remote deletion clears numeric L1 state (0.466375ms)
+✔ audit: numeric peer priming clears the matching numeric negative cache (1.367625ms)
+✔ audit: equal-generation obsolete peer priming reconciles the authoritative L2 value (0.310166ms)
+✔ audit: a key filled while waiting for an origin slot skips the queued loader (1.715209ms)
+✔ audit: a queued leader whose lease expired leaves the queue without invoking origin (86.528667ms)
+✔ audit: Redis v2 pattern invalidation fences a cold key containing only a lease (1.184708ms)
+✔ audit: Redis v2 clear treats prefix glob characters as literal namespace bytes (0.528583ms)
+✔ audit: Redis v2 direct delete removes admitted logical keys beginning with __ (0.200375ms)
+✔ audit: Redis owner rejection after lease expiration protects the newer value (0.194916ms)
+✔ audit: delivery recovery survives an unrelated write while L1 reconciliation is pending (0.894375ms)
+✔ audit: unique absent-key invalidations have finite retained generation metadata (47.706375ms)
+✔ default getOrSet shares a refresh after expiry even when it exceeds the old two-second wait (2193.731583ms)
+✔ expiry in L1 alone refills from L2 without invoking the loader (28.883625ms)
+✔ slow loads renew their lease automatically and release it after completion (587.40275ms)
+✔ contention timeout rejects without running the loader and exposes an exported error (34.312167ms)
+[ERROR] cache loader failed {
+  key: 'hot',
+  error: Error: origin failed
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:131:17)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+}
+✔ contention timeout serves eligible stale data without refreshing its expiry (51.400959ms)
+✔ the old unlocked fallback remains an explicit per-call opt-in (2.530834ms)
+✔ waiters retry a released lock after the original loader fails (55.188083ms)
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:158:40)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:829:83
+}
+✔ waiters can take over an expired lock left by a crashed owner (53.72825ms)
+✔ acquisition rechecks the cache to avoid loading a result published after the original miss (1.738083ms)
+✔ initial Redis lock failure preserves fail-open behavior (1.71275ms)
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:829:83
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:829:83
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:829:83
+}
+[ERROR] l2 cache operation failed open {
+  operation: 'acquireLock',
+  key: 'hot',
+  state: 'closed',
+  error: Error: Redis unavailable
+      at l2.acquireLock (file:///Users/apple/Desktop/LazyLayers/test/distributed-lock.test.js:168:11)
+      at file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:829:83
+}
+✔ Redis errors after observed contention do not bypass the known owner (31.271208ms)
+[ERROR] cache loader failed {
+  key: 'hot',
+  error: DistributedLockLostError: Lost the distributed cache lock for hot
+      at lose (file:///Users/apple/Desktop/LazyLayers/dist/cache/distributedLock.js:44:17)
+      at Timeout.<anonymous> (file:///Users/apple/Desktop/LazyLayers/dist/cache/distributedLock.js:70:21) {
+    key: 'hot',
+    code: 'DISTRIBUTED_LOCK_LOST'
+  }
+}
+✔ lost ownership aborts the loader and prevents a late result from overwriting the new owner (43.941125ms)
+[ERROR] cache loader failed {
+  key: 'hot',
+  error: DistributedLockLostError: Lost the distributed cache lock for hot
+      at Timeout.lose (file:///Users/apple/Desktop/LazyLayers/dist/cache/distributedLock.js:44:17)
+      at listOnTimeout (node:internal/timers:685:17)
+      at process.processTimers (node:internal/timers:618:7) {
+    key: 'hot',
+    code: 'DISTRIBUTED_LOCK_LOST'
+  }
+}
+✔ a hung renewal is bounded by the current lease deadline (62.186166ms)
+[ERROR] cache loader failed {
+  key: 'hot',
+  error: DistributedLockLostError: Lost the distributed cache lock for hot
+      at Timeout.lose (file:///Users/apple/Desktop/LazyLayers/dist/cache/distributedLock.js:44:17)
+      at listOnTimeout (node:internal/timers:685:17)
+      at process.processTimers (node:internal/timers:618:7) {
+    key: 'hot',
+    code: 'DISTRIBUTED_LOCK_LOST'
+  }
+}
+✔ custom stores without renewal remain compatible but cannot publish after their lease expires (113.982708ms)
+✔ invalid lock timings reject rather than creating an unbounded wait (2.057417ms)
+[ERROR] l2 cache operation failed open {
+  operation: 'renewLock',
+  key: 'hot',
+  state: 'closed',
+  error: L2OperationTimeoutError: L2 operation timed out after 2000ms: renewLock
+      at Timeout._onTimeout (file:///Users/apple/Desktop/LazyLayers/dist/cache/l2OperationGate.js:75:115)
+      at listOnTimeout (node:internal/timers:685:17)
+      at process.processTimers (node:internal/timers:618:7) {
+    operation: 'renewLock',
+    timeoutMs: 2000,
+    code: 'L2_OPERATION_TIMEOUT'
+  }
+}
+✔ local default dedupe survives the former five-second entry lifetime (5103.388166ms)
+✔ an older completion does not remove a replacement in-flight entry (13.797375ms)
+[DEBUG] cache lazy load { key: 'key-0', inflight: false }
+[DEBUG] cache lazy load { key: 'key-1', inflight: false }
+[DEBUG] cache lazy load { key: 'key-2', inflight: false }
+[DEBUG] cache lazy load { key: 'key-3', inflight: false }
+[DEBUG] cache lazy load { key: 'key-4', inflight: false }
+[DEBUG] cache lazy load { key: 'key-5', inflight: false }
+[DEBUG] cache lazy load { key: 'key-6', inflight: false }
+[DEBUG] cache lazy load { key: 'key-7', inflight: false }
+[DEBUG] cache set { key: 'key-0', levels: [] }
+[DEBUG] cache set { key: 'key-1', levels: [] }
+[DEBUG] cache set { key: 'key-2', levels: [] }
+[DEBUG] cache set { key: 'key-3', levels: [] }
+[DEBUG] cache set { key: 'key-4', levels: [] }
+[DEBUG] cache set { key: 'key-5', levels: [] }
+[DEBUG] cache set { key: 'key-6', levels: [] }
+[DEBUG] cache set { key: 'key-7', levels: [] }
+[DEBUG] cache lazy load { key: 'first', inflight: false }
+[DEBUG] cache lazy load { key: 'second', inflight: false }
+[DEBUG] cache lazy load { key: 'first', inflight: false }
+✔ origin gate bounds distinct misses when inflight tracking is disabled (46.891167ms)
+✖ queue timeout rejects with a typed overload and does not start a loader (0.565459ms)
+[ERROR] cache loader failed {
+  key: 'first',
+  error: CacheClosedError: Cache is closed
+      at HybridCache.closeResources (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:288:30)
+      at HybridCache.close (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:280:36)
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/origin-load-gate.test.js:37:15)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CACHE_CLOSED'
+  }
+}
+[DEBUG] cache lazy load { key: 'first', inflight: false }
+✖ close rejects queued origin work (6.808791ms)
+[ERROR] cache loader failed {
+  key: 'first',
+  error: LoaderTimeoutError: hard-timeout
+      at HybridCache.runLoaderWithTimeouts (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:1094:23)
+      at async HybridCache.loadAndStore (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:617:25)
+      at async HybridCache.loadWithDistributedLock (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:797:20)
+      at async waitForActual (node:assert:646:5)
+      at async strict.rejects (node:assert:769:25)
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/origin-load-gate.test.js:46:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    reason: 'hard-timeout'
+  }
+}
+[DEBUG] cache lazy load { key: 'second', inflight: false }
+[DEBUG] cache set { key: 'second', levels: [] }
+✔ timed out caller still occupies the origin slot until ignored loader settles (37.5535ms)
+[ERROR] cache loader failed {
+  key: 'first',
+  error: LoaderTimeoutError: hard-timeout
+      at HybridCache.runLoaderWithTimeouts (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:1094:23)
+      at async HybridCache.loadAndStore (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:617:25)
+      at async HybridCache.loadWithDistributedLock (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:797:20) {
+    reason: 'hard-timeout'
+  }
+}
+ℹ Error: Test "close rejects queued origin work" at test/origin-load-gate.test.js:32:1 generated asynchronous activity after the test ended. This activity created the error "CacheClosedError: Cache is closed" and would have caused the test to fail, but instead triggered an unhandledRejection event.
+ℹ Error: Test "queue timeout rejects with a typed overload and does not start a loader" at test/origin-load-gate.test.js:22:1 generated asynchronous activity after the test ended. This activity created the error "Error: hard-timeout" and would have caused the test to fail, but instead triggered an unhandledRejection event.
+✔ Redis 6 INFO replies meet the core cache compatibility baseline (1.158209ms)
+✔ Redis 8 INFO replies are recognized without probing modules (0.108542ms)
+✔ malformed INFO replies return a safe compatibility issue (0.0765ms)
+✔ Redis errors distinguish ACL, unsupported-command, and transport failures (0.268042ms)
+✔ setupCache accepts Redis 6 and reports unsupported Redis versions actionably (2.195542ms)
+✔ setupCache never downgrades ACL and INFO command failures to optional health (0.381541ms)
+✔ transport health failures remain classified separately from compatibility failures (0.19425ms)
+✔ pipeline validator preserves cause and redacts key context (0.765792ms)
+✔ L2 gate bounds queued count and retained bytes (0.31875ms)
+✔ L2 timeout does not release active slot before underlying settles (8.34175ms)
+✔ half-open breaker admits one probe (0.423542ms)
+✔ origin gate retains duplicate queued callers and releases permits idempotently (0.58925ms)
+✔ release: a local invalidation fences an already-running origin load (3.021291ms)
+✔ release: an initial subscription failure never enables L1 trust (0.461083ms)
+✔ release: a second disconnect fences an outstanding recovery flush (2.179042ms)
+✔ release: a delayed remote set cannot resurrect a newer remote delete (1.522625ms)
+✔ release: a delayed L2 promotion cannot repopulate L1 after invalidation (1.614375ms)
+✔ release: Redis reconnect explicitly subscribes again and resumes delivery (1.710458ms)
+✔ release: a stale reconnect acknowledgement cannot restore subscription status (0.30925ms)
+✔ release: Redis discards pre-gap pending deliveries before trusting reconnection (0.504833ms)
+✖ release: retry overflow during publishing does not silently remove the next event (0.668125ms)
+✔ release: retry queues own an immutable payload snapshot (0.1495ms)
+ℹ tests 86
+ℹ suites 0
+ℹ pass 82
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 19587.16775
+
+✖ failing tests:
+
+test at test/origin-load-gate.test.js:22:1
+✖ queue timeout rejects with a typed overload and does not start a loader (0.565459ms)
+  TypeError: release is not a function
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/origin-load-gate.test.js:27:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at test/origin-load-gate.test.js:32:1
+✖ close rejects queued origin work (6.808791ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  CacheClosedError: Cache is closed
+      at async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/origin-load-gate.test.js:38:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: CacheClosedError: Cache is closed
+        at HybridCache.ensureOpen (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:1385:15)
+        at HybridCache.getOrSet (file:///Users/apple/Desktop/LazyLayers/dist/cache/hybridCache.js:474:14),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at test/release-safety-regressions.test.js:187:1
+✖ release: retry overflow during publishing does not silently remove the next event (0.668125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'first',
+  -   'second'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/release-safety-regressions.test.js:199:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'first' ],
+    expected: [ 'first', 'second' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+

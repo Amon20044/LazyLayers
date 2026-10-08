@@ -1,0 +1,142 @@
+TAP version 13
+# Subtest: audit: wildcard matcher preserves literal and newline semantics over seeded cases
+ok 1 - audit: wildcard matcher preserves literal and newline semantics over seeded cases
+  ---
+  duration_ms: 21.669417
+  type: 'test'
+  ...
+# Subtest: audit: adversarial wildcard matching completes within a bounded subprocess
+ok 2 - audit: adversarial wildcard matching completes within a bounded subprocess
+  ---
+  duration_ms: 20.009042
+  type: 'test'
+  ...
+# Subtest: audit: invalidation metadata rejects nonfinite time and malformed typed keys
+ok 3 - audit: invalidation metadata rejects nonfinite time and malformed typed keys
+  ---
+  duration_ms: 1.516417
+  type: 'test'
+  ...
+# Subtest: audit: event decode bounds key fanout before allocating invalidation operations
+ok 4 - audit: event decode bounds key fanout before allocating invalidation operations
+  ---
+  duration_ms: 2.921166
+  type: 'test'
+  ...
+# Subtest: audit: closed event queue cannot resurrect deliveries or retain new events
+ok 5 - audit: closed event queue cannot resurrect deliveries or retain new events
+  ---
+  duration_ms: 1.115958
+  type: 'test'
+  ...
+# Subtest: audit: an unencodable event cannot bypass byte accounting
+ok 6 - audit: an unencodable event cannot bypass byte accounting
+  ---
+  duration_ms: 3.379917
+  type: 'test'
+  ...
+# Subtest: audit: event queue limits must be finite valid integers
+ok 7 - audit: event queue limits must be finite valid integers
+  ---
+  duration_ms: 0.178459
+  type: 'test'
+  ...
+# Subtest: audit: discarding pending events releases bytes and preserves active accounting
+ok 8 - audit: discarding pending events releases bytes and preserves active accounting
+  ---
+  duration_ms: 0.658792
+  type: 'test'
+  ...
+# Subtest: redis event bus disconnect leaves the caller's client alone
+ok 9 - redis event bus disconnect leaves the caller's client alone
+  ---
+  duration_ms: 0.815792
+  type: 'test'
+  ...
+# Subtest: redis event bus removes its message listener on disconnect
+ok 10 - redis event bus removes its message listener on disconnect
+  ---
+  duration_ms: 0.081125
+  type: 'test'
+  ...
+# Subtest: redis event bus disconnect is idempotent and survives a dead connection
+ok 11 - redis event bus disconnect is idempotent and survives a dead connection
+  ---
+  duration_ms: 0.093917
+  type: 'test'
+  ...
+# Subtest: redis event bus disconnect before subscribe does not throw
+ok 12 - redis event bus disconnect before subscribe does not throw
+  ---
+  duration_ms: 0.052875
+  type: 'test'
+  ...
+# Subtest: redis event bus delivers decoded messages and ignores garbage
+ok 13 - redis event bus delivers decoded messages and ignores garbage
+  ---
+  duration_ms: 2.306125
+  type: 'test'
+  ...
+# Subtest: redis event bus survives a handler that throws synchronously
+ok 14 - redis event bus survives a handler that throws synchronously
+  ---
+  duration_ms: 0.353375
+  type: 'test'
+  ...
+# Subtest: retry queue does not publish a buffered event twice under concurrent publishes
+ok 15 - retry queue does not publish a buffered event twice under concurrent publishes
+  ---
+  duration_ms: 0.54325
+  type: 'test'
+  ...
+# Subtest: nats core reports unhealthy once its subscription ends
+ok 16 - nats core reports unhealthy once its subscription ends
+  ---
+  duration_ms: 0.429875
+  type: 'test'
+  ...
+# Subtest: nats disconnect is idempotent and does not throw on a dead connection
+ok 17 - nats disconnect is idempotent and does not throw on a dead connection
+  ---
+  duration_ms: 0.166834
+  type: 'test'
+  ...
+# Subtest: nats disconnect does not drain a connection it did not create
+ok 18 - nats disconnect does not drain a connection it did not create
+  ---
+  duration_ms: 0.08925
+  type: 'test'
+  ...
+# Subtest: nats disconnect bounds a subscription drain that never settles
+ok 19 - nats disconnect bounds a subscription drain that never settles
+  ---
+  duration_ms: 1001.955583
+  type: 'test'
+  ...
+# Subtest: rabbitmq disconnect before init does not throw and is idempotent
+ok 20 - rabbitmq disconnect before init does not throw and is idempotent
+  ---
+  duration_ms: 1.177125
+  type: 'test'
+  ...
+# Subtest: a failed remote invalidation is retried instead of dropped as a duplicate
+ok 21 - a failed remote invalidation is retried instead of dropped as a duplicate
+  ---
+  duration_ms: 2.875375
+  type: 'test'
+  ...
+# Subtest: a successfully applied invalidation is still deduplicated
+ok 22 - a successfully applied invalidation is still deduplicated
+  ---
+  duration_ms: 0.545875
+  type: 'test'
+  ...
+1..22
+# tests 22
+# suites 0
+# pass 22
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1110.629542

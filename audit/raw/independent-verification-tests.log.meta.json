@@ -1,0 +1,28 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-reporter=tap",
+    "--test-concurrency=1",
+    "--test-timeout=3000",
+    "test/audit-coordination-boundaries.test.js",
+    "test/audit-distributed-regressions.test.js",
+    "test/audit-worker-lifecycle.test.js",
+    "test/audit-observability-bounds.test.js",
+    "test/decode-limits.test.js",
+    "test/audit-binary-ownership.test.js"
+  ],
+  "wallTimeMs": 818,
+  "budgets": {
+    "seconds": 30,
+    "rssMiB": 256,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 128
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 154091520,
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

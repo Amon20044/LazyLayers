@@ -1,0 +1,61 @@
+{
+  "generatedAt": "2026-10-08T13:53:12.138Z",
+  "entry": "/var/folders/c0/v0_qvxvs47d5n90q2z2lpx5h0000gn/T/lazy-layers-audit-final-m74j45f9/dist/index.js",
+  "node": "v24.21.0",
+  "cases": [
+    {
+      "name": "direct MemoryStore.get nested Buffer mutation preserves resident bytes",
+      "status": "PASS",
+      "observed": {
+        "mutatedReturnedValue": [
+          99,
+          34,
+          51
+        ],
+        "retainedValue": [
+          17,
+          34,
+          51
+        ],
+        "bufferTypePreserved": true
+      }
+    },
+    {
+      "name": "direct MemoryStore.inspect Buffer preview mutation preserves resident bytes",
+      "status": "PASS",
+      "observed": {
+        "mutatedPreview": [
+          17,
+          88,
+          51
+        ],
+        "retainedValue": [
+          17,
+          34,
+          51
+        ],
+        "bufferTypePreserved": true
+      }
+    },
+    {
+      "name": "strict Node binary decoder owns its result and public legacy decoder remains a view",
+      "status": "PASS",
+      "observed": {
+        "strictInputUnchanged": true,
+        "legacyViewObserved": true,
+        "bufferTypePreserved": true
+      }
+    },
+    {
+      "name": "strict portable binary decoder owns its result and public legacy decoder remains a view",
+      "status": "PASS",
+      "observed": {
+        "strictInputUnchanged": true,
+        "legacyViewObserved": true
+      }
+    }
+  ],
+  "sampleCount": 5,
+  "maximumPointSampleRssBytes": 90832896,
+  "note": "RSS sampled at test boundaries; not a continuous peak or retained-heap profile."
+}

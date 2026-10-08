@@ -1,0 +1,148 @@
+TAP version 13
+# Subtest: set owns input values and get/getEncoded are defensive
+ok 1 - set owns input values and get/getEncoded are defensive
+  ---
+  duration_ms: 2.005
+  type: 'test'
+  ...
+# Subtest: two stores share cap and close releases all accounting including empty history
+ok 2 - two stores share cap and close releases all accounting including empty history
+  ---
+  duration_ms: 0.520625
+  type: 'test'
+  ...
+# Subtest: oversize candidate does not evict existing hot entry and rejected replacement invalidates old value
+ok 3 - oversize candidate does not evict existing hot entry and rejected replacement invalidates old value
+  ---
+  duration_ms: 1.658
+  type: 'test'
+  ...
+# Subtest: expiry and explicit deletion release bytes; undefined misses differ from cached null
+ok 4 - expiry and explicit deletion release bytes; undefined misses differ from cached null
+  ---
+  duration_ms: 31.522792
+  type: 'test'
+  ...
+# Subtest: encoded subarray is copied and charges only owned payload plus fixed overhead
+ok 5 - encoded subarray is copied and charges only owned payload plus fixed overhead
+  ---
+  duration_ms: 0.550833
+  type: 'test'
+  ...
+# Subtest: metadata inspection does not decode unknown original size
+ok 6 - metadata inspection does not decode unknown original size
+  ---
+  duration_ms: 0.312917
+  type: 'test'
+  ...
+# Subtest: count limit remains active when byte admission and auto eviction are disabled
+ok 7 - count limit remains active when byte admission and auto eviction are disabled
+  ---
+  duration_ms: 0.289208
+  type: 'test'
+  ...
+# Subtest: concurrent writes never exceed byte ceiling
+ok 8 - concurrent writes never exceed byte ceiling
+  ---
+  duration_ms: 0.541708
+  type: 'test'
+  ...
+# Subtest: default singleton rejects conflicting configuration and can be reset cleanly
+ok 9 - default singleton rejects conflicting configuration and can be reset cleanly
+  ---
+  duration_ms: 0.325458
+  type: 'test'
+  ...
+# Subtest: fail-safe retains one encoded snapshot and releases its shared budget on close
+ok 10 - fail-safe retains one encoded snapshot and releases its shared budget on close
+  ---
+  duration_ms: 18.619916
+  type: 'test'
+  ...
+# Subtest: custom L1 stores can use fail-safe without exposing a memory budget
+ok 11 - custom L1 stores can use fail-safe without exposing a memory budget
+  ---
+  duration_ms: 0.276333
+  type: 'test'
+  ...
+# Subtest: encoded fast path requires the Lazy Layers wire-format marker
+ok 12 - encoded fast path requires the Lazy Layers wire-format marker
+  ---
+  duration_ms: 0.139708
+  type: 'test'
+  ...
+# Subtest: encoded L2 promotion preserves a shorter remaining TTL
+ok 13 - encoded L2 promotion preserves a shorter remaining TTL
+  ---
+  duration_ms: 302.380792
+  type: 'test'
+  ...
+# Subtest: persistent encoded L2 values use the configured L1 TTL instead of one millisecond
+ok 14 - persistent encoded L2 values use the configured L1 TTL instead of one millisecond
+  ---
+  duration_ms: 306.659208
+  type: 'test'
+  ...
+# Subtest: percentage and units resolve against effective runtime capacity
+ok 15 - percentage and units resolve against effective runtime capacity
+  ---
+  duration_ms: 0.87275
+  type: 'test'
+  ...
+# Subtest: nested cgroup limits use the smallest valid constraint
+ok 16 - nested cgroup limits use the smallest valid constraint
+  ---
+  duration_ms: 0.166292
+  type: 'test'
+  ...
+# Subtest: shared ledger never exceeds target and release is idempotently bounded
+ok 17 - shared ledger never exceeds target and release is idempotently bounded
+  ---
+  duration_ms: 0.258167
+  type: 'test'
+  ...
+# Subtest: sampling pressure shrinks target and bounds round-robin maintenance
+ok 18 - sampling pressure shrinks target and bounds round-robin maintenance
+  ---
+  duration_ms: 0.264334
+  type: 'test'
+  ...
+# Subtest: synthetic critical pressure evicts L1 entries and blocks new admissions
+ok 19 - synthetic critical pressure evicts L1 entries and blocks new admissions
+  ---
+  duration_ms: 1.537542
+  type: 'test'
+  ...
+# Subtest: synthetic sustained pressure and recovery use hysteresis instead of flapping
+ok 20 - synthetic sustained pressure and recovery use hysteresis instead of flapping
+  ---
+  duration_ms: 0.1965
+  type: 'test'
+  ...
+# Subtest: synthetic pressure can evict fail-safe snapshots from the shared byte budget
+ok 21 - synthetic pressure can evict fail-safe snapshots from the shared byte budget
+  ---
+  duration_ms: 1.679292
+  type: 'test'
+  ...
+# Subtest: critical pressure serves Redis-like L2 hits without promoting them into L1
+ok 22 - critical pressure serves Redis-like L2 hits without promoting them into L1
+  ---
+  duration_ms: 0.759458
+  type: 'test'
+  ...
+# Subtest: peer priming under pressure removes obsolete L1 state without installing the replacement
+ok 23 - peer priming under pressure removes obsolete L1 state without installing the replacement
+  ---
+  duration_ms: 0.445459
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 908.001167

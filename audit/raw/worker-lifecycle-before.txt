@@ -1,0 +1,269 @@
+TAP version 13
+# Subtest: audit Worker: a KV read completed after deletion cannot restore L1
+not ok 1 - audit Worker: a KV read completed after deletion cannot restore L1
+  ---
+  duration_ms: 1.653084
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:30:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'obsolete'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'obsolete'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:38:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: audit Worker: an older KV snapshot cannot replace a newer direct L1 set
+not ok 2 - audit Worker: an older KV snapshot cannot replace a newer direct L1 set
+  ---
+  duration_ms: 0.263792
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:42:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    'old' !== 'new'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'new'
+  actual: 'old'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:48:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: an in-progress KV put invalidated before completion cannot prime L1
+not ok 3 - audit Worker: an in-progress KV put invalidated before completion cannot prime L1
+  ---
+  duration_ms: 0.194167
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:51:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'obsolete'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'obsolete'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:56:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: a delayed older put cannot replace newer local publication
+not ok 4 - audit Worker: a delayed older put cannot replace newer local publication
+  ---
+  duration_ms: 0.1855
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:60:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    'old' !== 'new'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'new'
+  actual: 'old'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:65:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: failed fill fallback respects a newer invalidation
+not ok 5 - audit Worker: failed fill fallback respects a newer invalidation
+  ---
+  duration_ms: 0.393583
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:69:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'obsolete'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'obsolete'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:76:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: close suppresses an outstanding read promotion
+not ok 6 - audit Worker: close suppresses an outstanding read promotion
+  ---
+  duration_ms: 0.209417
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:79:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    'old' !== undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'old'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:85:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: close suppresses a loader result before any KV write
+not ok 7 - audit Worker: close suppresses a loader result before any KV write
+  ---
+  duration_ms: 0.149416
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:88:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:93:47)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: close prevents a pending KV put from priming L1
+not ok 8 - audit Worker: close prevents a pending KV put from priming L1
+  ---
+  duration_ms: 0.120459
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:96:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    'old' !== undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'old'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:101:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: new operations on a closed facade reject without loading or writing
+not ok 9 - audit Worker: new operations on a closed facade reject without loading or writing
+  ---
+  duration_ms: 0.169041
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:104:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'rejects'
+  stack: |-
+    async TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:110:6)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: invalidated replacement flights survive older completion and release active revision state
+not ok 10 - audit Worker: invalidated replacement flights survive older completion and release active revision state
+  ---
+  duration_ms: 2.620875
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:114:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    New requests must not join an invalidated old flight
+    
+    1 !== 2
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 2
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:120:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: unique absent invalidations do not retain historical generation keys
+not ok 11 - audit Worker: unique absent invalidations do not retain historical generation keys
+  ---
+  duration_ms: 0.437083
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:129:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    128 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 128
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:132:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: audit Worker: pattern invalidation fences a pending KV read promotion
+not ok 12 - audit Worker: pattern invalidation fences a pending KV read promotion
+  ---
+  duration_ms: 0.266917
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:135:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    'old' !== undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'old'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-worker-lifecycle.test.js:141:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 0
+# fail 12
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 45.485792

@@ -1,0 +1,2 @@
+npm notice run lazy-layers-cache@0.6.2 typecheck
+npm notice run tsc -p tsconfig.json --noEmit

@@ -19,10 +19,14 @@ test('origin gate bounds distinct misses when inflight tracking is disabled', as
   await cache.close();
 });
 
-test('queue timeout rejects with a typed overload and does not start a loader', async () => {
+test('queue timeout rejects with a typed overload and does not start a loader', { timeout: 2_000 }, async (t) => {
   const cache = new HybridCache({ l1: false, originLoad: { maxConcurrent: 1, maxQueued: 0, queueTimeoutMs: 5 }, inflight: { enabled: false } });
   let release;
-  const first = cache.getOrSet('first', () => new Promise((resolve) => { release = resolve; }));
+  let started;
+  const admitted = new Promise((resolve) => { started = resolve; });
+  const first = cache.getOrSet('first', () => new Promise((resolve) => { release = resolve; started(); }));
+  t.after(async () => { release?.('cleanup'); await cache.close(); });
+  await admitted;
   await assert.rejects(cache.getOrSet('second', async () => 'bad'), (error) => error instanceof OriginLoadOverloadError);
   release('ok');
   assert.equal(await first, 'ok');

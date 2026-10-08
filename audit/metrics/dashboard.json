@@ -1,0 +1,16 @@
+{
+  "title": "Lazy Layers isolated audit",
+  "uid": "lazy-layers-audit",
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    { "id": 1, "type": "table", "title": "Successful RPS at the configured rate", "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }, "datasource": { "type": "prometheus", "uid": "prometheus" }, "targets": [{ "expr": "lazy_layers_audit_successful_rps", "format": "table", "instant": true }] },
+    { "id": 2, "type": "table", "title": "p99 arrival-to-completion (ms)", "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }, "datasource": { "type": "prometheus", "uid": "prometheus" }, "targets": [{ "expr": "lazy_layers_audit_arrival_latency_ms{quantile=\"p99\"}", "format": "table", "instant": true }] },
+    { "id": 3, "type": "table", "title": "Origin requests and amplification", "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }, "datasource": { "type": "prometheus", "uid": "prometheus" }, "targets": [{ "expr": "lazy_layers_audit_origin_requests", "format": "table", "instant": true }, { "expr": "lazy_layers_audit_origin_amplification", "format": "table", "instant": true }] },
+    { "id": 4, "type": "table", "title": "Worker RSS and queued origin work", "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }, "datasource": { "type": "prometheus", "uid": "prometheus" }, "targets": [{ "expr": "lazy_layers_audit_worker_peak_rss_bytes", "format": "table", "instant": true }, { "expr": "lazy_layers_audit_queued_origin_peak", "format": "table", "instant": true }] },
+    { "id": 5, "type": "table", "title": "Errors, client drops and freshness violations", "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 }, "datasource": { "type": "prometheus", "uid": "prometheus" }, "targets": [{ "expr": "lazy_layers_audit_error_ratio", "format": "table", "instant": true }, { "expr": "lazy_layers_audit_client_dropped_requests", "format": "table", "instant": true }, { "expr": "lazy_layers_audit_freshness_violations", "format": "table", "instant": true }] }
+  ]
+}

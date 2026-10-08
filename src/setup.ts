@@ -199,6 +199,7 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
         prefix: `${namespace}:cache:`,
         levels: cacheOverrides.levels,
         ttlMs: cacheOverrides.ttlMs,
+        decodeLimits: cacheOverrides.decodeLimits,
         ...kvOptions.store,
       })
     : redis
@@ -209,6 +210,7 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
         batchSize: 500,
         levels: cacheOverrides.levels,
         ttlMs: cacheOverrides.ttlMs,
+        decodeLimits: cacheOverrides.decodeLimits,
         ...redisOptions?.store,
       })
     : undefined;
@@ -226,6 +228,7 @@ export async function setupCache<K extends CacheKey = string, V = unknown>(
   const eventBus = eventBusOverride === false ? undefined : eventBusOverride ?? generatedBus;
   const cacheOptions: LazyLayersCacheOptions<K, V> = {
     ...cacheOverrides,
+    eventNamespace: cacheOverrides.eventNamespace ?? namespace,
     levels: {
       L1: {
         maxEntries: DEFAULT_L1_MAX_ENTRIES,
@@ -348,10 +351,16 @@ async function connectAndCheck(eventBus: EventBus): Promise<EventBusHealth> {
 }
 
 function normalizeNamespace(namespace: string): string {
+  if (typeof namespace !== 'string' || /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(namespace)) {
+    throw new CacheSetupError('Cache namespace must be a well-formed Unicode string');
+  }
   const normalized = namespace.trim().replace(/^:+|:+$/g, '');
 
   if (!normalized) {
     throw new CacheSetupError('Cache namespace cannot be empty');
+  }
+  if (Buffer.byteLength(normalized) > 64 * 1024) {
+    throw new CacheSetupError('Cache namespace cannot exceed 64 KiB');
   }
 
   return normalized;

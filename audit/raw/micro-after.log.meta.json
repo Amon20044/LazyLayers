@@ -1,0 +1,19 @@
+{
+  "command": [
+    "node",
+    "benchmarks/audit.mjs"
+  ],
+  "wallTimeMs": 8442,
+  "budgets": {
+    "seconds": 180,
+    "rssMiB": 768,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 512
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 416088064,
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

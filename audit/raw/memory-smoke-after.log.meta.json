@@ -1,0 +1,23 @@
+{
+  "command": [
+    "env",
+    "LAZY_AUDIT_LABEL=after",
+    "LAZY_AUDIT_MODULE=file:///var/folders/c0/v0_qvxvs47d5n90q2z2lpx5h0000gn/T/lazy-layers-audit-final-m74j45f9/dist/index.js",
+    "node",
+    "--expose-gc",
+    "scripts/audit-memory-smoke.mjs"
+  ],
+  "wallTimeMs": 30212,
+  "budgets": {
+    "seconds": 45,
+    "rssMiB": 512,
+    "maxOutputBytes": 16777216,
+    "childHeapMiB": 256
+  },
+  "rssMonitoringAvailable": true,
+  "peakSampledRssBytes": 136642560,
+  "isolatedRedis": false,
+  "code": 0,
+  "signal": null,
+  "aborted": null
+}

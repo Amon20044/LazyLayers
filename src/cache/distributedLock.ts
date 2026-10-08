@@ -43,7 +43,9 @@ export function maintainLock(
   renew?: () => Promise<boolean>,
 ): LoadLease {
   const controller = new AbortController();
-  let deadline = acquiredAt + ttlMs;
+  // Preserve the acquiredAt wall-clock API, then use monotonic elapsed time
+  // so a later system-clock adjustment cannot extend local ownership.
+  let deadline = performance.now() + Math.max(0, ttlMs - Math.max(0, Date.now() - acquiredAt));
   let stopped = false;
   let error: DistributedLockLostError | undefined;
   let renewalTimer: ReturnType<typeof setTimeout> | undefined;
@@ -66,15 +68,15 @@ export function maintainLock(
     rejectLoss(error);
   };
   const assertOwned = () => {
-    if (!stopped && Date.now() >= deadline) lose();
+    if (!stopped && performance.now() >= deadline) lose();
     if (error) throw error;
   };
   const schedule = () => {
-    expiryTimer = setTimeout(lose, Math.max(0, deadline - Date.now()));
+    expiryTimer = setTimeout(lose, Math.max(0, deadline - performance.now()));
     expiryTimer.unref();
     if (!renew) return;
     renewalTimer = setTimeout(async () => {
-      const startedAt = Date.now();
+      const startedAt = performance.now();
       try {
         assertOwned();
         const renewed = await renew();
@@ -88,7 +90,7 @@ export function maintainLock(
       } catch {
         lose();
       }
-    }, Math.max(1, Math.min(ttlMs / 3, (deadline - Date.now()) / 3)));
+    }, Math.max(1, Math.min(ttlMs / 3, (deadline - performance.now()) / 3)));
     renewalTimer.unref();
   };
   schedule();

@@ -27,7 +27,7 @@ export type {
   HybridCacheResilienceOptions,
   LazyLayersCacheOptions,
 } from './hybridCache.js';
-export { HybridCache, LazyLayersCache } from './hybridCache.js';
+export { CacheClosedError, HybridCache, InflightOverloadError, LazyLayersCache } from './hybridCache.js';
 export {
   OriginLoadClosedError,
   OriginLoadGate,

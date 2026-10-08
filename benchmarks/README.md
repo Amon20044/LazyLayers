@@ -1,5 +1,7 @@
 # Benchmarks
 
+For the cache-system correctness, memory, load and fault audit, use the [audit reproduction guide](../audit/README.md) and [paired results](../audit/10-before-after-comparison.md). It includes regressions and unmeasured limits alongside improvements.
+
 These are the reproducible numbers published on <https://lazy-layers-cache.vercel.app>.
 
 They compare `lazy-layers-cache`'s serializer (MessagePack + size-tiered LZ4/Zstd compression) against:
@@ -19,6 +21,22 @@ npm run bench:release-memory     # v0.5.2 memory and queue workload harness
 npm run bench:representations    # HC1 vs V8 JSON vs HASH-shaped payloads
 npm run bench:transactions       # bounded payment-coordination path
 ```
+
+## Bounded cache-system audit
+
+Build the library, then run:
+
+```bash
+npm run test:audit          # disposable Redis, RabbitMQ and NATS correctness suite
+npm run bench:audit         # repeated offline microbenchmarks
+npm run bench:audit:e2e     # two cache processes, controlled origin and separate generator
+npm run test:audit:chaos    # label-validated Redis faults and owned worker crashes
+npm run audit:memory       # fresh-process payload, ownership and cleanup profiles
+```
+
+Docker runners create their own capped UUID projects on loopback ports and remove them automatically. They do not reuse ambient service URLs. CPU comparisons should run sequentially, with the same runtime, dependencies, workloads and resource limits for both revisions. `LAZY_AUDIT_MODULE` selects the compiled comparison module; labels and output paths select the raw receipts.
+
+The audit's five-repeat full comparison and seven-repeat CI comparison are separate artifacts. The CI gate intentionally reports measured warm-read/herd regressions; successful correctness tests do not waive that gate. See [benchmark methodology](../audit/08-benchmark-results.md) and [fault results](../audit/09-chaos-test-results.md). Historic serializer results below are separate workloads and should not be substituted for end-to-end cache capacity.
 
 ## v0.5.3 representation and V8 experiment
 

@@ -1,0 +1,296 @@
+{
+  "metadata": {
+    "generatedAt": "2026-10-08T14:10:00.070Z",
+    "label": "after",
+    "module": "file:///var/folders/c0/v0_qvxvs47d5n90q2z2lpx5h0000gn/T/lazy-layers-audit-final-m74j45f9/dist/index.js",
+    "project": "lazy-layers-audit-632e5c7d",
+    "redisContainer": "f88454d8eb46ba574a19c9b4fd79aad47dbcaf66b3c11b6184d94ccf1a6d06a4",
+    "initialDockerRedisEndpoint": "127.0.0.1:65365",
+    "stableOwnedProxyEndpoint": "127.0.0.1:65372",
+    "endpointChanges": [
+      {
+        "previous": "65365",
+        "next": "65391",
+        "reason": "authorized start of exact label-validated disposable container"
+      },
+      {
+        "previous": "65391",
+        "next": "65406",
+        "reason": "authorized start of exact label-validated disposable container"
+      }
+    ],
+    "node": "v24.21.0",
+    "os": "Darwin 25.5.0",
+    "cpu": "Apple M5",
+    "logicalCpus": 10,
+    "elapsedMs": 2900.254125,
+    "peakSampledHarnessRssBytes": 112525312,
+    "budgets": {
+      "totalMs": 90000,
+      "perCaseMs": "6000–12000",
+      "harnessRssMiB": 384,
+      "childHeapMiB": 64,
+      "ownedRedisMemoryMiB": 96,
+      "redisCommandDeadlineMs": 250,
+      "maximumConcurrentRequests": 200,
+      "maximumProxySockets": 64
+    },
+    "faultTarget": "label-validated disposable Redis through an owned bounded loopback proxy; owned child processes only",
+    "latencyMeasurement": "fault recovery from planned fault/release to verified ping or cache response; no throughput claim, no production traffic"
+  },
+  "rows": [
+    {
+      "name": "real-lease-expiry-stale-publication",
+      "priority": "control",
+      "status": "PASS",
+      "elapsedMs": 147.564458,
+      "budgetMs": 6000,
+      "instances": 2,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 1,
+      "oldPublication": "not-owner",
+      "leaseTtlMs": 60,
+      "originLoads": 0
+    },
+    {
+      "name": "frozen-process-past-lease-expiry",
+      "priority": "control",
+      "status": "PASS",
+      "elapsedMs": 331.15212499999996,
+      "budgetMs": 8000,
+      "instances": 2,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 1,
+      "oldOutcome": {
+        "stage": "done",
+        "value": "obsolete"
+      },
+      "frozenMs": 223.38237500000002,
+      "independentProcesses": 2,
+      "leaseTtlMs": 120
+    },
+    {
+      "name": "leader-process-killed-mid-refresh",
+      "priority": "control",
+      "status": "PASS",
+      "elapsedMs": 298.36175000000003,
+      "budgetMs": 8000,
+      "instances": 2,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 1,
+      "independentProcesses": 2,
+      "faultRecoveryMs": 187.45120799999995,
+      "leaseTtlMs": 120,
+      "originLoads": 1
+    },
+    {
+      "name": "lease-only-pattern-invalidation",
+      "priority": "P0",
+      "status": "PASS",
+      "elapsedMs": 32.91983300000004,
+      "budgetMs": 6000,
+      "instances": 1,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 1,
+      "oldPublication": "not-owner"
+    },
+    {
+      "name": "redis-stopped-during-acquisition-safe-fallback",
+      "priority": "P0",
+      "status": "PASS",
+      "elapsedMs": 482.2320829999999,
+      "budgetMs": 12000,
+      "instances": 2,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 1,
+      "originLoads": 2,
+      "networkFault": "owned Redis stop before lock dispatch",
+      "configuredL2BreakerCooldownMs": 100,
+      "faultRecoveryMs": 225.9358340000001,
+      "oldOutcome": {
+        "value": "obsolete"
+      },
+      "cacheReadRecoveryMs": 0.5154589999999644
+    },
+    {
+      "name": "redis-paused-during-publication-unknown-outcome",
+      "priority": "control",
+      "status": "PASS",
+      "elapsedMs": 362.73725000000013,
+      "budgetMs": 12000,
+      "instances": 1,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 1,
+      "callerOutcome": {
+        "value": "uncertain"
+      },
+      "publicationAttempts": 1,
+      "commandDeadlineMs": 250,
+      "networkFault": "paused owned Redis while command is dispatched; commit outcome deliberately unknown"
+    },
+    {
+      "name": "redis-restart-rejects-previous-lease",
+      "priority": "control",
+      "status": "PASS",
+      "elapsedMs": 459.1685419999999,
+      "budgetMs": 10000,
+      "instances": 1,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 1,
+      "faultRecoveryMs": 196.5357079999999,
+      "persistence": "isolated Redis has RDB and AOF disabled; restart is not failover"
+    },
+    {
+      "name": "redis-nested-and-literal-prefix-isolation",
+      "priority": "P0",
+      "status": "PASS",
+      "elapsedMs": 35.660207999999784,
+      "budgetMs": 6000,
+      "instances": 3,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 1,
+      "literalPrefix": {
+        "nestedPreserved": true,
+        "foreignPreserved": true,
+        "ownRemoved": true
+      },
+      "plainPrefix": {
+        "nestedPreserved": true,
+        "ownRemoved": true
+      },
+      "topology": "one process/client; three namespace stores in literal-prefix subcase, two in plain-prefix subcase"
+    },
+    {
+      "name": "redis-malformed-unicode-key-identity",
+      "priority": "P1",
+      "status": "PASS",
+      "elapsedMs": 34.38500000000022,
+      "budgetMs": 6000,
+      "instances": 1,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 1
+    },
+    {
+      "name": "shared-pubsub-channel-tenant-isolation",
+      "priority": "P0",
+      "status": "PASS",
+      "elapsedMs": 131.64420800000016,
+      "budgetMs": 6000,
+      "instances": 2,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 1
+    },
+    {
+      "name": "pubsub-disconnect-missed-event-reconciliation",
+      "priority": "control",
+      "status": "PASS",
+      "elapsedMs": 134.24512499999992,
+      "budgetMs": 6000,
+      "instances": 2,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 1,
+      "trustRecovered": true,
+      "faultRecoveryMs": 64.33391699999993,
+      "missedEvents": 1,
+      "delivery": "ordinary non-durable Redis Pub/Sub"
+    },
+    {
+      "name": "bounded-origin-overload-and-recovery",
+      "priority": "control",
+      "status": "PASS",
+      "elapsedMs": 57.9040829999999,
+      "budgetMs": 6000,
+      "instances": 1,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 32,
+      "originLoads": 6,
+      "originPeakConcurrent": 2,
+      "rejected": 26,
+      "saturated": {
+        "active": 2,
+        "queued": 4,
+        "queuedBytes": 552,
+        "rejected": 0,
+        "maxObserved": 2,
+        "closed": false
+      },
+      "faultRecoveryMs": 0.4337500000001455,
+      "origin": "controlled in-process read-only mock, no external database"
+    },
+    {
+      "name": "shutdown-suppresses-late-fill",
+      "priority": "P1",
+      "status": "PASS",
+      "elapsedMs": 33.065000000000055,
+      "budgetMs": 6000,
+      "instances": 1,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 1,
+      "signalAborted": true,
+      "latePublishedValue": "ABSENT"
+    },
+    {
+      "name": "corrupt-record-and-pretransfer-size-limits",
+      "priority": "P1",
+      "status": "PASS",
+      "elapsedMs": 32.04241699999966,
+      "budgetMs": 6000,
+      "instances": 1,
+      "payloadBytes": 8199,
+      "concurrency": 1,
+      "corruptRecordOutcome": "MISS",
+      "largeRecordMiss": true,
+      "receivedBytes": 29,
+      "previewValuesOmitted": true
+    },
+    {
+      "name": "distributed-coalescing-simulated-instance-matrix",
+      "priority": "control",
+      "status": "PASS",
+      "elapsedMs": 170.21487500000012,
+      "budgetMs": 10000,
+      "instances": 100,
+      "payloadBytes": "NOT MEASURED",
+      "concurrency": 200,
+      "matrix": [
+        {
+          "instances": 2,
+          "concurrentRequests": 4,
+          "originLoads": 1,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1
+        },
+        {
+          "instances": 10,
+          "concurrentRequests": 20,
+          "originLoads": 1,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1
+        },
+        {
+          "instances": 50,
+          "concurrentRequests": 100,
+          "originLoads": 1,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1
+        },
+        {
+          "instances": 100,
+          "concurrentRequests": 200,
+          "originLoads": 1,
+          "originAmplification": 1,
+          "idealMissEpisodes": 1
+        }
+      ],
+      "topology": "independent HybridCache objects in one process sharing a Redis connection; simulated instance counts, not 100 physical workers"
+    }
+  ],
+  "failed": 0,
+  "infrastructureError": null,
+  "notMeasured": [
+    "Redis replication failover or Cluster resharding",
+    "packet loss, DNS failures, CPU throttling, database pool exhaustion",
+    "physical 10/50/100-worker clusters; matrix counts are simulated",
+    "long-duration leak/fault endurance and external database fencing"
+  ]
+}

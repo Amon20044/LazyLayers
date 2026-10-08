@@ -24,7 +24,7 @@ export interface Codec {
   /** 4-byte wire tag, or null for the uncompressed path. */
   tag: string | null;
   compress(input: Buffer): Buffer;
-  decompress(input: Buffer): Buffer;
+  decompress(input: Buffer, maxOutputBytes?: number): Buffer;
 }
 
 /** One rule in a tier list: everything up to `maxBytes` uses `codec`. */
@@ -60,19 +60,25 @@ const CODECS: Record<CodecName, Codec> = {
     name: 'gzip',
     tag: HC1_GZIP_TAG,
     compress: (input) => zlib.gzipSync(input),
-    decompress: (input) => zlib.gunzipSync(input),
+    decompress: (input, maxOutputBytes) => zlib.gunzipSync(input, maxOutputBytes === undefined ? undefined : { maxOutputLength: maxOutputBytes }),
   },
   zstd: {
     name: 'zstd',
     tag: HC1_ZSTD_TAG,
     compress: (input) => Buffer.from(zstdCompress!(input)),
-    decompress: (input) => Buffer.from(zstdDecompress!(input)),
+    decompress: (input, maxOutputBytes) => Buffer.from(zstdDecompress!(input, maxOutputBytes === undefined ? undefined : { maxOutputLength: maxOutputBytes })),
   },
   lz4: {
     name: 'lz4',
     tag: HC1_LZ4_TAG,
     compress: (input) => lz4Compress(input),
-    decompress: (input) => lz4Uncompress(input),
+    decompress: (input, maxOutputBytes) => {
+      if (maxOutputBytes !== undefined) {
+        // lz4-napi's raw block API uses lz4_flex's little-endian size prefix.
+        if (input.byteLength < 4 || input.readUInt32LE(0) > maxOutputBytes) throw new RangeError('LZ4 decoded value exceeds limit');
+      }
+      return lz4Uncompress(input);
+    },
   },
   snappy: {
     name: 'snappy',
@@ -80,9 +86,27 @@ const CODECS: Record<CodecName, Codec> = {
     compress: (input) => snappyCompress(input),
     // snappy types the return as string | Buffer depending on options. We never
     // pass options, so it is always a Buffer.
-    decompress: (input) => snappyUncompress(input) as Buffer,
+    decompress: (input, maxOutputBytes) => {
+      if (maxOutputBytes !== undefined && snappyOutputLength(input) > maxOutputBytes) throw new RangeError('Snappy decoded value exceeds limit');
+      return snappyUncompress(input) as Buffer;
+    },
   },
 };
+
+/** Raw Snappy begins with a bounded uint32 output-length varint. */
+function snappyOutputLength(input: Buffer): number {
+  let length = 0;
+  for (let i = 0; i < 5; i++) {
+    const byte = input[i];
+    if (byte === undefined) throw new RangeError('Invalid Snappy output length');
+    length += (byte & 0x7f) * 2 ** (i * 7);
+    if (byte < 0x80) {
+      if (length > 0xffffffff) throw new RangeError('Invalid Snappy output length');
+      return length;
+    }
+  }
+  throw new RangeError('Invalid Snappy output length');
+}
 
 export function codecByName(name: CodecName): Codec {
   return CODECS[name];

@@ -11,6 +11,10 @@ export const DEFAULT_OBSERVABILITY_PORT = 7077;
 export const DEFAULT_OBSERVABILITY_MAX_EVENTS = 1000;
 /** Default truncation threshold for decoded values shown in the dashboard. */
 export const DEFAULT_OBSERVABILITY_MAX_VALUE_BYTES = 256 * 1024;
+/** Default maximum encoded metadata per captured event and SSE event frame. */
+export const DEFAULT_OBSERVABILITY_MAX_EVENT_BYTES = 64 * 1024;
+/** Default maximum concurrent SSE clients per shared request handler. */
+export const DEFAULT_OBSERVABILITY_MAX_STREAM_CLIENTS = 64;
 /** Default dashboard credentials. Override via options or env vars. */
 export const DEFAULT_OBSERVABILITY_USERNAME = 'lazydev';
 export const DEFAULT_OBSERVABILITY_PASSWORD = 'lazydev';
@@ -53,6 +57,10 @@ export interface ObservabilityOptions {
   maxEvents?: number;
   /** Decoded values larger than this many bytes are truncated in the UI. */
   maxValueBytes?: number;
+  /** Maximum simultaneous live-feed clients per handler. Defaults to 64. */
+  maxStreamClients?: number;
+  /** Maximum UTF-8 bytes per SSE event frame. Defaults to 64 KiB. */
+  maxStreamEventBytes?: number;
   /** Standalone server config, or `false` to only expose the mountable handler. */
   server?: ObservabilityServerOptions | false;
   /** Dashboard credentials. */
@@ -68,6 +76,10 @@ export interface ResolvedObservabilityOptions {
   route: string;
   maxEvents: number;
   maxValueBytes: number;
+  /** Optional for compatibility with manually constructed resolved options. */
+  maxStreamClients?: number;
+  /** Optional for compatibility with manually constructed resolved options. */
+  maxStreamEventBytes?: number;
   /** `null` when no standalone server should be started. */
   server: { host: string; port: number; autoStart: boolean } | null;
   auth: { username: string; password: string; token?: string; disabled: boolean };
@@ -99,7 +111,8 @@ function envInt(name: string): number | undefined {
  *
  * Env vars: LAZY_OBS_ENABLED, LAZY_OBS_ROUTE, LAZY_OBS_HOST, LAZY_OBS_PORT,
  * LAZY_OBS_USER, LAZY_OBS_PASSWORD, LAZY_OBS_TOKEN, LAZY_OBS_NO_SERVER,
- * LAZY_OBS_NO_AUTH, LAZY_OBS_MAX_EVENTS, LAZY_OBS_MAX_VALUE_BYTES.
+ * LAZY_OBS_NO_AUTH, LAZY_OBS_MAX_EVENTS, LAZY_OBS_MAX_VALUE_BYTES,
+ * LAZY_OBS_MAX_STREAM_CLIENTS, LAZY_OBS_MAX_STREAM_EVENT_BYTES.
  */
 export function resolveObservabilityOptions(
   input: boolean | ObservabilityOptions | undefined,
@@ -112,6 +125,14 @@ export function resolveObservabilityOptions(
     options.maxEvents ?? envInt('LAZY_OBS_MAX_EVENTS') ?? DEFAULT_OBSERVABILITY_MAX_EVENTS;
   const maxValueBytes =
     options.maxValueBytes ?? envInt('LAZY_OBS_MAX_VALUE_BYTES') ?? DEFAULT_OBSERVABILITY_MAX_VALUE_BYTES;
+  const maxStreamClients = positiveLimit(
+    options.maxStreamClients ?? envInt('LAZY_OBS_MAX_STREAM_CLIENTS') ?? DEFAULT_OBSERVABILITY_MAX_STREAM_CLIENTS,
+    'maxStreamClients',
+  );
+  const maxStreamEventBytes = positiveLimit(
+    options.maxStreamEventBytes ?? envInt('LAZY_OBS_MAX_STREAM_EVENT_BYTES') ?? DEFAULT_OBSERVABILITY_MAX_EVENT_BYTES,
+    'maxStreamEventBytes',
+  );
 
   const serverDisabled = options.server === false || envBool('LAZY_OBS_NO_SERVER') === true;
   const serverInput: ObservabilityServerOptions = options.server ? options.server : {};
@@ -147,11 +168,20 @@ export function resolveObservabilityOptions(
     route: normalizeRoute(route),
     maxEvents,
     maxValueBytes,
+    maxStreamClients,
+    maxStreamEventBytes,
     server,
     auth,
     prometheus,
     quiet,
   };
+}
+
+function positiveLimit(value: number, name: string): number {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new RangeError(`${name} must be a positive safe integer`);
+  }
+  return value;
 }
 
 /** Ensure the route starts with `/` and has no trailing slash (except root). */

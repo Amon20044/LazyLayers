@@ -1,0 +1,33 @@
+TAP version 13
+# Subtest: audit: a restarted peer lower-generation delete cannot leave a higher-generation cache value readable
+not ok 1 - audit: a restarted peer lower-generation delete cannot leave a higher-generation cache value readable
+  ---
+  duration_ms: 4.024542
+  type: 'test'
+  location: '/Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:202:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    A lower generation can be a real delete after peer restart
+    + actual - expected
+    
+    + 'old-v2'
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: 'old-v2'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/apple/Desktop/LazyLayers/test/audit-coordination-boundaries.test.js:227:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 122.303917

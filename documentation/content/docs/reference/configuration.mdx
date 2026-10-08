@@ -31,7 +31,7 @@ export const cache = await setupCache<string, User>(options)
 `new LazyLayersCache(options)` remains the low-level constructor. It never creates external infrastructure. Where its defaults differ from `setupCache`, this page names both.
 
 <Warning>
-  **Tuning for production means changing numbers, not disabling safety.** In-flight dedupe, fail-open L2 behaviour and `broadcastSet` are load-bearing. `inflight: { enabled: false }`, `failSafe: { enabled: false }` and `broadcastSet: false` are not production advice, they are ways to reintroduce the failures this library exists to prevent. What you tune is entry counts, TTLs, byte ceilings, thresholds and cooldowns, sized to the instance the process runs on.
+  Keep origin, memory and follower budgets finite. Choose stale serving according to the application's freshness contract: `failSafe: { enabled: false }` is appropriate when stale authorization or other security-sensitive state is forbidden. Disabling singleflight or broadcasting changes backend load/coherence and should be a measured integration decision.
 </Warning>
 
 ## Lifetime and layers
@@ -142,10 +142,18 @@ Passed to the `RedisStore` constructor, not to the cache.
   An explicit value overrides the derived lifetime. Setting it too low allows a later caller to start another load while the original is still active.
 </ParamField>
 
-<ParamField path="inflight.maxEntries" type="number">
-  `setupCache` defaults to `10000`. The low-level constructor leaves it unbounded. Cap it if a burst across many distinct cold keys could grow the map faster than loaders drain it.
+<ParamField path="inflight.maxEntries" type="number" default="1024">
+  Bounds tracked keys. Managed setup can override this default; finite leader/origin admission still applies to untracked loads.
 
   Past the cap, loads still run, just without dedupe, and each one emits `inflight:bypass`. Setting it to `0` bypasses tracking for every load, which disables dedupe entirely.
+</ParamField>
+
+<ParamField path="inflight.maxWaiters" type="number" default="10000">
+  Maximum accepted outstanding followers across one cache. Overflow throws `InflightOverloadError` and starts no additional loader. A per-call limit can tighten the constructor budget. Accepted followers release their reservation on success or error; active ignoring-abort work remains accounted until it settles.
+</ParamField>
+
+<ParamField path="decodeLimits" type="DeserializeOptions">
+  Built-in internal reads default to 25 MiB encoded/expanded limits, depth 128 and 1,000,000 collection/aggregate values. Corrupt, unsupported, invalid UTF-8 or oversized records are misses; valid cached `null` remains a hit. The public one-argument deserializers retain legacy behavior. Redis v2 snapshots require `STRLEN` ACL permission to reject large values before returning their bytes.
 </ParamField>
 
 <ParamField path="originLoad" type="{ enabled?: boolean; maxConcurrent?: number; maxQueued?: number; queueTimeoutMs?: number }">
@@ -394,6 +402,14 @@ configureCompression([
 
 <ParamField path="observability.maxValueBytes" type="number" default="262144">
   Decoded values larger than this are truncated in the UI. 256 KB.
+</ParamField>
+
+<ParamField path="observability.maxStreamClients" type="number" default="64">
+  Maximum simultaneous SSE clients for each handler. Additional clients receive HTTP 503. A positive safe integer; `LAZY_OBS_MAX_STREAM_CLIENTS` supplies the environment default.
+</ParamField>
+
+<ParamField path="observability.maxStreamEventBytes" type="number" default="65536">
+  Maximum encoded SSE frame size. Slow streams drop replay, live events and heartbeats until Node signals `drain`; they do not build an application backlog. `LAZY_OBS_MAX_STREAM_EVENT_BYTES` supplies the environment default. The activity collector also bounds each captured event at 64 KiB and marks oversized metadata with `data.truncated: true`.
 </ParamField>
 
 <ParamField path="observability.server" type="{ host?: string; port?: number; autoStart?: boolean } | false">
