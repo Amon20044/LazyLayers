@@ -1,0 +1,30 @@
+{
+  "verifiedAt": "2026-10-08T14:40:50.305Z",
+  "checks": [
+    {
+      "url": "https://lazy-layers-cache.vercel.app",
+      "status": 200,
+      "bytes": 263454
+    },
+    {
+      "url": "https://lazy-layers-cache.vercel.app/docs",
+      "status": 200,
+      "bytes": 99282
+    },
+    {
+      "url": "https://lazy-layers-cache.vercel.app/docs/quickstart",
+      "status": 200,
+      "bytes": 180521
+    },
+    {
+      "url": "https://lazy-layers-cache.vercel.app/docs/reference/configuration",
+      "status": 200,
+      "bytes": 317702
+    },
+    {
+      "url": "https://lazy-layers-cache.vercel.app/llms.txt",
+      "status": 200,
+      "bytes": 3664
+    }
+  ]
+}

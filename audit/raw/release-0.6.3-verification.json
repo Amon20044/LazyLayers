@@ -36,6 +36,12 @@
       "buildMemoryMiB": 8192
     }
   ],
-  "npmPublication": "PENDING_TWO_FACTOR_AUTHENTICATION",
-  "productionReadiness": "NO; existing audit limitations and performance regression gate remain"
+  "npmPublication": "ACCEPTED_HTTP_202; awaiting public registry visibility",
+  "productionReadiness": "NO; existing audit limitations and performance regression gate remain",
+  "npmUploadAcceptedAt": "2026-10-08T14:40:00Z",
+  "httpChecks": "release-0.6.3-http-checks.json",
+  "deploymentBuildLogs": [
+    "release-0.6.3-docs-build.log",
+    "release-0.6.3-site-build.log"
+  ]
 }
