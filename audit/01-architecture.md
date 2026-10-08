@@ -156,4 +156,3 @@ stateDiagram-v2
 ```
 
 The tests cover scheduled race transitions and seeded wildcard semantics. This is a small state model, not a formal model-checking proof of Redis failover or arbitrary custom asynchronous adapter correctness.
-

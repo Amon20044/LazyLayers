@@ -1,0 +1,2 @@
+# Keep raw test and benchmark receipts byte-for-byte, including reporter spacing.
+audit/raw/** -whitespace
