@@ -1,11 +1,9 @@
 # Changelog
 
-## 0.6.2 (unreleased)
+## 0.6.3 (2026-10-08)
 
 ### Changed
 
-- Centralized portable cache value encoding behind `serializeCacheValue` and `deserializeCacheValue`, sharing HC1 tags, null handling, gzip thresholds, and Worker-safe decoding between Node.js and Workers.
-- Cloudflare KV adapters now call the shared serializer facade instead of maintaining their own encoding implementations.
 - Built-in L1 uses dynamically growing, count-bounded LRU storage, per-key expiry checks, and incremental accounting. Closing the store drops its owned cache structures.
 - Same-key followers join existing work before another cache read. In-flight maintenance and admission sampling use bounded work.
 - Event handler and retry queues retain owned wire snapshots with incremental byte accounting. Telemetry snapshots and SSE clients have finite retention and backpressure limits.
@@ -39,9 +37,16 @@
 ### Compatibility and rollout
 
 - Public signatures, exports, HC1 tags and permissive one-argument public decoding remain compatible. New resource errors, terminal close behavior, stricter internal decoding, Redis ACL requirements and scoped-event migration are documented in [migration notes](audit/migration.md).
-- Production dependencies and the lockfile are unchanged. This development version has not been published to npm.
+- Production dependencies are unchanged; the package and lockfile version advance to 0.6.3.
 - Node 20 passes the tested runtime suite, but the current NATS transitive dependency declares Node 22 or newer; use Node 22+ for that integration.
 - Redis failover/Cluster, durable source fencing and invalidation, legacy/custom non-atomic adapters, Worker aggregate resource budgets, tenant-wide origin fairness and long-duration RSS guarantees remain open gates. Redis owner tokens do not fence external database effects, and KV remains eventually consistent.
+
+## 0.6.2
+
+### Changed
+
+- Centralized portable cache value encoding behind `serializeCacheValue` and `deserializeCacheValue`, sharing HC1 tags, null handling, gzip thresholds, and Worker-safe decoding between Node.js and Workers.
+- Cloudflare KV adapters now call the shared serializer facade instead of maintaining their own encoding implementations.
 
 ## 0.6.1
 

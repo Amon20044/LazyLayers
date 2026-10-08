@@ -83,13 +83,13 @@ Built-in L1 retains encoded values with LRU eviction, entry limits, and a shared
 
 Use [production setup](https://lazy-layers-cache.vercel.app/docs/setups/production) for deployment decisions and [configuration](https://lazy-layers-cache.vercel.app/docs/reference/configuration) for defaults and tuning. Redis Pub/Sub, RabbitMQ, NATS Core, and NATS JetStream have different [delivery guarantees](https://lazy-layers-cache.vercel.app/docs/guides/event-buses).
 
-## Current development: v0.6.2 (unreleased)
+## Latest release: v0.6.3
 
 This update adds bounded followers and internal decoding, scoped invalidation, safer Redis publication during outages, and fixes for binary ownership, TTL propagation and shutdown. L1 expiry checks and event enqueue accounting avoid full-cache or full-queue work on each request.
 
 The isolated Docker suite passes **480 tests** on Node 20, 22 and 24, and all **15 fault scenarios** pass. Paired measurements show **97.56% lower heap-plus-external retention for 20 empty caches** and **99.83% faster expiry checks at 8,192 entries**. Warm-read microbenchmarks are **30.46% slower**, and the performance gate remains red. These results apply to the documented workloads; outstanding production gates remain visible.
 
-Read the [changelog](CHANGELOG.md#062-unreleased), [before/after comparison](audit/10-before-after-comparison.md), [migration notes](audit/migration.md), and [production-readiness report](audit/12-production-readiness.md). Public API signatures and production dependencies remain unchanged. This version has not been published to npm.
+Read the [changelog](CHANGELOG.md#063-2026-10-08), [before/after comparison](audit/10-before-after-comparison.md), [migration notes](audit/migration.md), and [production-readiness report](audit/12-production-readiness.md). Public API signatures and production dependencies remain unchanged. Install this release with `npm install lazy-layers-cache@0.6.3`.
 
 ## Previous release: v0.5.3
 

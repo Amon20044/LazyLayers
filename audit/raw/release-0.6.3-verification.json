@@ -1,0 +1,41 @@
+{
+  "version": "0.6.3",
+  "verifiedAt": "2026-10-08T14:40:02.749028+00:00",
+  "package": {
+    "typecheck": "PASS",
+    "build": "PASS",
+    "exports": "PASS",
+    "tarballFiles": 353,
+    "tarballBytes": 348720,
+    "integrity": "sha512-TgtXIVxNscnmGZtoAfrkURd0CfLPgHsIgqsC2JdO18uD8wtzCJhm8qCuuB3WFQGCrYS0KxmLcZyfmv0xin3w9g=="
+  },
+  "isolatedDockerTests": {
+    "pass": 480,
+    "fail": 0,
+    "skip": 0,
+    "log": "release-0.6.3-docker-test.log",
+    "cleanup": "clean"
+  },
+  "deployments": [
+    {
+      "project": "lazy-layers-cache",
+      "id": "dpl_J41Lbim1Ph8s4q4g9LXQsbCbeauH",
+      "url": "https://lazy-layers-cache.vercel.app",
+      "status": "READY",
+      "httpStatus": 200
+    },
+    {
+      "project": "documentation",
+      "id": "dpl_A44Y8cEp1W68vvBz1aPpg4Yraqfc",
+      "url": "https://documentation-liard-two.vercel.app",
+      "status": "READY",
+      "docsHttpStatus": 200,
+      "docsVersion": "0.6.3",
+      "staticPagesGenerated": 108,
+      "buildCores": 2,
+      "buildMemoryMiB": 8192
+    }
+  ],
+  "npmPublication": "PENDING_TWO_FACTOR_AUTHENTICATION",
+  "productionReadiness": "NO; existing audit limitations and performance regression gate remain"
+}

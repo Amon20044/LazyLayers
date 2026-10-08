@@ -1,0 +1,9 @@
+# Test evidence and local tooling are not deployment inputs.
+audit/
+benchmarks/
+test/
+examples/
+.agents/
+.claude/
+.zcode/
+*.tgz

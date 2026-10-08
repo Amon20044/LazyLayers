@@ -42,7 +42,7 @@ PASS denotes the stated executed checks. UNMET denotes a package-wide requiremen
 | Deployment and rollback procedures exist | DOCUMENTED | Canary, namespace/scope/ACL migration and pinned-package rollback procedures exist. A production deployment or rollback exercise is NOT MEASURED. |
 | Performance regression policy passes | FAIL / release review required | The full five-repeat comparator flags warm lookup and large accepted-herd regressions. The seven-repeat CI gate also exits 1 with no resource abort: four regression cases. [CI log](raw/performance-ci.log), [exit metadata](raw/performance-ci.log.meta.json), [CI comparison](raw/ci-performance-comparison.json). |
 | Supported runtime/dependency matrix is consistent | UNMET for Node 20 NATS | Functional Node 20 tests pass, but transitive production `@nats-io/nuid` 3.0 declares Node >=22. Testing cannot override vendor support. No new production dependency was added. |
-| Documentation release build passes | UNMET in local bounded runs | Documentation lint/types pass; production-build attempts have not completed within the chosen budgets. [First abort](raw/docs-build.log.meta.json), [webpack attempt](raw/docs-webpack-build.log.meta.json), [bounded retry](raw/docs-webpack-1024-build.log.meta.json). |
+| Documentation release build passes | PASS on Vercel; local budget still insufficient | The 0.6.3 Vercel production build completed all 108 static pages on 2 cores / 8 GiB and serves HTTP 200. [Release verification](raw/release-0.6.3-verification.json). Local bounded failures remain preserved: [first abort](raw/docs-build.log.meta.json), [webpack attempt](raw/docs-webpack-build.log.meta.json), [bounded retry](raw/docs-webpack-1024-build.log.meta.json). |
 
 ## Performance and measurement review
 
